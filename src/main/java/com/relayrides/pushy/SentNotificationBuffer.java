@@ -21,7 +21,7 @@ public class SentNotificationBuffer<E extends ApnsPushNotification> {
 		}
 	}
 	
-	public synchronized E getFailedNotificationAndClearQueue(final int failedNotificationId, final PushManager<E> pushManager) {
+	public synchronized E getFailedNotificationAndClearBuffer(final int failedNotificationId, final PushManager<E> pushManager) {
 		while (this.buffer.getFirst().isSequentiallyBefore(failedNotificationId)) {
 			this.buffer.removeFirst();
 		}
