@@ -56,6 +56,7 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			switch (this.state) {
 				case CONNECT: {
 					try {
+						// TODO Add a listener for unexpected channel closure
 						this.channel = this.bootstrap.connect(this.pushManager.getEnvironment().getHost(), this.pushManager.getEnvironment().getPort()).sync().channel();
 						
 						this.state = State.READY;
