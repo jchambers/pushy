@@ -7,7 +7,7 @@ import io.netty.handler.codec.MessageToByteEncoder;
 import java.nio.charset.Charset;
 import java.util.Date;
 
-public class PushNotificationEncoder extends MessageToByteEncoder<SendableApnsPushNotification> {
+public class PushNotificationEncoder<T extends ApnsPushNotification> extends MessageToByteEncoder<SendableApnsPushNotification<T>> {
 
 	private static final byte ENHANCED_PUSH_NOTIFICATION_COMMAND = 1;
 	private static final int EXPIRE_IMMEDIATELY = 0;
@@ -15,7 +15,7 @@ public class PushNotificationEncoder extends MessageToByteEncoder<SendableApnsPu
 	private final Charset utf8 = Charset.forName("UTF-8");
 	
 	@Override
-	protected void encode(final ChannelHandlerContext context, final SendableApnsPushNotification sendablePushNotification, final ByteBuf out) throws Exception {
+	protected void encode(final ChannelHandlerContext context, final SendableApnsPushNotification<T> sendablePushNotification, final ByteBuf out) throws Exception {
 		out.writeByte(ENHANCED_PUSH_NOTIFICATION_COMMAND);
 		out.writeInt(sendablePushNotification.getNotificationId());
 		

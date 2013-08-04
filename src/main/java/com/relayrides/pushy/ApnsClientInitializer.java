@@ -58,7 +58,7 @@ public class ApnsClientInitializer<T extends ApnsPushNotification> extends Chann
 		
 		pipeline.addLast("ssl", new SslHandler(sslEngine));
 		pipeline.addLast("decoder", new ApnsErrorDecoder());
-		pipeline.addLast("encoder", new PushNotificationEncoder());
+		pipeline.addLast("encoder", new PushNotificationEncoder<T>());
 		pipeline.addLast("handler", new ApnsErrorHandler<T>(this.pushManager, this.clientThread));
 	}
 }
