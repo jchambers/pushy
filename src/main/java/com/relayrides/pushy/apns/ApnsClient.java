@@ -1,26 +1,34 @@
 package com.relayrides.pushy.apns;
 
 import java.security.KeyStore;
+import java.util.concurrent.BlockingQueue;
+
+import com.relayrides.pushy.ApnsPushNotification;
 
 import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
 public class ApnsClient {
 	
-	private final String host;
-	private final int port;
+	private final ApnsEnvironment environment;
 	
 	private final KeyStore keyStore;
 	private final char[] keyStorePassword;
 	
-	public ApnsClient(final String host, final int port, final KeyStore keyStore, final char[] keyStorePassword) {
-		this.host = host;
-		this.port = port;
+	private final BlockingQueue<? extends ApnsPushNotification> queue;
+	
+	private volatile boolean shouldContinue;
+	
+	public ApnsClient(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword, final BlockingQueue<? extends ApnsPushNotification> queue) {
+		this.environment = environment;
 		
 		this.keyStore = keyStore;
 		this.keyStorePassword = keyStorePassword;
+		
+		this.queue = queue;
 	}
 	
 	public void start() throws InterruptedException {
@@ -32,9 +40,12 @@ public class ApnsClient {
 		final ApnsClientInitializer initializer = new ApnsClientInitializer(keyStore, keyStorePassword);
 		bootstrap.handler(initializer);
 		
-		bootstrap.connect(this.host, this.port).sync();
+		final Channel channel = bootstrap.connect(this.environment.getHost(), this.environment.getPort()).sync().channel();
 		
-		// TODO Start processing messages
+		while (this.shouldContinue) {
+			// TODO Actually send the message
+			this.queue.take();
+		}
 	}
 	
 	public void shutdown() {

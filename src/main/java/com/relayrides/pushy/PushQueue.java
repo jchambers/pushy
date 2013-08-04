@@ -1,26 +1,30 @@
 package com.relayrides.pushy;
 
+import java.security.KeyStore;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class PushQueue {
-	private final BlockingQueue<ApnsPushNotification> queue;
+import com.relayrides.pushy.apns.ApnsClient;
+import com.relayrides.pushy.apns.ApnsEnvironment;
+
+public class PushQueue<T extends ApnsPushNotification> {
+	private final BlockingQueue<T> queue;
 	
-	private final String host;
-	private final int port;
+	private final ApnsClient client;
 	
-	public PushQueue(final String host, final int port) {
-		this.queue = new LinkedBlockingQueue<ApnsPushNotification>();
-		
-		this.host = host;
-		this.port = port;
+	protected PushQueue(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword) {
+		this.queue = new LinkedBlockingQueue<T>();
+		this.client = new ApnsClient(environment, keyStore, keyStorePassword, this.queue);
 	}
 	
-	public void start() throws InterruptedException {
-		// TODO
+	public synchronized void start() throws InterruptedException {
+		this.client.start();
 	}
 	
-	public void shutdown() {
-		// TODO
+	public synchronized List<T> shutdown() {
+		this.client.shutdown();
+		return new ArrayList<T>(this.queue);
 	}
 }
