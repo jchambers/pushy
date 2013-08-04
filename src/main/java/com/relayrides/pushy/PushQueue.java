@@ -9,7 +9,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class PushQueue {
-	private final BlockingQueue<PushNotification> queue;
+	private final BlockingQueue<ApnsPushNotification> queue;
 	
 	private final String host;
 	private final int port;
@@ -17,7 +17,7 @@ public class PushQueue {
 	private ChannelFuture channelFuture;
 	
 	public PushQueue(final String host, final int port) {
-		this.queue = new LinkedBlockingQueue<PushNotification>();
+		this.queue = new LinkedBlockingQueue<ApnsPushNotification>();
 		
 		this.host = host;
 		this.port = port;

@@ -15,10 +15,10 @@ public class PushNotificationEncoder extends MessageToByteEncoder<SendableApnsPu
 		out.writeByte(PUSH_NOTIFICATION_COMMAND);
 		out.writeInt(sendablePushNotification.getNotificationId());
 		out.writeInt(this.getTimestampInSeconds(sendablePushNotification.getPushNotification().getExpiration()));
-		out.writeShort(sendablePushNotification.getPushNotification().getDestinationToken().length);
-		out.writeBytes(sendablePushNotification.getPushNotification().getDestinationToken());
-		out.writeShort(sendablePushNotification.getPushNotification().getPayload().length);
-		out.writeBytes(sendablePushNotification.getPushNotification().getPayload());
+		out.writeShort(sendablePushNotification.getPushNotification().getTokenBytes().length);
+		out.writeBytes(sendablePushNotification.getPushNotification().getTokenBytes());
+		out.writeShort(sendablePushNotification.getPushNotification().getPayloadBytes().length);
+		out.writeBytes(sendablePushNotification.getPushNotification().getPayloadBytes());
 	}
 	
 	private int getTimestampInSeconds(final Date date) {
