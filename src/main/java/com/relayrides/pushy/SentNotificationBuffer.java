@@ -16,7 +16,7 @@ public class SentNotificationBuffer<E extends ApnsPushNotification> {
 	public synchronized void addSentNotification(SendableApnsPushNotification<E> notification) {
 		this.buffer.addLast(notification);
 		
-		while (buffer.size() > this.capacity) {
+		while (this.buffer.size() > this.capacity) {
 			this.buffer.removeFirst();
 		}
 	}
