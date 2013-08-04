@@ -31,10 +31,11 @@ public class ApnsClientInitializer<T extends ApnsPushNotification> extends Chann
 	}
 	
 	@Override
-	protected void initChannel(SocketChannel channel) throws KeyStoreException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyManagementException {
+	protected void initChannel(final SocketChannel channel) throws KeyStoreException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyManagementException {
 		
-		final SSLEngine sslEngine;
-		{
+		final ChannelPipeline pipeline = channel.pipeline();
+		
+		if (this.pushManager.getEnvironment().isTlsRequired()) {
 			String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
 			
 	        if (algorithm == null) {
@@ -50,13 +51,12 @@ public class ApnsClientInitializer<T extends ApnsPushNotification> extends Chann
 			final SSLContext sslContext = SSLContext.getInstance(PROTOCOL);
 			sslContext.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
 			
-			sslEngine = sslContext.createSSLEngine();
+			final SSLEngine sslEngine = sslContext.createSSLEngine();
 			sslEngine.setUseClientMode(true);
+			
+			pipeline.addLast("ssl", new SslHandler(sslEngine));
 		}
 		
-		final ChannelPipeline pipeline = channel.pipeline();
-		
-		pipeline.addLast("ssl", new SslHandler(sslEngine));
 		pipeline.addLast("decoder", new ApnsErrorDecoder());
 		pipeline.addLast("encoder", new PushNotificationEncoder<T>());
 		pipeline.addLast("handler", new ApnsErrorHandler<T>(this.pushManager, this.clientThread));
