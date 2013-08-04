@@ -23,9 +23,7 @@ public class SentNotificationBuffer<E extends ApnsPushNotification> {
 	}
 	
 	public synchronized E getFailedNotificationAndClearPriorNotifications(final int failedNotificationId) {
-		// TODO Handle integer wrapping
-		
-		while (this.buffer.getFirst().getNotificationId() < failedNotificationId) {
+		while (this.buffer.getFirst().isSequentiallyBefore(failedNotificationId)) {
 			this.buffer.removeFirst();
 		}
 		
