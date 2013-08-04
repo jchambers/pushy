@@ -2,7 +2,6 @@ package com.relayrides.pushy;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
-import java.util.List;
 
 public class SentNotificationBuffer<E extends ApnsPushNotification> {
 	
@@ -22,26 +21,26 @@ public class SentNotificationBuffer<E extends ApnsPushNotification> {
 		}
 	}
 	
-	public synchronized E getFailedNotificationAndClearPriorNotifications(final int failedNotificationId) {
+	public synchronized E getFailedNotificationAndClearQueue(final int failedNotificationId, final PushManager<E> pushManager) {
 		while (this.buffer.getFirst().isSequentiallyBefore(failedNotificationId)) {
 			this.buffer.removeFirst();
 		}
 		
-		return this.buffer.getFirst().getNotificationId() == failedNotificationId ?
+		final E failedNotification = this.buffer.getFirst().getNotificationId() == failedNotificationId ?
 				this.buffer.removeFirst().getPushNotification() : null;
-	}
-	
-	public synchronized List<E> getAllNotifications() {
-		final ArrayList<E> notifications = new ArrayList<E>(this.buffer.size());
 		
-		for (SendableApnsPushNotification<E> sentNotification : this.buffer) {
-			notifications.add(sentNotification.getPushNotification());
+		{
+			final ArrayList<E> unsentNotifications = new ArrayList<E>(this.buffer.size());
+			
+			for (final SendableApnsPushNotification<E> sentNotification : this.buffer) {
+				unsentNotifications.add(sentNotification.getPushNotification());
+			}
+			
+			pushManager.enqueueAllNotifications(unsentNotifications);
 		}
 		
-		return notifications;
-	}
-	
-	public synchronized void clear() {
 		this.buffer.clear();
+		
+		return failedNotification;
 	}
 }

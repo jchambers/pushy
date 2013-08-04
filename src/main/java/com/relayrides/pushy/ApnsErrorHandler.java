@@ -18,12 +18,10 @@ public class ApnsErrorHandler<T extends ApnsPushNotification> extends SimpleChan
 		this.clientThread.reconnect();
 		
 		final T failedNotification =
-				this.clientThread.getSentNotificationBuffer().getFailedNotificationAndClearPriorNotifications(e.getNotificationId());
+				this.clientThread.getSentNotificationBuffer().getFailedNotificationAndClearQueue(e.getNotificationId(), pushManager);
 		
 		if (e.getErrorCode() != ApnsErrorCode.SHUTDOWN) {
 			this.pushManager.handleFailedDelivery(failedNotification, e.getErrorCode());
 		}
-		
-		this.pushManager.enqueueAllNotifications(this.clientThread.getSentNotificationBuffer().getAllNotifications());
 	}
 }
