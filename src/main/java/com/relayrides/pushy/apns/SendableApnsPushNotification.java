@@ -2,16 +2,16 @@ package com.relayrides.pushy.apns;
 
 import com.relayrides.pushy.ApnsPushNotification;
 
-public class SendableApnsPushNotification {
-	private final ApnsPushNotification pushNotification;
+public class SendableApnsPushNotification<T extends ApnsPushNotification> {
+	private final T pushNotification;
 	private final int notificationId;
 	
-	public SendableApnsPushNotification(final ApnsPushNotification pushNotification, final int notificationId) {
+	public SendableApnsPushNotification(final T pushNotification, final int notificationId) {
 		this.pushNotification = pushNotification;
 		this.notificationId = notificationId;
 	}
 	
-	public ApnsPushNotification getPushNotification() {
+	public T getPushNotification() {
 		return this.pushNotification;
 	}
 	
