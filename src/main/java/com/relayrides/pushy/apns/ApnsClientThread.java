@@ -14,7 +14,6 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	private enum State {
 		CONNECT,
 		READY,
-		WAIT,
 		RECONNECT,
 		SHUTDOWN,
 		EXIT
@@ -25,12 +24,10 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	private volatile State state = null;
 	
 	private final Bootstrap bootstrap;
-	
 	private Channel channel = null;
 	private int sequenceNumber = 0;
 	
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
-	
 	private static final int SENT_NOTIFICATION_BUFFER_SIZE = 2048;
 	
 	public ApnsClientThread(final PushManager<T> pushManager) {
@@ -72,17 +69,12 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 						final SendableApnsPushNotification<T> sendableNotification =
 								new SendableApnsPushNotification<T>(this.pushManager.getQueue().take(), this.sequenceNumber++);
 								
-						this.channel.write(sendableNotification);
 						this.sentNotificationBuffer.addSentNotification(sendableNotification);
+						this.channel.write(sendableNotification);
 					} catch (InterruptedException e) {
 						continue;
 					}
 					
-					break;
-				}
-				
-				case WAIT: {
-					Thread.yield();
 					break;
 				}
 				
@@ -120,13 +112,9 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		}
 	}
 	
-	protected void beginErrorHandling() {
-		this.state = State.WAIT;
-		this.interrupt();
-	}
-	
-	protected void endErrorHandling() {
+	protected void reconnect() {
 		this.state = State.RECONNECT;
+		this.interrupt();
 	}
 	
 	public void shutdown() {

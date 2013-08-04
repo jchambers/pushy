@@ -18,14 +18,12 @@ public class ApnsErrorHandler<T extends ApnsPushNotification> extends SimpleChan
 	
 	@Override
 	protected void channelRead0(final ChannelHandlerContext context, final ApnsException e) throws Exception {
-		this.clientThread.beginErrorHandling();
+		this.clientThread.reconnect();
 		
 		final T failedNotification =
 				this.clientThread.getSentNotificationBuffer().getFailedNotificationAndClearPriorNotifications(e.getNotificationId());
 		
 		this.pushManager.handleFailedDelivery(failedNotification, e.getErrorCode());
 		this.pushManager.enqueueAllNotifications(this.clientThread.getSentNotificationBuffer().getAllNotifications());
-		
-		this.clientThread.endErrorHandling();
 	}
 }
