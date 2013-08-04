@@ -15,10 +15,10 @@ public class ApnsErrorDecoder extends ByteToMessageDecoder {
 	@Override
 	protected void decode(final ChannelHandlerContext context, final ByteBuf in, final List<Object> out) {
 		if (in.readableBytes() >= EXPECTED_BYTES) {
-			final byte command = in.getByte(0);
-			final byte code = in.getByte(1);
+			final byte command = in.readByte();
+			final byte code = in.readByte();
 			
-			final int notificationId = in.getInt(2);
+			final int notificationId = in.readInt();
 			
 			if (command != EXPECTED_COMMAND) {
 				throw new IllegalArgumentException(String.format("Unexpected command: %d", command));

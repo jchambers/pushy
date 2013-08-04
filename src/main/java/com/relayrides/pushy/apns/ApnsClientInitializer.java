@@ -12,22 +12,25 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManagerFactory;
 
+import com.relayrides.pushy.ApnsPushNotification;
+import com.relayrides.pushy.PushManager;
+
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.SslHandler;
 
-public class ApnsClientInitializer extends ChannelInitializer<SocketChannel> {
+public class ApnsClientInitializer<T extends ApnsPushNotification> extends ChannelInitializer<SocketChannel> {
 	
-	private final KeyStore keyStore;
-	private final char[] keyStorePassword;
+	private final PushManager<T> pushManager;
+	private final ApnsClientThread<T> clientThread;
 	
 	private static final String PROTOCOL = "TLS";
 	private static final String DEFAULT_ALGORITHM = "SunX509";
 	
-	public ApnsClientInitializer(final KeyStore keyStore, final char[] keyStorePassword) {
-		this.keyStore = keyStore;
-		this.keyStorePassword = keyStorePassword;
+	public ApnsClientInitializer(final PushManager<T> pushManager, final ApnsClientThread<T> clientThread) {
+		this.pushManager = pushManager;
+		this.clientThread = clientThread;
 	}
 	
 	@Override
@@ -45,7 +48,7 @@ public class ApnsClientInitializer extends ChannelInitializer<SocketChannel> {
 			trustManagerFactory.init((KeyStore) null);
 			
 			final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(algorithm);
-			keyManagerFactory.init(this.keyStore, this.keyStorePassword);
+			keyManagerFactory.init(this.pushManager.getKeyStore(), this.pushManager.getKeyStorePassword());
 			
 			final SSLContext sslContext = SSLContext.getInstance(PROTOCOL);
 			sslContext.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
@@ -59,6 +62,6 @@ public class ApnsClientInitializer extends ChannelInitializer<SocketChannel> {
 		pipeline.addLast("ssl", new SslHandler(sslEngine));
 		pipeline.addLast("decoder", new ApnsErrorDecoder());
 		pipeline.addLast("encoder", new PushNotificationEncoder());
-		pipeline.addLast("handler", new ApnsErrorHandler());
+		pipeline.addLast("handler", new ApnsErrorHandler<T>(this.pushManager, this.clientThread));
 	}
 }

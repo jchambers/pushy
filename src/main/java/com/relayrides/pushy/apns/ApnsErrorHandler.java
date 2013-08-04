@@ -1,14 +1,31 @@
 package com.relayrides.pushy.apns;
 
+import com.relayrides.pushy.ApnsPushNotification;
+import com.relayrides.pushy.PushManager;
+
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 
-public class ApnsErrorHandler extends SimpleChannelInboundHandler<ApnsException> {
+public class ApnsErrorHandler<T extends ApnsPushNotification> extends SimpleChannelInboundHandler<ApnsException> {
 
+	private final PushManager<T> pushManager;
+	private final ApnsClientThread<T> clientThread;
+	
+	public ApnsErrorHandler(final PushManager<T> pushManager, final ApnsClientThread<T> clientThread) {
+		this.pushManager = pushManager;
+		this.clientThread = clientThread;
+	}
+	
 	@Override
 	protected void channelRead0(final ChannelHandlerContext context, final ApnsException e) throws Exception {
-		// TODO Actually do something reasonable here
-		System.err.println(String.format("APNS server reported error of type %s for notification ID %d.",
-				e.getErrorCode(), e.getNotificationId()));
+		this.clientThread.beginErrorHandling();
+		
+		final T failedNotification =
+				this.clientThread.getSentNotificationBuffer().getFailedNotificationAndClearPriorNotifications(e.getNotificationId());
+		
+		this.pushManager.handleFailedDelivery(failedNotification, e.getErrorCode());
+		this.pushManager.enqueueAllNotifications(this.clientThread.getSentNotificationBuffer().getAllNotifications());
+		
+		this.clientThread.endErrorHandling();
 	}
 }
