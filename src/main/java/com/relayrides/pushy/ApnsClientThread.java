@@ -44,9 +44,14 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	}
 	
 	@Override
-	public void run() {
+	public void start() {
 		this.state = State.CONNECT;
 		
+		super.start();
+	}
+	
+	@Override
+	public void run() {
 		while (this.state != State.EXIT) {
 			switch (this.state) {
 				case CONNECT: {
@@ -88,7 +93,7 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				
 				case SHUTDOWN: {
 					try {
-						if (this.channel.isOpen()) {
+						if (this.channel != null && this.channel.isOpen()) {
 							this.channel.close().sync();
 						}
 						
@@ -101,9 +106,13 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 					break;
 				}
 				
-				case EXIT:
-				default: {
+				case EXIT: {
 					// Do nothing
+					break;
+				}
+				
+				default: {
+					throw new IllegalArgumentException(String.format("Unexpected state: %S", this.getState()));
 				}
 			}
 		}
