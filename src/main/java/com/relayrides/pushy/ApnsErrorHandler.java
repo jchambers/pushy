@@ -1,7 +1,4 @@
-package com.relayrides.pushy.apns;
-
-import com.relayrides.pushy.ApnsPushNotification;
-import com.relayrides.pushy.PushManager;
+package com.relayrides.pushy;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;

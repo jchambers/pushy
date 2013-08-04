@@ -8,10 +8,6 @@ import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import com.relayrides.pushy.apns.ApnsClientThread;
-import com.relayrides.pushy.apns.ApnsEnvironment;
-import com.relayrides.pushy.apns.ApnsErrorCode;
-
 public class PushManager<T extends ApnsPushNotification> {
 	private final BlockingQueue<T> queue;
 	

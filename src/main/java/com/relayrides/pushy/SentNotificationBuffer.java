@@ -1,10 +1,8 @@
-package com.relayrides.pushy.apns;
+package com.relayrides.pushy;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
-
-import com.relayrides.pushy.ApnsPushNotification;
 
 public class SentNotificationBuffer<E extends ApnsPushNotification> {
 	

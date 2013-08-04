@@ -1,4 +1,4 @@
-package com.relayrides.pushy.apns;
+package com.relayrides.pushy;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;

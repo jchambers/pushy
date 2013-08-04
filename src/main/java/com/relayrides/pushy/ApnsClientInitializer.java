@@ -1,4 +1,4 @@
-package com.relayrides.pushy.apns;
+package com.relayrides.pushy;
 
 import java.security.KeyManagementException;
 import java.security.KeyStore;
@@ -11,9 +11,6 @@ import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManagerFactory;
-
-import com.relayrides.pushy.ApnsPushNotification;
-import com.relayrides.pushy.PushManager;
 
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;

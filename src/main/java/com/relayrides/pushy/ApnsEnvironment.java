@@ -1,4 +1,4 @@
-package com.relayrides.pushy.apns;
+package com.relayrides.pushy;
 
 public class ApnsEnvironment {
 	private final String host;

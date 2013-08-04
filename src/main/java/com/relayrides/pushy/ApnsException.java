@@ -1,4 +1,4 @@
-package com.relayrides.pushy.apns;
+package com.relayrides.pushy;
 
 public class ApnsException extends Exception {
 	private static final long serialVersionUID = 1L;
