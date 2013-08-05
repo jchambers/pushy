@@ -43,7 +43,7 @@ public class PushManager<T extends ApnsPushNotification> {
 		return this.keyStorePassword;
 	}
 	
-	public synchronized void start() throws InterruptedException {
+	public synchronized void start() {
 		this.clientThread.start();
 	}
 	
