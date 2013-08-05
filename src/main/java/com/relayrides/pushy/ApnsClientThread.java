@@ -2,9 +2,11 @@ package com.relayrides.pushy;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.util.concurrent.GenericFutureListener;
 
 public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
@@ -56,7 +58,6 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			switch (this.state) {
 				case CONNECT: {
 					try {
-						// TODO Add a listener for unexpected channel closure
 						this.channel = this.bootstrap.connect(this.pushManager.getEnvironment().getHost(), this.pushManager.getEnvironment().getPort()).sync().channel();
 						
 						this.state = State.READY;
@@ -73,7 +74,17 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 								new SendableApnsPushNotification<T>(this.pushManager.getQueue().take(), this.sequenceNumber++);
 								
 						this.sentNotificationBuffer.addSentNotification(sendableNotification);
-						this.channel.write(sendableNotification);
+						this.channel.write(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+
+							public void operationComplete(final ChannelFuture future) {
+								if (future.cause() != null) {
+									// TODO Make sure this is the right thing to do
+									reconnect();
+									sentNotificationBuffer.getFailedNotificationAndClearBuffer(sendableNotification.getNotificationId(), pushManager);
+								}
+							}
+						});
+						
 					} catch (InterruptedException e) {
 						continue;
 					}
@@ -82,6 +93,10 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				}
 				
 				case RECONNECT: {
+					if (this.channel != null && this.channel.isOpen()) {
+						this.channel.close();
+					}
+					
 					try {
 						this.channel.closeFuture().sync();
 						this.state = State.CONNECT;
