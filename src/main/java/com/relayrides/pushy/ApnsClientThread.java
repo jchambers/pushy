@@ -89,6 +89,10 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				}
 				
 				case RECONNECT: {
+					if (this.channel != null && this.channel.isOpen()) {
+						this.channel.close();
+					}
+					
 					try {
 						this.channel.closeFuture().sync();
 						this.state = State.CONNECT;
