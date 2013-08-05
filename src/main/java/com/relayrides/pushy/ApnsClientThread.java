@@ -6,6 +6,8 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.ssl.SslHandler;
+import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
 public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
@@ -58,9 +60,17 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			switch (this.state) {
 				case CONNECT: {
 					try {
-						this.channel = this.bootstrap.connect(this.pushManager.getEnvironment().getHost(), this.pushManager.getEnvironment().getPort()).sync().channel();
+						final ChannelFuture connectFuture = this.bootstrap.connect(this.pushManager.getEnvironment().getHost(), this.pushManager.getEnvironment().getPort()).sync();
 						
-						this.state = State.READY;
+						if (connectFuture.isSuccess()) {
+							this.channel = connectFuture.channel();
+							
+							final Future<Channel> handshakeFuture = this.channel.pipeline().get(SslHandler.class).handshakeFuture().sync();
+							
+							if (handshakeFuture.isSuccess()) {
+								this.state = State.READY;
+							}
+						}
 					} catch (InterruptedException e) {
 						continue;
 					}
@@ -74,7 +84,9 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 								new SendableApnsPushNotification<T>(this.pushManager.getQueue().take(), this.sequenceNumber++);
 								
 						this.sentNotificationBuffer.addSentNotification(sendableNotification);
-						this.channel.write(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+						
+						// TODO Don't flush on every notification if we can avoid it
+						this.channel.writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
 							public void operationComplete(final ChannelFuture future) {
 								if (future.cause() != null) {
