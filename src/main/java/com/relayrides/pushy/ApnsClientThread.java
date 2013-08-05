@@ -78,13 +78,9 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 
 							public void operationComplete(final ChannelFuture future) {
 								if (future.cause() != null) {
-									// TODO Make sure this is the right thing to do
-									reconnect();
-									sentNotificationBuffer.getFailedNotificationAndClearBuffer(sendableNotification.getNotificationId(), pushManager);
+									pushManager.notifyListenersOfFailedDelivery(sendableNotification.getPushNotification(), future.cause());
 								}
-							}
-						});
-						
+							}});
 					} catch (InterruptedException e) {
 						continue;
 					}
@@ -135,13 +131,19 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	}
 	
 	protected void reconnect() {
-		this.state = State.RECONNECT;
-		this.interrupt();
+		// We don't want to try to reconnect if we're already connecting or on our way out
+		if (this.state == State.READY) {
+			this.state = State.RECONNECT;
+			this.interrupt();
+		}
 	}
 	
 	public void shutdown() {
-		this.state = State.SHUTDOWN;
-		this.interrupt();
+		// Don't re-shut-down if we're already on our way out
+		if (this.state != State.SHUTDOWN && this.state != State.EXIT) {
+			this.state = State.SHUTDOWN;
+			this.interrupt();
+		}
 	}
 	
 	protected SentNotificationBuffer<T> getSentNotificationBuffer() {
