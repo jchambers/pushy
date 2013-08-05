@@ -21,7 +21,7 @@ public class ApnsErrorHandler<T extends ApnsPushNotification> extends SimpleChan
 				this.clientThread.getSentNotificationBuffer().getFailedNotificationAndClearBuffer(e.getNotificationId(), pushManager);
 		
 		if (e.getErrorCode() != ApnsErrorCode.SHUTDOWN) {
-			this.pushManager.handleFailedDelivery(failedNotification, e.getErrorCode());
+			this.pushManager.notifyListenersOfFailedDelivery(failedNotification, e);
 		}
 	}
 }
