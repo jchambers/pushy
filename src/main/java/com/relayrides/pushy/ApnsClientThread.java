@@ -2,9 +2,11 @@ package com.relayrides.pushy;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.util.concurrent.GenericFutureListener;
 
 public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
@@ -56,7 +58,6 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			switch (this.state) {
 				case CONNECT: {
 					try {
-						// TODO Add a listener for unexpected channel closure
 						this.channel = this.bootstrap.connect(this.pushManager.getEnvironment().getHost(), this.pushManager.getEnvironment().getPort()).sync().channel();
 						
 						this.state = State.READY;
@@ -73,7 +74,13 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 								new SendableApnsPushNotification<T>(this.pushManager.getQueue().take(), this.sequenceNumber++);
 								
 						this.sentNotificationBuffer.addSentNotification(sendableNotification);
-						this.channel.write(sendableNotification);
+						this.channel.write(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+
+							public void operationComplete(final ChannelFuture future) {
+								if (future.cause() != null) {
+									pushManager.notifyListenersOfFailedDelivery(sendableNotification.getPushNotification(), future.cause());
+								}
+							}});
 					} catch (InterruptedException e) {
 						continue;
 					}
@@ -120,13 +127,19 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	}
 	
 	protected void reconnect() {
-		this.state = State.RECONNECT;
-		this.interrupt();
+		// We don't want to try to reconnect if we're already connecting or on our way out
+		if (this.state == State.READY) {
+			this.state = State.RECONNECT;
+			this.interrupt();
+		}
 	}
 	
 	public void shutdown() {
-		this.state = State.SHUTDOWN;
-		this.interrupt();
+		// Don't re-shut-down if we're already on our way out
+		if (this.state != State.SHUTDOWN && this.state != State.EXIT) {
+			this.state = State.SHUTDOWN;
+			this.interrupt();
+		}
 	}
 	
 	protected SentNotificationBuffer<T> getSentNotificationBuffer() {

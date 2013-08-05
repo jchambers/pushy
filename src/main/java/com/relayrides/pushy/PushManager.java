@@ -66,12 +66,12 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.failedDeliveryListeners.add(new WeakReference<FailedDeliveryListener<T>>(listener));
 	}
 	
-	protected void handleFailedDelivery(final T notification, final ApnsErrorCode errorCode) {
+	protected void notifyListenersOfFailedDelivery(final T notification, final Throwable cause) {
 		for (final WeakReference<FailedDeliveryListener<T>> listenerReference : this.failedDeliveryListeners) {
 			final FailedDeliveryListener<T> listener = listenerReference.get();
 			
 			if (listener != null) {
-				listener.handleFailedDelivery(notification, errorCode);
+				listener.handleFailedDelivery(notification, cause);
 			}
 		}
 	}
