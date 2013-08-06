@@ -3,7 +3,7 @@ package com.relayrides.pushy;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 
-public class FeedbackClientHandler extends SimpleChannelInboundHandler<ExpiredToken> {
+public class FeedbackClientHandler extends SimpleChannelInboundHandler<TokenExpiration> {
 
 	private final FeedbackServiceClient feedbackClient;
 	
@@ -12,7 +12,7 @@ public class FeedbackClientHandler extends SimpleChannelInboundHandler<ExpiredTo
 	}
 	
 	@Override
-	protected void channelRead0(final ChannelHandlerContext context, final ExpiredToken expiredToken) {
+	protected void channelRead0(final ChannelHandlerContext context, final TokenExpiration expiredToken) {
 		this.feedbackClient.addExpiredToken(expiredToken);
 	}
 }

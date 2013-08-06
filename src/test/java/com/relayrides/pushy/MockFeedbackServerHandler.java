@@ -20,9 +20,9 @@ public class MockFeedbackServerHandler extends ChannelInboundHandlerAdapter {
 		
 		ChannelFuture lastWriteFuture = null;
 		
-		final List<ExpiredToken> expiredTokens = this.feedbackServer.getAndClearAllExpiredTokens();
+		final List<TokenExpiration> expiredTokens = this.feedbackServer.getAndClearAllExpiredTokens();
 		
-		for (final ExpiredToken expiredToken : expiredTokens) {
+		for (final TokenExpiration expiredToken : expiredTokens) {
 			lastWriteFuture = context.writeAndFlush(expiredToken);
 		}
 		

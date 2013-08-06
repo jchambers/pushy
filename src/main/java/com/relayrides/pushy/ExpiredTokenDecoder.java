@@ -43,7 +43,7 @@ public class ExpiredTokenDecoder extends ReplayingDecoder<ExpiredTokenDecoderSta
 			
 			case TOKEN: {
 				in.readBytes(this.token);
-				out.add(new ExpiredToken(this.token, this.expiration));
+				out.add(new TokenExpiration(this.token, this.expiration));
 				
 				this.checkpoint(ExpiredTokenDecoderState.EXPIRATION);
 				

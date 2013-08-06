@@ -22,7 +22,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 		return this.payload;
 	}
 
-	public Date getExpiration() {
+	public Date getDeliveryInvalidationTime() {
 		return this.expiration;
 	}
 }

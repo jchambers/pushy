@@ -21,7 +21,7 @@ public class FeedbackServiceClient {
 	private final ApnsEnvironment environment;
 	
 	private final Bootstrap bootstrap;
-	private final Vector<ExpiredToken> expiredTokens;
+	private final Vector<TokenExpiration> expiredTokens;
 	
 	protected FeedbackServiceClient(final ApnsEnvironment environment) {
 		this(environment, null, null);
@@ -56,14 +56,14 @@ public class FeedbackServiceClient {
 			
 		});
 		
-		this.expiredTokens = new Vector<ExpiredToken>();
+		this.expiredTokens = new Vector<TokenExpiration>();
 	}
 	
-	protected void addExpiredToken(final ExpiredToken expiredToken) {
+	protected void addExpiredToken(final TokenExpiration expiredToken) {
 		this.expiredTokens.add(expiredToken);
 	}
 	
-	public synchronized List<ExpiredToken> getExpiredTokens() throws InterruptedException {
+	public synchronized List<TokenExpiration> getExpiredTokens() throws InterruptedException {
 		this.expiredTokens.clear();
 		
 		final ChannelFuture connectFuture =
@@ -81,7 +81,7 @@ public class FeedbackServiceClient {
 			}
 		}
 		
-		return new ArrayList<ExpiredToken>(this.expiredTokens);
+		return new ArrayList<TokenExpiration>(this.expiredTokens);
 	}
 	
 	protected void destroy() throws InterruptedException {

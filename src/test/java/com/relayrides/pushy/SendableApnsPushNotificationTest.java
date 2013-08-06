@@ -23,7 +23,7 @@ public class SendableApnsPushNotificationTest {
 				return "This is only a test.";
 			}
 
-			public Date getExpiration() {
+			public Date getDeliveryInvalidationTime() {
 				return null;
 			}
 		};

@@ -19,8 +19,8 @@ public class PushNotificationEncoder<T extends ApnsPushNotification> extends Mes
 		out.writeByte(ENHANCED_PUSH_NOTIFICATION_COMMAND);
 		out.writeInt(sendablePushNotification.getNotificationId());
 		
-		if (sendablePushNotification.getPushNotification().getExpiration() != null) {
-			out.writeInt(this.getTimestampInSeconds(sendablePushNotification.getPushNotification().getExpiration()));
+		if (sendablePushNotification.getPushNotification().getDeliveryInvalidationTime() != null) {
+			out.writeInt(this.getTimestampInSeconds(sendablePushNotification.getPushNotification().getDeliveryInvalidationTime()));
 		} else {
 			out.writeInt(EXPIRE_IMMEDIATELY);
 		}
