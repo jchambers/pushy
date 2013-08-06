@@ -8,6 +8,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
@@ -91,6 +92,6 @@ public class MockApnsServer {
 	}
 	
 	public List<SimpleApnsPushNotification> getReceivedNotifications() {
-		return java.util.Collections.unmodifiableList(this.receivedNotifications);
+		return new ArrayList<SimpleApnsPushNotification>(this.receivedNotifications);
 	}
 }
