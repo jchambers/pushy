@@ -40,11 +40,11 @@ public class PushManager<T extends ApnsPushNotification> {
 		return this.environment;
 	}
 	
-	public KeyStore getKeyStore() {
+	protected KeyStore getKeyStore() {
 		return this.keyStore;
 	}
 	
-	public char[] getKeyStorePassword() {
+	protected char[] getKeyStorePassword() {
 		return this.keyStorePassword;
 	}
 	
