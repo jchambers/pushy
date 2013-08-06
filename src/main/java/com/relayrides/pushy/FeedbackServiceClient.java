@@ -60,11 +60,15 @@ public class FeedbackServiceClient {
 			final ChannelFuture connectFuture = this.bootstrap.connect(this.pushManager.getEnvironment().getFeedbackHost(), this.pushManager.getEnvironment().getFeedbackPort()).sync();
 			
 			if (connectFuture.isSuccess()) {
-				final Future<Channel> handshakeFuture = connectFuture.channel().pipeline().get(SslHandler.class).handshakeFuture().sync();
-				
-				if (handshakeFuture.isSuccess()) {
-					connectFuture.channel().closeFuture().sync();
+				if (this.pushManager.getEnvironment().isTlsRequired()) {
+					final Future<Channel> handshakeFuture = connectFuture.channel().pipeline().get(SslHandler.class).handshakeFuture().sync();
 					
+					if (handshakeFuture.isSuccess()) {
+						connectFuture.channel().closeFuture().sync();
+						returnedExpiredTokens.addAll(this.expiredTokens);
+					}
+				} else {
+					connectFuture.channel().closeFuture().sync();
 					returnedExpiredTokens.addAll(this.expiredTokens);
 				}
 			}
