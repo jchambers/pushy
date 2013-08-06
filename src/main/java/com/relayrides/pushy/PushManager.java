@@ -79,4 +79,8 @@ public class PushManager<T extends ApnsPushNotification> {
 	protected BlockingQueue<T> getQueue() {
 		return this.queue;
 	}
+	
+	public List<ExpiredToken> getExpiredTokens() throws InterruptedException {
+		return new FeedbackServiceClient(this).getExpiredTokens();
+	}
 }

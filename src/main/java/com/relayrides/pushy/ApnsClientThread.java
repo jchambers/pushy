@@ -60,7 +60,7 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			switch (this.state) {
 				case CONNECT: {
 					try {
-						final ChannelFuture connectFuture = this.bootstrap.connect(this.pushManager.getEnvironment().getHost(), this.pushManager.getEnvironment().getPort()).sync();
+						final ChannelFuture connectFuture = this.bootstrap.connect(this.pushManager.getEnvironment().getApnsHost(), this.pushManager.getEnvironment().getApnsPort()).sync();
 						
 						if (connectFuture.isSuccess()) {
 							this.channel = connectFuture.channel();

@@ -9,14 +9,14 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 
-public class ApnsClientInitializer<T extends ApnsPushNotification> extends ChannelInitializer<SocketChannel> {
+public class FeedbackClientInitializer extends ChannelInitializer<SocketChannel> {
 	
-	private final PushManager<T> pushManager;
-	private final ApnsClientThread<T> clientThread;
+	private final PushManager<? extends ApnsPushNotification> pushManager;
+	private final FeedbackServiceClient feedbackClient;
 	
-	public ApnsClientInitializer(final PushManager<T> pushManager, final ApnsClientThread<T> clientThread) {
+	public FeedbackClientInitializer(final PushManager<? extends ApnsPushNotification> pushManager, final FeedbackServiceClient feedbackClient) {
 		this.pushManager = pushManager;
-		this.clientThread = clientThread;
+		this.feedbackClient = feedbackClient;
 	}
 	
 	@Override
@@ -29,8 +29,7 @@ public class ApnsClientInitializer<T extends ApnsPushNotification> extends Chann
 					this.pushManager.getKeyStore(), this.pushManager.getKeyStorePassword()));
 		}
 		
-		pipeline.addLast("decoder", new ApnsErrorDecoder());
-		pipeline.addLast("encoder", new PushNotificationEncoder<T>());
-		pipeline.addLast("handler", new ApnsErrorHandler<T>(this.pushManager, this.clientThread));
+		pipeline.addLast("decoder", new ExpiredTokenDecoder());
+		pipeline.addLast("handler", new FeedbackClientHandler(this.feedbackClient));
 	}
 }
