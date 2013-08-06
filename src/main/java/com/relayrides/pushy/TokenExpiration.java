@@ -8,8 +8,8 @@ import java.util.Date;
  * documentation:</p>
  * 
  * <blockquote>When a push notification cannot be delivered because the intended app does not exist on the device, the
- * feedback service adds that device’s token to its list. Push notifications that expire before being delivered are
- * not considered a failed delivery and don’t impact the feedback service.</blockquote>
+ * feedback service adds that device's token to its list. Push notifications that expire before being delivered are
+ * not considered a failed delivery and don't impact the feedback service.</blockquote>
  * 
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  * 
@@ -83,9 +83,13 @@ public class TokenExpiration {
 		return true;
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
 	@Override
 	public String toString() {
-		return "ExpiredToken [token=" + Arrays.toString(token)
+		return "TokenExpiration [token=" + Arrays.toString(token)
 				+ ", expiration=" + expiration + "]";
 	}
 }
