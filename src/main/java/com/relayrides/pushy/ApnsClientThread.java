@@ -83,9 +83,13 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 						if (connectFuture.isSuccess()) {
 							this.channel = connectFuture.channel();
 							
-							final Future<Channel> handshakeFuture = this.channel.pipeline().get(SslHandler.class).handshakeFuture().sync();
-							
-							if (handshakeFuture.isSuccess()) {
+							if (this.pushManager.getEnvironment().isTlsRequired()) {
+								final Future<Channel> handshakeFuture = this.channel.pipeline().get(SslHandler.class).handshakeFuture().sync();
+								
+								if (handshakeFuture.isSuccess()) {
+									this.state = State.READY;
+								}
+							} else {
 								this.state = State.READY;
 							}
 						}
