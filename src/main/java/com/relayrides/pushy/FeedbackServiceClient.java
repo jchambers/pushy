@@ -3,7 +3,10 @@ package com.relayrides.pushy;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.util.concurrent.Future;
@@ -27,8 +30,22 @@ public class FeedbackServiceClient {
 		this.bootstrap.group(new NioEventLoopGroup());
 		this.bootstrap.channel(NioSocketChannel.class);
 		
-		final FeedbackClientInitializer initializer = new FeedbackClientInitializer(pushManager, this);
-		this.bootstrap.handler(initializer);
+		final FeedbackServiceClient feedbackClient = this;
+		this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
+
+			@Override
+			protected void initChannel(final SocketChannel channel) throws Exception {
+				final ChannelPipeline pipeline = channel.pipeline();
+				
+				if (pushManager.getEnvironment().isTlsRequired()) {
+					pipeline.addLast("ssl", SslHandlerFactory.getSslHandler(pushManager.getKeyStore(), pushManager.getKeyStorePassword()));
+				}
+				
+				pipeline.addLast("decoder", new ExpiredTokenDecoder());
+				pipeline.addLast("handler", new FeedbackClientHandler(feedbackClient));
+			}
+			
+		});
 	}
 	
 	protected void addExpiredToken(final ExpiredToken expiredToken) {
