@@ -16,6 +16,7 @@ public class PushManager<T extends ApnsPushNotification> {
 	private final char[] keyStorePassword;
 	
 	private final ApnsClientThread<T> clientThread;
+	private final FeedbackServiceClient feedbackClient;
 	
 	private final ArrayList<WeakReference<FailedDeliveryListener<T>>> failedDeliveryListeners;
 	
@@ -29,6 +30,7 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.keyStorePassword = keyStorePassword;
 		
 		this.clientThread = new ApnsClientThread<T>(this);
+		this.feedbackClient = new FeedbackServiceClient(this.getEnvironment(), this.getKeyStore(), this.getKeyStorePassword());
 	}
 	
 	public ApnsEnvironment getEnvironment() {
@@ -59,6 +61,8 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.clientThread.shutdown();
 		this.clientThread.join();
 		
+		this.feedbackClient.destroy();
+		
 		return new ArrayList<T>(this.queue);
 	}
 	
@@ -81,6 +85,6 @@ public class PushManager<T extends ApnsPushNotification> {
 	}
 	
 	public List<ExpiredToken> getExpiredTokens() throws InterruptedException {
-		return new FeedbackServiceClient(this).getExpiredTokens();
+		return this.feedbackClient.getExpiredTokens();
 	}
 }
