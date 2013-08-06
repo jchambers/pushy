@@ -15,7 +15,7 @@ import io.netty.util.concurrent.GenericFutureListener;
 
 public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
-	private enum State {
+	private enum ClientState {
 		CONNECT,
 		READY,
 		RECONNECT,
@@ -25,7 +25,7 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
 	private final PushManager<T> pushManager;
 	
-	private volatile State state = null;
+	private ClientState state = null;
 	
 	private final Bootstrap bootstrap;
 	private Channel channel = null;
@@ -67,15 +67,15 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
 	@Override
 	public void start() {
-		this.state = State.CONNECT;
+		this.state = ClientState.CONNECT;
 		
 		super.start();
 	}
 	
 	@Override
 	public void run() {
-		while (this.state != State.EXIT) {
-			switch (this.state) {
+		while (this.getClientState() != ClientState.EXIT) {
+			switch (this.getClientState()) {
 				case CONNECT: {
 					try {
 						final ChannelFuture connectFuture = this.bootstrap.connect(this.pushManager.getEnvironment().getApnsHost(), this.pushManager.getEnvironment().getApnsPort()).sync();
@@ -87,10 +87,10 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 								final Future<Channel> handshakeFuture = this.channel.pipeline().get(SslHandler.class).handshakeFuture().sync();
 								
 								if (handshakeFuture.isSuccess()) {
-									this.state = State.READY;
+									this.advanceToStateFromOriginStates(ClientState.READY, ClientState.CONNECT);
 								}
 							} else {
-								this.state = State.READY;
+								this.advanceToStateFromOriginStates(ClientState.READY, ClientState.CONNECT);
 							}
 						}
 					} catch (InterruptedException e) {
@@ -129,7 +129,7 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 					
 					try {
 						this.channel.closeFuture().sync();
-						this.state = State.CONNECT;
+						this.advanceToStateFromOriginStates(ClientState.CONNECT, ClientState.RECONNECT);
 					} catch (InterruptedException e) {
 						continue;
 					}
@@ -148,7 +148,8 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 						continue;
 					}
 					
-					this.state = State.EXIT;
+					this.advanceToStateFromOriginStates(ClientState.EXIT, ClientState.SHUTDOWN);
+					
 					break;
 				}
 				
@@ -166,17 +167,33 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
 	protected void reconnect() {
 		// We don't want to try to reconnect if we're already connecting or on our way out
-		if (this.state == State.READY) {
-			this.state = State.RECONNECT;
-			this.interrupt();
-		}
+		this.advanceToStateFromOriginStates(ClientState.RECONNECT, ClientState.READY);
+		this.interrupt();
 	}
 	
 	public void shutdown() {
 		// Don't re-shut-down if we're already on our way out
-		if (this.state != State.SHUTDOWN && this.state != State.EXIT) {
-			this.state = State.SHUTDOWN;
-			this.interrupt();
+		this.advanceToStateFromOriginStates(ClientState.SHUTDOWN, ClientState.CONNECT, ClientState.READY, ClientState.RECONNECT);
+		this.interrupt();
+	}
+	
+	private ClientState getClientState() {
+		synchronized (this.state) {
+			return this.state;
+		}
+	}
+	
+	/**
+	 * Sets the current state if and only if the current state is in one of the allowed origin states.
+	 */
+	private void advanceToStateFromOriginStates(final ClientState destinationState, final ClientState... allowableOriginStates) {
+		synchronized (this.state) {
+			for (final ClientState originState : allowableOriginStates) {
+				if (this.state == originState) {
+					this.state = destinationState;
+					break;
+				}
+			}
 		}
 	}
 	
