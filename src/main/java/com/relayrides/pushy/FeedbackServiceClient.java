@@ -12,6 +12,7 @@ import io.netty.handler.ssl.SslHandler;
 import io.netty.util.concurrent.Future;
 
 import java.security.KeyStore;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
@@ -80,7 +81,7 @@ public class FeedbackServiceClient {
 			}
 		}
 		
-		return java.util.Collections.unmodifiableList(this.expiredTokens);
+		return new ArrayList<ExpiredToken>(this.expiredTokens);
 	}
 	
 	protected void destroy() throws InterruptedException {
