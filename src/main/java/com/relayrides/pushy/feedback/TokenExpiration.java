@@ -1,4 +1,4 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.feedback;
 
 import java.util.Arrays;
 import java.util.Date;

@@ -1,4 +1,4 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.feedback;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;

@@ -1,4 +1,4 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.apns;
 
 import java.util.ArrayList;
 import java.util.LinkedList;

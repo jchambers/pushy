@@ -1,6 +1,8 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.apns;
 
 import java.util.Date;
+
+import com.relayrides.pushy.apns.ApnsPushNotification;
 
 public class SimpleApnsPushNotification implements ApnsPushNotification {
 	

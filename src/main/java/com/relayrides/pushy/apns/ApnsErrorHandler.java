@@ -1,4 +1,4 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.apns;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

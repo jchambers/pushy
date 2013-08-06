@@ -1,4 +1,4 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.apns;
 
 
 public interface FailedDeliveryListener<T extends ApnsPushNotification> {

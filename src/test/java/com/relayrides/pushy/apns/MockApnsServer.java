@@ -1,4 +1,4 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.apns;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelInitializer;
@@ -10,6 +10,8 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 
 import java.util.List;
 import java.util.Vector;
+
+import com.relayrides.pushy.apns.ApnsErrorCode;
 
 public class MockApnsServer {
 	

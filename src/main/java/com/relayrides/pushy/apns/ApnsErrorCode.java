@@ -1,4 +1,4 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.apns;
 
 public enum ApnsErrorCode {
 	NO_ERROR((byte)0),

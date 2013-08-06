@@ -1,9 +1,11 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.apns;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 
 import java.util.concurrent.atomic.AtomicInteger;
+
+import com.relayrides.pushy.apns.ApnsException;
 
 public class MockApnsServerHandler extends SimpleChannelInboundHandler<ReceivedApnsPushNotification<SimpleApnsPushNotification>> {
 

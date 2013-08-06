@@ -1,4 +1,4 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.apns;
 
 import static org.junit.Assert.*;
 
@@ -6,8 +6,8 @@ import java.util.Date;
 
 import org.junit.Test;
 
-import com.relayrides.pushy.ApnsPushNotification;
-import com.relayrides.pushy.SendableApnsPushNotification;
+import com.relayrides.pushy.apns.ApnsPushNotification;
+import com.relayrides.pushy.apns.SendableApnsPushNotification;
 
 public class SendableApnsPushNotificationTest {
 

@@ -1,4 +1,4 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.feedback;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;

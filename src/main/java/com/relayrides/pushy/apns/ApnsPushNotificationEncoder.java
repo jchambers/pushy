@@ -1,4 +1,4 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.apns;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
@@ -7,7 +7,7 @@ import io.netty.handler.codec.MessageToByteEncoder;
 import java.nio.charset.Charset;
 import java.util.Date;
 
-public class PushNotificationEncoder<T extends ApnsPushNotification> extends MessageToByteEncoder<SendableApnsPushNotification<T>> {
+public class ApnsPushNotificationEncoder<T extends ApnsPushNotification> extends MessageToByteEncoder<SendableApnsPushNotification<T>> {
 
 	private static final byte ENHANCED_PUSH_NOTIFICATION_COMMAND = 1;
 	private static final int EXPIRE_IMMEDIATELY = 0;

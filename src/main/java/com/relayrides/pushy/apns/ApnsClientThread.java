@@ -1,4 +1,6 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.apns;
+
+import com.relayrides.pushy.util.SslHandlerFactory;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -58,7 +60,7 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				}
 				
 				pipeline.addLast("decoder", new ApnsErrorDecoder());
-				pipeline.addLast("encoder", new PushNotificationEncoder<T>());
+				pipeline.addLast("encoder", new ApnsPushNotificationEncoder<T>());
 				pipeline.addLast("handler", new ApnsErrorHandler<T>(pushManager, clientThread));
 			}
 			

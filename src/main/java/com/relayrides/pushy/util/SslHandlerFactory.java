@@ -1,4 +1,4 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.util;
 
 import io.netty.handler.ssl.SslHandler;
 
@@ -19,7 +19,7 @@ public class SslHandlerFactory {
 	private static final String PROTOCOL = "TLS";
 	private static final String DEFAULT_ALGORITHM = "SunX509";
 	
-	protected static SslHandler getSslHandler(final KeyStore keyStore, final char[] keyStorePassword) throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException, UnrecoverableKeyException {
+	public static SslHandler getSslHandler(final KeyStore keyStore, final char[] keyStorePassword) throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException, UnrecoverableKeyException {
 		String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
 		
         if (algorithm == null) {

@@ -1,4 +1,4 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.apns;
 
 import java.lang.ref.WeakReference;
 import java.security.KeyStore;
@@ -7,6 +7,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+
+import com.relayrides.pushy.feedback.FeedbackServiceClient;
+import com.relayrides.pushy.feedback.TokenExpiration;
 
 public class PushManager<T extends ApnsPushNotification> {
 	private final BlockingQueue<T> queue;

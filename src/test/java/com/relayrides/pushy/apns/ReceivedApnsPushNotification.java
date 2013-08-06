@@ -1,4 +1,6 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.apns;
+
+import com.relayrides.pushy.apns.ApnsPushNotification;
 
 public class ReceivedApnsPushNotification<T extends ApnsPushNotification> {
 	

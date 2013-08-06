@@ -1,4 +1,6 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.feedback;
+
+import com.relayrides.pushy.feedback.TokenExpiration;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;

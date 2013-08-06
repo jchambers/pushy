@@ -1,4 +1,4 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.feedback;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -16,6 +16,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
+import com.relayrides.pushy.apns.ApnsEnvironment;
+import com.relayrides.pushy.util.SslHandlerFactory;
+
 public class FeedbackServiceClient {
 	
 	private final ApnsEnvironment environment;
@@ -23,11 +26,11 @@ public class FeedbackServiceClient {
 	private final Bootstrap bootstrap;
 	private final Vector<TokenExpiration> expiredTokens;
 	
-	protected FeedbackServiceClient(final ApnsEnvironment environment) {
+	public FeedbackServiceClient(final ApnsEnvironment environment) {
 		this(environment, null, null);
 	}
 	
-	protected FeedbackServiceClient(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword) {
+	public FeedbackServiceClient(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword) {
 		
 		if (environment.isTlsRequired() && keyStore == null) {
 			throw new IllegalArgumentException("Must pass a KeyStore and password for environments that require TLS.");
@@ -84,7 +87,7 @@ public class FeedbackServiceClient {
 		return new ArrayList<TokenExpiration>(this.expiredTokens);
 	}
 	
-	protected void destroy() throws InterruptedException {
+	public void destroy() throws InterruptedException {
 		this.bootstrap.group().shutdownGracefully().sync();
 	}
 }
