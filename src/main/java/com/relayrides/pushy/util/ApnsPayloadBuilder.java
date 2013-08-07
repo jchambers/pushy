@@ -175,8 +175,9 @@ public class ApnsPayloadBuilder {
 	
 	/**
 	 * <p>Returns a JSON representation of the push notification payload under construction. If the payload length is
-	 * longer than the default maximum, the literal alert body will be shortened if possible. If the alert body cannot
-	 * be shortened or is not present, an {@code IllegalArgumentException} is thrown.</p>
+	 * longer than the default maximum ({@value #DEFAULT_PAYLOAD_SIZE} bytes), the literal alert body will be shortened
+	 * if possible. If the alert body cannot be shortened or is not present, an {@code IllegalArgumentException} is
+	 * thrown.</p>
 	 * 
 	 * @return a JSON representation of the payload under construction (possibly with an abbreviated alert body)
 	 */
