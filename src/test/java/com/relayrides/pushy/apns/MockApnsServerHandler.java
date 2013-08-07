@@ -6,6 +6,7 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.relayrides.pushy.apns.ApnsException;
+import com.relayrides.pushy.util.SimpleApnsPushNotification;
 
 public class MockApnsServerHandler extends SimpleChannelInboundHandler<ReceivedApnsPushNotification<SimpleApnsPushNotification>> {
 

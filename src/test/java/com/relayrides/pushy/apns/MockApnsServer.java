@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Vector;
 
 import com.relayrides.pushy.apns.ApnsErrorCode;
+import com.relayrides.pushy.util.SimpleApnsPushNotification;
 
 public class MockApnsServer {
 	

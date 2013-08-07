@@ -10,6 +10,7 @@ import java.util.List;
 
 import com.relayrides.pushy.apns.ApnsErrorCode;
 import com.relayrides.pushy.apns.ApnsException;
+import com.relayrides.pushy.util.SimpleApnsPushNotification;
 
 enum ApnsPushNotificationDecoderState {
 	OPCODE,
