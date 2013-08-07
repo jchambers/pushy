@@ -1,6 +1,8 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.apns;
 
 import java.util.Date;
+
+import com.relayrides.pushy.apns.ApnsPushNotification;
 
 public class SimpleApnsPushNotification implements ApnsPushNotification {
 	
@@ -22,7 +24,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 		return this.payload;
 	}
 
-	public Date getExpiration() {
+	public Date getDeliveryInvalidationTime() {
 		return this.expiration;
 	}
 }

@@ -1,4 +1,4 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.apns;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
@@ -7,6 +7,9 @@ import io.netty.handler.codec.ReplayingDecoder;
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
 import java.util.List;
+
+import com.relayrides.pushy.apns.ApnsErrorCode;
+import com.relayrides.pushy.apns.ApnsException;
 
 enum ApnsPushNotificationDecoderState {
 	OPCODE,

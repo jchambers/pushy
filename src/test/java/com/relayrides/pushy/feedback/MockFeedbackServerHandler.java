@@ -1,6 +1,8 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.feedback;
 
 import java.util.List;
+
+import com.relayrides.pushy.feedback.TokenExpiration;
 
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
@@ -20,9 +22,9 @@ public class MockFeedbackServerHandler extends ChannelInboundHandlerAdapter {
 		
 		ChannelFuture lastWriteFuture = null;
 		
-		final List<ExpiredToken> expiredTokens = this.feedbackServer.getAndClearAllExpiredTokens();
+		final List<TokenExpiration> expiredTokens = this.feedbackServer.getAndClearAllExpiredTokens();
 		
-		for (final ExpiredToken expiredToken : expiredTokens) {
+		for (final TokenExpiration expiredToken : expiredTokens) {
 			lastWriteFuture = context.writeAndFlush(expiredToken);
 		}
 		

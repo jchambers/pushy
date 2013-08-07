@@ -1,4 +1,4 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.feedback;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelInitializer;
@@ -10,11 +10,13 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.relayrides.pushy.feedback.TokenExpiration;
+
 public class MockFeedbackServer {
 	
 	private final int port;
 	
-	private final ArrayList<ExpiredToken> expiredTokens;
+	private final ArrayList<TokenExpiration> expiredTokens;
 	
 	private EventLoopGroup bossGroup;
 	private EventLoopGroup workerGroup;
@@ -22,7 +24,7 @@ public class MockFeedbackServer {
 	public MockFeedbackServer(final int port) {
 		this.port = port;
 		
-		this.expiredTokens = new ArrayList<ExpiredToken>();
+		this.expiredTokens = new ArrayList<TokenExpiration>();
 	}
 	
 	public void start() throws InterruptedException {
@@ -52,12 +54,12 @@ public class MockFeedbackServer {
 		this.bossGroup.shutdownGracefully().sync();
 	}
 	
-	public synchronized void addExpiredToken(final ExpiredToken expiredToken) {
+	public synchronized void addExpiredToken(final TokenExpiration expiredToken) {
 		this.expiredTokens.add(expiredToken);
 	}
 	
-	protected synchronized List<ExpiredToken> getAndClearAllExpiredTokens() {
-		final ArrayList<ExpiredToken> tokensToReturn = new ArrayList<ExpiredToken>(this.expiredTokens);
+	protected synchronized List<TokenExpiration> getAndClearAllExpiredTokens() {
+		final ArrayList<TokenExpiration> tokensToReturn = new ArrayList<TokenExpiration>(this.expiredTokens);
 		this.expiredTokens.clear();
 		
 		return tokensToReturn;

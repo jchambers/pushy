@@ -1,4 +1,4 @@
-package com.relayrides.pushy;
+package com.relayrides.pushy.apns;
 
 import java.util.Date;
 
@@ -32,5 +32,5 @@ public interface ApnsPushNotification {
 	 * @see <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">
 	 * Provider Communication with Apple Push Notification Service</a>
 	 */
-	Date getExpiration();
+	Date getDeliveryInvalidationTime();
 }
