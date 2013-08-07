@@ -7,6 +7,14 @@ import java.util.Map;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
+/**
+ * <p>A utility class for constructing JSON payloads suitable for inclusion in APNs push notifications.</p>
+ * 
+ * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
+ * 
+ * @see <a href="http://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html#//apple_ref/doc/uid/TP40008194-CH100-SW1">
+ * Local and Push Notification Programming Guide - Apple Push Notification Service - The Notification Payload</a>
+ */
 public class ApnsPayloadBuilder {
 	
 	private String alertBody = null;
