@@ -19,13 +19,8 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
 import java.nio.charset.Charset;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.LinkedList;
 import java.util.List;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.relayrides.pushy.util.SslHandlerFactory;
 
@@ -47,50 +42,12 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	private Channel channel = null;
 	private int sequenceNumber = 0;
 	
+	private volatile ChannelFuture lastWriteFuture;
+	
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
 	private static final int SENT_NOTIFICATION_BUFFER_SIZE = 2048;
 	
-	private class SentNotificationBuffer<E extends ApnsPushNotification> {
-		
-		private final LinkedList<SendableApnsPushNotification<E>> buffer;
-		private final int capacity;
-		
-		public SentNotificationBuffer(final int capacity) {
-			this.buffer = new LinkedList<SendableApnsPushNotification<E>>();
-			this.capacity = capacity;
-		}
-		
-		public synchronized void addSentNotification(SendableApnsPushNotification<E> notification) {
-			this.buffer.addLast(notification);
-			
-			while (this.buffer.size() > this.capacity) {
-				this.buffer.removeFirst();
-			}
-		}
-		
-		public synchronized E getFailedNotificationAndClearBuffer(final int failedNotificationId, final PushManager<E> pushManager) {
-			while (this.buffer.getFirst().isSequentiallyBefore(failedNotificationId)) {
-				this.buffer.removeFirst();
-			}
-			
-			final E failedNotification = this.buffer.getFirst().getNotificationId() == failedNotificationId ?
-					this.buffer.removeFirst().getPushNotification() : null;
-			
-			{
-				final ArrayList<E> unsentNotifications = new ArrayList<E>(this.buffer.size());
-				
-				for (final SendableApnsPushNotification<E> sentNotification : this.buffer) {
-					unsentNotifications.add(sentNotification.getPushNotification());
-				}
-				
-				pushManager.enqueueAllNotifications(unsentNotifications);
-			}
-			
-			this.buffer.clear();
-			
-			return failedNotification;
-		}
-	}
+	
 	
 	private class ApnsErrorDecoder extends ByteToMessageDecoder {
 
@@ -151,38 +108,28 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 
 	private class ApnsErrorHandler extends SimpleChannelInboundHandler<ApnsException> {
 
-		private final PushManager<T> pushManager;
 		private final ApnsClientThread<T> clientThread;
 		
-		private final Logger log = LoggerFactory.getLogger(ApnsErrorHandler.class);
-		
-		public ApnsErrorHandler(final PushManager<T> pushManager, final ApnsClientThread<T> clientThread) {
-			this.pushManager = pushManager;
+		public ApnsErrorHandler(final ApnsClientThread<T> clientThread) {
 			this.clientThread = clientThread;
 		}
 		
 		@Override
 		protected void channelRead0(final ChannelHandlerContext context, final ApnsException e) throws Exception {
-			this.clientThread.reconnect();
-			
-			final T failedNotification =
-					this.clientThread.getSentNotificationBuffer().getFailedNotificationAndClearBuffer(e.getNotificationId(), pushManager);
-			
-			if (e.getErrorCode() != ApnsErrorCode.SHUTDOWN) {
-				this.pushManager.notifyListenersOfFailedDelivery(failedNotification, e);
-			}
+			this.clientThread.handleApnsException(e);
 		}
 		
 		@Override
 		public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
+			// Assume this is a temporary IO problem and reconnect. Some writes will fail, but will be re-enqueued.
 			this.clientThread.reconnect();
-			
-			log.debug("Caught an exception; reconnecting.", cause);
 		}
 	}
 	
 	public ApnsClientThread(final PushManager<T> pushManager) {
 		super("ApnsClientThread");
+		
+		this.state = ClientState.CONNECT;
 		
 		this.pushManager = pushManager;
 		
@@ -206,7 +153,7 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				
 				pipeline.addLast("decoder", new ApnsErrorDecoder());
 				pipeline.addLast("encoder", new ApnsPushNotificationEncoder());
-				pipeline.addLast("handler", new ApnsErrorHandler(pushManager, clientThread));
+				pipeline.addLast("handler", new ApnsErrorHandler(clientThread));
 			}
 			
 		});
@@ -214,8 +161,6 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
 	@Override
 	public void start() {
-		this.state = ClientState.CONNECT;
-		
 		super.start();
 	}
 	
@@ -225,21 +170,7 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			switch (this.getClientState()) {
 				case CONNECT: {
 					try {
-						final ChannelFuture connectFuture = this.bootstrap.connect(this.pushManager.getEnvironment().getApnsHost(), this.pushManager.getEnvironment().getApnsPort()).sync();
-						
-						if (connectFuture.isSuccess()) {
-							this.channel = connectFuture.channel();
-							
-							if (this.pushManager.getEnvironment().isTlsRequired()) {
-								final Future<Channel> handshakeFuture = this.channel.pipeline().get(SslHandler.class).handshakeFuture().sync();
-								
-								if (handshakeFuture.isSuccess()) {
-									this.advanceToStateFromOriginStates(ClientState.READY, ClientState.CONNECT);
-								}
-							} else {
-								this.advanceToStateFromOriginStates(ClientState.READY, ClientState.CONNECT);
-							}
-						}
+						this.connect();
 					} catch (InterruptedException e) {
 						continue;
 					}
@@ -249,19 +180,32 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				
 				case READY: {
 					try {
-						final SendableApnsPushNotification<T> sendableNotification =
-								new SendableApnsPushNotification<T>(this.pushManager.getQueue().take(), this.sequenceNumber++);
-								
-						this.sentNotificationBuffer.addSentNotification(sendableNotification);
+						final T notification = this.pushManager.getQueue().take();
 						
 						// TODO Don't flush on every notification if we can avoid it
-						this.channel.writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+						final SendableApnsPushNotification<T> sendableNotification =
+								new SendableApnsPushNotification<T>(notification, this.sequenceNumber++);
+						
+						this.sentNotificationBuffer.addSentNotification(sendableNotification);
+						
+						this.lastWriteFuture = this.channel.writeAndFlush(sendableNotification);
+						this.lastWriteFuture.addListener(new GenericFutureListener<ChannelFuture>() {
 
 							public void operationComplete(final ChannelFuture future) {
 								if (future.cause() != null) {
-									pushManager.notifyListenersOfFailedDelivery(sendableNotification.getPushNotification(), future.cause());
+									// Delivery failed for some IO-related reason; re-enqueue for another attempt
+									reconnect();
+									
+									final T failedNotification = sentNotificationBuffer.getAndRemoveNotificationWithId(
+											sendableNotification.getNotificationId());
+									
+									if (failedNotification != null) {
+										pushManager.enqueuePushNotification(failedNotification);
+									}
 								}
-							}});
+							}
+						});
+						
 					} catch (InterruptedException e) {
 						continue;
 					}
@@ -312,16 +256,48 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		}
 	}
 	
+	protected void connect() throws InterruptedException {
+		final ChannelFuture connectFuture =
+				this.bootstrap.connect(this.pushManager.getEnvironment().getApnsHost(), this.pushManager.getEnvironment().getApnsPort()).sync();
+		
+		if (connectFuture.isSuccess()) {
+			this.channel = connectFuture.channel();
+			
+			if (this.pushManager.getEnvironment().isTlsRequired()) {
+				final Future<Channel> handshakeFuture = this.channel.pipeline().get(SslHandler.class).handshakeFuture().sync();
+				
+				if (handshakeFuture.isSuccess()) {
+					this.advanceToStateFromOriginStates(ClientState.READY, ClientState.CONNECT);
+				}
+			} else {
+				this.advanceToStateFromOriginStates(ClientState.READY, ClientState.CONNECT);
+			}
+		}
+	}
+	
+	protected void handleApnsException(final ApnsException e) {
+		this.reconnect();
+		
+		if (e.getErrorCode() != ApnsErrorCode.SHUTDOWN) {
+			this.pushManager.notifyListenersOfFailedDelivery(
+					this.getSentNotificationBuffer().getAndRemoveNotificationWithId(e.getNotificationId()), e);
+		}
+		
+		this.pushManager.enqueueAllNotifications(
+				this.sentNotificationBuffer.getAndRemoveAllNotificationsAfterId(e.getNotificationId()));
+	}
+	
 	protected void reconnect() {
-		// We don't want to try to reconnect if we're already connecting or on our way out
-		this.advanceToStateFromOriginStates(ClientState.RECONNECT, ClientState.READY);
-		this.interrupt();
+		if (this.advanceToStateFromOriginStates(ClientState.RECONNECT, ClientState.READY)) {
+			this.interrupt();
+		}
 	}
 	
 	public void shutdown() {
 		// Don't re-shut-down if we're already on our way out
-		this.advanceToStateFromOriginStates(ClientState.SHUTDOWN, ClientState.CONNECT, ClientState.READY, ClientState.RECONNECT);
-		this.interrupt();
+		if (this.advanceToStateFromOriginStates(ClientState.SHUTDOWN, ClientState.CONNECT, ClientState.READY, ClientState.RECONNECT)) {
+			this.interrupt();
+		}
 	}
 	
 	private ClientState getClientState() {
@@ -333,18 +309,24 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	/**
 	 * Sets the current state if and only if the current state is in one of the allowed origin states.
 	 */
-	private void advanceToStateFromOriginStates(final ClientState destinationState, final ClientState... allowableOriginStates) {
+	private boolean advanceToStateFromOriginStates(final ClientState destinationState, final ClientState... allowableOriginStates) {
 		synchronized (this.state) {
 			for (final ClientState originState : allowableOriginStates) {
 				if (this.state == originState) {
 					this.state = destinationState;
-					break;
+					return true;
 				}
 			}
+			
+			return false;
 		}
 	}
 	
 	protected SentNotificationBuffer<T> getSentNotificationBuffer() {
 		return this.sentNotificationBuffer;
+	}
+	
+	protected ChannelFuture getLastWriteFuture() {
+		return this.lastWriteFuture;
 	}
 }

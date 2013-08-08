@@ -50,8 +50,8 @@ public class MockFeedbackServer {
 	}
 	
 	public void shutdown() throws InterruptedException {
-		this.workerGroup.shutdownGracefully().sync();
-		this.bossGroup.shutdownGracefully().sync();
+		this.workerGroup.shutdownGracefully();
+		this.bossGroup.shutdownGracefully();
 	}
 	
 	public synchronized void addExpiredToken(final TokenExpiration expiredToken) {

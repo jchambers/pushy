@@ -25,10 +25,8 @@ public class MockApnsServer {
 	
 	private final Vector<SimpleApnsPushNotification> receivedNotifications;
 	
-	private int failWithErrorCount = -1;
+	private int failWithErrorCount = 0;
 	private ApnsErrorCode errorCode;
-	
-	private int silentlyCloseCount = -1;
 	
 	public MockApnsServer(final int port, final int maxPayloadSize) {
 		this.port = port;
@@ -37,7 +35,7 @@ public class MockApnsServer {
 		this.receivedNotifications = new Vector<SimpleApnsPushNotification>();
 	}
 	
-	public void start() {
+	public void start() throws InterruptedException {
 		this.bossGroup = new NioEventLoopGroup();
 		this.workerGroup = new NioEventLoopGroup();
 		
@@ -61,10 +59,10 @@ public class MockApnsServer {
 		
 		bootstrap.childOption(ChannelOption.SO_KEEPALIVE, true);
 		
-		bootstrap.bind(this.port);
+		bootstrap.bind(this.port).sync();
 	}
 	
-	public void shutdown() {
+	public void shutdown() throws InterruptedException {
 		this.workerGroup.shutdownGracefully();
 		this.bossGroup.shutdownGracefully();
 	}
@@ -74,24 +72,16 @@ public class MockApnsServer {
 		this.errorCode = errorCode;
 	}
 	
-	protected ApnsErrorCode getErrorCodeForReceivedNotificationCount(final int notificationCount) {
-		if (notificationCount == this.failWithErrorCount) {
-			return this.errorCode;
-		} else {
-			return null;
+	protected ApnsException handleReceivedNotification(final ReceivedApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
+		synchronized (this.receivedNotifications) {
+			this.receivedNotifications.add(receivedNotification.getPushNotification());
+			
+			if (this.receivedNotifications.size() == this.failWithErrorCount) {
+				return new ApnsException(receivedNotification.getNotificationId(), this.errorCode);
+			} else {
+				return null;
+			}
 		}
-	}
-	
-	public void silentlyCloseConnectionAfterNotifications(final int notificationCount) {
-		this.silentlyCloseCount = notificationCount;
-	}
-	
-	protected boolean shouldCloseSilentlyForNotificationCount(final int notificationCount) {
-		return notificationCount == this.silentlyCloseCount;
-	}
-	
-	protected void addReceivedNotification(final SimpleApnsPushNotification notification) {
-		this.receivedNotifications.add(notification);
 	}
 	
 	public List<SimpleApnsPushNotification> getReceivedNotifications() {
