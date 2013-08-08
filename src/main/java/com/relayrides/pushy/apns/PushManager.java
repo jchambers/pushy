@@ -73,10 +73,11 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.failedDeliveryListeners.add(new WeakReference<FailedDeliveryListener<T>>(listener));
 	}
 	
-	protected void notifyListenersOfFailedDelivery(final T notification, final Throwable cause) {
+	protected void notifyListenersOfFailedDelivery(final T notification, final ApnsException cause) {
 		for (final WeakReference<FailedDeliveryListener<T>> listenerReference : this.failedDeliveryListeners) {
 			final FailedDeliveryListener<T> listener = listenerReference.get();
 			
+			// TODO Clear out entries with expired references
 			if (listener != null) {
 				listener.handleFailedDelivery(notification, cause);
 			}
