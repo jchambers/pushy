@@ -5,7 +5,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -21,8 +20,6 @@ import io.netty.util.concurrent.GenericFutureListener;
 import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.List;
-
-import com.relayrides.pushy.util.SslHandlerFactory;
 
 public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
@@ -141,21 +138,20 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		this.bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
 		
 		final ApnsClientThread<T> clientThread = this;
-		this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
-
+		this.bootstrap.handler(new SslCapableChannelInitializer() {
+			
 			@Override
 			protected void initChannel(final SocketChannel channel) throws Exception {
 				final ChannelPipeline pipeline = channel.pipeline();
 				
 				if (pushManager.getEnvironment().isTlsRequired()) {
-					pipeline.addLast("ssl", SslHandlerFactory.getSslHandler(pushManager.getKeyStore(), pushManager.getKeyStorePassword()));
+					pipeline.addLast("ssl", this.getSslHandler(pushManager.getKeyStore(), pushManager.getKeyStorePassword()));
 				}
 				
 				pipeline.addLast("decoder", new ApnsErrorDecoder());
 				pipeline.addLast("encoder", new ApnsPushNotificationEncoder());
 				pipeline.addLast("handler", new ApnsErrorHandler(clientThread));
 			}
-			
 		});
 	}
 	

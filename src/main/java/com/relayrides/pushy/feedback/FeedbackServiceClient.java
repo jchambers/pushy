@@ -5,7 +5,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -22,7 +21,7 @@ import java.util.List;
 import java.util.Vector;
 
 import com.relayrides.pushy.apns.ApnsEnvironment;
-import com.relayrides.pushy.util.SslHandlerFactory;
+import com.relayrides.pushy.apns.SslCapableChannelInitializer;
 
 public class FeedbackServiceClient {
 	
@@ -108,14 +107,14 @@ public class FeedbackServiceClient {
 		this.bootstrap.channel(NioSocketChannel.class);
 		
 		final FeedbackServiceClient feedbackClient = this;
-		this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
+		this.bootstrap.handler(new SslCapableChannelInitializer() {
 
 			@Override
 			protected void initChannel(final SocketChannel channel) throws Exception {
 				final ChannelPipeline pipeline = channel.pipeline();
 				
 				if (environment.isTlsRequired()) {
-					pipeline.addLast("ssl", SslHandlerFactory.getSslHandler(keyStore, keyStorePassword));
+					pipeline.addLast("ssl", this.getSslHandler(keyStore, keyStorePassword));
 				}
 				
 				pipeline.addLast("decoder", new ExpiredTokenDecoder());

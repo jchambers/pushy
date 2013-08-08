@@ -1,5 +1,7 @@
-package com.relayrides.pushy.util;
+package com.relayrides.pushy.apns;
 
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.SslHandler;
 
 import java.security.KeyManagementException;
@@ -14,12 +16,17 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManagerFactory;
 
-public class SslHandlerFactory {
-	
+/**
+ * A channel initializer that can create an SSLEngine prepared to communicate with an APNs server.
+ *
+ * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
+ */
+public abstract class SslCapableChannelInitializer extends ChannelInitializer<SocketChannel> {
+
 	private static final String PROTOCOL = "TLS";
 	private static final String DEFAULT_ALGORITHM = "SunX509";
 	
-	public static SslHandler getSslHandler(final KeyStore keyStore, final char[] keyStorePassword) throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException, UnrecoverableKeyException {
+	protected SslHandler getSslHandler(final KeyStore keyStore, final char[] keyStorePassword) throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException, UnrecoverableKeyException {
 		String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
 		
         if (algorithm == null) {
