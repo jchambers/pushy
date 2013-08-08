@@ -1,5 +1,11 @@
 package com.relayrides.pushy.apns;
 
+/**
+ * An enumeration of error codes that may be returned by APNs to indicate why a push notification was rejected. With
+ * the exception of {@code SHUTDOWN}, all rejections are assumed to be permanent failures.
+ *
+ * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
+ */
 public enum ApnsErrorCode {
 	NO_ERROR((byte)0),
 	PROCESSING_ERROR((byte)1),

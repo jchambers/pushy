@@ -21,11 +21,11 @@ public class PushManager<T extends ApnsPushNotification> {
 	private final ApnsClientThread<T> clientThread;
 	private final FeedbackServiceClient feedbackClient;
 	
-	private final ArrayList<WeakReference<FailedDeliveryListener<T>>> failedDeliveryListeners;
+	private final ArrayList<WeakReference<RejectedNotificationListener<T>>> failedDeliveryListeners;
 	
 	public PushManager(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword) {
 		this.queue = new LinkedBlockingQueue<T>();
-		this.failedDeliveryListeners = new ArrayList<WeakReference<FailedDeliveryListener<T>>>();
+		this.failedDeliveryListeners = new ArrayList<WeakReference<RejectedNotificationListener<T>>>();
 		
 		this.environment = environment;
 		
@@ -69,17 +69,17 @@ public class PushManager<T extends ApnsPushNotification> {
 		return new ArrayList<T>(this.queue);
 	}
 	
-	public void registerFailedDeliveryListener(final FailedDeliveryListener<T> listener) {
-		this.failedDeliveryListeners.add(new WeakReference<FailedDeliveryListener<T>>(listener));
+	public void registerFailedDeliveryListener(final RejectedNotificationListener<T> listener) {
+		this.failedDeliveryListeners.add(new WeakReference<RejectedNotificationListener<T>>(listener));
 	}
 	
 	protected void notifyListenersOfFailedDelivery(final T notification, final ApnsException cause) {
-		for (final WeakReference<FailedDeliveryListener<T>> listenerReference : this.failedDeliveryListeners) {
-			final FailedDeliveryListener<T> listener = listenerReference.get();
+		for (final WeakReference<RejectedNotificationListener<T>> listenerReference : this.failedDeliveryListeners) {
+			final RejectedNotificationListener<T> listener = listenerReference.get();
 			
 			// TODO Clear out entries with expired references
 			if (listener != null) {
-				listener.handleFailedDelivery(notification, cause);
+				listener.handleRejectedNotification(notification, cause);
 			}
 		}
 	}

@@ -116,7 +116,7 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		
 		@Override
 		protected void channelRead0(final ChannelHandlerContext context, final ApnsException e) throws Exception {
-			this.clientThread.handleApnsException(e);
+			this.clientThread.handleRejectedNotification(e);
 		}
 		
 		@Override
@@ -277,7 +277,7 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		}
 	}
 	
-	protected void handleApnsException(final ApnsException e) {
+	protected void handleRejectedNotification(final ApnsException e) {
 		this.reconnect();
 		
 		// SHUTDOWN errors from Apple are harmless; nothing bad happened with the delivered notification, so
