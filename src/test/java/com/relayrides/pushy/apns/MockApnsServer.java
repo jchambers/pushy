@@ -72,12 +72,12 @@ public class MockApnsServer {
 		this.errorCode = errorCode;
 	}
 	
-	protected ApnsException handleReceivedNotification(final ReceivedApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
+	protected RejectedNotificationException handleReceivedNotification(final ReceivedApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
 		synchronized (this.receivedNotifications) {
 			this.receivedNotifications.add(receivedNotification.getPushNotification());
 			
 			if (this.receivedNotifications.size() == this.failWithErrorCount) {
-				return new ApnsException(receivedNotification.getNotificationId(), this.errorCode);
+				return new RejectedNotificationException(receivedNotification.getNotificationId(), this.errorCode);
 			} else {
 				return null;
 			}

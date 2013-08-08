@@ -130,7 +130,7 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.failedDeliveryListeners.add(new WeakReference<RejectedNotificationListener<T>>(listener));
 	}
 	
-	protected void notifyListenersOfRejectedNotification(final T notification, final ApnsException cause) {
+	protected void notifyListenersOfRejectedNotification(final T notification, final RejectedNotificationException cause) {
 		for (final WeakReference<RejectedNotificationListener<T>> listenerReference : this.failedDeliveryListeners) {
 			final RejectedNotificationListener<T> listener = listenerReference.get();
 			

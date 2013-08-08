@@ -9,7 +9,7 @@ import java.util.Date;
 import java.util.List;
 
 import com.relayrides.pushy.apns.ApnsErrorCode;
-import com.relayrides.pushy.apns.ApnsException;
+import com.relayrides.pushy.apns.RejectedNotificationException;
 import com.relayrides.pushy.util.SimpleApnsPushNotification;
 
 enum ApnsPushNotificationDecoderState {
@@ -121,7 +121,7 @@ public class ApnsPushNotificationDecoder extends ReplayingDecoder<ApnsPushNotifi
 	}
 	
 	private void reportErrorAndCloseConnection(final ChannelHandlerContext context, final int notificationId, final ApnsErrorCode errorCode) {
-		context.write(new ApnsException(0, ApnsErrorCode.UNKNOWN));
+		context.write(new RejectedNotificationException(0, ApnsErrorCode.UNKNOWN));
 		context.close();
 	}
 }

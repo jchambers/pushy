@@ -19,5 +19,5 @@ public interface RejectedNotificationListener<T extends ApnsPushNotification> {
 	 * @param notification the notification rejected by the APNs server
 	 * @param cause the cause reported by APNs for the rejection
 	 */
-	void handleRejectedNotification(T notification, ApnsException cause);
+	void handleRejectedNotification(T notification, RejectedNotificationException cause);
 }

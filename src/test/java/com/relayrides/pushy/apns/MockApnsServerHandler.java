@@ -8,7 +8,7 @@ import io.netty.util.concurrent.GenericFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.relayrides.pushy.apns.ApnsException;
+import com.relayrides.pushy.apns.RejectedNotificationException;
 import com.relayrides.pushy.util.SimpleApnsPushNotification;
 
 public class MockApnsServerHandler extends SimpleChannelInboundHandler<ReceivedApnsPushNotification<SimpleApnsPushNotification>> {
@@ -26,7 +26,7 @@ public class MockApnsServerHandler extends SimpleChannelInboundHandler<ReceivedA
 	protected void channelRead0(final ChannelHandlerContext context, ReceivedApnsPushNotification<SimpleApnsPushNotification> receivedNotification) throws Exception {
 		
 		if (!this.rejectFutureMessages) {
-			final ApnsException exception = this.server.handleReceivedNotification(receivedNotification);
+			final RejectedNotificationException exception = this.server.handleReceivedNotification(receivedNotification);
 			
 			if (exception != null) {
 				
