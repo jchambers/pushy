@@ -23,6 +23,25 @@ import java.util.Vector;
 import com.relayrides.pushy.apns.ApnsEnvironment;
 import com.relayrides.pushy.apns.SslCapableChannelInitializer;
 
+/**
+ * <p>A client that communicates with the APNs feedback to retrieve expired device tokens. According to Apple's
+ * documentation:</p>
+ * 
+ * <blockquote>The Apple Push Notification Service includes a feedback service to give you information about failed
+ * push notifications. When a push notification cannot be delivered because the intended app does not exist on the
+ * device, the feedback service adds that device’s token to its list. Push notifications that expire before being
+ * delivered are not considered a failed delivery and don’t impact the feedback service...</blockquote>
+ * 
+ * <blockquote>Query the feedback service daily to get the list of device tokens. Use the timestamp to verify that the
+ * device tokens haven’t been reregistered since the feedback entry was generated. For each device that has not been
+ * reregistered, stop sending notifications.</blockquote>
+ *
+ * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
+ *
+ * @see <a href="http://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW3">
+ * Local and Push Notification Programming Guide - Provider Communication with Apple Push Notification Service - The
+ * Feedback Service</a>
+ */
 public class FeedbackServiceClient {
 	
 	private final ApnsEnvironment environment;
@@ -90,10 +109,25 @@ public class FeedbackServiceClient {
 		}
 	}
 	
+	/**
+	 * <p>Constructs a new feedback client that connects to the feedback service in the given environment with no TLS
+	 * credentials. An {@code IllegalArgumentException} will be thrown if the given environment requires TLS.</p>
+	 * 
+	 * @param environment the environment from which to retrieve expired tokens
+	 */
 	public FeedbackServiceClient(final ApnsEnvironment environment) {
 		this(environment, null, null);
 	}
 	
+	/**
+	 * <p>Constructs a new feedback client that connects to the feedback service in the given environment with the
+	 * given TLS credentials.</p>
+	 * 
+	 * @param environment the environment from which to retrieve expired tokens
+	 * @param keyStore a {@code KeyStore} containing the client key to present during TLS handshaking; may be
+	 * {@code null} if the environment does not require TLS
+	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
+	 */
 	public FeedbackServiceClient(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword) {
 		
 		if (environment.isTlsRequired() && keyStore == null) {
@@ -130,6 +164,18 @@ public class FeedbackServiceClient {
 		this.expiredTokens.add(expiredToken);
 	}
 	
+	/**
+	 * <p>Retrieves a list of expired tokens from the APNs feedback service. Be warned that this is a
+	 * <strong>destructive operation</strong>. According to Apple's documentation:</p>
+	 * 
+	 * <blockquote>The feedback service’s list is cleared after you read it. Each time you connect to the feedback
+	 * service, the information it returns lists only the failures that have happened since you last
+	 * connected.</blockquote>
+	 * 
+	 * @return a list of tokens that have expired since the last connection to the feedback service
+	 * 
+	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
+	 */
 	public synchronized List<TokenExpiration> getExpiredTokens() throws InterruptedException {
 		this.expiredTokens.clear();
 		
@@ -148,6 +194,9 @@ public class FeedbackServiceClient {
 			}
 		}
 		
+		// The feedback service will send us a list of device tokens as soon as we connect, then hang up. While we're
+		// waiting to sync with the connection closure, we'll be receiving messages from the feedback service from
+		// another thread.
 		return new ArrayList<TokenExpiration>(this.expiredTokens);
 	}
 	
