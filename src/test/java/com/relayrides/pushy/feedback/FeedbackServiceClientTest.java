@@ -11,8 +11,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.relayrides.pushy.apns.ApnsEnvironment;
-import com.relayrides.pushy.feedback.FeedbackServiceClient;
-import com.relayrides.pushy.feedback.TokenExpiration;
 
 public class FeedbackServiceClientTest {
 	
@@ -28,7 +26,7 @@ public class FeedbackServiceClientTest {
 		this.feedbackServer.start();
 		
 		this.feedbackClient = new FeedbackServiceClient(
-				new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT, false));
+				new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT, false), null, null);
 	}
 
 	@Test

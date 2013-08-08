@@ -110,18 +110,9 @@ public class FeedbackServiceClient {
 	}
 	
 	/**
-	 * <p>Constructs a new feedback client that connects to the feedback service in the given environment with no TLS
-	 * credentials. An {@code IllegalArgumentException} will be thrown if the given environment requires TLS.</p>
-	 * 
-	 * @param environment the environment from which to retrieve expired tokens
-	 */
-	public FeedbackServiceClient(final ApnsEnvironment environment) {
-		this(environment, null, null);
-	}
-	
-	/**
 	 * <p>Constructs a new feedback client that connects to the feedback service in the given environment with the
-	 * given TLS credentials.</p>
+	 * given TLS credentials. An {@code IllegalArgumentException} will be thrown if the given environment requires TLS
+	 * and no credentials are provided.</p>
 	 * 
 	 * @param environment the environment from which to retrieve expired tokens
 	 * @param keyStore a {@code KeyStore} containing the client key to present during TLS handshaking; may be
