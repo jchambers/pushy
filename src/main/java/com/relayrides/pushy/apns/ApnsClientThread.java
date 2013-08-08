@@ -193,9 +193,11 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 
 							public void operationComplete(final ChannelFuture future) {
 								if (future.cause() != null) {
-									// Delivery failed for some IO-related reason; re-enqueue for another attempt
 									reconnect();
 									
+									// Delivery failed for some IO-related reason; re-enqueue for another attempt, but
+									// only if the notification is in the sent notification buffer (i.e. if it hasn't
+									// been re-enqueued for another reason).
 									final T failedNotification = sentNotificationBuffer.getAndRemoveNotificationWithId(
 											sendableNotification.getNotificationId());
 									
@@ -278,6 +280,8 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	protected void handleApnsException(final ApnsException e) {
 		this.reconnect();
 		
+		// SHUTDOWN errors from Apple are harmless; nothing bad happened with the delivered notification, so
+		// we don't want to notify listeners of the error (but we still do need to reconnect).
 		if (e.getErrorCode() != ApnsErrorCode.SHUTDOWN) {
 			this.pushManager.notifyListenersOfFailedDelivery(
 					this.getSentNotificationBuffer().getAndRemoveNotificationWithId(e.getNotificationId()), e);
