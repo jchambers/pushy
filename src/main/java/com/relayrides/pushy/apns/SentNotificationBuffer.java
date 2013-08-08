@@ -19,7 +19,7 @@ import java.util.List;
 public class SentNotificationBuffer<E extends ApnsPushNotification> {
 	
 	private final ApnsPushNotification[] buffer;
-	private int lastNotificationId;
+	private int lastSequenceNumber;
 	
 	/**
 	 * Constructs a new sent notification buffer. Note that {@code capacity} MUST be a power of 2.
@@ -40,22 +40,22 @@ public class SentNotificationBuffer<E extends ApnsPushNotification> {
 	 * @param notification the notification to add to the buffer
 	 */
 	public synchronized void addSentNotification(SendableApnsPushNotification<E> notification) {
-		this.buffer[this.getArrayIndexForNotificationId(notification.getNotificationId())] =
+		this.buffer[this.getArrayIndexForSequenceNumber(notification.getSequenceNumber())] =
 				notification.getPushNotification();
 		
-		this.lastNotificationId = notification.getNotificationId();
+		this.lastSequenceNumber = notification.getSequenceNumber();
 	}
 	
 	/**
-	 * Retrieves a notification from the buffer by its ID and removes that notification from the buffer.
+	 * Retrieves a notification from the buffer by its sequence number and removes that notification from the buffer.
 	 * 
-	 * @param notificationId the ID of the notification to retrieve
+	 * @param sequenceNumber the sequence number of the notification to retrieve
 	 * 
-	 * @return the notification with the given ID or {@code null} if no such notification was found
+	 * @return the notification with the given sequence number or {@code null} if no such notification was found
 	 */
-	public synchronized E getAndRemoveNotificationWithId(final int notificationId) {
-		if (this.mayContainNotificationId(notificationId)) {
-			final int arrayIndex = this.getArrayIndexForNotificationId(notificationId);
+	public synchronized E getAndRemoveNotificationWithSequenceNumber(final int sequenceNumber) {
+		if (this.mayContainSequenceNumber(sequenceNumber)) {
+			final int arrayIndex = this.getArrayIndexForSequenceNumber(sequenceNumber);
 			
 			@SuppressWarnings("unchecked")
 			final E notification = (E) this.buffer[arrayIndex];
@@ -69,19 +69,19 @@ public class SentNotificationBuffer<E extends ApnsPushNotification> {
 	}
 	
 	/**
-	 * Retrieves a list of all notifications received after the given notification ID (non-inclusive). All
+	 * Retrieves a list of all notifications received after the given notification sequence number (non-inclusive). All
 	 * returned notifications are removed from the buffer.
 	 * 
-	 * @param notificationId the ID of the notification (exclusive) after which to retrieve notifications
+	 * @param sequenceNumber the sequence number of the notification (exclusive) after which to retrieve notifications
 	 * 
-	 * @return all notifications in the buffer sent after the given notification ID
+	 * @return all notifications in the buffer sent after the given sequence number
 	 */
-	public synchronized List<E> getAndRemoveAllNotificationsAfterId(final int notificationId) {
+	public synchronized List<E> getAndRemoveAllNotificationsAfterSequenceNumber(final int sequenceNumber) {
 		final ArrayList<E> notifications = new ArrayList<E>();
 		
 		// Work around integer wrapping
-		for (int id = notificationId + 1; id - this.lastNotificationId <= 0; id++) {
-			final E notification = this.getAndRemoveNotificationWithId(id);
+		for (int id = sequenceNumber + 1; id - this.lastSequenceNumber <= 0; id++) {
+			final E notification = this.getAndRemoveNotificationWithSequenceNumber(id);
 			
 			if (notification != null) {
 				notifications.add(notification);
@@ -91,17 +91,17 @@ public class SentNotificationBuffer<E extends ApnsPushNotification> {
 		return notifications;
 	}
 	
-	private boolean mayContainNotificationId(final int notificationId) {
-		final int firstNotificationId = this.lastNotificationId - this.buffer.length;
+	private boolean mayContainSequenceNumber(final int sequenceNumber) {
+		final int firstNotificationId = this.lastSequenceNumber - this.buffer.length;
 		
-		return notificationId - firstNotificationId > 0;
+		return sequenceNumber - firstNotificationId > 0;
 	}
 	
-	private int getArrayIndexForNotificationId(final int notificationId) {
-		if (notificationId >= 0) {
-			return notificationId % this.buffer.length;
+	private int getArrayIndexForSequenceNumber(final int sequenceNumber) {
+		if (sequenceNumber >= 0) {
+			return sequenceNumber % this.buffer.length;
 		} else {
-			return (this.buffer.length + (notificationId % this.buffer.length)) % this.buffer.length;
+			return (this.buffer.length + (sequenceNumber % this.buffer.length)) % this.buffer.length;
 		}
 	}
 }

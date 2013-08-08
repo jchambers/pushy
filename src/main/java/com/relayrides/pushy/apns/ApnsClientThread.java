@@ -81,7 +81,7 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		@Override
 		protected void encode(final ChannelHandlerContext context, final SendableApnsPushNotification<T> sendablePushNotification, final ByteBuf out) throws Exception {
 			out.writeByte(ENHANCED_PUSH_NOTIFICATION_COMMAND);
-			out.writeInt(sendablePushNotification.getNotificationId());
+			out.writeInt(sendablePushNotification.getSequenceNumber());
 			
 			if (sendablePushNotification.getPushNotification().getDeliveryInvalidationTime() != null) {
 				out.writeInt(this.getTimestampInSeconds(sendablePushNotification.getPushNotification().getDeliveryInvalidationTime()));
@@ -194,8 +194,8 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 									// Delivery failed for some IO-related reason; re-enqueue for another attempt, but
 									// only if the notification is in the sent notification buffer (i.e. if it hasn't
 									// been re-enqueued for another reason).
-									final T failedNotification = sentNotificationBuffer.getAndRemoveNotificationWithId(
-											sendableNotification.getNotificationId());
+									final T failedNotification = sentNotificationBuffer.getAndRemoveNotificationWithSequenceNumber(
+											sendableNotification.getSequenceNumber());
 									
 									if (failedNotification != null) {
 										pushManager.enqueuePushNotification(failedNotification);
@@ -280,11 +280,11 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		// we don't want to notify listeners of the error (but we still do need to reconnect).
 		if (e.getErrorCode() != ApnsErrorCode.SHUTDOWN) {
 			this.pushManager.notifyListenersOfFailedDelivery(
-					this.getSentNotificationBuffer().getAndRemoveNotificationWithId(e.getNotificationId()), e);
+					this.getSentNotificationBuffer().getAndRemoveNotificationWithSequenceNumber(e.getNotificationId()), e);
 		}
 		
 		this.pushManager.enqueueAllNotifications(
-				this.sentNotificationBuffer.getAndRemoveAllNotificationsAfterId(e.getNotificationId()));
+				this.sentNotificationBuffer.getAndRemoveAllNotificationsAfterSequenceNumber(e.getNotificationId()));
 	}
 	
 	protected void reconnect() {

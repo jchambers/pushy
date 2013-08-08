@@ -41,8 +41,8 @@ public class SentNotificationBufferTest {
 		
 		this.buffer.addSentNotification(sendableNotification);
 		
-		assertNotNull(this.buffer.getAndRemoveNotificationWithId(0));
-		assertNull(this.buffer.getAndRemoveNotificationWithId(0));
+		assertNotNull(this.buffer.getAndRemoveNotificationWithSequenceNumber(0));
+		assertNull(this.buffer.getAndRemoveNotificationWithSequenceNumber(0));
 	}
 
 	@Test
@@ -54,8 +54,8 @@ public class SentNotificationBufferTest {
 			this.buffer.addSentNotification(sendableNotification);
 		}
 		
-		assertEquals(199, this.buffer.getAndRemoveAllNotificationsAfterId(CAPACITY - 100).size());
-		assertTrue(this.buffer.getAndRemoveAllNotificationsAfterId(CAPACITY - 100).isEmpty());
+		assertEquals(199, this.buffer.getAndRemoveAllNotificationsAfterSequenceNumber(CAPACITY - 100).size());
+		assertTrue(this.buffer.getAndRemoveAllNotificationsAfterSequenceNumber(CAPACITY - 100).isEmpty());
 	}
 
 }
