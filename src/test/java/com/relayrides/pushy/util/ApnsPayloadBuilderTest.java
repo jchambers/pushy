@@ -16,14 +16,11 @@ import org.junit.Test;
 public class ApnsPayloadBuilderTest {
 
 	private ApnsPayloadBuilder builder;
-	private final JSONParser parser;
-	
-	public ApnsPayloadBuilderTest() {
-		this.parser = new JSONParser();
-	}
+	private JSONParser parser;
 	
 	@Before
 	public void setUp() {
+		this.parser = new JSONParser();
 		this.builder = new ApnsPayloadBuilder();
 	}
 	
