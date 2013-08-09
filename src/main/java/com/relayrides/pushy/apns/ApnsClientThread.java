@@ -21,6 +21,14 @@ import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * <p>A worker thread that connects to an APNs server and transmits notifications from a {@code PushManager}'s
+ * queue.</p>
+ * 
+ * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
+ *
+ * @param <T>
+ */
 public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
 	private enum ClientState {
@@ -44,9 +52,7 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
 	private static final int SENT_NOTIFICATION_BUFFER_SIZE = 2048;
 	
-	
-	
-	private class ApnsErrorDecoder extends ByteToMessageDecoder {
+	private class RejectedNotificationDecoder extends ByteToMessageDecoder {
 
 		// Per Apple's docs, APNS errors will have a one-byte "command", a one-byte status, and a 4-byte notification ID
 		private static final int EXPECTED_BYTES = 6;
@@ -123,6 +129,13 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		}
 	}
 	
+	/**
+	 * Constructs a new APNs client thread. The thread connects to the APNs gateway in the given {@code PushManager}'s
+	 * environment and reads notifications from the {@code PushManager}'s queue.
+	 * 
+	 * @param pushManager the {@code PushManager} from which this client thread should read environment settings and
+	 * notifications
+	 */
 	public ApnsClientThread(final PushManager<T> pushManager) {
 		super("ApnsClientThread");
 		
@@ -148,18 +161,17 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 					pipeline.addLast("ssl", this.getSslHandler(pushManager.getKeyStore(), pushManager.getKeyStorePassword()));
 				}
 				
-				pipeline.addLast("decoder", new ApnsErrorDecoder());
+				pipeline.addLast("decoder", new RejectedNotificationDecoder());
 				pipeline.addLast("encoder", new ApnsPushNotificationEncoder());
 				pipeline.addLast("handler", new ApnsErrorHandler(clientThread));
 			}
 		});
 	}
 	
-	@Override
-	public void start() {
-		super.start();
-	}
-	
+	/**
+	 * Continually polls this thread's {@code PushManager}'s queue for new messages and sends them to the APNs
+	 * gateway. Automatically reconnects as needed.
+	 */
 	@Override
 	public void run() {
 		while (this.getClientState() != ClientState.EXIT) {
@@ -256,7 +268,7 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
 	protected void connect() throws InterruptedException {
 		final ChannelFuture connectFuture =
-				this.bootstrap.connect(this.pushManager.getEnvironment().getApnsHost(), this.pushManager.getEnvironment().getApnsPort()).sync();
+				this.bootstrap.connect(this.pushManager.getEnvironment().getApnsGatewayHost(), this.pushManager.getEnvironment().getApnsGatewayPort()).sync();
 		
 		if (connectFuture.isSuccess()) {
 			this.channel = connectFuture.channel();
@@ -293,6 +305,9 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		}
 	}
 	
+	/**
+	 * Gracefully and asynchronously shuts down this client thread.
+	 */
 	public void shutdown() {
 		// Don't re-shut-down if we're already on our way out
 		if (this.advanceToStateFromOriginStates(ClientState.SHUTDOWN, ClientState.CONNECT, ClientState.READY, ClientState.RECONNECT)) {

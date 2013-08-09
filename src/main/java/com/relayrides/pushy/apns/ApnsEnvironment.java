@@ -12,8 +12,8 @@ package com.relayrides.pushy.apns;
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
 public class ApnsEnvironment {
-	private final String apnsHost;
-	private final int apnsPort;
+	private final String apnsGatewayHost;
+	private final int apnsGatewayPort;
 	
 	private final String feedbackHost;
 	private final int feedbackPort;
@@ -23,15 +23,15 @@ public class ApnsEnvironment {
 	/**
 	 * Constructs a new APenvironment with the given host names and ports.
 	 * 
-	 * @param apnsHost the host name of the APNs gateway
-	 * @param apnsPort the TCP port for the APNs gateway
+	 * @param apnsGatewayHost the host name of the APNs gateway
+	 * @param apnsGatewayPort the TCP port for the APNs gateway
 	 * @param feedbackHost the host name of the APNs feedback service
 	 * @param feedbackPort the TCP port for the APNs feedback service
 	 * @param tlsRequired {@code true} if this environment requires TLS or {@code false} otherwise
 	 */
-	public ApnsEnvironment(final String apnsHost, final int apnsPort, final String feedbackHost, final int feedbackPort, final boolean tlsRequired) {
-		this.apnsHost = apnsHost;
-		this.apnsPort = apnsPort;
+	public ApnsEnvironment(final String apnsGatewayHost, final int apnsGatewayPort, final String feedbackHost, final int feedbackPort, final boolean tlsRequired) {
+		this.apnsGatewayHost = apnsGatewayHost;
+		this.apnsGatewayPort = apnsGatewayPort;
 		
 		this.feedbackHost = feedbackHost;
 		this.feedbackPort = feedbackPort;
@@ -44,8 +44,8 @@ public class ApnsEnvironment {
 	 * 
 	 * @return the host name of the APNs gateway in this environment
 	 */
-	public String getApnsHost() {
-		return this.apnsHost;
+	public String getApnsGatewayHost() {
+		return this.apnsGatewayHost;
 	}
 	
 	/**
@@ -53,8 +53,8 @@ public class ApnsEnvironment {
 	 * 
 	 * @return the TCP port for the APNs gateway in this environment
 	 */
-	public int getApnsPort() {
-		return this.apnsPort;
+	public int getApnsGatewayPort() {
+		return this.apnsGatewayPort;
 	}
 	
 	/**
