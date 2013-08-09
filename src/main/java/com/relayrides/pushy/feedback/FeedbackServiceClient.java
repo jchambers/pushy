@@ -29,11 +29,11 @@ import com.relayrides.pushy.apns.SslCapableChannelInitializer;
  * 
  * <blockquote>The Apple Push Notification Service includes a feedback service to give you information about failed
  * push notifications. When a push notification cannot be delivered because the intended app does not exist on the
- * device, the feedback service adds that device’s token to its list. Push notifications that expire before being
- * delivered are not considered a failed delivery and don’t impact the feedback service...</blockquote>
+ * device, the feedback service adds that device's token to its list. Push notifications that expire before being
+ * delivered are not considered a failed delivery and don't impact the feedback service...</blockquote>
  * 
  * <blockquote>Query the feedback service daily to get the list of device tokens. Use the timestamp to verify that the
- * device tokens haven’t been reregistered since the feedback entry was generated. For each device that has not been
+ * device tokens haven't been reregistered since the feedback entry was generated. For each device that has not been
  * reregistered, stop sending notifications.</blockquote>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
@@ -159,7 +159,7 @@ public class FeedbackServiceClient {
 	 * <p>Retrieves a list of expired tokens from the APNs feedback service. Be warned that this is a
 	 * <strong>destructive operation</strong>. According to Apple's documentation:</p>
 	 * 
-	 * <blockquote>The feedback service’s list is cleared after you read it. Each time you connect to the feedback
+	 * <blockquote>The feedback service's list is cleared after you read it. Each time you connect to the feedback
 	 * service, the information it returns lists only the failures that have happened since you last
 	 * connected.</blockquote>
 	 * 

@@ -42,6 +42,12 @@ public class ApnsPayloadBuilder {
 	private static final int DEFAULT_PAYLOAD_SIZE = 256;
 	
 	/**
+	 * Constructs a new payload builder.
+	 */
+	public ApnsPayloadBuilder() {
+	}
+	
+	/**
 	 * <p>Sets the literal text of the alert message to be shown for the push notification. A literal alert message may
 	 * not be set if a localized alert message key is already specified.</p>
 	 * 
@@ -89,7 +95,7 @@ public class ApnsPayloadBuilder {
 	 * <blockquote>The filename of an image file in the application bundle; it may include the extension or omit it.
 	 * The image is used as the launch image when users tap the action button or move the action slider. If this
 	 * property is not specified, the system either uses the previous snapshot, uses the image identified by the
-	 * @{code UILaunchImageFile} key in the application’s {@code Info.plist} file, or falls back to
+	 * {@code UILaunchImageFile} key in the application’s {@code Info.plist} file, or falls back to
 	 * {@code Default.png}.</blockquote>
 	 * 
 	 * @param launchImageFilename the filename of an image file in the receiving app's bundle to be shown when launching
@@ -130,7 +136,7 @@ public class ApnsPayloadBuilder {
 	 * If the badge number is 0, the badge is removed from the application icon. If {@code null}, the badge is left in
 	 * its current state. By default, no change is made to the badge.</p>
 	 * 
-	 * @param badge the number to display as the badge of application or {@code null} to leave the badge unchanged
+	 * @param badgeNumber the number to display as the badge of application or {@code null} to leave the badge unchanged
 	 */
 	public void setBadgeNumber(final Integer badgeNumber) {
 		this.badgeNumber = badgeNumber;
@@ -175,9 +181,8 @@ public class ApnsPayloadBuilder {
 	
 	/**
 	 * <p>Returns a JSON representation of the push notification payload under construction. If the payload length is
-	 * longer than the default maximum ({@value #DEFAULT_PAYLOAD_SIZE} bytes), the literal alert body will be shortened
-	 * if possible. If the alert body cannot be shortened or is not present, an {@code IllegalArgumentException} is
-	 * thrown.</p>
+	 * longer than the default maximum (256 bytes), the literal alert body will be shortened if possible. If the alert
+	 * body cannot be shortened or is not present, an {@code IllegalArgumentException} is thrown.</p>
 	 * 
 	 * @return a JSON representation of the payload under construction (possibly with an abbreviated alert body)
 	 */

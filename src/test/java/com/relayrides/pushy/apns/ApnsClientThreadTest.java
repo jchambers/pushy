@@ -82,7 +82,7 @@ public class ApnsClientThreadTest {
 		final SimpleApnsPushNotification notification = new SimpleApnsPushNotification(TOKEN, PAYLOAD, EXPIRATION);
 		
 		final int iterations = 100;
-		this.server.failWithErrorAfterNotifications(ApnsErrorCode.INVALID_TOKEN, 10);
+		this.server.failWithErrorAfterNotifications(RejectedNotificationReason.INVALID_TOKEN, 10);
 		
 		
 		for (int i = 0; i < iterations; i++) {

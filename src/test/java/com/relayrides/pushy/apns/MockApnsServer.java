@@ -21,7 +21,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Vector;
 
-import com.relayrides.pushy.apns.ApnsErrorCode;
+import com.relayrides.pushy.apns.RejectedNotificationReason;
 import com.relayrides.pushy.util.SimpleApnsPushNotification;
 
 public class MockApnsServer {
@@ -35,7 +35,7 @@ public class MockApnsServer {
 	private final Vector<SimpleApnsPushNotification> receivedNotifications;
 	
 	private int failWithErrorCount = 0;
-	private ApnsErrorCode errorCode;
+	private RejectedNotificationReason errorCode;
 	
 	private enum ApnsPushNotificationDecoderState {
 		OPCODE,
@@ -71,7 +71,7 @@ public class MockApnsServer {
 					final byte opcode = in.readByte();
 					
 					if (opcode != EXPECTED_OPCODE) {
-						reportErrorAndCloseConnection(context, 0, ApnsErrorCode.UNKNOWN);
+						reportErrorAndCloseConnection(context, 0, RejectedNotificationReason.UNKNOWN);
 					} else {
 						this.checkpoint(ApnsPushNotificationDecoderState.SEQUENCE_NUMBER);
 					}
@@ -113,7 +113,7 @@ public class MockApnsServer {
 					final int payloadSize = in.readShort() & 0x0000FFFF;
 					
 					if (payloadSize > this.maxPayloadSize) {
-						this.reportErrorAndCloseConnection(context, this.sequenceNumber, ApnsErrorCode.INVALID_PAYLOAD_SIZE);
+						this.reportErrorAndCloseConnection(context, this.sequenceNumber, RejectedNotificationReason.INVALID_PAYLOAD_SIZE);
 					} else {
 						this.payloadBytes = new byte[payloadSize];
 						this.checkpoint(ApnsPushNotificationDecoderState.PAYLOAD);
@@ -138,8 +138,8 @@ public class MockApnsServer {
 			}
 		}
 		
-		private void reportErrorAndCloseConnection(final ChannelHandlerContext context, final int notificationId, final ApnsErrorCode errorCode) {
-			context.write(new RejectedNotificationException(0, ApnsErrorCode.UNKNOWN));
+		private void reportErrorAndCloseConnection(final ChannelHandlerContext context, final int notificationId, final RejectedNotificationReason errorCode) {
+			context.write(new RejectedNotificationException(0, RejectedNotificationReason.UNKNOWN));
 			context.close();
 		}
 	}
@@ -151,7 +151,7 @@ public class MockApnsServer {
 		@Override
 		protected void encode(final ChannelHandlerContext context, final RejectedNotificationException e, final ByteBuf out) {
 			out.writeByte(ERROR_COMMAND);
-			out.writeByte(e.getErrorCode().getCode());
+			out.writeByte(e.getErrorCode().getErrorCode());
 			out.writeInt(e.getSequenceNumberId());
 		}
 	}
@@ -227,7 +227,7 @@ public class MockApnsServer {
 		this.bossGroup.shutdownGracefully();
 	}
 	
-	public void failWithErrorAfterNotifications(final ApnsErrorCode errorCode, final int notificationCount) {
+	public void failWithErrorAfterNotifications(final RejectedNotificationReason errorCode, final int notificationCount) {
 		this.failWithErrorCount = notificationCount;
 		this.errorCode = errorCode;
 	}

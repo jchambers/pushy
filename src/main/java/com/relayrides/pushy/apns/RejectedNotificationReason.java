@@ -6,7 +6,7 @@ package com.relayrides.pushy.apns;
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-public enum ApnsErrorCode {
+public enum RejectedNotificationReason {
 	NO_ERROR((byte)0),
 	PROCESSING_ERROR((byte)1),
 	MISSING_TOKEN((byte)2),
@@ -18,7 +18,8 @@ public enum ApnsErrorCode {
 	INVALID_TOKEN((byte)8),
 	
 	/**
-	 * <p>According to Apple's documentation:</p>
+	 * <p>Indicates that the notification was accepted, but the connection is being shut down for maintenance.
+	 * According to Apple's documentation:</p>
 	 * 
 	 * <blockquote>A status code of 10 indicates that the APNs server closed the
 	 * connection (for example, to perform maintenance). The notification
@@ -31,23 +32,35 @@ public enum ApnsErrorCode {
 	
 	UNKNOWN((byte)255);
 	
-	private final byte code;
+	private final byte errorCode;
 	
-	private ApnsErrorCode(final byte code) {
-		this.code = code;
+	private RejectedNotificationReason(final byte errorCode) {
+		this.errorCode = errorCode;
 	}
 	
-	public byte getCode() {
-		return this.code;
+	/**
+	 * Returns the one-byte error code associated with this rejection reason.
+	 * 
+	 * @return the one-byte error code associated with this rejection reason
+	 */
+	public byte getErrorCode() {
+		return this.errorCode;
 	}
 	
-	public static ApnsErrorCode getByCode(final byte code) {
-		for (final ApnsErrorCode error : ApnsErrorCode.values()) {
-			if (error.code == code) {
+	/**
+	 * Gets the rejection reason associated with the given error code.
+	 * 
+	 * @param errorCode the error code for which to retrieve a rejection reason
+	 * 
+	 * @return the rejection reason associated with {@code errorCode}
+	 */
+	public static RejectedNotificationReason getByErrorCode(final byte errorCode) {
+		for (final RejectedNotificationReason error : RejectedNotificationReason.values()) {
+			if (error.errorCode == errorCode) {
 				return error;
 			}
 		}
 		
-		throw new IllegalArgumentException(String.format("Unrecognized error code: %d", code));
+		throw new IllegalArgumentException(String.format("Unrecognized error code: %d", errorCode));
 	}
 }

@@ -5,7 +5,7 @@ package com.relayrides.pushy.apns;
  * one production environment and one &quot;sandbox&quot; environment. Custom environments may be created for
  * development and testing purposes.</p>
  * 
- * <p>APNs environments may optionally require TLS. Both Apple-provided environments require TLS. See Apple's
+ * <p>APNs environments may optionally require TLS. Both Apple-provided environments require TLS. See
  * <a href="http://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ProvisioningDevelopment.html#//apple_ref/doc/uid/TP40008194-CH104-SW1">
  * &quot;Provisioning and Development&quot;</a> for details.</p>
  *

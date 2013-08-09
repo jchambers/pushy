@@ -8,10 +8,12 @@ package com.relayrides.pushy.util;
 public class TokenUtil {
 	private static final String NON_HEX_CHARACTER_PATTERN = "[^0-9a-fA-F]";
 	
+	private TokenUtil() {}
+	
 	/**
 	 * <p>Converts a string of hexadecimal characters into a byte array. All non-hexadecimal characters (i.e. 0-9 and
 	 * A-F) are ignored in the conversion. Note that this means that
-	 * {@code TokenUtil.tokenBytesToString(TokenUtil.tokenStringToByteArray(tokenString)) may be different from
+	 * {@code TokenUtil.tokenBytesToString(TokenUtil.tokenStringToByteArray(tokenString))} may be different from
 	 * {@code tokenString}.</p>
 	 * 
 	 * <p>As an example, a valid token string may look something like this: {@code <740f4707 61bb78ad>}. This method

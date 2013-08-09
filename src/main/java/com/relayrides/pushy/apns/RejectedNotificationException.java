@@ -9,7 +9,7 @@ public class RejectedNotificationException extends Exception {
 	private static final long serialVersionUID = 1L;
 	
 	private final int sequenceNumber;
-	private final ApnsErrorCode errorCode;
+	private final RejectedNotificationReason errorCode;
 	
 	/**
 	 * Constructs a new rejected notification exception indicating that the notification sent with the given sequence
@@ -18,7 +18,7 @@ public class RejectedNotificationException extends Exception {
 	 * @param sequenceNumber the sequence number of the rejected notification
 	 * @param errorCode the reason reported by APNs for the rejection
 	 */
-	public RejectedNotificationException(final int sequenceNumber, final ApnsErrorCode errorCode) {
+	public RejectedNotificationException(final int sequenceNumber, final RejectedNotificationReason errorCode) {
 		this.sequenceNumber = sequenceNumber;
 		this.errorCode = errorCode;
 	}
@@ -37,7 +37,7 @@ public class RejectedNotificationException extends Exception {
 	 * 
 	 * @return the reason the notification was rejected by APNs
 	 */
-	public ApnsErrorCode getErrorCode() {
+	public RejectedNotificationReason getErrorCode() {
 		return this.errorCode;
 	}
 }

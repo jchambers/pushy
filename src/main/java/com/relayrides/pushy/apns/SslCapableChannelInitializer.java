@@ -26,6 +26,8 @@ public abstract class SslCapableChannelInitializer extends ChannelInitializer<So
 	private static final String PROTOCOL = "TLS";
 	private static final String DEFAULT_ALGORITHM = "SunX509";
 	
+	protected SslCapableChannelInitializer() {}
+	
 	protected SslHandler getSslHandler(final KeyStore keyStore, final char[] keyStorePassword) throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException, UnrecoverableKeyException {
 		String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
 		
