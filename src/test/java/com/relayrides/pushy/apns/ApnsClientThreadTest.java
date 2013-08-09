@@ -1,6 +1,6 @@
 package com.relayrides.pushy.apns;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import java.util.Date;
 import java.util.List;
@@ -76,6 +76,35 @@ public class ApnsClientThreadTest {
 		assertEquals(iterations, receivedNotifications.size());
 	}
 	
+	@Test
+	public void testSendManyNotificationsWithMultipleThreads() throws InterruptedException {
+		final ApnsClientThread<SimpleApnsPushNotification> secondClientThread =
+				new ApnsClientThread<SimpleApnsPushNotification>(this.pushManager);
+		
+		secondClientThread.connect();
+		
+		try {
+			secondClientThread.start();
+			
+			final SimpleApnsPushNotification notification = new SimpleApnsPushNotification(TOKEN, PAYLOAD, EXPIRATION);
+			
+			final int iterations = 1000;
+			
+			for (int i = 0; i < iterations; i++) {
+				this.pushManager.enqueuePushNotification(notification);
+			}
+			
+			this.waitForQueueToEmpty();
+			this.clientThread.getLastWriteFuture().sync();
+			secondClientThread.getLastWriteFuture().sync();
+			
+			final List<SimpleApnsPushNotification> receivedNotifications = this.server.getReceivedNotifications();
+			
+			assertEquals(iterations, receivedNotifications.size());
+		} finally {
+			secondClientThread.shutdown();
+		}
+	}
 	
 	@Test
 	public void testSendNotificationsWithError() throws InterruptedException {
@@ -83,7 +112,6 @@ public class ApnsClientThreadTest {
 		
 		final int iterations = 100;
 		this.server.failWithErrorAfterNotifications(RejectedNotificationReason.INVALID_TOKEN, 10);
-		
 		
 		for (int i = 0; i < iterations; i++) {
 			this.pushManager.enqueuePushNotification(notification);
@@ -95,6 +123,36 @@ public class ApnsClientThreadTest {
 		final List<SimpleApnsPushNotification> receivedNotifications = this.server.getReceivedNotifications();
 		
 		assertEquals(iterations, receivedNotifications.size());
+	}
+	
+	@Test
+	public void testSendManyNotificationsWithMultipleThreadsAndError() throws InterruptedException {
+		final ApnsClientThread<SimpleApnsPushNotification> secondClientThread =
+				new ApnsClientThread<SimpleApnsPushNotification>(this.pushManager);
+		
+		secondClientThread.connect();
+		
+		try {
+			secondClientThread.start();
+			
+			final SimpleApnsPushNotification notification = new SimpleApnsPushNotification(TOKEN, PAYLOAD, EXPIRATION);
+			
+			final int iterations = 100;
+			this.server.failWithErrorAfterNotifications(RejectedNotificationReason.INVALID_TOKEN, 10);
+			
+			for (int i = 0; i < iterations; i++) {
+				this.pushManager.enqueuePushNotification(notification);
+			}
+			
+			this.waitForQueueToEmpty();
+			this.clientThread.getLastWriteFuture().sync();
+			
+			final List<SimpleApnsPushNotification> receivedNotifications = this.server.getReceivedNotifications();
+			
+			assertEquals(iterations, receivedNotifications.size());
+		} finally {
+			secondClientThread.shutdown();
+		}
 	}
 	
 	@After

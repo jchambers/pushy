@@ -12,8 +12,8 @@ import com.relayrides.pushy.feedback.FeedbackServiceClient;
 import com.relayrides.pushy.feedback.TokenExpiration;
 
 /**
- * <p>A {@code PushManager} is the main public-facing point of interaction with the APNs service. {@code PushManager}s
- * manage the queue of outbound push notifications and manage connections to the various APNs servers.</p>
+ * <p>A {@code PushManager} is the main public-facing point of interaction with APNs. {@code PushManager}s manage the
+ * queue of outbound push notifications and manage connections to the various APNs servers.</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  *
@@ -26,13 +26,14 @@ public class PushManager<T extends ApnsPushNotification> {
 	private final KeyStore keyStore;
 	private final char[] keyStorePassword;
 	
-	private final ApnsClientThread<T> clientThread;
+	private final ArrayList<ApnsClientThread<T>> clientThreads;
 	private final FeedbackServiceClient feedbackClient;
 	
 	private final ArrayList<WeakReference<RejectedNotificationListener<T>>> failedDeliveryListeners;
 	
 	/**
-	 * Constructs a new {@code PushManager} that operates in the given environment with the given credentials.
+	 * Constructs a new {@code PushManager} that operates in the given environment with the given credentials and a
+	 * single connection to APNs.
 	 * 
 	 * @param environment the environment in which this {@code PushManager} operates
 	 * @param keyStore a {@code KeyStore} containing the client key to present during a TLS handshake; may be
@@ -40,6 +41,22 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
 	 */
 	public PushManager(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword) {
+		this(environment, keyStore, keyStorePassword, 1);
+	}
+	
+	/**
+	 * <p>Constructs a new {@code PushManager} that operates in the given environment with the given credentials and the
+	 * given number of parallel connections to APNs. See
+	 * <a href="http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW6">
+	 * Best Practices for Managing Connections</a> for additional information.</p>
+	 * 
+	 * @param environment the environment in which this {@code PushManager} operates
+	 * @param keyStore a {@code KeyStore} containing the client key to present during a TLS handshake; may be
+	 * {@code null} if the environment does not require TLS
+	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
+	 * @param concurrentConnections the number of parallel connections to open to APNs
+	 */
+	public PushManager(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword, final int concurrentConnections) {
 		this.queue = new LinkedBlockingQueue<T>();
 		this.failedDeliveryListeners = new ArrayList<WeakReference<RejectedNotificationListener<T>>>();
 		
@@ -48,7 +65,12 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.keyStore = keyStore;
 		this.keyStorePassword = keyStorePassword;
 		
-		this.clientThread = new ApnsClientThread<T>(this);
+		this.clientThreads = new ArrayList<ApnsClientThread<T>>(concurrentConnections);
+		
+		for (int i = 0; i < concurrentConnections; i++) {
+			this.clientThreads.add(new ApnsClientThread<T>(this));
+		}
+		
 		this.feedbackClient = new FeedbackServiceClient(this.getEnvironment(), this.getKeyStore(), this.getKeyStorePassword());
 	}
 	
@@ -70,11 +92,13 @@ public class PushManager<T extends ApnsPushNotification> {
 	}
 	
 	/**
-	 * Opens a connection to the APNs service and prepares to send push notifications. Note that enqueued push
-	 * notifications will <strong>not</strong> be sent until this method is called.
+	 * Opens all connections to APNs and prepares to send push notifications. Note that enqueued push notifications
+	 * will <strong>not</strong> be sent until this method is called.
 	 */
 	public synchronized void start() {
-		this.clientThread.start();
+		for (final ApnsClientThread<T> clientThread : this.clientThreads) {
+			clientThread.start();
+		}
 	}
 	
 	/**
@@ -111,8 +135,13 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * @throws InterruptedException if interrupted while waiting for worker threads to exit cleanly
 	 */
 	public synchronized List<T> shutdown() throws InterruptedException {
-		this.clientThread.shutdown();
-		this.clientThread.join();
+		for (final ApnsClientThread<T> clientThread : this.clientThreads) {
+			clientThread.shutdown();
+		}
+		
+		for (final ApnsClientThread<T> clientThread : this.clientThreads) {
+			clientThread.join();
+		}
 		
 		this.feedbackClient.destroy();
 		
