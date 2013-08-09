@@ -36,8 +36,9 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * single connection to APNs.
 	 * 
 	 * @param environment the environment in which this {@code PushManager} operates
-	 * @param keyStore a {@code KeyStore} containing the client key to present during a TLS handshake; may be
-	 * {@code null} if the environment does not require TLS
+	 * @param keyStore A {@code KeyStore} containing the client key to present during a TLS handshake; may be
+	 * {@code null} if the environment does not require TLS. The {@code KeyStore} should be loaded before being used
+	 * here.
 	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
 	 */
 	public PushManager(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword) {
@@ -51,8 +52,9 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * Best Practices for Managing Connections</a> for additional information.</p>
 	 * 
 	 * @param environment the environment in which this {@code PushManager} operates
-	 * @param keyStore a {@code KeyStore} containing the client key to present during a TLS handshake; may be
-	 * {@code null} if the environment does not require TLS
+	 * @param keyStore A {@code KeyStore} containing the client key to present during a TLS handshake; may be
+	 * {@code null} if the environment does not require TLS. The {@code KeyStore} should be loaded before being used
+	 * here.
 	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
 	 * @param concurrentConnections the number of parallel connections to open to APNs
 	 */

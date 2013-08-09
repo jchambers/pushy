@@ -37,7 +37,7 @@ public class RejectedNotificationException extends Exception {
 	 * 
 	 * @return the reason the notification was rejected by APNs
 	 */
-	public RejectedNotificationReason getErrorCode() {
+	public RejectedNotificationReason getReason() {
 		return this.errorCode;
 	}
 }

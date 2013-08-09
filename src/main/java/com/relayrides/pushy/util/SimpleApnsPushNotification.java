@@ -20,6 +20,19 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 	private final Date expiration;
 	
 	/**
+	 * Constructs a new push notification with the given token and payload. No expiration time is set for the
+	 * notification, so APNs will not attempt to store the notification for later delivery if the initial attempt fails.
+	 * 
+	 * @param token the device token to which this push notification should be delivered
+	 * @param payload the payload to include in this push notification
+	 * @param expiration the time at which Apple's servers should stop trying to deliver this message; if {@code null},
+	 * no delivery attempts beyond the first will be made
+	 */
+	public SimpleApnsPushNotification(final byte[] token, final String payload) {
+		this(token, payload, null);
+	}
+	
+	/**
 	 * Constructs a new push notification with the given token, payload, and delivery expiration time.
 	 * 
 	 * @param token the device token to which this push notification should be delivered

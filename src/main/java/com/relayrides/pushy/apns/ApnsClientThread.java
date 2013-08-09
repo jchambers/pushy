@@ -290,7 +290,7 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		
 		// SHUTDOWN errors from Apple are harmless; nothing bad happened with the delivered notification, so
 		// we don't want to notify listeners of the error (but we still do need to reconnect).
-		if (e.getErrorCode() != RejectedNotificationReason.SHUTDOWN) {
+		if (e.getReason() != RejectedNotificationReason.SHUTDOWN) {
 			this.pushManager.notifyListenersOfRejectedNotification(
 					this.getSentNotificationBuffer().getAndRemoveNotificationWithSequenceNumber(e.getSequenceNumberId()), e);
 		}

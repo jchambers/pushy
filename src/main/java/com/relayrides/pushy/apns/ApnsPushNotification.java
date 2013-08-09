@@ -36,7 +36,7 @@ public interface ApnsPushNotification {
 	/**
 	 * Returns the time at which Apple's push notification service should stop trying to deliver this push notification
 	 * to its destination. If @{code null}, the push notification service will not attempt to store the notification at
-	 * all.
+	 * all. Note that APNs will only store one notification per device token for redelivery at a time.
 	 * 
 	 * @return the time at which this notification can be discarded
 	 * 

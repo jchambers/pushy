@@ -151,7 +151,7 @@ public class MockApnsServer {
 		@Override
 		protected void encode(final ChannelHandlerContext context, final RejectedNotificationException e, final ByteBuf out) {
 			out.writeByte(ERROR_COMMAND);
-			out.writeByte(e.getErrorCode().getErrorCode());
+			out.writeByte(e.getReason().getErrorCode());
 			out.writeInt(e.getSequenceNumberId());
 		}
 	}
