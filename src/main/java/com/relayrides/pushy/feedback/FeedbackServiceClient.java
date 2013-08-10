@@ -14,13 +14,14 @@ import io.netty.handler.codec.ReplayingDecoder;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.util.concurrent.Future;
 
-import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Vector;
 
 import com.relayrides.pushy.apns.ApnsEnvironment;
+import com.relayrides.pushy.apns.ApnsPushNotification;
+import com.relayrides.pushy.apns.PushManager;
 import com.relayrides.pushy.apns.SslCapableChannelInitializer;
 
 /**
@@ -35,6 +36,10 @@ import com.relayrides.pushy.apns.SslCapableChannelInitializer;
  * <blockquote>Query the feedback service daily to get the list of device tokens. Use the timestamp to verify that the
  * device tokens haven't been reregistered since the feedback entry was generated. For each device that has not been
  * reregistered, stop sending notifications.</blockquote>
+ * 
+ * <p>Generally, users of Pushy should <em>not</em> instantiate a {@code FeedbackServiceClient} directly, but should
+ * instead call {@link com.relayrides.pushy.apns.PushManager#getExpiredTokens()}, which will manage the creation
+ * and configuration of a {@code FeedbackServiceClient} internally.</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  *
@@ -110,22 +115,14 @@ public class FeedbackServiceClient {
 	}
 	
 	/**
-	 * <p>Constructs a new feedback client that connects to the feedback service in the given environment with the
-	 * given TLS credentials. An {@code IllegalArgumentException} will be thrown if the given environment requires TLS
-	 * and no credentials are provided.</p>
+	 * <p>Constructs a new feedback client that connects to the feedback service in the given {@code PushManager}'s
+	 * environment.</p>
 	 * 
-	 * @param environment the environment from which to retrieve expired tokens
-	 * @param keyStore a {@code KeyStore} containing the client key to present during TLS handshaking; may be
-	 * {@code null} if the environment does not require TLS
-	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
+	 * @param pushManager the {@code PushManager} in whose environment this client should operate
 	 */
-	public FeedbackServiceClient(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword) {
+	public FeedbackServiceClient(final PushManager<? extends ApnsPushNotification> pushManager) {
 		
-		if (environment.isTlsRequired() && keyStore == null) {
-			throw new IllegalArgumentException("Must pass a KeyStore for environments that require TLS.");
-		}
-
-		this.environment = environment;
+		this.environment = pushManager.getEnvironment();
 		
 		this.bootstrap = new Bootstrap();
 		this.bootstrap.group(new NioEventLoopGroup());
@@ -139,7 +136,7 @@ public class FeedbackServiceClient {
 				final ChannelPipeline pipeline = channel.pipeline();
 				
 				if (environment.isTlsRequired()) {
-					pipeline.addLast("ssl", this.getSslHandler(keyStore, keyStorePassword));
+					pipeline.addLast("ssl", this.getSslHandler(pushManager.getKeyStore(), pushManager.getKeyStorePassword()));
 				}
 				
 				pipeline.addLast("decoder", new ExpiredTokenDecoder());

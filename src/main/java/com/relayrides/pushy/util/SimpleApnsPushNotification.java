@@ -25,8 +25,6 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 	 * 
 	 * @param token the device token to which this push notification should be delivered
 	 * @param payload the payload to include in this push notification
-	 * @param expiration the time at which Apple's servers should stop trying to deliver this message; if {@code null},
-	 * no delivery attempts beyond the first will be made
 	 */
 	public SimpleApnsPushNotification(final byte[] token, final String payload) {
 		this(token, payload, null);

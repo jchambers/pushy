@@ -25,9 +25,10 @@ import java.util.List;
  * <p>A worker thread that connects to an APNs server and transmits notifications from a {@code PushManager}'s
  * queue.</p>
  * 
+ * <p>Generally, users of Pushy should <em>not</em> instantiate an {@code ApnsClientThread} directly, but should
+ * instead construct a {@link PushManager}, which will manage the lifecycle of one or more client threads.</p>
+ * 
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
- *
- * @param <T>
  */
 public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	

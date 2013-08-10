@@ -11,6 +11,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.relayrides.pushy.apns.ApnsEnvironment;
+import com.relayrides.pushy.apns.PushManager;
+import com.relayrides.pushy.util.SimpleApnsPushNotification;
 
 public class FeedbackServiceClientTest {
 	
@@ -25,8 +27,11 @@ public class FeedbackServiceClientTest {
 		this.feedbackServer = new MockFeedbackServer(FEEDBACK_PORT);
 		this.feedbackServer.start();
 		
-		this.feedbackClient = new FeedbackServiceClient(
-				new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT, false), null, null);
+		final PushManager<SimpleApnsPushNotification> pushManager =
+				new PushManager<SimpleApnsPushNotification>(
+						new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT, false), null, null);
+		
+		this.feedbackClient = new FeedbackServiceClient(pushManager);
 	}
 
 	@Test

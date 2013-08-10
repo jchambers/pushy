@@ -59,6 +59,11 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * @param concurrentConnections the number of parallel connections to open to APNs
 	 */
 	public PushManager(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword, final int concurrentConnections) {
+		
+		if (environment.isTlsRequired() && keyStore == null) {
+			throw new IllegalArgumentException("Must include a non-null KeyStore for environments that require TLS.");
+		}
+		
 		this.queue = new LinkedBlockingQueue<T>();
 		this.failedDeliveryListeners = new ArrayList<WeakReference<RejectedNotificationListener<T>>>();
 		
@@ -73,7 +78,7 @@ public class PushManager<T extends ApnsPushNotification> {
 			this.clientThreads.add(new ApnsClientThread<T>(this));
 		}
 		
-		this.feedbackClient = new FeedbackServiceClient(this.getEnvironment(), this.getKeyStore(), this.getKeyStorePassword());
+		this.feedbackClient = new FeedbackServiceClient(this);
 	}
 	
 	/**
@@ -85,11 +90,21 @@ public class PushManager<T extends ApnsPushNotification> {
 		return this.environment;
 	}
 	
-	protected KeyStore getKeyStore() {
+	/**
+	 * Returns the {@code KeyStore} containing the client certificate to presented to TLS-enabled APNs servers.
+	 * 
+	 * @return the {@code KeyStore} containing the client certificate to presented to TLS-enabled APNs servers
+	 */
+	public KeyStore getKeyStore() {
 		return this.keyStore;
 	}
 	
-	protected char[] getKeyStorePassword() {
+	/**
+	 * Returns the key to unlock the {@code KeyStore} for this {@code PushManager}.
+	 * 
+	 * @return the key to unlock the {@code KeyStore} for this {@code PushManager}
+	 */
+	public char[] getKeyStorePassword() {
 		return this.keyStorePassword;
 	}
 	
