@@ -1,4 +1,4 @@
-package com.relayrides.pushy.util;
+package com.relayrides.pushy.apns.util;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -12,6 +12,8 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.junit.Before;
 import org.junit.Test;
+
+import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 
 public class ApnsPayloadBuilderTest {
 

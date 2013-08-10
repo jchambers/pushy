@@ -1,9 +1,11 @@
-package com.relayrides.pushy.util;
+package com.relayrides.pushy.apns.util;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
+
+import com.relayrides.pushy.apns.util.TokenUtil;
 
 public class TokenUtilTest {
 

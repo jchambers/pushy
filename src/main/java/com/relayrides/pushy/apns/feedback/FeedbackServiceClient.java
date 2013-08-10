@@ -1,4 +1,4 @@
-package com.relayrides.pushy.feedback;
+package com.relayrides.pushy.apns.feedback;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;

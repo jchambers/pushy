@@ -10,7 +10,7 @@ import java.util.Date;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.relayrides.pushy.util.SimpleApnsPushNotification;
+import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class SentNotificationBufferTest {
 

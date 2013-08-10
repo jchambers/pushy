@@ -1,4 +1,4 @@
-package com.relayrides.pushy.feedback;
+package com.relayrides.pushy.apns.feedback;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
@@ -16,7 +16,7 @@ import io.netty.util.concurrent.GenericFutureListener;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.relayrides.pushy.feedback.TokenExpiration;
+import com.relayrides.pushy.apns.feedback.TokenExpiration;
 
 public class MockFeedbackServer {
 	

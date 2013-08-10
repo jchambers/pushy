@@ -1,4 +1,4 @@
-package com.relayrides.pushy.util;
+package com.relayrides.pushy.apns.util;
 
 import java.nio.charset.Charset;
 import java.util.HashMap;

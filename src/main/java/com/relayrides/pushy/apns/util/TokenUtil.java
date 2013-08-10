@@ -1,4 +1,4 @@
-package com.relayrides.pushy.util;
+package com.relayrides.pushy.apns.util;
 
 /**
  * <p>A utility class for converting APNS device tokens between byte arrays and hexadecimal strings.</p>

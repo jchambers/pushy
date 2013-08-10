@@ -2,8 +2,8 @@ package com.relayrides.pushy.apns;
 
 import java.util.Date;
 
-import com.relayrides.pushy.util.ApnsPayloadBuilder;
-import com.relayrides.pushy.util.TokenUtil;
+import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
+import com.relayrides.pushy.apns.util.TokenUtil;
 
 /**
  * <p>A push notification that can be sent through the Apple Push Notification service (APNs). Push notifications have

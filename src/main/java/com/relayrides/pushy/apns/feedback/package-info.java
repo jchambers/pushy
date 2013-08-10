@@ -4,4 +4,4 @@
  * 
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-package com.relayrides.pushy.feedback;
+package com.relayrides.pushy.apns.feedback;

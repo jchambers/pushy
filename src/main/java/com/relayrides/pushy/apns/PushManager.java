@@ -8,8 +8,8 @@ import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import com.relayrides.pushy.feedback.FeedbackServiceClient;
-import com.relayrides.pushy.feedback.TokenExpiration;
+import com.relayrides.pushy.apns.feedback.FeedbackServiceClient;
+import com.relayrides.pushy.apns.feedback.TokenExpiration;
 
 /**
  * <p>A {@code PushManager} is the main public-facing point of interaction with APNs. {@code PushManager}s manage the

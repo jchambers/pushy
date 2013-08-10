@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Vector;
 
 import com.relayrides.pushy.apns.RejectedNotificationReason;
-import com.relayrides.pushy.util.SimpleApnsPushNotification;
+import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class MockApnsServer {
 	
