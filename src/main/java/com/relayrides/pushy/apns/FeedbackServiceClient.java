@@ -1,4 +1,4 @@
-package com.relayrides.pushy.apns.feedback;
+package com.relayrides.pushy.apns;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
@@ -18,11 +18,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Vector;
-
-import com.relayrides.pushy.apns.ApnsEnvironment;
-import com.relayrides.pushy.apns.ApnsPushNotification;
-import com.relayrides.pushy.apns.PushManager;
-import com.relayrides.pushy.apns.SslCapableChannelInitializer;
 
 /**
  * <p>A client that communicates with the APNs feedback to retrieve expired device tokens. According to Apple's

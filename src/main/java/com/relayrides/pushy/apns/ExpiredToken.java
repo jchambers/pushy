@@ -1,4 +1,4 @@
-package com.relayrides.pushy.apns.feedback;
+package com.relayrides.pushy.apns;
 
 import java.util.Arrays;
 import java.util.Date;

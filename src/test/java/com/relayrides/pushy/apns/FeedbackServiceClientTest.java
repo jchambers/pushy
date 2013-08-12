@@ -1,4 +1,4 @@
-package com.relayrides.pushy.apns.feedback;
+package com.relayrides.pushy.apns;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -11,9 +11,9 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.relayrides.pushy.apns.ApnsEnvironment;
+import com.relayrides.pushy.apns.ExpiredToken;
+import com.relayrides.pushy.apns.FeedbackServiceClient;
 import com.relayrides.pushy.apns.PushManager;
-import com.relayrides.pushy.apns.feedback.FeedbackServiceClient;
-import com.relayrides.pushy.apns.feedback.ExpiredToken;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class FeedbackServiceClientTest {
