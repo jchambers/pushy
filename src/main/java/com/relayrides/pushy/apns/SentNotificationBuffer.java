@@ -16,7 +16,7 @@ import java.util.List;
  *
  * @param <E>
  */
-public class SentNotificationBuffer<E extends ApnsPushNotification> {
+class SentNotificationBuffer<E extends ApnsPushNotification> {
 	
 	private final ApnsPushNotification[] buffer;
 	private int lastSequenceNumber;

@@ -5,6 +5,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -30,7 +31,7 @@ import java.util.List;
  * 
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
+class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
 	private enum ClientState {
 		CONNECT,
@@ -152,14 +153,14 @@ public class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		this.bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
 		
 		final ApnsClientThread<T> clientThread = this;
-		this.bootstrap.handler(new SslCapableChannelInitializer() {
+		this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 			
 			@Override
 			protected void initChannel(final SocketChannel channel) throws Exception {
 				final ChannelPipeline pipeline = channel.pipeline();
 				
 				if (pushManager.getEnvironment().isTlsRequired()) {
-					pipeline.addLast("ssl", this.getSslHandler(pushManager.getKeyStore(), pushManager.getKeyStorePassword()));
+					pipeline.addLast("ssl", SslHandlerUtil.createSslHandler(pushManager.getKeyStore(), pushManager.getKeyStorePassword()));
 				}
 				
 				pipeline.addLast("decoder", new RejectedNotificationDecoder());
