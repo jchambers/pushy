@@ -9,7 +9,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import com.relayrides.pushy.apns.feedback.FeedbackServiceClient;
-import com.relayrides.pushy.apns.feedback.TokenExpiration;
+import com.relayrides.pushy.apns.feedback.ExpiredToken;
 
 /**
  * <p>A {@code PushManager} is the main public-facing point of interaction with APNs. {@code PushManager}s manage the
@@ -203,7 +203,7 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * 
 	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
 	 */
-	public List<TokenExpiration> getExpiredTokens() throws InterruptedException {
+	public List<ExpiredToken> getExpiredTokens() throws InterruptedException {
 		return this.feedbackClient.getExpiredTokens();
 	}
 }

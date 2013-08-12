@@ -52,7 +52,7 @@ public class FeedbackServiceClient {
 	private final ApnsEnvironment environment;
 	
 	private final Bootstrap bootstrap;
-	private final Vector<TokenExpiration> expiredTokens;
+	private final Vector<ExpiredToken> expiredTokens;
 	
 	private enum ExpiredTokenDecoderState {
 		EXPIRATION,
@@ -90,7 +90,7 @@ public class FeedbackServiceClient {
 				
 				case TOKEN: {
 					in.readBytes(this.token);
-					out.add(new TokenExpiration(this.token, this.expiration));
+					out.add(new ExpiredToken(this.token, this.expiration));
 					
 					this.checkpoint(ExpiredTokenDecoderState.EXPIRATION);
 					
@@ -100,7 +100,7 @@ public class FeedbackServiceClient {
 		}
 	}
 	
-	private class FeedbackClientHandler extends SimpleChannelInboundHandler<TokenExpiration> {
+	private class FeedbackClientHandler extends SimpleChannelInboundHandler<ExpiredToken> {
 
 		private final FeedbackServiceClient feedbackClient;
 		
@@ -109,7 +109,7 @@ public class FeedbackServiceClient {
 		}
 		
 		@Override
-		protected void channelRead0(final ChannelHandlerContext context, final TokenExpiration expiredToken) {
+		protected void channelRead0(final ChannelHandlerContext context, final ExpiredToken expiredToken) {
 			this.feedbackClient.addExpiredToken(expiredToken);
 		}
 	}
@@ -145,10 +145,10 @@ public class FeedbackServiceClient {
 			
 		});
 		
-		this.expiredTokens = new Vector<TokenExpiration>();
+		this.expiredTokens = new Vector<ExpiredToken>();
 	}
 	
-	protected void addExpiredToken(final TokenExpiration expiredToken) {
+	protected void addExpiredToken(final ExpiredToken expiredToken) {
 		this.expiredTokens.add(expiredToken);
 	}
 	
@@ -164,7 +164,7 @@ public class FeedbackServiceClient {
 	 * 
 	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
 	 */
-	public synchronized List<TokenExpiration> getExpiredTokens() throws InterruptedException {
+	public synchronized List<ExpiredToken> getExpiredTokens() throws InterruptedException {
 		this.expiredTokens.clear();
 		
 		final ChannelFuture connectFuture =
@@ -185,7 +185,7 @@ public class FeedbackServiceClient {
 		// The feedback service will send us a list of device tokens as soon as we connect, then hang up. While we're
 		// waiting to sync with the connection closure, we'll be receiving messages from the feedback service from
 		// another thread.
-		return new ArrayList<TokenExpiration>(this.expiredTokens);
+		return new ArrayList<ExpiredToken>(this.expiredTokens);
 	}
 	
 	public void destroy() throws InterruptedException {

@@ -13,7 +13,7 @@ import org.junit.Test;
 import com.relayrides.pushy.apns.ApnsEnvironment;
 import com.relayrides.pushy.apns.PushManager;
 import com.relayrides.pushy.apns.feedback.FeedbackServiceClient;
-import com.relayrides.pushy.apns.feedback.TokenExpiration;
+import com.relayrides.pushy.apns.feedback.ExpiredToken;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class FeedbackServiceClientTest {
@@ -42,13 +42,13 @@ public class FeedbackServiceClientTest {
 		
 		// Dates will have some loss of precision since APNS only deals with SECONDS since the epoch; we choose
 		// timestamps that just happen to be on full seconds.
-		final TokenExpiration firstToken = new TokenExpiration(new byte[] { 97, 44, 32, 16, 16 }, new Date(1375760188000L));
-		final TokenExpiration secondToken = new TokenExpiration(new byte[] { 77, 62, 40, 30, 8 }, new Date(1375760188000L));
+		final ExpiredToken firstToken = new ExpiredToken(new byte[] { 97, 44, 32, 16, 16 }, new Date(1375760188000L));
+		final ExpiredToken secondToken = new ExpiredToken(new byte[] { 77, 62, 40, 30, 8 }, new Date(1375760188000L));
 		
 		this.feedbackServer.addExpiredToken(firstToken);
 		this.feedbackServer.addExpiredToken(secondToken);
 		
-		final List<TokenExpiration> expiredTokens = this.feedbackClient.getExpiredTokens();
+		final List<ExpiredToken> expiredTokens = this.feedbackClient.getExpiredTokens();
 		
 		assertEquals(2, expiredTokens.size());
 		assertTrue(expiredTokens.contains(firstToken));

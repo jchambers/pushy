@@ -16,21 +16,21 @@ import io.netty.util.concurrent.GenericFutureListener;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.relayrides.pushy.apns.feedback.TokenExpiration;
+import com.relayrides.pushy.apns.feedback.ExpiredToken;
 
 public class MockFeedbackServer {
 	
 	private final int port;
 	
-	private final ArrayList<TokenExpiration> expiredTokens;
+	private final ArrayList<ExpiredToken> expiredTokens;
 	
 	private EventLoopGroup bossGroup;
 	private EventLoopGroup workerGroup;
 	
-	private class ExpiredTokenEncoder extends MessageToByteEncoder<TokenExpiration> {
+	private class ExpiredTokenEncoder extends MessageToByteEncoder<ExpiredToken> {
 
 		@Override
-		protected void encode(final ChannelHandlerContext context, final TokenExpiration expiredToken, final ByteBuf out) {
+		protected void encode(final ChannelHandlerContext context, final ExpiredToken expiredToken, final ByteBuf out) {
 			out.writeInt((int) (expiredToken.getExpiration().getTime() / 1000L));
 			out.writeShort(expiredToken.getToken().length);
 			out.writeBytes(expiredToken.getToken());
@@ -48,11 +48,11 @@ public class MockFeedbackServer {
 		@Override
 	    public void channelActive(final ChannelHandlerContext context) {
 			
-			final List<TokenExpiration> expiredTokens = this.feedbackServer.getAndClearAllExpiredTokens();
+			final List<ExpiredToken> expiredTokens = this.feedbackServer.getAndClearAllExpiredTokens();
 			
 			ChannelFuture lastWriteFuture = null;
 			
-			for (final TokenExpiration expiredToken : expiredTokens) {
+			for (final ExpiredToken expiredToken : expiredTokens) {
 				lastWriteFuture = context.writeAndFlush(expiredToken);
 			}
 			
@@ -73,7 +73,7 @@ public class MockFeedbackServer {
 	public MockFeedbackServer(final int port) {
 		this.port = port;
 		
-		this.expiredTokens = new ArrayList<TokenExpiration>();
+		this.expiredTokens = new ArrayList<ExpiredToken>();
 	}
 	
 	public void start() throws InterruptedException {
@@ -103,12 +103,12 @@ public class MockFeedbackServer {
 		this.bossGroup.shutdownGracefully();
 	}
 	
-	public synchronized void addExpiredToken(final TokenExpiration expiredToken) {
+	public synchronized void addExpiredToken(final ExpiredToken expiredToken) {
 		this.expiredTokens.add(expiredToken);
 	}
 	
-	protected synchronized List<TokenExpiration> getAndClearAllExpiredTokens() {
-		final ArrayList<TokenExpiration> tokensToReturn = new ArrayList<TokenExpiration>(this.expiredTokens);
+	protected synchronized List<ExpiredToken> getAndClearAllExpiredTokens() {
+		final ArrayList<ExpiredToken> tokensToReturn = new ArrayList<ExpiredToken>(this.expiredTokens);
 		this.expiredTokens.clear();
 		
 		return tokensToReturn;

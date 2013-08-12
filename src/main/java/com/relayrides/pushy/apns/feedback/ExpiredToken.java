@@ -17,11 +17,11 @@ import java.util.Date;
  * Local and Push Notification Programming Guide - Provider Communication with Apple Push Notification Service - The
  * Feedback Service</a>
  */
-public class TokenExpiration {
+public class ExpiredToken {
 	private final byte[] token;
 	private final Date expiration;
 	
-	protected TokenExpiration(final byte[] token, final Date expiration) {
+	protected ExpiredToken(final byte[] token, final Date expiration) {
 		this.token = token;
 		this.expiration = expiration;
 	}
@@ -72,7 +72,7 @@ public class TokenExpiration {
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		TokenExpiration other = (TokenExpiration) obj;
+		ExpiredToken other = (ExpiredToken) obj;
 		if (expiration == null) {
 			if (other.expiration != null)
 				return false;
@@ -89,7 +89,7 @@ public class TokenExpiration {
 	 */
 	@Override
 	public String toString() {
-		return "TokenExpiration [token=" + Arrays.toString(token)
+		return "ExpiredToken [token=" + Arrays.toString(token)
 				+ ", expiration=" + expiration + "]";
 	}
 }
