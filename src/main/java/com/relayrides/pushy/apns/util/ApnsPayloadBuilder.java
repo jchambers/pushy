@@ -42,6 +42,13 @@ public class ApnsPayloadBuilder {
 	private static final int DEFAULT_PAYLOAD_SIZE = 256;
 	
 	/**
+	 * The name of the iOS default push notification sound ({@value DEFAULT_SOUND_FILENAME}).
+	 * 
+	 * @see com.relayrides.pushy.apns.util.ApnsPayloadBuilder#setSoundFileName(String)
+	 */
+	public static final String DEFAULT_SOUND_FILENAME = "default";
+	
+	/**
 	 * Constructs a new payload builder.
 	 */
 	public ApnsPayloadBuilder() {
@@ -147,12 +154,14 @@ public class ApnsPayloadBuilder {
 	 * documentation, the value here should be:</p>
 	 * 
 	 * <blockquote>...the name of a sound file in the application bundle. The sound in this file is played as an alert.
-	 * If the sound file doesn't exist or default is specified as the value, the default alert sound is
+	 * If the sound file doesn't exist or {@code default} is specified as the value, the default alert sound is
 	 * played.</blockquote>
 	 * 
 	 * <p>By default, no sound is included in the push notification.</p>
 	 * 
 	 * @param soundFileName the name of the sound file to play, or {@code null} to send no sound
+	 * 
+	 * @see com.relayrides.pushy.apns.util.ApnsPayloadBuilder#DEFAULT_SOUND_FILENAME
 	 */
 	public void setSoundFileName(final String soundFileName) {
 		this.soundFileName = soundFileName;
