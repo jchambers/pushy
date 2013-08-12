@@ -50,7 +50,7 @@ public class ApnsClientThreadTest {
 		this.pushManager.enqueuePushNotification(notification);
 		
 		this.waitForQueueToEmpty();
-		this.clientThread.getLastWriteFuture().sync();
+		this.clientThread.getLastWriteFuture().await();
 		
 		final List<SimpleApnsPushNotification> receivedNotifications = this.server.getReceivedNotifications();
 		
@@ -69,7 +69,7 @@ public class ApnsClientThreadTest {
 		}
 		
 		this.waitForQueueToEmpty();
-		this.clientThread.getLastWriteFuture().sync();
+		this.clientThread.getLastWriteFuture().await();
 		
 		final List<SimpleApnsPushNotification> receivedNotifications = this.server.getReceivedNotifications();
 		
@@ -95,8 +95,8 @@ public class ApnsClientThreadTest {
 			}
 			
 			this.waitForQueueToEmpty();
-			this.clientThread.getLastWriteFuture().sync();
-			secondClientThread.getLastWriteFuture().sync();
+			this.clientThread.getLastWriteFuture().await();
+			secondClientThread.getLastWriteFuture().await();
 			
 			final List<SimpleApnsPushNotification> receivedNotifications = this.server.getReceivedNotifications();
 			
@@ -118,7 +118,7 @@ public class ApnsClientThreadTest {
 		}
 		
 		this.waitForQueueToEmpty();
-		this.clientThread.getLastWriteFuture().sync();
+		this.clientThread.getLastWriteFuture().await();
 		
 		final List<SimpleApnsPushNotification> receivedNotifications = this.server.getReceivedNotifications();
 		
@@ -145,7 +145,8 @@ public class ApnsClientThreadTest {
 			}
 			
 			this.waitForQueueToEmpty();
-			this.clientThread.getLastWriteFuture().sync();
+			this.clientThread.getLastWriteFuture().await();
+			secondClientThread.getLastWriteFuture().await();
 			
 			final List<SimpleApnsPushNotification> receivedNotifications = this.server.getReceivedNotifications();
 			
