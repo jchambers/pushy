@@ -4,7 +4,7 @@
   <artifactId>pushy</artifactId>
   <version>0.0.1-SNAPSHOT</version>
   <name>Pushy</name>
-  <description>A library for sending push notifications</description>
+  <description>A Java library for sending push notifications</description>
   <dependencies>
   	<dependency>
   		<groupId>org.slf4j</groupId>
@@ -36,4 +36,22 @@
   <properties>
   	<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>2.9.1</version>
+        <configuration>
+          <overview>${basedir}/src/main/java/overview.html</overview>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+  <organization>
+  	<name>RelayRides</name>
+  	<url>https://relayrides.com/</url>
+  </organization>
+  <inceptionYear>2013</inceptionYear>
+  <url>http://relayrides.github.com/pushy/</url>
 </project>
