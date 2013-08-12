@@ -294,11 +294,11 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		// we don't want to notify listeners of the error (but we still do need to reconnect).
 		if (e.getReason() != RejectedNotificationReason.SHUTDOWN) {
 			this.pushManager.notifyListenersOfRejectedNotification(
-					this.getSentNotificationBuffer().getAndRemoveNotificationWithSequenceNumber(e.getSequenceNumberId()), e);
+					this.getSentNotificationBuffer().getAndRemoveNotificationWithSequenceNumber(e.getSequenceNumber()), e);
 		}
 		
 		this.pushManager.enqueueAllNotifications(
-				this.sentNotificationBuffer.getAndRemoveAllNotificationsAfterSequenceNumber(e.getSequenceNumberId()));
+				this.sentNotificationBuffer.getAndRemoveAllNotificationsAfterSequenceNumber(e.getSequenceNumber()));
 	}
 	
 	protected void reconnect() {

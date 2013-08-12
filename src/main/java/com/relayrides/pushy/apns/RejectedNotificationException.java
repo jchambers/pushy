@@ -28,7 +28,7 @@ public class RejectedNotificationException extends Exception {
 	 * 
 	 * @return the sequence number of the notification rejected by APNs
 	 */
-	public int getSequenceNumberId() {
+	public int getSequenceNumber() {
 		return this.sequenceNumber;
 	}
 	
