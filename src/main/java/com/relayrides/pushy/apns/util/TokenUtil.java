@@ -39,7 +39,7 @@ public class TokenUtil {
 	/**
 	 * <p>Converts an array of bytes into a string of hexadecimal characters representing the values in the array. For
 	 * example, calling this method on a byte array with the values {@code [0x01 0x23 0x45 0x67 0x89 0xab]} would return
-	 * {@code "0123456789ab"}. No guarantees are made as to the case of the returned string."
+	 * {@code "0123456789ab"}. No guarantees are made as to the case of the returned string.</p>
 	 *  
 	 * @param tokenBytes an array of bytes to represent as a string
 	 * 

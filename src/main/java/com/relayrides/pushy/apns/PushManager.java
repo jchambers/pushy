@@ -13,8 +13,6 @@ import java.util.concurrent.LinkedBlockingQueue;
  * queue of outbound push notifications and manage connections to the various APNs servers.</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
- *
- * @param <T>
  */
 public class PushManager<T extends ApnsPushNotification> {
 	private final BlockingQueue<T> queue;

@@ -6,7 +6,7 @@ import java.util.Date;
 import com.relayrides.pushy.apns.ApnsPushNotification;
 
 /**
- * A simple and immutable implementation of the {@code ApnsPushNotification} interface.
+ * A simple and immutable implementation of the {@link com.relayrides.pushy.apns.ApnsPushNotification} interface.
  * 
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  *
@@ -17,7 +17,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 	
 	private final byte[] token;
 	private final String payload;
-	private final Date expiration;
+	private final Date invalidationTime;
 	
 	/**
 	 * Constructs a new push notification with the given token and payload. No expiration time is set for the
@@ -35,13 +35,13 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 	 * 
 	 * @param token the device token to which this push notification should be delivered
 	 * @param payload the payload to include in this push notification
-	 * @param expiration the time at which Apple's servers should stop trying to deliver this message; if {@code null},
-	 * no delivery attempts beyond the first will be made
+	 * @param invalidationTime the time at which Apple's servers should stop trying to deliver this message; if
+	 * {@code null}, no delivery attempts beyond the first will be made
 	 */
-	public SimpleApnsPushNotification(final byte[] token, final String payload, final Date expiration) {
+	public SimpleApnsPushNotification(final byte[] token, final String payload, final Date invalidationTime) {
 		this.token = token;
 		this.payload = payload;
-		this.expiration = expiration;
+		this.invalidationTime = invalidationTime;
 	}
 
 	/**
@@ -68,7 +68,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 	 * @return the time at which this push notification is no longer valid and should no longer be delivered
 	 */
 	public Date getDeliveryInvalidationTime() {
-		return this.expiration;
+		return this.invalidationTime;
 	}
 
 	/*
@@ -80,7 +80,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 		final int prime = 31;
 		int result = 1;
 		result = prime * result
-				+ ((expiration == null) ? 0 : expiration.hashCode());
+				+ ((invalidationTime == null) ? 0 : invalidationTime.hashCode());
 		result = prime * result + ((payload == null) ? 0 : payload.hashCode());
 		result = prime * result + Arrays.hashCode(token);
 		return result;
@@ -99,10 +99,10 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 		if (getClass() != obj.getClass())
 			return false;
 		SimpleApnsPushNotification other = (SimpleApnsPushNotification) obj;
-		if (expiration == null) {
-			if (other.expiration != null)
+		if (invalidationTime == null) {
+			if (other.invalidationTime != null)
 				return false;
-		} else if (!expiration.equals(other.expiration))
+		} else if (!invalidationTime.equals(other.invalidationTime))
 			return false;
 		if (payload == null) {
 			if (other.payload != null)
@@ -121,6 +121,6 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 	@Override
 	public String toString() {
 		return "SimpleApnsPushNotification [token=" + TokenUtil.tokenBytesToString(token)
-				+ ", payload=" + payload + ", expiration=" + expiration + "]";
+				+ ", payload=" + payload + ", expiration=" + invalidationTime + "]";
 	}
 }

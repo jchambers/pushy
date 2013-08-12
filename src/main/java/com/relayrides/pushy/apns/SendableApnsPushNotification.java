@@ -6,8 +6,6 @@ package com.relayrides.pushy.apns;
  * APNs server.</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
- *
- * @param <T>
  */
 public class SendableApnsPushNotification<T extends ApnsPushNotification> {
 	private final T pushNotification;

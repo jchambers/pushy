@@ -1,9 +1,8 @@
 package com.relayrides.pushy.apns;
 
 /**
- * <p>Listens for permanent push notification rejections. Listeners will be informed when the APNs server rejects a
- * notification for a specific reason. Listeners are not notified in cases where the client will attempt to re-send the
- * notification.</p>
+ * <p>Listens for permanent push notification rejections. Listeners will be informed when the APNs server permanently
+ * rejects a notification for a specific reason. Listeners are <em>not</em> notified of temporary delivery issues.</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  * 
