@@ -21,6 +21,7 @@ import io.netty.util.concurrent.GenericFutureListener;
 import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * <p>A worker thread that connects to an APNs server and transmits notifications from a {@code PushManager}'s
@@ -53,6 +54,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
 	private static final int SENT_NOTIFICATION_BUFFER_SIZE = 2048;
+	
+	private static AtomicInteger threadCounter = new AtomicInteger(0);
 	
 	private class RejectedNotificationDecoder extends ByteToMessageDecoder {
 
@@ -139,7 +142,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	 * notifications
 	 */
 	public ApnsClientThread(final PushManager<T> pushManager) {
-		super("ApnsClientThread");
+		super(String.format("ApnsClientThread-%d", ApnsClientThread.threadCounter.incrementAndGet()));
 		
 		this.state = ClientState.CONNECT;
 		
