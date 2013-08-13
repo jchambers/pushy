@@ -238,7 +238,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 						}
 						
 					} catch (InterruptedException e) {
-						continue;
+						this.channel.flush();
 					}
 					
 					break;
