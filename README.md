@@ -1,6 +1,15 @@
 # pushy
 
-Pushy is a Java library for sending [APNs](http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Introduction.html) (iOS and OS X) push notifications. It is built on the [Netty framework](http://netty.io/).
+Pushy is a Java library for sending [APNs](http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Introduction.html) (iOS and OS X) push notifications. It is written and maintained by the engineers at [RelayRides](https://relayrides.com/) and is built on the [Netty framework](http://netty.io/).
+
+Pushy was created because we found that the other APNs libraries for Java simply didn't meet our needs in terms of reliability or performance. Pushy distinguishes itself from other libraries with several important features:
+
+- Asynchronous network IO (via Netty) for maximum performance
+- Efficient connection management (other libraries appear to reconnect to the APNs gateway far more frequently than is really necessary)
+- Graceful handling and reporting of permanent notification rejections
+- Thorough documentation
+
+We believe that Pushy is already the best tool for sending APNs push notifications from Java applications, and we hope you'll help us make it even better via bug reports and pull requests. Thanks!
 
 ## Getting started
 
