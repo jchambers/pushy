@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
@@ -24,7 +26,9 @@ public class PushManager<T extends ApnsPushNotification> {
 	private final ArrayList<ApnsClientThread<T>> clientThreads;
 	private final FeedbackServiceClient feedbackClient;
 	
-	private final ArrayList<WeakReference<RejectedNotificationListener<T>>> failedDeliveryListeners;
+	private final ArrayList<WeakReference<RejectedNotificationListener<T>>> rejectedNotificationListeners;
+	
+	private final ExecutorService rejectedNotificationExecutorService;
 	
 	/**
 	 * Constructs a new {@code PushManager} that operates in the given environment with the given credentials and a
@@ -60,7 +64,7 @@ public class PushManager<T extends ApnsPushNotification> {
 		}
 		
 		this.queue = new LinkedBlockingQueue<T>();
-		this.failedDeliveryListeners = new ArrayList<WeakReference<RejectedNotificationListener<T>>>();
+		this.rejectedNotificationListeners = new ArrayList<WeakReference<RejectedNotificationListener<T>>>();
 		
 		this.environment = environment;
 		
@@ -74,6 +78,8 @@ public class PushManager<T extends ApnsPushNotification> {
 		}
 		
 		this.feedbackClient = new FeedbackServiceClient(this);
+		
+		this.rejectedNotificationExecutorService = Executors.newSingleThreadExecutor();
 	}
 	
 	/**
@@ -157,6 +163,8 @@ public class PushManager<T extends ApnsPushNotification> {
 		
 		this.feedbackClient.destroy();
 		
+		this.rejectedNotificationExecutorService.shutdown();
+		
 		return new ArrayList<T>(this.queue);
 	}
 	
@@ -167,18 +175,39 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * 
 	 * @param listener the listener to register
 	 */
-	public void registerRejectedNotificationListener(final RejectedNotificationListener<T> listener) {
-		this.failedDeliveryListeners.add(new WeakReference<RejectedNotificationListener<T>>(listener));
+	public synchronized void registerRejectedNotificationListener(final RejectedNotificationListener<T> listener) {
+		this.rejectedNotificationListeners.add(new WeakReference<RejectedNotificationListener<T>>(listener));
 	}
 	
-	protected void notifyListenersOfRejectedNotification(final T notification, final RejectedNotificationException cause) {
-		for (final WeakReference<RejectedNotificationListener<T>> listenerReference : this.failedDeliveryListeners) {
-			final RejectedNotificationListener<T> listener = listenerReference.get();
+	protected synchronized void notifyListenersOfRejectedNotification(final T notification, final RejectedNotificationException cause) {
+
+		final ArrayList<RejectedNotificationListener<T>> listeners = new ArrayList<RejectedNotificationListener<T>>();
+		final ArrayList<Integer> expiredListenerIndices = new ArrayList<Integer>();
+		
+		for (int i = 0; i < this.rejectedNotificationListeners.size(); i++) {
+			final RejectedNotificationListener<T> listener = this.rejectedNotificationListeners.get(i).get();
 			
-			// TODO Clear out entries with expired references
 			if (listener != null) {
-				listener.handleRejectedNotification(notification, cause);
+				listeners.add(listener);
+			} else {
+				expiredListenerIndices.add(i);
 			}
+		}
+		
+		// Handle the notifications in a separate thread in case a listener takes a long time to run
+		this.rejectedNotificationExecutorService.submit(new Runnable() {
+
+			public void run() {
+				for (final RejectedNotificationListener<T> listener : listeners) {
+					listener.handleRejectedNotification(notification, cause);
+				}
+			}
+			
+		});
+		
+		// Clear out expired listeners from right to left to avoid shifting index issues
+		for (int i = expiredListenerIndices.size() - 1; i >= 0; i--) {
+			this.rejectedNotificationListeners.remove(i);
 		}
 	}
 	

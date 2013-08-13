@@ -157,7 +157,8 @@ public class ApnsClientThreadTest {
 	}
 	
 	@After
-	public void tearDown() throws Exception {
+	public void tearDown() throws InterruptedException {
+		this.pushManager.shutdown();
 		this.server.shutdown();
 	}
 
