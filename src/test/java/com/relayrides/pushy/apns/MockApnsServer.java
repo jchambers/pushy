@@ -20,8 +20,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Vector;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import com.relayrides.pushy.apns.RejectedNotificationReason;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class MockApnsServer {
@@ -32,10 +32,14 @@ public class MockApnsServer {
 	private final int port;
 	private final int maxPayloadSize;
 	
+	private final AtomicInteger receivedMessageCount;
 	private final Vector<SimpleApnsPushNotification> receivedNotifications;
 	
 	private int failWithErrorCount = 0;
 	private RejectedNotificationReason errorCode;
+	
+	private int reportMetricsCount = -1;
+	private long firstMessageTimestamp = 0;
 	
 	private enum ApnsPushNotificationDecoderState {
 		OPCODE,
@@ -192,6 +196,8 @@ public class MockApnsServer {
 		this.port = port;
 		this.maxPayloadSize = maxPayloadSize;
 		
+		this.receivedMessageCount = new AtomicInteger(0);
+		
 		this.receivedNotifications = new Vector<SimpleApnsPushNotification>();
 	}
 	
@@ -232,15 +238,29 @@ public class MockApnsServer {
 		this.errorCode = errorCode;
 	}
 	
+	public void reportMetricsAfterNotifications(final int notificationCount) {
+		this.reportMetricsCount = notificationCount;
+	}
+	
 	protected RejectedNotificationException handleReceivedNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
-		synchronized (this.receivedNotifications) {
-			this.receivedNotifications.add(receivedNotification.getPushNotification());
-			
-			if (this.receivedNotifications.size() == this.failWithErrorCount) {
-				return new RejectedNotificationException(receivedNotification.getSequenceNumber(), this.errorCode);
-			} else {
-				return null;
-			}
+		
+		this.receivedNotifications.add(receivedNotification.getPushNotification());
+		final int notificationCount = this.receivedMessageCount.incrementAndGet();
+		
+		if (notificationCount == 1) {
+			this.firstMessageTimestamp = System.currentTimeMillis();
+		}
+		
+		if (notificationCount == this.reportMetricsCount) {
+			final long end = System.currentTimeMillis();
+			System.out.println(String.format("Received %d notifications in %d ms.",
+					notificationCount, end - this.firstMessageTimestamp));
+		}
+		
+		if (notificationCount == this.failWithErrorCount) {
+			return new RejectedNotificationException(receivedNotification.getSequenceNumber(), this.errorCode);
+		} else {
+			return null;
 		}
 	}
 	
