@@ -87,7 +87,7 @@ Apple also provides a "feedback service" as part of APNs. The feedback service r
 To get expired device tokens with Pushy:
 
 ```java
-for (final TokenExpiration expiredToken : pushManager.getExpiredTokens()) {
+for (final ExpiredToken expiredToken : pushManager.getExpiredTokens()) {
     // Stop sending push notifications to each expired token if the expiration
     // time is after the last time the app registered that token.
 }
