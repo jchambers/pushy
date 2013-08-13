@@ -21,6 +21,7 @@ import io.netty.util.concurrent.GenericFutureListener;
 import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -54,6 +55,10 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
 	private static final int SENT_NOTIFICATION_BUFFER_SIZE = 2048;
+	
+	private static final long POLL_TIMEOUT = 50;
+	private static final int BATCH_SIZE = 32;
+	private int writesSinceLastFlush = 0;
 	
 	private static AtomicInteger threadCounter = new AtomicInteger(0);
 	
@@ -193,33 +198,44 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				
 				case READY: {
 					try {
-						final T notification = this.pushManager.getQueue().take();
+						final T notification = this.pushManager.getQueue().poll(POLL_TIMEOUT, TimeUnit.MILLISECONDS);
 						
-						// TODO Don't flush on every notification if we can avoid it
-						final SendableApnsPushNotification<T> sendableNotification =
-								new SendableApnsPushNotification<T>(notification, this.sequenceNumber++);
-						
-						this.sentNotificationBuffer.addSentNotification(sendableNotification);
-						
-						this.lastWriteFuture = this.channel.writeAndFlush(sendableNotification);
-						this.lastWriteFuture.addListener(new GenericFutureListener<ChannelFuture>() {
+						if (notification != null) {
+							final SendableApnsPushNotification<T> sendableNotification =
+									new SendableApnsPushNotification<T>(notification, this.sequenceNumber++);
+							
+							this.sentNotificationBuffer.addSentNotification(sendableNotification);
+							
+							this.lastWriteFuture = this.channel.write(sendableNotification);
+							this.lastWriteFuture.addListener(new GenericFutureListener<ChannelFuture>() {
 
-							public void operationComplete(final ChannelFuture future) {
-								if (future.cause() != null) {
-									reconnect();
-									
-									// Delivery failed for some IO-related reason; re-enqueue for another attempt, but
-									// only if the notification is in the sent notification buffer (i.e. if it hasn't
-									// been re-enqueued for another reason).
-									final T failedNotification = sentNotificationBuffer.getAndRemoveNotificationWithSequenceNumber(
-											sendableNotification.getSequenceNumber());
-									
-									if (failedNotification != null) {
-										pushManager.enqueuePushNotification(failedNotification);
+								public void operationComplete(final ChannelFuture future) {
+									if (future.cause() != null) {
+										reconnect();
+										
+										// Delivery failed for some IO-related reason; re-enqueue for another attempt, but
+										// only if the notification is in the sent notification buffer (i.e. if it hasn't
+										// been re-enqueued for another reason).
+										final T failedNotification = sentNotificationBuffer.getAndRemoveNotificationWithSequenceNumber(
+												sendableNotification.getSequenceNumber());
+										
+										if (failedNotification != null) {
+											pushManager.enqueuePushNotification(failedNotification);
+										}
 									}
 								}
+							});
+							
+							if (++this.writesSinceLastFlush >= ApnsClientThread.BATCH_SIZE) {
+								this.channel.flush();
+								this.writesSinceLastFlush = 0;
 							}
-						});
+						} else {
+							if (this.writesSinceLastFlush > 0) {
+								this.channel.flush();
+								this.writesSinceLastFlush = 0;
+							}
+						}
 						
 					} catch (InterruptedException e) {
 						continue;
