@@ -92,3 +92,9 @@ for (final ExpiredToken expiredToken : pushManager.getExpiredTokens()) {
     // time is after the last time the app registered that token.
 }
 ```
+
+## License and status
+
+Pushy is available to the public under the [MIT License](http://opensource.org/licenses/MIT).
+
+The current version of Pushy is 0.1. We consider it to be functional, but the public API may change significantly before a 1.0 release.
