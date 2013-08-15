@@ -97,4 +97,4 @@ for (final ExpiredToken expiredToken : pushManager.getExpiredTokens()) {
 
 Pushy is available to the public under the [MIT License](http://opensource.org/licenses/MIT).
 
-The current version of Pushy is 0.1. We consider it to be fully functional (and use it in production internally!), but the public API may change significantly before a 1.0 release.
+The current version of Pushy is 0.1. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
