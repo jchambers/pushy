@@ -44,6 +44,7 @@
         <version>2.9.1</version>
         <configuration>
           <overview>${basedir}/src/main/java/overview.html</overview>
+          <show>public</show>
         </configuration>
       </plugin>
     </plugins>
