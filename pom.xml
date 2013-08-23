@@ -5,6 +5,13 @@
   <version>0.1-SNAPSHOT</version>
   <name>Pushy</name>
   <description>A Java library for sending push notifications</description>
+  <licenses>
+    <license>
+      <name>The MIT License (MIT)</name>
+      <url>http://opensource.org/licenses/MIT</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
   <dependencies>
   	<dependency>
   		<groupId>org.slf4j</groupId>
@@ -48,6 +55,18 @@
   	<name>RelayRides</name>
   	<url>https://relayrides.com/</url>
   </organization>
+  <developers>
+    <id>jon</id>
+    <name>Jon Chambers</name>
+    <email>jon@relayrides.com</email>
+    <url>https://github.com/jchambers</url>
+    <organization>RelayRides</organization>
+    <organizationUrl>https://relayrides.com/</organizationUrl>
+    <roles>
+      <role>developer</role>
+    </roles>
+    <timezone>-5</timezone>
+  </developers>
   <inceptionYear>2013</inceptionYear>
   <url>http://relayrides.github.com/pushy/</url>
   <scm>
