@@ -5,6 +5,11 @@
   <version>0.1-SNAPSHOT</version>
   <name>Pushy</name>
   <description>A Java library for sending push notifications</description>
+  <parent>
+    <groupId>org.sonatype.oss</groupId>
+    <artifactId>oss-parent</artifactId>
+    <version>7</version>
+  </parent>
   <licenses>
     <license>
       <name>The MIT License (MIT)</name>
