@@ -50,4 +50,9 @@
   </organization>
   <inceptionYear>2013</inceptionYear>
   <url>http://relayrides.github.com/pushy/</url>
+  <scm>
+  	<connection>scm:git:https://github.com/relayrides/pushy.git</connection>
+  	<developerConnection>scm:git:git@github.com:relayrides/pushy.git</developerConnection>
+  	<url>https://github.com/relayrides/pushy</url>
+  </scm>
 </project>
