@@ -85,8 +85,8 @@ Push notification providers communicate with APNs by opening a long-lived connec
 ```java
 public class MyRejectedNotificationListener implements RejectedNotificationListener<SimpleApnsPushNotification> {
 
-    public void handleRejectedNotification(SimpleApnsPushNotification notification, RejectedNotificationException cause) {
-        System.out.format("%s was rejected with error code %s\n", notification, cause.getReason());
+    public void handleRejectedNotification(SimpleApnsPushNotification notification, RejectedNotificationReason reason) {
+        System.out.format("%s was rejected with rejection reason %s\n", notification, reason);
     }
 
 }

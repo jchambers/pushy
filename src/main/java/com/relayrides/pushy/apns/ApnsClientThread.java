@@ -103,7 +103,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				
 				final RejectedNotificationReason errorCode = RejectedNotificationReason.getByErrorCode(code);
 				
-				out.add(new RejectedNotificationException(notificationId, errorCode));
+				out.add(new RejectedNotification(notificationId, errorCode));
 			}
 		}
 	}
@@ -140,7 +140,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		}
 	}
 
-	private class ApnsErrorHandler extends SimpleChannelInboundHandler<RejectedNotificationException> {
+	private class ApnsErrorHandler extends SimpleChannelInboundHandler<RejectedNotification> {
 
 		private final ApnsClientThread<T> clientThread;
 		
@@ -149,8 +149,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		}
 		
 		@Override
-		protected void channelRead0(final ChannelHandlerContext context, final RejectedNotificationException e) throws Exception {
-			this.clientThread.handleRejectedNotification(e);
+		protected void channelRead0(final ChannelHandlerContext context, final RejectedNotification rejectedNotification) throws Exception {
+			this.clientThread.handleRejectedNotification(rejectedNotification);
 		}
 		
 		@Override
@@ -327,18 +327,19 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		}
 	}
 	
-	protected void handleRejectedNotification(final RejectedNotificationException e) {
+	protected void handleRejectedNotification(final RejectedNotification rejectedNotification) {
 		this.reconnect();
 		
 		// SHUTDOWN errors from Apple are harmless; nothing bad happened with the delivered notification, so
 		// we don't want to notify listeners of the error (but we still do need to reconnect).
-		if (e.getReason() != RejectedNotificationReason.SHUTDOWN) {
+		if (rejectedNotification.getReason() != RejectedNotificationReason.SHUTDOWN) {
 			this.pushManager.notifyListenersOfRejectedNotification(
-					this.getSentNotificationBuffer().getAndRemoveNotificationWithSequenceNumber(e.getSequenceNumber()), e);
+					this.getSentNotificationBuffer().getAndRemoveNotificationWithSequenceNumber(
+							rejectedNotification.getSequenceNumber()), rejectedNotification.getReason());
 		}
 		
 		this.pushManager.enqueueAllNotifications(
-				this.sentNotificationBuffer.getAndRemoveAllNotificationsAfterSequenceNumber(e.getSequenceNumber()));
+				this.sentNotificationBuffer.getAndRemoveAllNotificationsAfterSequenceNumber(rejectedNotification.getSequenceNumber()));
 	}
 	
 	protected void reconnect() {

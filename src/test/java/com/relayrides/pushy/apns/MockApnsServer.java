@@ -164,20 +164,20 @@ public class MockApnsServer {
 		}
 		
 		private void reportErrorAndCloseConnection(final ChannelHandlerContext context, final int notificationId, final RejectedNotificationReason errorCode) {
-			context.write(new RejectedNotificationException(0, RejectedNotificationReason.UNKNOWN));
+			context.write(new RejectedNotification(0, RejectedNotificationReason.UNKNOWN));
 			context.close();
 		}
 	}
 	
-	private class ApnsErrorEncoder extends MessageToByteEncoder<RejectedNotificationException> {
+	private class ApnsErrorEncoder extends MessageToByteEncoder<RejectedNotification> {
 
 		private static final byte ERROR_COMMAND = 8;
 		
 		@Override
-		protected void encode(final ChannelHandlerContext context, final RejectedNotificationException e, final ByteBuf out) {
+		protected void encode(final ChannelHandlerContext context, final RejectedNotification rejectedNotification, final ByteBuf out) {
 			out.writeByte(ERROR_COMMAND);
-			out.writeByte(e.getReason().getErrorCode());
-			out.writeInt(e.getSequenceNumber());
+			out.writeByte(rejectedNotification.getReason().getErrorCode());
+			out.writeInt(rejectedNotification.getSequenceNumber());
 		}
 	}
 	
@@ -195,13 +195,13 @@ public class MockApnsServer {
 		protected void channelRead0(final ChannelHandlerContext context, SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) throws Exception {
 			
 			if (!this.rejectFutureMessages) {
-				final RejectedNotificationException exception = this.server.handleReceivedNotification(receivedNotification);
+				final RejectedNotification rejection = this.server.handleReceivedNotification(receivedNotification);
 				
-				if (exception != null) {
+				if (rejection != null) {
 					
 					this.rejectFutureMessages = true;
 					
-					context.writeAndFlush(exception).addListener(new GenericFutureListener<ChannelFuture>() {
+					context.writeAndFlush(rejection).addListener(new GenericFutureListener<ChannelFuture>() {
 		
 						public void operationComplete(final ChannelFuture future) {
 							context.close();
@@ -263,7 +263,7 @@ public class MockApnsServer {
 		this.reportMetricsCount = notificationCount;
 	}
 	
-	protected RejectedNotificationException handleReceivedNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
+	protected RejectedNotification handleReceivedNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
 		
 		this.receivedNotifications.add(receivedNotification.getPushNotification());
 		final int notificationCount = this.receivedMessageCount.incrementAndGet();
@@ -279,7 +279,7 @@ public class MockApnsServer {
 		}
 		
 		if (notificationCount == this.failWithErrorCount) {
-			return new RejectedNotificationException(receivedNotification.getSequenceNumber(), this.errorCode);
+			return new RejectedNotification(receivedNotification.getSequenceNumber(), this.errorCode);
 		} else {
 			return null;
 		}
