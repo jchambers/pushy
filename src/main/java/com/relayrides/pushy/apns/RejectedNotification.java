@@ -22,26 +22,23 @@
 package com.relayrides.pushy.apns;
 
 /**
- * <p>Indicates that a notification was definitively rejected by APNs for a specific reason.</p>
+ * <p>A tuple of a notification sequence number rejected by APNs and the reason for its rejection.</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-public class RejectedNotificationException extends Exception {
-	private static final long serialVersionUID = 1L;
-	
+class RejectedNotification {
 	private final int sequenceNumber;
-	private final RejectedNotificationReason errorCode;
+	private final RejectedNotificationReason rejectionReason;
 	
 	/**
-	 * Constructs a new rejected notification exception indicating that the notification sent with the given sequence
-	 * number was rejected for the given reason.
+	 * Constructs a new rejected notification tuple with the given sequence number and rejection reason.
 	 * 
 	 * @param sequenceNumber the sequence number of the rejected notification
-	 * @param errorCode the reason reported by APNs for the rejection
+	 * @param rejectionReason the reason reported by APNs for the rejection
 	 */
-	public RejectedNotificationException(final int sequenceNumber, final RejectedNotificationReason errorCode) {
+	public RejectedNotification(final int sequenceNumber, final RejectedNotificationReason rejectionReason) {
 		this.sequenceNumber = sequenceNumber;
-		this.errorCode = errorCode;
+		this.rejectionReason = rejectionReason;
 	}
 	
 	/**
@@ -59,6 +56,6 @@ public class RejectedNotificationException extends Exception {
 	 * @return the reason the notification was rejected by APNs
 	 */
 	public RejectedNotificationReason getReason() {
-		return this.errorCode;
+		return this.rejectionReason;
 	}
 }

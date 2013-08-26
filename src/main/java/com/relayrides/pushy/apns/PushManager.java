@@ -200,7 +200,7 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.rejectedNotificationListeners.add(new WeakReference<RejectedNotificationListener<T>>(listener));
 	}
 	
-	protected synchronized void notifyListenersOfRejectedNotification(final T notification, final RejectedNotificationException cause) {
+	protected synchronized void notifyListenersOfRejectedNotification(final T notification, final RejectedNotificationReason reason) {
 
 		final ArrayList<RejectedNotificationListener<T>> listeners = new ArrayList<RejectedNotificationListener<T>>();
 		final ArrayList<Integer> expiredListenerIndices = new ArrayList<Integer>();
@@ -220,7 +220,7 @@ public class PushManager<T extends ApnsPushNotification> {
 
 			public void run() {
 				for (final RejectedNotificationListener<T> listener : listeners) {
-					listener.handleRejectedNotification(notification, cause);
+					listener.handleRejectedNotification(notification, reason);
 				}
 			}
 			
