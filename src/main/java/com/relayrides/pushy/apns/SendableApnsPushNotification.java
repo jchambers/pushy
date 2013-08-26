@@ -21,6 +21,8 @@
 
 package com.relayrides.pushy.apns;
 
+import com.relayrides.pushy.apns.util.TokenUtil;
+
 /**
  * <p>Represents a push notification wrapped with transmission-related metadata ready to be sent to an APNs server.
  * Sendable push notifications include a sequence number that can be used to identify notifications rejected by the
@@ -59,5 +61,12 @@ public class SendableApnsPushNotification<T extends ApnsPushNotification> {
 	 */
 	public int getSequenceNumber() {
 		return this.sequenceNumber;
+	}
+
+	@Override
+	public String toString() {
+		return String.format("SendableApnsPushNotification [sequenceNumber=%d, token=%s, payload=%s, deliveryInvalidation=%s]",
+				this.sequenceNumber, TokenUtil.tokenBytesToString(this.pushNotification.getToken()),
+				this.pushNotification.getPayload(), this.pushNotification.getDeliveryInvalidationTime());
 	}
 }

@@ -45,6 +45,9 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * <p>A worker thread that connects to an APNs server and transmits notifications from a {@code PushManager}'s
  * queue.</p>
@@ -82,6 +85,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	private int writesSinceLastFlush = 0;
 	
 	private static AtomicInteger threadCounter = new AtomicInteger(0);
+	
+	private final Logger log = LoggerFactory.getLogger(ApnsClientThread.class);
 	
 	private class RejectedNotificationDecoder extends ByteToMessageDecoder {
 
@@ -225,6 +230,12 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 							final SendableApnsPushNotification<T> sendableNotification =
 									new SendableApnsPushNotification<T>(notification, this.sequenceNumber++);
 							
+							final String threadName = this.getName();
+							
+							if (log.isTraceEnabled()) {
+								log.trace(String.format("%s sending %s", threadName, sendableNotification));
+							}
+							
 							this.sentNotificationBuffer.addSentNotification(sendableNotification);
 							
 							this.lastWriteFuture = this.channel.write(sendableNotification);
@@ -232,6 +243,11 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 
 								public void operationComplete(final ChannelFuture future) {
 									if (future.cause() != null) {
+										if (log.isTraceEnabled()) {
+											log.trace(String.format("%s failed to write notification %s",
+													threadName, sendableNotification), future.cause());
+										}
+
 										reconnect();
 										
 										// Delivery failed for some IO-related reason; re-enqueue for another attempt, but
@@ -242,6 +258,11 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 										
 										if (failedNotification != null) {
 											pushManager.enqueuePushNotification(failedNotification);
+										}
+									} else {
+										if (log.isTraceEnabled()) {
+											log.trace(String.format("%s successfully wrote notification %d",
+													threadName, sendableNotification.getSequenceNumber()));
 										}
 									}
 								}
@@ -271,6 +292,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 					}
 					
 					try {
+						log.debug(String.format("%s waiting for connection to close.", this.getName()));
+						
 						this.channel.closeFuture().sync();
 						this.advanceToStateFromOriginStates(ClientState.CONNECT, ClientState.RECONNECT);
 					} catch (InterruptedException e) {
@@ -283,9 +306,11 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				case SHUTDOWN: {
 					try {
 						if (this.channel != null && this.channel.isOpen()) {
+							log.debug(String.format("%s waiting for connection to close.", this.getName()));
 							this.channel.close().sync();
 						}
 						
+						log.debug(String.format("%s shutting down worker group.", this.getName()));
 						this.bootstrap.group().shutdownGracefully().sync();
 					} catch (InterruptedException e) {
 						continue;
@@ -297,7 +322,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				}
 				
 				case EXIT: {
-					// Do nothing
+					// Do nothing; we'll exit on the next iteration
 					break;
 				}
 				
@@ -309,19 +334,28 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	}
 	
 	protected void connect() throws InterruptedException {
+		log.debug(String.format("%s beginning connection process.", this.getName()));
+		
 		final ChannelFuture connectFuture =
 				this.bootstrap.connect(this.pushManager.getEnvironment().getApnsGatewayHost(), this.pushManager.getEnvironment().getApnsGatewayPort()).sync();
 		
 		if (connectFuture.isSuccess()) {
+			log.debug(String.format("%s connected.", this.getName()));
+			
 			this.channel = connectFuture.channel();
 			
 			if (this.pushManager.getEnvironment().isTlsRequired()) {
+				log.debug(String.format("%s waiting for TLS handshake.", this.getName()));
+				
 				final Future<Channel> handshakeFuture = this.channel.pipeline().get(SslHandler.class).handshakeFuture().sync();
 				
 				if (handshakeFuture.isSuccess()) {
+					log.debug(String.format("%s successfully completed TLS handshake.", this.getName()));
+					
 					this.advanceToStateFromOriginStates(ClientState.READY, ClientState.CONNECT);
 				}
 			} else {
+				log.debug(String.format("%s does not require a TLS handshake.", this.getName()));
 				this.advanceToStateFromOriginStates(ClientState.READY, ClientState.CONNECT);
 			}
 		}
@@ -343,6 +377,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	}
 	
 	protected void reconnect() {
+		log.debug(String.format("%s attempting to reconnect.", this.getName()));
+		
 		if (this.advanceToStateFromOriginStates(ClientState.RECONNECT, ClientState.READY)) {
 			this.interrupt();
 		}
@@ -352,6 +388,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	 * Gracefully and asynchronously shuts down this client thread.
 	 */
 	public void shutdown() {
+		log.debug(String.format("%s shutting down.", this.getName()));
+		
 		// Don't re-shut-down if we're already on our way out
 		if (this.advanceToStateFromOriginStates(ClientState.SHUTDOWN, ClientState.CONNECT, ClientState.READY, ClientState.RECONNECT)) {
 			this.interrupt();
