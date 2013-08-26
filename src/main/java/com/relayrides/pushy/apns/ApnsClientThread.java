@@ -294,9 +294,16 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 					try {
 						log.debug(String.format("%s waiting for connection to close.", this.getName()));
 						
-						this.channel.closeFuture().sync();
+						this.channel.closeFuture().await();
+						
+						if (this.channel.closeFuture().cause() != null) {
+							log.warn(String.format("%s failed to cleanly close its connection.", this.getName()),
+									this.channel.closeFuture().cause());
+						}
+						
 						this.advanceToStateFromOriginStates(ClientState.CONNECT, ClientState.RECONNECT);
 					} catch (InterruptedException e) {
+						log.warn(String.format("%s interrupted while waiting for connection to close.", this.getName()));
 						continue;
 					}
 					
@@ -307,12 +314,22 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 					try {
 						if (this.channel != null && this.channel.isOpen()) {
 							log.debug(String.format("%s waiting for connection to close.", this.getName()));
-							this.channel.close().sync();
+							this.channel.close().await();
+							
+							if (this.channel.closeFuture().cause() != null) {
+								log.warn(String.format("%s failed to cleanly close its connection.", this.getName()),
+										this.channel.closeFuture().cause());
+							}
 						}
 						
 						log.debug(String.format("%s shutting down worker group.", this.getName()));
-						this.bootstrap.group().shutdownGracefully().sync();
+						this.bootstrap.group().shutdownGracefully().await();
+						
+						if (this.channel.closeFuture().cause() != null) {
+							log.warn(String.format("%s failed to cleanly close its connection.", this.getName()));
+						}
 					} catch (InterruptedException e) {
+						log.warn(String.format("%s interrupted while waiting for connection to close.", this.getName()));
 						continue;
 					}
 					
@@ -337,7 +354,9 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		log.debug(String.format("%s beginning connection process.", this.getName()));
 		
 		final ChannelFuture connectFuture =
-				this.bootstrap.connect(this.pushManager.getEnvironment().getApnsGatewayHost(), this.pushManager.getEnvironment().getApnsGatewayPort()).sync();
+				this.bootstrap.connect(
+						this.pushManager.getEnvironment().getApnsGatewayHost(),
+						this.pushManager.getEnvironment().getApnsGatewayPort()).await();
 		
 		if (connectFuture.isSuccess()) {
 			log.debug(String.format("%s connected.", this.getName()));
@@ -347,17 +366,22 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			if (this.pushManager.getEnvironment().isTlsRequired()) {
 				log.debug(String.format("%s waiting for TLS handshake.", this.getName()));
 				
-				final Future<Channel> handshakeFuture = this.channel.pipeline().get(SslHandler.class).handshakeFuture().sync();
+				final Future<Channel> handshakeFuture = this.channel.pipeline().get(SslHandler.class).handshakeFuture().await();
 				
 				if (handshakeFuture.isSuccess()) {
 					log.debug(String.format("%s successfully completed TLS handshake.", this.getName()));
 					
 					this.advanceToStateFromOriginStates(ClientState.READY, ClientState.CONNECT);
+				} else {
+					log.error(String.format("%s failed to complete TLS handshake with APNs gateway.", this.getName()),
+							handshakeFuture.cause());
 				}
 			} else {
 				log.debug(String.format("%s does not require a TLS handshake.", this.getName()));
 				this.advanceToStateFromOriginStates(ClientState.READY, ClientState.CONNECT);
 			}
+		} else {
+			log.error(String.format("%s failed to connect to APNs gateway.", this.getName()), connectFuture.cause());
 		}
 	}
 	
