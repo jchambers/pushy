@@ -228,7 +228,7 @@ public class PushManager<T extends ApnsPushNotification> {
 		
 		// Clear out expired listeners from right to left to avoid shifting index issues
 		for (int i = expiredListenerIndices.size() - 1; i >= 0; i--) {
-			this.rejectedNotificationListeners.remove(i);
+			this.rejectedNotificationListeners.remove(expiredListenerIndices.get(i));
 		}
 	}
 	
