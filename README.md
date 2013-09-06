@@ -70,7 +70,7 @@ pushManager.enqueuePushNotification(
 		new SimpleApnsPushNotification(token, payload));
 ```
 
-When you're done sending push notifications, make sure to shut down the `PushManager`:
+When your application shuts down, make sure to shut down the `PushManager`, too:
 
 ```java
 List<SimpleApnsPushNotification> unsentNotifications = pushManager.shutdown();
