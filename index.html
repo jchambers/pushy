@@ -96,7 +96,7 @@
 <span class="n">pushManager</span><span class="o">.</span><span class="na">enqueuePushNotification</span><span class="o">(</span>
     <span class="k">new</span> <span class="nf">SimpleApnsPushNotification</span><span class="o">(</span><span class="n">token</span><span class="o">,</span> <span class="n">payload</span><span class="o">));</span></pre></div>
 
-          <p>When you're done sending push notifications, make sure to shut down the <code>PushManager</code>:</p>
+          <p>When your application shuts down, make sure to shut down the <code>PushManager</code>, too:</p>
 
           <div class="highlight"><pre><span class="n">List</span><span class="o">&lt;</span><span class="n">SimpleApnsPushNotification</span><span class="o">&gt;</span> <span class="n">unsentNotifications</span> <span class="o">=</span>
     <span class="n">pushManager</span><span class="o">.</span><span class="na">shutdown</span><span class="o">();</span></pre></div>
