@@ -51,7 +51,6 @@ public class MockApnsServer {
 	private EventLoopGroup workerGroup;
 	
 	private final int port;
-	private final int maxPayloadSize;
 	
 	private final AtomicInteger receivedMessageCount;
 	private final Vector<SimpleApnsPushNotification> receivedNotifications;
@@ -61,6 +60,8 @@ public class MockApnsServer {
 	
 	private int reportMetricsCount = -1;
 	private long firstMessageTimestamp = 0;
+	
+	public static final int MAX_PAYLOAD_SIZE = 256;
 	
 	private enum ApnsPushNotificationDecoderState {
 		OPCODE,
@@ -74,8 +75,6 @@ public class MockApnsServer {
 
 	private class ApnsPushNotificationDecoder extends ReplayingDecoder<ApnsPushNotificationDecoderState> {
 
-		private final int maxPayloadSize;
-		
 		private int sequenceNumber;
 		private Date expiration;
 		private byte[] token;
@@ -83,10 +82,8 @@ public class MockApnsServer {
 		
 		private static final byte EXPECTED_OPCODE = 1;
 		
-		public ApnsPushNotificationDecoder(final int maxPayloadSize) {
+		public ApnsPushNotificationDecoder() {
 			super(ApnsPushNotificationDecoderState.OPCODE);
-			
-			this.maxPayloadSize = maxPayloadSize;
 		}
 		
 		@Override
@@ -121,8 +118,13 @@ public class MockApnsServer {
 				}
 				
 				case TOKEN_LENGTH: {
+					
 					this.token = new byte[in.readShort() & 0x0000FFFF];
 					this.checkpoint(ApnsPushNotificationDecoderState.TOKEN);
+					
+					if (this.token.length == 0) {
+						this.reportErrorAndCloseConnection(context, this.sequenceNumber, RejectedNotificationReason.INVALID_TOKEN_SIZE);
+					}
 					
 					break;
 				}
@@ -137,7 +139,7 @@ public class MockApnsServer {
 				case PAYLOAD_LENGTH: {
 					final int payloadSize = in.readShort() & 0x0000FFFF;
 					
-					if (payloadSize > this.maxPayloadSize) {
+					if (payloadSize > MAX_PAYLOAD_SIZE || payloadSize == 0) {
 						this.reportErrorAndCloseConnection(context, this.sequenceNumber, RejectedNotificationReason.INVALID_PAYLOAD_SIZE);
 					} else {
 						this.payloadBytes = new byte[payloadSize];
@@ -164,7 +166,7 @@ public class MockApnsServer {
 		}
 		
 		private void reportErrorAndCloseConnection(final ChannelHandlerContext context, final int notificationId, final RejectedNotificationReason errorCode) {
-			context.write(new RejectedNotification(0, RejectedNotificationReason.UNKNOWN));
+			context.write(new RejectedNotification(notificationId, RejectedNotificationReason.UNKNOWN));
 			context.close();
 		}
 	}
@@ -213,9 +215,8 @@ public class MockApnsServer {
 		}
 	}
 	
-	public MockApnsServer(final int port, final int maxPayloadSize) {
+	public MockApnsServer(final int port) {
 		this.port = port;
-		this.maxPayloadSize = maxPayloadSize;
 		
 		this.receivedMessageCount = new AtomicInteger(0);
 		
@@ -237,7 +238,7 @@ public class MockApnsServer {
 
 			@Override
 			protected void initChannel(final SocketChannel channel) throws Exception {
-				channel.pipeline().addLast("decoder", new ApnsPushNotificationDecoder(maxPayloadSize));
+				channel.pipeline().addLast("decoder", new ApnsPushNotificationDecoder());
 				channel.pipeline().addLast("encoder", new ApnsErrorEncoder());
 				channel.pipeline().addLast("handler", new MockApnsServerHandler(server));
 			}

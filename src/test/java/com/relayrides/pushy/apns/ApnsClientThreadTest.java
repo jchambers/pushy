@@ -37,8 +37,6 @@ public class ApnsClientThreadTest {
 	private static final int APNS_PORT = 2195;
 	private static final int FEEDBACK_PORT = 2196;
 	
-	private static final int MAX_PAYLOAD_SIZE = 256;
-	
 	private static final byte[] TOKEN = new byte[] { 0x12, 0x34, 0x56 };
 	private static final String PAYLOAD = "{\"aps\":{\"alert\":\"Hello\"}}";
 	private static final Date EXPIRATION = new Date(1375926408000L);
@@ -53,7 +51,7 @@ public class ApnsClientThreadTest {
 	
 	@Before
 	public void setUp() throws InterruptedException {
-		this.server = new MockApnsServer(APNS_PORT, MAX_PAYLOAD_SIZE);
+		this.server = new MockApnsServer(APNS_PORT);
 		this.server.start();
 		
 		this.pushManager = new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT, null, null);
