@@ -41,7 +41,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Vector;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.CountDownLatch;
 
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
@@ -52,14 +52,11 @@ public class MockApnsServer {
 	
 	private final int port;
 	
-	private final AtomicInteger receivedMessageCount;
 	private final Vector<SimpleApnsPushNotification> receivedNotifications;
+	private final Vector<CountDownLatch> countdownLatches;
 	
-	private int failWithErrorCount = 0;
+	private int failWithErrorCount = -1;
 	private RejectedNotificationReason errorCode;
-	
-	private int reportMetricsCount = -1;
-	private long firstMessageTimestamp = 0;
 	
 	public static final int MAX_PAYLOAD_SIZE = 256;
 	
@@ -218,9 +215,8 @@ public class MockApnsServer {
 	public MockApnsServer(final int port) {
 		this.port = port;
 		
-		this.receivedMessageCount = new AtomicInteger(0);
-		
 		this.receivedNotifications = new Vector<SimpleApnsPushNotification>();
+		this.countdownLatches = new Vector<CountDownLatch>();
 	}
 	
 	public void start() throws InterruptedException {
@@ -260,23 +256,13 @@ public class MockApnsServer {
 		this.errorCode = errorCode;
 	}
 	
-	public void reportMetricsAfterNotifications(final int notificationCount) {
-		this.reportMetricsCount = notificationCount;
-	}
-	
 	protected RejectedNotification handleReceivedNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
 		
 		this.receivedNotifications.add(receivedNotification.getPushNotification());
-		final int notificationCount = this.receivedMessageCount.incrementAndGet();
+		final int notificationCount = this.receivedNotifications.size();
 		
-		if (notificationCount == 1) {
-			this.firstMessageTimestamp = System.currentTimeMillis();
-		}
-		
-		if (notificationCount == this.reportMetricsCount) {
-			final long end = System.currentTimeMillis();
-			System.out.println(String.format("Received %d notifications in %d ms.",
-					notificationCount, end - this.firstMessageTimestamp));
+		for (final CountDownLatch latch : this.countdownLatches) {
+			latch.countDown();
 		}
 		
 		if (notificationCount == this.failWithErrorCount) {
@@ -288,5 +274,12 @@ public class MockApnsServer {
 	
 	public List<SimpleApnsPushNotification> getReceivedNotifications() {
 		return new ArrayList<SimpleApnsPushNotification>(this.receivedNotifications);
+	}
+	
+	public CountDownLatch getCountDownLatch(final int notificationCount) {
+		final CountDownLatch latch = new CountDownLatch(notificationCount);
+		this.countdownLatches.add(latch);
+		
+		return latch;
 	}
 }

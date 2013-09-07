@@ -75,8 +75,6 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	private Channel channel = null;
 	private int sequenceNumber = 0;
 	
-	private volatile ChannelFuture lastWriteFuture;
-	
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
 	private static final int SENT_NOTIFICATION_BUFFER_SIZE = 2048;
 	
@@ -238,8 +236,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 							
 							this.sentNotificationBuffer.addSentNotification(sendableNotification);
 							
-							this.lastWriteFuture = this.channel.write(sendableNotification);
-							this.lastWriteFuture.addListener(new GenericFutureListener<ChannelFuture>() {
+							this.channel.write(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
 								public void operationComplete(final ChannelFuture future) {
 									if (future.cause() != null) {
@@ -444,9 +441,5 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
 	protected SentNotificationBuffer<T> getSentNotificationBuffer() {
 		return this.sentNotificationBuffer;
-	}
-	
-	protected ChannelFuture getLastWriteFuture() {
-		return this.lastWriteFuture;
 	}
 }
