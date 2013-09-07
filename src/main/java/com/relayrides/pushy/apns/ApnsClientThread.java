@@ -101,7 +101,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				final int notificationId = in.readInt();
 				
 				if (command != EXPECTED_COMMAND) {
-					throw new IllegalArgumentException(String.format("Unexpected command: %d", command));
+					log.error(String.format("Unexpected command: %d", command));
 				}
 				
 				final RejectedNotificationReason errorCode = RejectedNotificationReason.getByErrorCode(code);
