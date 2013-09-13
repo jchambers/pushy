@@ -135,6 +135,9 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * will <strong>not</strong> be sent until this method is called.
 	 */
 	public synchronized void start() {
+		if(isRunning()) {
+			return;
+		}
 		for (final ApnsClientThread<T> clientThread : this.clientThreads) {
 			clientThread.start();
 		}
@@ -174,6 +177,11 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * @throws InterruptedException if interrupted while waiting for worker threads to exit cleanly
 	 */
 	public synchronized List<T> shutdown() throws InterruptedException {
+		
+		if(!isRunning()) {
+			return new ArrayList<T>(this.queue);
+		}
+		
 		for (final ApnsClientThread<T> clientThread : this.clientThreads) {
 			clientThread.shutdown();
 		}
@@ -187,6 +195,18 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.rejectedNotificationExecutorService.shutdown();
 		
 		return new ArrayList<T>(this.queue);
+	}
+	
+	/**
+	 * @return true if there is at least one thread connected (or about to connect) to the APNs.
+	 */
+	public boolean isRunning() {		
+		for(final ApnsClientThread<T> clientThread : this.clientThreads) {
+			if(clientThread.isRunning()) {
+				return true;
+			}
+		}
+		return false;
 	}
 	
 	/**
