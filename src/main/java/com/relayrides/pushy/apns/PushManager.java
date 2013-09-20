@@ -198,6 +198,9 @@ public class PushManager<T extends ApnsPushNotification> {
 	}
 	
 	/**
+	 * Checks if the {@code PushManager} has at least one active connection to the APNs, or at least one 
+	 * about to connect.
+	 * 
 	 * @return true if there is at least one thread connected (or about to connect) to the APNs.
 	 */
 	public boolean isRunning() {		
