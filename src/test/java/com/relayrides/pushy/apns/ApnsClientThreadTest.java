@@ -21,7 +21,9 @@
 
 package com.relayrides.pushy.apns;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -142,5 +144,38 @@ public class ApnsClientThreadTest extends BasePushyTest {
 		} finally {
 			secondClientThread.shutdown();
 		}
+	}
+	
+	@Test
+	public void testIsRunning() throws InterruptedException {
+		
+		ApnsClientThread<SimpleApnsPushNotification> clientThread = getClientThread();		
+		
+		clientThread.connect();
+		
+		assertTrue(clientThread.isRunning());
+		
+		ApnsClientThread<SimpleApnsPushNotification> anotherThread = 
+				new ApnsClientThread<SimpleApnsPushNotification>(getPushManager());
+		
+		assertFalse(anotherThread.isRunning());
+		
+		anotherThread.connect();
+		
+		assertTrue(anotherThread.isRunning());
+		
+		assertTrue(clientThread.isRunning());
+		
+		clientThread.shutdown();
+		
+		assertFalse(clientThread.isRunning());
+		
+		assertTrue(anotherThread.isRunning());
+		
+		anotherThread.shutdown();
+		
+		assertFalse(clientThread.isRunning());
+		
+		assertFalse(anotherThread.isRunning());
 	}
 }
