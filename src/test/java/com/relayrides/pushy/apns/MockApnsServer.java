@@ -163,7 +163,7 @@ public class MockApnsServer {
 		}
 		
 		private void reportErrorAndCloseConnection(final ChannelHandlerContext context, final int notificationId, final RejectedNotificationReason errorCode) {
-			context.write(new RejectedNotification(notificationId, RejectedNotificationReason.UNKNOWN));
+			context.write(new RejectedNotification(notificationId, errorCode));
 			context.close();
 		}
 	}
