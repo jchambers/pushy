@@ -226,7 +226,9 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 					try {
 						final T notification = this.pushManager.getQueue().poll(POLL_TIMEOUT, TimeUnit.MILLISECONDS);
 						
-						if (notification != null) {
+						if (this.isInterrupted()) {
+							this.pushManager.enqueuePushNotification(notification);
+						} else if (notification != null) {
 							final SendableApnsPushNotification<T> sendableNotification =
 									new SendableApnsPushNotification<T>(notification, this.sequenceNumber++);
 							
@@ -395,7 +397,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			// we don't want to notify listeners of the error (but we still do need to reconnect).
 			if (rejectedNotification.getReason() != RejectedNotificationReason.SHUTDOWN) {
 				this.pushManager.notifyListenersOfRejectedNotification(
-						this.getSentNotificationBuffer().getAndRemoveNotificationWithSequenceNumber(
+						this.sentNotificationBuffer.getAndRemoveNotificationWithSequenceNumber(
 								rejectedNotification.getSequenceNumber()), rejectedNotification.getReason());
 			}
 		}
@@ -446,9 +448,5 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			
 			return false;
 		}
-	}
-	
-	protected SentNotificationBuffer<T> getSentNotificationBuffer() {
-		return this.sentNotificationBuffer;
 	}
 }
