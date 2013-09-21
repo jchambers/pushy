@@ -69,11 +69,13 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
 	private final PushManager<T> pushManager;
 	
-	private ClientState state = null;
+	private ClientState state;
 	
 	private final Bootstrap bootstrap;
-	private Channel channel = null;
+	private Channel channel;
 	private int sequenceNumber = 0;
+	
+	private SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
 	
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
 	private static final int SENT_NOTIFICATION_BUFFER_SIZE = 2048;
@@ -308,29 +310,29 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				}
 				
 				case SHUTDOWN: {
-					try {
-						if (this.channel != null && this.channel.isOpen()) {
-							log.debug(String.format("%s waiting for connection to close.", this.getName()));
-							this.channel.close().await();
+					if (this.channel != null && this.channel.isOpen()) {
+						if (this.shutdownNotification == null) {
+							this.shutdownNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
+									new KnownBadPushNotification(), this.sequenceNumber++);
 							
-							if (this.channel.closeFuture().cause() != null) {
-								log.warn(String.format("%s failed to cleanly close its connection.", this.getName()),
-										this.channel.closeFuture().cause());
-							}
+							this.channel.write(this.shutdownNotification);
 						}
 						
-						log.debug(String.format("%s shutting down worker group.", this.getName()));
-						this.bootstrap.group().shutdownGracefully().await();
-						
-						if (this.channel.closeFuture().cause() != null) {
-							log.warn(String.format("%s failed to cleanly close its connection.", this.getName()));
+						try {
+							// We've already written the "poison" notification;
+							// just wait for the APNs gateway to close the
+							// connection
+							
+							// TODO Time out?
+							this.channel.closeFuture().await();
+							this.advanceToStateFromOriginStates(ClientState.EXIT, ClientState.SHUTDOWN);
+						} catch (InterruptedException e) {
+							continue;
 						}
-					} catch (InterruptedException e) {
-						log.warn(String.format("%s interrupted while waiting for connection to close.", this.getName()));
-						continue;
+						
+					} else {
+						this.advanceToStateFromOriginStates(ClientState.EXIT, ClientState.SHUTDOWN);
 					}
-					
-					this.advanceToStateFromOriginStates(ClientState.EXIT, ClientState.SHUTDOWN);
 					
 					break;
 				}
@@ -383,16 +385,23 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	}
 	
 	protected void handleRejectedNotification(final RejectedNotification rejectedNotification) {
-		this.reconnect();
 		
-		// SHUTDOWN errors from Apple are harmless; nothing bad happened with the delivered notification, so
-		// we don't want to notify listeners of the error (but we still do need to reconnect).
-		if (rejectedNotification.getReason() != RejectedNotificationReason.SHUTDOWN) {
-			this.pushManager.notifyListenersOfRejectedNotification(
-					this.getSentNotificationBuffer().getAndRemoveNotificationWithSequenceNumber(
-							rejectedNotification.getSequenceNumber()), rejectedNotification.getReason());
+		// Don't attempt to reconnect or notify listeners of a rejected notification if the rejected notification is
+		// our deliberately-bogus shutdown notification.
+		if (this.shutdownNotification == null || rejectedNotification.getSequenceNumber() != this.shutdownNotification.getSequenceNumber()) {
+			this.reconnect();
+			
+			// SHUTDOWN errors from Apple are harmless; nothing bad happened with the delivered notification, so
+			// we don't want to notify listeners of the error (but we still do need to reconnect).
+			if (rejectedNotification.getReason() != RejectedNotificationReason.SHUTDOWN) {
+				this.pushManager.notifyListenersOfRejectedNotification(
+						this.getSentNotificationBuffer().getAndRemoveNotificationWithSequenceNumber(
+								rejectedNotification.getSequenceNumber()), rejectedNotification.getReason());
+			}
 		}
 		
+		// In any case, we know that all notifications sent before the rejected notification were processed and NOT
+		// rejected, while all notifications after the rejected one have not been processed and need to be re-sent.
 		this.pushManager.enqueueAllNotifications(
 				this.sentNotificationBuffer.getAndRemoveAllNotificationsAfterSequenceNumber(rejectedNotification.getSequenceNumber()));
 	}
