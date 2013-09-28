@@ -117,11 +117,12 @@ public class MockApnsServer {
 				case TOKEN_LENGTH: {
 					
 					this.token = new byte[in.readShort() & 0x0000FFFF];
-					this.checkpoint(ApnsPushNotificationDecoderState.TOKEN);
 					
 					if (this.token.length == 0) {
 						this.reportErrorAndCloseConnection(context, this.sequenceNumber, RejectedNotificationReason.INVALID_TOKEN_SIZE);
 					}
+					
+					this.checkpoint(ApnsPushNotificationDecoderState.TOKEN);
 					
 					break;
 				}
@@ -163,8 +164,12 @@ public class MockApnsServer {
 		}
 		
 		private void reportErrorAndCloseConnection(final ChannelHandlerContext context, final int notificationId, final RejectedNotificationReason errorCode) {
-			context.write(new RejectedNotification(notificationId, errorCode));
-			context.close();
+			context.writeAndFlush(new RejectedNotification(notificationId, errorCode)).addListener(new GenericFutureListener<ChannelFuture>() {
+				
+				public void operationComplete(ChannelFuture future) {
+					context.close();
+				}
+			});
 		}
 	}
 	
@@ -234,8 +239,8 @@ public class MockApnsServer {
 
 			@Override
 			protected void initChannel(final SocketChannel channel) throws Exception {
-				channel.pipeline().addLast("decoder", new ApnsPushNotificationDecoder());
 				channel.pipeline().addLast("encoder", new ApnsErrorEncoder());
+				channel.pipeline().addLast("decoder", new ApnsPushNotificationDecoder());
 				channel.pipeline().addLast("handler", new MockApnsServerHandler(server));
 			}
 			
