@@ -341,7 +341,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				}
 				
 				default: {
-					throw new IllegalArgumentException(String.format("Unexpected state: %s", this.getState()));
+					throw new IllegalStateException(String.format("Unexpected state: %s", this.getState()));
 				}
 			}
 		}
