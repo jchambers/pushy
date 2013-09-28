@@ -71,8 +71,6 @@ public class ApnsClientThreadTest extends BasePushyTest {
 		final ApnsClientThread<SimpleApnsPushNotification> secondClientThread =
 				new ApnsClientThread<SimpleApnsPushNotification>(this.getPushManager());
 		
-		secondClientThread.connect();
-		
 		try {
 			secondClientThread.start();
 			
@@ -118,8 +116,6 @@ public class ApnsClientThreadTest extends BasePushyTest {
 	public void testSendManyNotificationsWithMultipleThreadsAndError() throws InterruptedException {
 		final ApnsClientThread<SimpleApnsPushNotification> secondClientThread =
 				new ApnsClientThread<SimpleApnsPushNotification>(this.getPushManager());
-		
-		secondClientThread.connect();
 		
 		try {
 			secondClientThread.start();
