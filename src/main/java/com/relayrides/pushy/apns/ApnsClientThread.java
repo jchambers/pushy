@@ -83,6 +83,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	private ChannelFuture connectFuture;
 	private Future<Channel> handshakeFuture;
 	
+	private boolean hasEverSentNotification;
+	
 	private final Object shutdownMutex = new Object();
 	private SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
 	private ChannelFuture shutdownWriteFuture;
@@ -247,7 +249,10 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 							nextClientState = ClientState.READY;
 						}
 					} else {
-						nextClientState = ClientState.CONNECT;
+						// We don't need to connect to get into a known state before shutdown if we've never actually
+						// tried to send a notification.
+						nextClientState = (this.shouldShutDown && !this.hasEverSentNotification) ?
+								ClientState.SHUTDOWN_FINISH : ClientState.CONNECT;
 					}
 					
 					break;
@@ -292,7 +297,10 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				}
 				
 				case SHUTDOWN_WRITE: {
-					if (this.notificationRejectedAfterShutdownRequest) {
+					if (!this.hasEverSentNotification) {
+						// No need to get into a known state if we've never actually tried to send a notification.
+						nextClientState = ClientState.SHUTDOWN_FINISH;
+					} else if (this.notificationRejectedAfterShutdownRequest || !this.hasEverSentNotification) {
 						// It's possible that an unrelated notification will be rejected before we write our known-bad
 						// notification. For our purposes, that's good enough since things will still be in a known
 						// state.
@@ -515,6 +523,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 					}
 				}
 			});
+			
+			this.hasEverSentNotification = true;
 			
 			if (++this.writesSinceLastFlush >= ApnsClientThread.BATCH_SIZE) {
 				this.channel.flush();
