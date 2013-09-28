@@ -142,6 +142,14 @@ public class ApnsClientThreadTest extends BasePushyTest {
 	
 	@Test
 	public void testShutdown() throws InterruptedException {
+		this.getClientThread().requestShutdown();
+		
+		this.getClientThread().join(5000);
+		assertFalse(this.getClientThread().isAlive());
+	}
+	
+	@Test
+	public void testShutdownWithSentMessages() throws InterruptedException {
 		final SimpleApnsPushNotification notification = this.createTestNotification();
 		
 		final int iterations = 100;
@@ -161,5 +169,8 @@ public class ApnsClientThreadTest extends BasePushyTest {
 		assertEquals(
 				2 * iterations,
 				this.getPushManager().shutdown().size() + this.getServer().getReceivedNotifications().size());
+		
+		this.getClientThread().join(5000);
+		assertFalse(this.getClientThread().isAlive());
 	}
 }
