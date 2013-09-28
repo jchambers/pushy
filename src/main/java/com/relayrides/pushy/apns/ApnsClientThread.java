@@ -233,7 +233,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 					boolean finishedConnecting = false;
 					
 					try {
-						finishedConnecting = this.connect();
+						finishedConnecting = this.connectOrContinueConnecting();
 					} catch (InterruptedException e) {
 						continue;
 					}
@@ -280,7 +280,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 					boolean finishedDisconnecting = false;
 					
 					try {
-						this.disconnect();
+						this.disconnectOrContinueDisconnecting();
 						finishedDisconnecting = true;
 					} catch (InterruptedException e) {
 						log.warn(String.format("%s interrupted while waiting for connection to close.", this.getName()));
@@ -360,7 +360,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 						boolean finishedDisconnecting = false;
 						
 						try {
-							this.disconnect();
+							this.disconnectOrContinueDisconnecting();
 							finishedDisconnecting = true;
 						} catch (InterruptedException e) {
 							log.debug(String.format("%s interrupted while waiting to disconnect after rejected notification.", this.getName()));
@@ -411,7 +411,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		}
 	}
 	
-	private boolean connect() throws InterruptedException {
+	private boolean connectOrContinueConnecting() throws InterruptedException {
 		if (this.connectFuture == null) {
 			log.debug(String.format("%s beginning connection process.", this.getName()));
 			this.connectFuture = this.bootstrap.connect(
@@ -464,7 +464,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		}
 	}
 	
-	private void disconnect() throws InterruptedException {
+	private void disconnectOrContinueDisconnecting() throws InterruptedException {
 		if (this.channel != null && this.channel.isOpen()) {
 			this.channel.close();
 		}
