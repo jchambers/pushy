@@ -78,8 +78,9 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	private volatile boolean shouldReconnect;
 	private volatile boolean shouldShutDown;
 	private volatile boolean shutdownNotificationWritten;
-	private volatile boolean notificationRejectedAfterShutdownWrite;
+	private volatile boolean notificationRejectedAfterShutdownRequest;
 	
+	private final Object shutdownMutex = new Object();
 	private SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
 	private ChannelFuture shutdownWriteFuture;
 	
@@ -289,56 +290,63 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				}
 				
 				case SHUTDOWN_WRITE: {
-					if (this.shutdownNotification == null) {
-						this.shutdownNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
-								new KnownBadPushNotification(), this.sequenceNumber++);
-					}
-					
-					if (this.shutdownWriteFuture == null) {
-						this.shutdownWriteFuture = this.channel.writeAndFlush(this.shutdownNotification);
-					}
-					
-					try {
-						this.shutdownWriteFuture.await();
-					} catch (InterruptedException e) {
-						log.debug(String.format("%s interrupted while waiting for shutdown notification write to complete.", this.getName()));
-					}
-					
-					if (this.shutdownWriteFuture.isDone()) {
-						if (this.shutdownWriteFuture.isSuccess()) {
-							this.shutdownNotificationWritten = true;
-							nextClientState = ClientState.SHUTDOWN_WAIT;
-						} else if (this.shutdownWriteFuture.cause() != null) {
-							log.debug(String.format("Shutdown notification write failed in %s.", this.getName()), this.shutdownWriteFuture.cause());
-							
-							this.shutdownWriteFuture = null;
-							nextClientState = ClientState.RECONNECT;
-						} else {
-							// The write was cancelled; we don't ever really expect this to happen
-							log.warn(String.format("Shutdown notification write cancelled in %s", this.getName()));
-							
-							this.shutdownWriteFuture = null;
-							nextClientState = ClientState.RECONNECT;
-						}
+					if (this.notificationRejectedAfterShutdownRequest) {
+						// It's possible that an unrelated notification will be rejected before we write our known-bad
+						// notification. For our purposes, that's good enough since things will still be in a known
+						// state.
+						nextClientState = ClientState.SHUTDOWN_WAIT;
 					} else {
-						nextClientState = this.shouldReconnect ? ClientState.RECONNECT : ClientState.SHUTDOWN_WRITE;
+						if (this.shutdownNotification == null) {
+							this.shutdownNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
+									new KnownBadPushNotification(), this.sequenceNumber++);
+						}
+						
+						if (this.shutdownWriteFuture == null) {
+							this.shutdownWriteFuture = this.channel.writeAndFlush(this.shutdownNotification);
+						}
+						
+						try {
+							this.shutdownWriteFuture.await();
+						} catch (InterruptedException e) {
+							log.debug(String.format("%s interrupted while waiting for shutdown notification write to complete.", this.getName()));
+						}
+						
+						if (this.shutdownWriteFuture.isDone()) {
+							if (this.shutdownWriteFuture.isSuccess()) {
+								this.shutdownNotificationWritten = true;
+								nextClientState = ClientState.SHUTDOWN_WAIT;
+							} else if (this.shutdownWriteFuture.cause() != null) {
+								log.debug(String.format("Shutdown notification write failed in %s.", this.getName()), this.shutdownWriteFuture.cause());
+								
+								this.shutdownWriteFuture = null;
+								nextClientState = ClientState.RECONNECT;
+							} else {
+								// The write was cancelled; we don't ever really expect this to happen
+								log.warn(String.format("Shutdown notification write cancelled in %s", this.getName()));
+								
+								this.shutdownWriteFuture = null;
+								nextClientState = ClientState.RECONNECT;
+							}
+						} else {
+							nextClientState = this.shouldReconnect ? ClientState.RECONNECT : ClientState.SHUTDOWN_WRITE;
+						}
 					}
 					
 					break;
 				}
 				
 				case SHUTDOWN_WAIT: {
-					synchronized (this.shutdownNotification) {
-						if (!this.notificationRejectedAfterShutdownWrite) {
+					synchronized (this.shutdownMutex) {
+						if (!this.notificationRejectedAfterShutdownRequest) {
 							try {
-								this.shutdownNotification.wait();
+								this.shutdownMutex.wait();
 							} catch (InterruptedException e) {
 								log.debug(String.format("%s interrupted while waiting for notification rejection.", this.getName()));
 							}
 						}
 					}
 					
-					if (this.notificationRejectedAfterShutdownWrite) {
+					if (this.notificationRejectedAfterShutdownRequest) {
 						boolean finishedDisconnecting = false;
 						
 						try {
@@ -498,12 +506,9 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	}
 	
 	private void handleRejectedNotification(final RejectedNotification rejectedNotification) {
-		
-		// Don't attempt to reconnect or notify listeners of a rejected notification if the rejected notification is
-		// our deliberately-bogus shutdown notification.
+
+		// Notify listeners of the rejected notification, but only if it's not a known-bad shutdown notification
 		if (this.shutdownNotification == null || rejectedNotification.getSequenceNumber() != this.shutdownNotification.getSequenceNumber()) {
-			this.requestReconnection();
-			
 			// SHUTDOWN errors from Apple are harmless; nothing bad happened with the delivered notification, so
 			// we don't want to notify listeners of the error (but we still do need to reconnect).
 			if (rejectedNotification.getReason() != RejectedNotificationReason.SHUTDOWN) {
@@ -511,6 +516,17 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 						this.sentNotificationBuffer.getAndRemoveNotificationWithSequenceNumber(
 								rejectedNotification.getSequenceNumber()), rejectedNotification.getReason());
 			}
+		}
+		
+		if (this.shouldShutDown) {
+			synchronized (this.shutdownMutex) {
+				this.notificationRejectedAfterShutdownRequest = true;
+				this.shutdownMutex.notify();
+			}
+			
+			this.interrupt();
+		} else {
+			this.requestReconnection();
 		}
 		
 		// In any case, we know that all notifications sent before the rejected notification were processed and NOT
