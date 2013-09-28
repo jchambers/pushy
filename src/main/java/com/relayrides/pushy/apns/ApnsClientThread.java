@@ -69,11 +69,12 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
 	private final PushManager<T> pushManager;
 	
-	private ClientState state;
-	
 	private final Bootstrap bootstrap;
 	private Channel channel;
 	private int sequenceNumber = 0;
+	
+	private volatile boolean shouldReconnect;
+	private volatile boolean isShuttingDown;
 	
 	private SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
 	
@@ -176,8 +177,6 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	public ApnsClientThread(final PushManager<T> pushManager) {
 		super(String.format("ApnsClientThread-%d", ApnsClientThread.threadCounter.incrementAndGet()));
 		
-		this.state = ClientState.CONNECT;
-		
 		this.pushManager = pushManager;
 		
 		this.sentNotificationBuffer = new SentNotificationBuffer<T>(SENT_NOTIFICATION_BUFFER_SIZE);
@@ -211,14 +210,26 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	 */
 	@Override
 	public void run() {
-		while (this.getClientState() != ClientState.EXIT) {
-			switch (this.getClientState()) {
+		ClientState clientState = ClientState.CONNECT;
+		
+		while (clientState != ClientState.EXIT) {
+			final ClientState nextClientState;
+			
+			switch (clientState) {
 				case CONNECT: {
+					boolean finishedConnecting = false;
+					
 					try {
 						this.connect();
-						this.advanceToStateFromOriginStates(ClientState.READY, ClientState.CONNECT);
+						finishedConnecting = true;
 					} catch (InterruptedException e) {
 						continue;
+					}
+					
+					if (this.isShuttingDown) {
+						nextClientState = finishedConnecting ? ClientState.SHUTDOWN : ClientState.CONNECT;
+					} else {
+						nextClientState = finishedConnecting ? ClientState.READY : ClientState.CONNECT;
 					}
 					
 					break;
@@ -231,16 +242,32 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 						this.channel.flush();
 					}
 					
+					if (this.shouldReconnect) {
+						nextClientState = ClientState.RECONNECT;
+					} else if (this.isShuttingDown) {
+						nextClientState = ClientState.SHUTDOWN;
+					} else {
+						nextClientState = ClientState.READY;
+					}
+					
 					break;
 				}
 				
 				case RECONNECT: {
+					boolean finishedDisconnecting = false;
+					
 					try {
 						this.disconnect();
-						this.advanceToStateFromOriginStates(ClientState.CONNECT, ClientState.RECONNECT);
+						finishedDisconnecting = true;
 					} catch (InterruptedException e) {
 						log.warn(String.format("%s interrupted while waiting for connection to close.", this.getName()));
-						continue;
+					}
+					
+					if (finishedDisconnecting) {
+						this.shouldReconnect = false;
+						nextClientState = ClientState.CONNECT;
+					} else {
+						nextClientState = ClientState.RECONNECT;
 					}
 					
 					break;
@@ -255,6 +282,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 							this.channel.write(this.shutdownNotification);
 						}
 						
+						boolean channelClosed = false;
+						
 						try {
 							// We've already written the "poison" notification;
 							// just wait for the APNs gateway to close the
@@ -262,13 +291,15 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 							
 							// TODO Time out?
 							this.channel.closeFuture().await();
-							this.advanceToStateFromOriginStates(ClientState.EXIT, ClientState.SHUTDOWN);
+							channelClosed = true;
 						} catch (InterruptedException e) {
 							continue;
 						}
 						
+						nextClientState = channelClosed ? ClientState.EXIT : ClientState.SHUTDOWN;
+						
 					} else {
-						this.advanceToStateFromOriginStates(ClientState.EXIT, ClientState.SHUTDOWN);
+						nextClientState = ClientState.EXIT;
 					}
 					
 					break;
@@ -276,6 +307,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				
 				case EXIT: {
 					// Do nothing; we'll exit on the next iteration
+					nextClientState = ClientState.EXIT;
+					
 					break;
 				}
 				
@@ -283,6 +316,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 					throw new IllegalStateException(String.format("Unexpected state: %s", this.getState()));
 				}
 			}
+			
+			clientState = nextClientState;
 		}
 	}
 	
@@ -413,51 +448,15 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	}
 	
 	private void reconnect() {
-		log.debug(String.format("%s attempting to reconnect.", this.getName()));
-		
-		if (this.advanceToStateFromOriginStates(ClientState.RECONNECT, ClientState.READY)) {
-			this.interrupt();
-		}
+		this.shouldReconnect = true;
+		this.interrupt();
 	}
 	
 	/**
 	 * Gracefully and asynchronously shuts down this client thread.
 	 */
 	public void shutdown() {
-		log.debug(String.format("%s shutting down.", this.getName()));
-		
-		// Don't re-shut-down if we're already on our way out
-		if (this.advanceToStateFromOriginStates(ClientState.SHUTDOWN, ClientState.CONNECT, ClientState.READY, ClientState.RECONNECT)) {
-			this.interrupt();
-		}
-	}
-	
-	/**
-	 * Returns the current state of the client.
-	 * 
-	 * @return the current state of the client
-	 */
-	private ClientState getClientState() {
-		synchronized (this.state) {
-			return this.state;
-		}
-	}
-	
-	/**
-	 * Sets the current state if and only if the current state is in one of the allowed origin states.
-	 * 
-	 * @return {@code true} if the state was changed or {@code false} if the client was not in an allowable origin state
-	 */
-	private boolean advanceToStateFromOriginStates(final ClientState destinationState, final ClientState... allowableOriginStates) {
-		synchronized (this.state) {
-			for (final ClientState originState : allowableOriginStates) {
-				if (this.state == originState) {
-					this.state = destinationState;
-					return true;
-				}
-			}
-			
-			return false;
-		}
+		this.isShuttingDown = true;
+		this.interrupt();
 	}
 }
