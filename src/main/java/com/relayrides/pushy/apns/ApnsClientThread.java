@@ -576,7 +576,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	/**
 	 * Gracefully and asynchronously shuts down this client thread.
 	 */
-	public void requestShutdown() {
+	protected void requestShutdown() {
 		this.shouldShutDown = true;
 		this.interrupt();
 	}
