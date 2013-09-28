@@ -175,7 +175,7 @@ public class PushManager<T extends ApnsPushNotification> {
 	 */
 	public synchronized List<T> shutdown() throws InterruptedException {
 		for (final ApnsClientThread<T> clientThread : this.clientThreads) {
-			clientThread.shutdown();
+			clientThread.requestShutdown();
 		}
 		
 		for (final ApnsClientThread<T> clientThread : this.clientThreads) {

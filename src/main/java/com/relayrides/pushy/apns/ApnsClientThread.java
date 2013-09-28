@@ -170,7 +170,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		@Override
 		public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
 			// Assume this is a temporary IO problem and reconnect. Some writes will fail, but will be re-enqueued.
-			this.clientThread.reconnect();
+			this.clientThread.requestReconnection();
 		}
 	}
 	
@@ -465,7 +465,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 									threadName, sendableNotification), future.cause());
 						}
 
-						reconnect();
+						requestReconnection();
 						
 						// Delivery failed for some IO-related reason; re-enqueue for another attempt, but
 						// only if the notification is in the sent notification buffer (i.e. if it hasn't
@@ -502,7 +502,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		// Don't attempt to reconnect or notify listeners of a rejected notification if the rejected notification is
 		// our deliberately-bogus shutdown notification.
 		if (this.shutdownNotification == null || rejectedNotification.getSequenceNumber() != this.shutdownNotification.getSequenceNumber()) {
-			this.reconnect();
+			this.requestReconnection();
 			
 			// SHUTDOWN errors from Apple are harmless; nothing bad happened with the delivered notification, so
 			// we don't want to notify listeners of the error (but we still do need to reconnect).
@@ -519,7 +519,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				this.sentNotificationBuffer.getAndRemoveAllNotificationsAfterSequenceNumber(rejectedNotification.getSequenceNumber()));
 	}
 	
-	private void reconnect() {
+	private void requestReconnection() {
 		this.shouldReconnect = true;
 		this.interrupt();
 	}
@@ -527,7 +527,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	/**
 	 * Gracefully and asynchronously shuts down this client thread.
 	 */
-	public void shutdown() {
+	public void requestShutdown() {
 		this.shouldShutDown = true;
 		this.interrupt();
 	}

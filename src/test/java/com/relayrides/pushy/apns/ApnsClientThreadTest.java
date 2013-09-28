@@ -89,7 +89,7 @@ public class ApnsClientThreadTest extends BasePushyTest {
 			
 			assertEquals(iterations, receivedNotifications.size());
 		} finally {
-			secondClientThread.shutdown();
+			secondClientThread.requestShutdown();
 		}
 	}
 	
@@ -136,7 +136,7 @@ public class ApnsClientThreadTest extends BasePushyTest {
 			
 			assertEquals(iterations, receivedNotifications.size());
 		} finally {
-			secondClientThread.shutdown();
+			secondClientThread.requestShutdown();
 		}
 	}
 	
@@ -152,7 +152,7 @@ public class ApnsClientThreadTest extends BasePushyTest {
 		}
 		
 		this.waitForLatch(latch);
-		this.getClientThread().shutdown();
+		this.getClientThread().requestShutdown();
 		
 		for (int i = 0; i < iterations; i++) {
 			this.getPushManager().enqueuePushNotification(notification);
