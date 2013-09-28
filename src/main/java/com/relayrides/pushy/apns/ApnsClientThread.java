@@ -80,6 +80,9 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	private volatile boolean shutdownNotificationWritten;
 	private volatile boolean notificationRejectedAfterShutdownRequest;
 	
+	private ChannelFuture connectFuture;
+	private Future<Channel> handshakeFuture;
+	
 	private final Object shutdownMutex = new Object();
 	private SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
 	private ChannelFuture shutdownWriteFuture;
@@ -228,8 +231,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 					boolean finishedConnecting = false;
 					
 					try {
-						this.connect();
-						finishedConnecting = true;
+						finishedConnecting = this.connect();
 					} catch (InterruptedException e) {
 						continue;
 					}
@@ -401,35 +403,56 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		}
 	}
 	
-	private void connect() throws InterruptedException {
-		log.debug(String.format("%s beginning connection process.", this.getName()));
+	private boolean connect() throws InterruptedException {
+		if (this.connectFuture == null) {
+			log.debug(String.format("%s beginning connection process.", this.getName()));
+			this.connectFuture = this.bootstrap.connect(
+					this.pushManager.getEnvironment().getApnsGatewayHost(),
+					this.pushManager.getEnvironment().getApnsGatewayPort());
+		}
 		
-		final ChannelFuture connectFuture =
-				this.bootstrap.connect(
-						this.pushManager.getEnvironment().getApnsGatewayHost(),
-						this.pushManager.getEnvironment().getApnsGatewayPort()).await();
+		this.connectFuture.await();
 		
-		if (connectFuture.isSuccess()) {
+		if (this.connectFuture.isSuccess()) {
 			log.debug(String.format("%s connected.", this.getName()));
 			
-			this.channel = connectFuture.channel();
+			this.channel = this.connectFuture.channel();
 			
 			if (this.pushManager.getEnvironment().isTlsRequired()) {
-				log.debug(String.format("%s waiting for TLS handshake.", this.getName()));
+				if (this.handshakeFuture == null) {
+					log.debug(String.format("%s waiting for TLS handshake.", this.getName()));
+					this.handshakeFuture = this.channel.pipeline().get(SslHandler.class).handshakeFuture();
+				}
 				
-				final Future<Channel> handshakeFuture = this.channel.pipeline().get(SslHandler.class).handshakeFuture().await();
+				this.handshakeFuture.await();
 				
-				if (handshakeFuture.isSuccess()) {
+				if (this.handshakeFuture.isSuccess()) {
 					log.debug(String.format("%s successfully completed TLS handshake.", this.getName()));
+					
+					this.connectFuture = null;
+					this.handshakeFuture = null;
+					
+					return true;
 				} else {
 					log.error(String.format("%s failed to complete TLS handshake with APNs gateway.", this.getName()),
-							handshakeFuture.cause());
+							this.handshakeFuture.cause());
+					
+					this.connectFuture = null;
+					this.handshakeFuture = null;
+					
+					return false;
 				}
 			} else {
 				log.debug(String.format("%s does not require a TLS handshake.", this.getName()));
+				
+				this.connectFuture = null;
+				return true;
 			}
 		} else {
 			log.error(String.format("%s failed to connect to APNs gateway.", this.getName()), connectFuture.cause());
+			
+			this.connectFuture = null;
+			return false;
 		}
 	}
 	
