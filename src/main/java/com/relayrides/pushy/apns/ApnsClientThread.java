@@ -63,7 +63,9 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		CONNECT,
 		READY,
 		RECONNECT,
-		SHUTDOWN,
+		SHUTDOWN_WRITE,
+		SHUTDOWN_WAIT,
+		SHUTDOWN_FINISH,
 		EXIT
 	};
 	
@@ -74,9 +76,14 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	private int sequenceNumber = 0;
 	
 	private volatile boolean shouldReconnect;
-	private volatile boolean isShuttingDown;
+	private volatile boolean shouldShutDown;
+	private volatile boolean shutdownNotificationWritten;
+	private volatile boolean notificationRejectedAfterShutdownWrite;
 	
 	private SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
+	private ChannelFuture shutdownWriteFuture;
+	
+	private Future<?> workerShutdownFuture;
 	
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
 	private static final int SENT_NOTIFICATION_BUFFER_SIZE = 2048;
@@ -226,10 +233,18 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 						continue;
 					}
 					
-					if (this.isShuttingDown) {
-						nextClientState = finishedConnecting ? ClientState.SHUTDOWN : ClientState.CONNECT;
+					if (finishedConnecting) {
+						if (this.shouldShutDown) {
+							if (this.shutdownNotificationWritten) {
+								nextClientState = ClientState.SHUTDOWN_WAIT;
+							} else {
+								nextClientState = ClientState.SHUTDOWN_WRITE;
+							}
+						} else {
+							nextClientState = ClientState.READY;
+						}
 					} else {
-						nextClientState = finishedConnecting ? ClientState.READY : ClientState.CONNECT;
+						nextClientState = ClientState.CONNECT;
 					}
 					
 					break;
@@ -244,8 +259,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 					
 					if (this.shouldReconnect) {
 						nextClientState = ClientState.RECONNECT;
-					} else if (this.isShuttingDown) {
-						nextClientState = ClientState.SHUTDOWN;
+					} else if (this.shouldShutDown) {
+						nextClientState = ClientState.SHUTDOWN_WRITE;
 					} else {
 						nextClientState = ClientState.READY;
 					}
@@ -273,34 +288,89 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 					break;
 				}
 				
-				case SHUTDOWN: {
-					if (this.channel != null && this.channel.isOpen()) {
-						if (this.shutdownNotification == null) {
-							this.shutdownNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
-									new KnownBadPushNotification(), this.sequenceNumber++);
+				case SHUTDOWN_WRITE: {
+					if (this.shutdownNotification == null) {
+						this.shutdownNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
+								new KnownBadPushNotification(), this.sequenceNumber++);
+					}
+					
+					if (this.shutdownWriteFuture == null) {
+						this.shutdownWriteFuture = this.channel.writeAndFlush(this.shutdownNotification);
+					}
+					
+					try {
+						this.shutdownWriteFuture.await();
+					} catch (InterruptedException e) {
+						log.debug(String.format("%s interrupted while waiting for shutdown notification write to complete.", this.getName()));
+					}
+					
+					if (this.shutdownWriteFuture.isDone()) {
+						if (this.shutdownWriteFuture.isSuccess()) {
+							this.shutdownNotificationWritten = true;
+							nextClientState = ClientState.SHUTDOWN_WAIT;
+						} else if (this.shutdownWriteFuture.cause() != null) {
+							log.debug(String.format("Shutdown notification write failed in %s.", this.getName()), this.shutdownWriteFuture.cause());
 							
-							this.channel.write(this.shutdownNotification);
+							this.shutdownWriteFuture = null;
+							nextClientState = ClientState.RECONNECT;
+						} else {
+							// The write was cancelled; we don't ever really expect this to happen
+							log.warn(String.format("Shutdown notification write cancelled in %s", this.getName()));
+							
+							this.shutdownWriteFuture = null;
+							nextClientState = ClientState.RECONNECT;
 						}
-						
-						boolean channelClosed = false;
+					} else {
+						nextClientState = this.shouldReconnect ? ClientState.RECONNECT : ClientState.SHUTDOWN_WRITE;
+					}
+					
+					break;
+				}
+				
+				case SHUTDOWN_WAIT: {
+					synchronized (this.shutdownNotification) {
+						if (!this.notificationRejectedAfterShutdownWrite) {
+							try {
+								this.shutdownNotification.wait();
+							} catch (InterruptedException e) {
+								log.debug(String.format("%s interrupted while waiting for notification rejection.", this.getName()));
+							}
+						}
+					}
+					
+					if (this.notificationRejectedAfterShutdownWrite) {
+						boolean finishedDisconnecting = false;
 						
 						try {
-							// We've already written the "poison" notification;
-							// just wait for the APNs gateway to close the
-							// connection
-							
-							// TODO Time out?
-							this.channel.closeFuture().await();
-							channelClosed = true;
+							this.disconnect();
+							finishedDisconnecting = true;
 						} catch (InterruptedException e) {
-							continue;
+							log.debug(String.format("%s interrupted while waiting to disconnect after rejected notification.", this.getName()));
 						}
 						
-						nextClientState = channelClosed ? ClientState.EXIT : ClientState.SHUTDOWN;
-						
+						nextClientState = finishedDisconnecting ? ClientState.SHUTDOWN_FINISH : ClientState.SHUTDOWN_WAIT;
 					} else {
-						nextClientState = ClientState.EXIT;
+						nextClientState = this.shouldReconnect ? ClientState.RECONNECT : ClientState.SHUTDOWN_WAIT;
 					}
+					
+					break;
+				}
+				
+				case SHUTDOWN_FINISH: {
+					if (this.workerShutdownFuture == null) {
+						this.workerShutdownFuture = this.bootstrap.group().shutdownGracefully();
+					}
+					
+					boolean shutdownFinished = false;
+					
+					try {
+						this.workerShutdownFuture.await();
+						shutdownFinished = true;
+					} catch (InterruptedException e) {
+						log.debug(String.format("%s interrupted while waiting for worker group to shut down gracefully", this.getName()));
+					}
+					
+					nextClientState = shutdownFinished ? ClientState.EXIT : ClientState.SHUTDOWN_FINISH;
 					
 					break;
 				}
@@ -313,6 +383,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				}
 				
 				default: {
+					// If this ever happens, it's because we did something dumb and added a client state that we're
+					// not actually handling.
 					throw new IllegalStateException(String.format("Unexpected state: %s", this.getState()));
 				}
 			}
@@ -456,7 +528,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	 * Gracefully and asynchronously shuts down this client thread.
 	 */
 	public void shutdown() {
-		this.isShuttingDown = true;
+		this.shouldShutDown = true;
 		this.interrupt();
 	}
 }
