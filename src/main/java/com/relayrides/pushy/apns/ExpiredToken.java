@@ -43,8 +43,8 @@ public class ExpiredToken {
 	private final Date expiration;
 	
 	protected ExpiredToken(final byte[] token, final Date expiration) {
-		this.token = token;
-		this.expiration = expiration;
+		this.token = java.util.Arrays.copyOf(token, token.length);
+		this.expiration = new Date(expiration.getTime());
 	}
 	
 	/**
