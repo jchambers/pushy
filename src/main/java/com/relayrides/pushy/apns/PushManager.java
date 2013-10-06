@@ -167,15 +167,52 @@ public class PushManager<T extends ApnsPushNotification> {
 	}
 	
 	/**
-	 * Disconnects from the APNs and gracefully shuts down all worker threads.
+	 * Disconnects from the APNs and gracefully shuts down all worker threads. This method will block until all client
+	 * threads have shut down gracefully.
 	 * 
 	 * @return a list of notifications not sent before the {@code PushManager} shut down
 	 * 
 	 * @throws InterruptedException if interrupted while waiting for worker threads to exit cleanly
 	 */
 	public synchronized List<T> shutdown() throws InterruptedException {
+		return this.shutdown(0);
+	}
+	
+	/**
+	 * Disconnects from the APNs and gracefully shuts down all worker threads. This method will wait until the given
+	 * timeout expires for client threads to shut down gracefully, and will then instruct them to shut down as soon
+	 * as possible (and will block until shutdown is complete). Note that the returned list of undelivered push
+	 * notifications may not be accurate in cases where the timeout elapsed before the client threads shut down.
+	 * 
+	 * @param the timeout, in milliseconds, after which client threads should be shut down as quickly as possible
+	 * 
+	 * @return a list of notifications not sent before the {@code PushManager} shut down
+	 * 
+	 * @throws InterruptedException if interrupted while waiting for worker threads to exit cleanly
+	 */
+	public synchronized List<T> shutdown(long timeout) throws InterruptedException {
 		for (final ApnsClientThread<T> clientThread : this.clientThreads) {
 			clientThread.requestShutdown();
+		}
+		
+		if (timeout > 0) {
+			final long deadline = System.currentTimeMillis() + timeout;
+			
+			for (final ApnsClientThread<T> clientThread : this.clientThreads) {
+				final long remainingTimeout = deadline - System.currentTimeMillis();
+				
+				if (remainingTimeout <= 0) {
+					break;
+				}
+				
+				clientThread.join(remainingTimeout);
+			}
+			
+			for (final ApnsClientThread<T> clientThread : this.clientThreads) {
+				if (clientThread.isAlive()) {
+					clientThread.shutdownImmediately();
+				}
+			}
 		}
 		
 		for (final ApnsClientThread<T> clientThread : this.clientThreads) {

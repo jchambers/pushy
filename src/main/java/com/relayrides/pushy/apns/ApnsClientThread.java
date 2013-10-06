@@ -77,6 +77,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
 	private volatile boolean shouldReconnect;
 	private volatile boolean shouldShutDown;
+	private volatile boolean shouldShutDownImmediately;
 	private volatile boolean shutdownNotificationWritten;
 	private volatile boolean notificationRejectedAfterShutdownRequest;
 	
@@ -239,7 +240,9 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 					}
 					
 					if (finishedConnecting) {
-						if (this.shouldShutDown) {
+						if (this.shouldShutDownImmediately) {
+							nextClientState = ClientState.SHUTDOWN_FINISH;
+						} else if (this.shouldShutDown) {
 							if (this.shutdownNotificationWritten) {
 								nextClientState = ClientState.SHUTDOWN_WAIT;
 							} else {
@@ -265,7 +268,9 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 						this.channel.flush();
 					}
 					
-					if (this.shouldReconnect) {
+					if (this.shouldShutDownImmediately) {
+						nextClientState = ClientState.SHUTDOWN_FINISH;
+					} else if (this.shouldReconnect) {
 						nextClientState = ClientState.RECONNECT;
 					} else if (this.shouldShutDown) {
 						nextClientState = ClientState.SHUTDOWN_WRITE;
@@ -286,7 +291,9 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 						log.warn(String.format("%s interrupted while waiting for connection to close.", this.getName()));
 					}
 					
-					if (finishedDisconnecting) {
+					if (this.shouldShutDownImmediately) {
+						nextClientState = ClientState.SHUTDOWN_FINISH;
+					} else if (finishedDisconnecting) {
 						this.shouldReconnect = false;
 						nextClientState = ClientState.CONNECT;
 					} else {
@@ -299,6 +306,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				case SHUTDOWN_WRITE: {
 					if (!this.hasEverSentNotification) {
 						// No need to get into a known state if we've never actually tried to send a notification.
+						nextClientState = ClientState.SHUTDOWN_FINISH;
+					} else if (this.shouldShutDownImmediately) {
 						nextClientState = ClientState.SHUTDOWN_FINISH;
 					} else if (this.notificationRejectedAfterShutdownRequest || !this.hasEverSentNotification) {
 						// It's possible that an unrelated notification will be rejected before we write our known-bad
@@ -356,7 +365,9 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 						}
 					}
 					
-					if (this.notificationRejectedAfterShutdownRequest) {
+					if (this.shouldShutDownImmediately) {
+						nextClientState = ClientState.SHUTDOWN_FINISH;
+					} else if (this.notificationRejectedAfterShutdownRequest) {
 						boolean finishedDisconnecting = false;
 						
 						try {
@@ -578,6 +589,11 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	 */
 	protected void requestShutdown() {
 		this.shouldShutDown = true;
+		this.interrupt();
+	}
+	
+	protected void shutdownImmediately() {
+		this.shouldShutDownImmediately = true;
 		this.interrupt();
 	}
 }
