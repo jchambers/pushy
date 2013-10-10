@@ -22,6 +22,8 @@
 package com.relayrides.pushy.apns;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -65,5 +67,18 @@ public class PushManagerTest extends BasePushyTest {
 		this.waitForLatch(latch);
 		
 		assertEquals(1, listener.getRejectedNotificationCount());
+	}
+	
+	@Test
+	public void testIsRunning() throws InterruptedException {
+		PushManager pm = this.getPushManager();		
+		
+		pm.start();
+		
+		assertTrue(pm.isRunning());
+		
+		pm.shutdown();
+		
+		assertFalse(pm.isRunning());
 	}
 }

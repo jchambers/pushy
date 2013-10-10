@@ -424,6 +424,19 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	}
 	
 	/**
+	 * Checks if there is an active connection to APNs, or if there is about to be one.
+	 * 
+	 * @return true if the client is connecting to the APNs server, or already connected.
+	 */
+	public boolean isRunning() {
+		synchronized(this.state) {
+			return this.state != ClientState.CONNECT && 
+					this.state != ClientState.EXIT && 
+					this.state != ClientState.SHUTDOWN;
+		}
+	}
+	
+	/**
 	 * Sets the current state if and only if the current state is in one of the allowed origin states.
 	 */
 	private boolean advanceToStateFromOriginStates(final ClientState destinationState, final ClientState... allowableOriginStates) {
