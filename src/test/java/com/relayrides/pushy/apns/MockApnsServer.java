@@ -119,7 +119,7 @@ public class MockApnsServer {
 					this.token = new byte[in.readShort() & 0x0000FFFF];
 					
 					if (this.token.length == 0) {
-						this.reportErrorAndCloseConnection(context, this.sequenceNumber, RejectedNotificationReason.INVALID_TOKEN_SIZE);
+						this.reportErrorAndCloseConnection(context, this.sequenceNumber, RejectedNotificationReason.MISSING_TOKEN);
 					}
 					
 					this.checkpoint(ApnsPushNotificationDecoderState.TOKEN);
