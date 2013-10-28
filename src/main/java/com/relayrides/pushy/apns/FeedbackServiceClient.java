@@ -142,7 +142,7 @@ class FeedbackServiceClient {
 		this.environment = pushManager.getEnvironment();
 		
 		this.bootstrap = new Bootstrap();
-		this.bootstrap.group(new NioEventLoopGroup());
+		this.bootstrap.group(new NioEventLoopGroup(1));
 		this.bootstrap.channel(NioSocketChannel.class);
 		
 		final FeedbackServiceClient feedbackClient = this;
