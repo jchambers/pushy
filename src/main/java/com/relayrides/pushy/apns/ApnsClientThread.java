@@ -180,7 +180,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		this.sentNotificationBuffer = new SentNotificationBuffer<T>(SENT_NOTIFICATION_BUFFER_SIZE);
 		
 		this.bootstrap = new Bootstrap();
-		this.bootstrap.group(new NioEventLoopGroup());
+		this.bootstrap.group(new NioEventLoopGroup(1));
 		this.bootstrap.channel(NioSocketChannel.class);
 		this.bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
 		
