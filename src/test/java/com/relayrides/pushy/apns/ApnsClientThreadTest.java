@@ -173,4 +173,28 @@ public class ApnsClientThreadTest extends BasePushyTest {
 		this.getClientThread().join(5000);
 		assertFalse(this.getClientThread().isAlive());
 	}
+	
+	@Test
+	public void testImmediateShutdownRequest() throws InterruptedException {
+		final ApnsClientThread<SimpleApnsPushNotification> clientThread =
+				new ApnsClientThread<SimpleApnsPushNotification>(this.getPushManager());
+		
+		clientThread.start();
+		clientThread.requestShutdown();
+		
+		clientThread.join(5000);
+		assertFalse(clientThread.isAlive());
+	}
+	
+	@Test
+	public void testImmediateShutdown() throws InterruptedException {
+		final ApnsClientThread<SimpleApnsPushNotification> clientThread =
+				new ApnsClientThread<SimpleApnsPushNotification>(this.getPushManager());
+		
+		clientThread.start();
+		clientThread.shutdownImmediately();
+		
+		clientThread.join(5000);
+		assertFalse(clientThread.isAlive());
+	}
 }
