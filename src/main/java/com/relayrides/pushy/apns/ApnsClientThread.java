@@ -309,7 +309,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 						nextClientState = ClientState.SHUTDOWN_FINISH;
 					} else if (this.shouldShutDownImmediately) {
 						nextClientState = ClientState.SHUTDOWN_FINISH;
-					} else if (this.notificationRejectedAfterShutdownRequest || !this.hasEverSentNotification) {
+					} else if (this.notificationRejectedAfterShutdownRequest) {
 						// It's possible that an unrelated notification will be rejected before we write our known-bad
 						// notification. For our purposes, that's good enough since things will still be in a known
 						// state.
