@@ -93,7 +93,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	private Future<?> workerShutdownFuture;
 	
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
-	private static final int SENT_NOTIFICATION_BUFFER_SIZE = 2048;
+	private static final int SENT_NOTIFICATION_BUFFER_SIZE = 4096;
 	
 	private static final long POLL_TIMEOUT = 50;
 	private static final TimeUnit POLL_TIME_UNIT = TimeUnit.MILLISECONDS;
