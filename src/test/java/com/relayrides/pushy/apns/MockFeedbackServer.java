@@ -23,6 +23,8 @@ package com.relayrides.pushy.apns;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
@@ -43,6 +45,8 @@ public class MockFeedbackServer {
 	
 	private EventLoopGroup bossGroup;
 	private EventLoopGroup workerGroup;
+	
+	private volatile boolean closeWhenDone = false;
 	
 	private class ExpiredTokenEncoder extends MessageToByteEncoder<ExpiredToken> {
 
@@ -67,11 +71,17 @@ public class MockFeedbackServer {
 			
 			final List<ExpiredToken> expiredTokens = this.feedbackServer.getAndClearAllExpiredTokens();
 			
+			ChannelFuture lastWriteFuture = null;
+			
 			for (final ExpiredToken expiredToken : expiredTokens) {
-				context.write(expiredToken);
+				lastWriteFuture = context.write(expiredToken);
 			}
 			
 			context.flush();
+
+			if (this.feedbackServer.closeWhenDone && lastWriteFuture != null) {
+				lastWriteFuture.addListener(ChannelFutureListener.CLOSE);
+			}
 		}
 	}
 	
@@ -117,5 +127,9 @@ public class MockFeedbackServer {
 		this.expiredTokens.clear();
 		
 		return tokensToReturn;
+	}
+	
+	public void setCloseWhenDone(final boolean closeWhenDone) {
+		this.closeWhenDone = closeWhenDone;
 	}
 }

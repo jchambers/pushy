@@ -76,6 +76,13 @@ public class FeedbackServiceClientTest {
 		
 		assertTrue(feedbackClient.getExpiredTokens(1, TimeUnit.SECONDS).isEmpty());
 	}
+	
+	@Test
+	public void testGetExpiredTokensCloseWhenDone() throws InterruptedException {
+		this.feedbackServer.setCloseWhenDone(true);
+		this.testGetExpiredTokens();
+	}
+
 
 	@After
 	public void tearDown() throws InterruptedException {
