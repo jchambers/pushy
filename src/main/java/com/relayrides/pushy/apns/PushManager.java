@@ -21,6 +21,9 @@
 
 package com.relayrides.pushy.apns;
 
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.util.concurrent.Future;
+
 import java.lang.ref.WeakReference;
 import java.security.KeyStore;
 import java.util.ArrayList;
@@ -43,17 +46,20 @@ public class PushManager<T extends ApnsPushNotification> {
 	private final ApnsEnvironment environment;
 	private final KeyStore keyStore;
 	private final char[] keyStorePassword;
+	private final int concurrentConnections;
 	
 	private final ArrayList<ApnsClientThread<T>> clientThreads;
-	private final FeedbackServiceClient feedbackClient;
 	
 	private final ArrayList<WeakReference<RejectedNotificationListener<T>>> rejectedNotificationListeners;
+	
+	private final NioEventLoopGroup workerGroup;
+	private final boolean shouldShutDownWorkerGroup;
 	
 	private final ExecutorService rejectedNotificationExecutorService;
 	
 	/**
-	 * Constructs a new {@code PushManager} that operates in the given environment with the given credentials and a
-	 * single connection to APNs.
+	 * Constructs a new {@code PushManager} that operates in the given environment with the given credentials, a single
+	 * connection to APNs, and a default event loop group.
 	 * 
 	 * @param environment the environment in which this {@code PushManager} operates
 	 * @param keyStore A {@code KeyStore} containing the client key to present during a TLS handshake; may be
@@ -66,8 +72,8 @@ public class PushManager<T extends ApnsPushNotification> {
 	}
 	
 	/**
-	 * <p>Constructs a new {@code PushManager} that operates in the given environment with the given credentials and the
-	 * given number of parallel connections to APNs. See
+	 * <p>Constructs a new {@code PushManager} that operates in the given environment with the given credentials, the
+	 * given number of parallel connections to APNs, and a default event loop group. See
 	 * <a href="http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW6">
 	 * Best Practices for Managing Connections</a> for additional information.</p>
 	 * 
@@ -79,6 +85,31 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * @param concurrentConnections the number of parallel connections to open to APNs
 	 */
 	public PushManager(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword, final int concurrentConnections) {
+		this(environment, keyStore, keyStorePassword, concurrentConnections, null);
+	}
+	
+	/**
+	 * <p>Constructs a new {@code PushManager} that operates in the given environment with the given credentials and the
+	 * given number of parallel connections to APNs. See
+	 * <a href="http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW6">
+	 * Best Practices for Managing Connections</a> for additional information.</p>
+	 * 
+	 * <p>This constructor may take an event loop group as an argument; if an event loop group is provided, the caller
+	 * is responsible for managing the lifecycle of the group and <strong>must</strong> shut it down after shutting down
+	 * this {@code PushManager}.</p>
+	 * 
+	 * @param environment the environment in which this {@code PushManager} operates
+	 * @param keyStore A {@code KeyStore} containing the client key to present during a TLS handshake; may be
+	 * {@code null} if the environment does not require TLS. The {@code KeyStore} should be loaded before being used
+	 * here.
+	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
+	 * @param concurrentConnections the number of parallel connections to open to APNs
+	 * @param workerGroup the event loop group this push manager should use for its connections to the APNs gateway and
+	 * feedback service; if {@code null}, a new event loop group will be created and will be shut down automatically
+	 * when the push manager is shut down. If not {@code null}, the caller <strong>must</strong> shut down the event
+	 * loop group after shutting down the push manager
+	 */
+	public PushManager(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword, final int concurrentConnections, final NioEventLoopGroup workerGroup) {
 		
 		if (environment.isTlsRequired() && keyStore == null) {
 			throw new IllegalArgumentException("Must include a non-null KeyStore for environments that require TLS.");
@@ -92,16 +123,20 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.keyStore = keyStore;
 		this.keyStorePassword = keyStorePassword;
 		
-		this.clientThreads = new ArrayList<ApnsClientThread<T>>(concurrentConnections);
-		
-		for (int i = 0; i < concurrentConnections; i++) {
-			this.clientThreads.add(new ApnsClientThread<T>(this));
-		}
-		
-		this.feedbackClient = new FeedbackServiceClient(this);
+		this.concurrentConnections = concurrentConnections;
+		this.clientThreads = new ArrayList<ApnsClientThread<T>>(this.concurrentConnections);
 		
 		this.rejectedNotificationExecutorService = Executors.newSingleThreadExecutor();
+		
+		if (workerGroup != null) {
+			this.workerGroup = workerGroup;
+			this.shouldShutDownWorkerGroup = false;
+		} else {
+			this.workerGroup = new NioEventLoopGroup();
+			this.shouldShutDownWorkerGroup = true;
+		}
 	}
+
 	
 	/**
 	 * Returns the environment in which this {@code PushManager} is operating.
@@ -135,7 +170,10 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * will <strong>not</strong> be sent until this method is called.
 	 */
 	public synchronized void start() {
-		for (final ApnsClientThread<T> clientThread : this.clientThreads) {
+		for (int i = 0; i < this.concurrentConnections; i++) {
+			final ApnsClientThread<T> clientThread = new ApnsClientThread<T>(this);
+			
+			this.clientThreads.add(clientThread);
 			clientThread.start();
 		}
 	}
@@ -219,9 +257,12 @@ public class PushManager<T extends ApnsPushNotification> {
 			clientThread.join();
 		}
 		
-		this.feedbackClient.destroy();
-		
 		this.rejectedNotificationExecutorService.shutdown();
+		
+		if (this.shouldShutDownWorkerGroup) {
+			final Future<?> workerShutdownFuture = this.workerGroup.shutdownGracefully();
+			workerShutdownFuture.await();
+		}
 		
 		return new ArrayList<T>(this.queue);
 	}
@@ -273,6 +314,10 @@ public class PushManager<T extends ApnsPushNotification> {
 		return this.queue;
 	}
 	
+	protected NioEventLoopGroup getWorkerGroup() {
+		return this.workerGroup;
+	}
+	
 	/**
 	 * <p>Queries the APNs feedback service for expired tokens. Be warned that this is a <strong>destructive
 	 * operation</strong>. According to Apple's documentation:</p>
@@ -286,6 +331,6 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
 	 */
 	public List<ExpiredToken> getExpiredTokens() throws InterruptedException {
-		return this.feedbackClient.getExpiredTokens();
+		return new FeedbackServiceClient(this).getExpiredTokens();
 	}
 }
