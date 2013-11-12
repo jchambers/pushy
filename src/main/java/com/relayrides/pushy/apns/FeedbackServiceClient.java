@@ -33,6 +33,7 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.ReplayingDecoder;
 import io.netty.handler.ssl.SslHandler;
+import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.util.concurrent.Future;
 
@@ -40,6 +41,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.TimeUnit;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p>A client that communicates with the APNs feedback to retrieve expired device tokens. According to Apple's
@@ -69,6 +73,8 @@ class FeedbackServiceClient {
 	private final PushManager<? extends ApnsPushNotification> pushManager;
 	
 	private Vector<ExpiredToken> expiredTokens;
+	
+	private final Logger log = LoggerFactory.getLogger(ApnsClientThread.class);
 	
 	private enum ExpiredTokenDecoderState {
 		EXPIRATION,
@@ -131,6 +137,11 @@ class FeedbackServiceClient {
 		
 		@Override
 		public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
+			
+			if (!(cause instanceof ReadTimeoutException)) {
+				log.warn("Caught an unexpected exception while waiting for feedback.", cause);
+			}
+			
 			context.close();
 		}
 	}
@@ -195,15 +206,26 @@ class FeedbackServiceClient {
 				this.pushManager.getEnvironment().getFeedbackPort()).await();
 		
 		if (connectFuture.isSuccess()) {
+			log.debug("Connected to feedback service.");
+			
 			if (this.pushManager.getEnvironment().isTlsRequired()) {
 				final Future<Channel> handshakeFuture = connectFuture.channel().pipeline().get(SslHandler.class).handshakeFuture().await();
 				
 				if (handshakeFuture.isSuccess()) {
+					log.debug("Completed TLS handshake with feedback service.");
 					connectFuture.channel().closeFuture().await();
+				} else if (handshakeFuture.cause() != null) {
+					log.warn("Failed to complete TLS handshake with feedback service.", handshakeFuture.cause());
+				} else if (handshakeFuture.isCancelled()) {
+					log.debug("TLS handhsake attempt was cancelled.");
 				}
 			} else {
 				connectFuture.channel().closeFuture().await();
 			}
+		} else if (connectFuture.cause() != null) {
+			log.warn("Failed to connect to feedback service.", connectFuture.cause());
+		} else if (connectFuture.isCancelled()) {
+			log.debug("Attempt to connect to feedback service was cancelled.");
 		}
 		
 		// The feedback service will send us a list of device tokens as soon as we connect, then hang up. While we're
