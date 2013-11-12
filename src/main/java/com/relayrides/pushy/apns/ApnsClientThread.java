@@ -422,6 +422,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		}
 	}
 	
+	// TODO Remove call to setAutoClose when Netty 5.0 is available
+	@SuppressWarnings("deprecation")
 	private boolean connectOrContinueConnecting() throws InterruptedException {
 		if (this.connectFuture == null) {
 			log.debug(String.format("%s beginning connection process.", this.getName()));
@@ -436,6 +438,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			log.debug(String.format("%s connected.", this.getName()));
 			
 			this.channel = this.connectFuture.channel();
+			this.channel.config().setAutoClose(false);
 			
 			if (this.pushManager.getEnvironment().isTlsRequired()) {
 				if (this.handshakeFuture == null) {
@@ -477,6 +480,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
 	private void disconnectOrContinueDisconnecting() throws InterruptedException {
 		if (this.channel != null && this.channel.isOpen()) {
+			// We always want to try to read whatever is on the buffer before closing the connection
+			this.channel.read();
 			this.channel.close();
 		}
 		
