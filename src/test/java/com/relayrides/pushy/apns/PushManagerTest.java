@@ -22,6 +22,9 @@
 package com.relayrides.pushy.apns;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import io.netty.channel.nio.NioEventLoopGroup;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -65,5 +68,33 @@ public class PushManagerTest extends BasePushyTest {
 		this.waitForLatch(latch);
 		
 		assertEquals(1, listener.getRejectedNotificationCount());
+	}
+	
+	@Test
+	public void testShutdown() throws InterruptedException {
+		{
+			final PushManager<ApnsPushNotification> defaultGroupPushManager =
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+			
+			defaultGroupPushManager.start();
+			defaultGroupPushManager.shutdown();
+			
+			assertTrue(defaultGroupPushManager.getWorkerGroup().isShutdown());
+		}
+		
+		{
+			final NioEventLoopGroup group = new NioEventLoopGroup(1);
+			
+			final PushManager<ApnsPushNotification> providedGroupPushManager =
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, group);
+			
+			providedGroupPushManager.start();
+			providedGroupPushManager.shutdown();
+			
+			assertEquals(group, providedGroupPushManager.getWorkerGroup());
+			assertFalse(group.isShutdown());
+
+			group.shutdownGracefully();
+		}
 	}
 }

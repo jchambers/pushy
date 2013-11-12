@@ -33,15 +33,15 @@ import org.junit.Before;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public abstract class BasePushyTest {
-	private static final int APNS_PORT = 2195;
-	private static final int FEEDBACK_PORT = 2196;
+	protected static final int APNS_PORT = 2195;
+	protected static final int FEEDBACK_PORT = 2196;
+	
+	protected static final ApnsEnvironment TEST_ENVIRONMENT =
+			new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT, false);
 	
 	private static final byte[] TOKEN = new byte[] { 0x12, 0x34, 0x56 };
 	private static final String PAYLOAD = "{\"aps\":{\"alert\":\"Hello\"}}";
 	private static final Date EXPIRATION = new Date(1375926408000L);
-	
-	private static final ApnsEnvironment TEST_ENVIRONMENT =
-			new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT, false);
 	
 	private static final long LATCH_TIMEOUT_VALUE = 5;
 	private static final TimeUnit LATCH_TIMEOUT_UNIT = TimeUnit.SECONDS;
