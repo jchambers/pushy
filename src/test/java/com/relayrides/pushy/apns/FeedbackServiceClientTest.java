@@ -38,6 +38,7 @@ public class FeedbackServiceClientTest {
 	private static final int APNS_PORT = 2195;
 	private static final int FEEDBACK_PORT = 2196;
 	
+	private PushManager<SimpleApnsPushNotification> pushManager;
 	private MockFeedbackServer feedbackServer;
 	private FeedbackServiceClient feedbackClient;
 	
@@ -46,9 +47,10 @@ public class FeedbackServiceClientTest {
 		this.feedbackServer = new MockFeedbackServer(FEEDBACK_PORT);
 		this.feedbackServer.start();
 		
-		final PushManager<SimpleApnsPushNotification> pushManager =
-				new PushManager<SimpleApnsPushNotification>(
-						new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT, false), null, null);
+		this.pushManager = new PushManager<SimpleApnsPushNotification>(
+				new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT, false), null, null);
+		
+		this.pushManager.start();
 		
 		this.feedbackClient = new FeedbackServiceClient(pushManager);
 	}
@@ -77,6 +79,6 @@ public class FeedbackServiceClientTest {
 	@After
 	public void tearDown() throws InterruptedException {
 		this.feedbackServer.shutdown();
-		this.feedbackClient.destroy();
+		this.pushManager.shutdown();
 	}
 }

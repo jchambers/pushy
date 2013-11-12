@@ -57,8 +57,9 @@ public abstract class BasePushyTest {
 		this.server.start();
 		
 		this.pushManager = new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT, null, null);
-		this.clientThread = new ApnsClientThread<SimpleApnsPushNotification>(this.pushManager);
+		this.pushManager.start();
 		
+		this.clientThread = new ApnsClientThread<SimpleApnsPushNotification>(this.pushManager);
 		this.clientThread.start();
 	}
 	

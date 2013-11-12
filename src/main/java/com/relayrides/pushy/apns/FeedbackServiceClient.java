@@ -29,7 +29,6 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.ReplayingDecoder;
@@ -142,7 +141,7 @@ class FeedbackServiceClient {
 		this.environment = pushManager.getEnvironment();
 		
 		this.bootstrap = new Bootstrap();
-		this.bootstrap.group(new NioEventLoopGroup(1));
+		this.bootstrap.group(pushManager.getWorkerGroup());
 		this.bootstrap.channel(NioSocketChannel.class);
 		
 		final FeedbackServiceClient feedbackClient = this;
@@ -203,9 +202,5 @@ class FeedbackServiceClient {
 		// waiting to sync with the connection closure, we'll be receiving messages from the feedback service from
 		// another thread.
 		return new ArrayList<ExpiredToken>(this.expiredTokens);
-	}
-	
-	public void destroy() throws InterruptedException {
-		this.bootstrap.group().shutdownGracefully().await();
 	}
 }

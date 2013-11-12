@@ -21,6 +21,9 @@
 
 package com.relayrides.pushy.apns;
 
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.util.concurrent.Future;
+
 import java.lang.ref.WeakReference;
 import java.security.KeyStore;
 import java.util.ArrayList;
@@ -43,12 +46,13 @@ public class PushManager<T extends ApnsPushNotification> {
 	private final ApnsEnvironment environment;
 	private final KeyStore keyStore;
 	private final char[] keyStorePassword;
+	private final int concurrentConnections;
 	
 	private final ArrayList<ApnsClientThread<T>> clientThreads;
-	private final FeedbackServiceClient feedbackClient;
 	
 	private final ArrayList<WeakReference<RejectedNotificationListener<T>>> rejectedNotificationListeners;
 	
+	private NioEventLoopGroup workerGroup;
 	private final ExecutorService rejectedNotificationExecutorService;
 	
 	/**
@@ -92,13 +96,8 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.keyStore = keyStore;
 		this.keyStorePassword = keyStorePassword;
 		
-		this.clientThreads = new ArrayList<ApnsClientThread<T>>(concurrentConnections);
-		
-		for (int i = 0; i < concurrentConnections; i++) {
-			this.clientThreads.add(new ApnsClientThread<T>(this));
-		}
-		
-		this.feedbackClient = new FeedbackServiceClient(this);
+		this.concurrentConnections = concurrentConnections;
+		this.clientThreads = new ArrayList<ApnsClientThread<T>>(this.concurrentConnections);
 		
 		this.rejectedNotificationExecutorService = Executors.newSingleThreadExecutor();
 	}
@@ -135,7 +134,12 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * will <strong>not</strong> be sent until this method is called.
 	 */
 	public synchronized void start() {
-		for (final ApnsClientThread<T> clientThread : this.clientThreads) {
+		this.workerGroup = new NioEventLoopGroup();
+		
+		for (int i = 0; i < this.concurrentConnections; i++) {
+			final ApnsClientThread<T> clientThread = new ApnsClientThread<T>(this);
+			
+			this.clientThreads.add(clientThread);
 			clientThread.start();
 		}
 	}
@@ -219,9 +223,10 @@ public class PushManager<T extends ApnsPushNotification> {
 			clientThread.join();
 		}
 		
-		this.feedbackClient.destroy();
-		
+		final Future<?> workerShutdownFuture = this.workerGroup.shutdownGracefully();
 		this.rejectedNotificationExecutorService.shutdown();
+		
+		workerShutdownFuture.await();
 		
 		return new ArrayList<T>(this.queue);
 	}
@@ -273,6 +278,10 @@ public class PushManager<T extends ApnsPushNotification> {
 		return this.queue;
 	}
 	
+	protected NioEventLoopGroup getWorkerGroup() {
+		return this.workerGroup;
+	}
+	
 	/**
 	 * <p>Queries the APNs feedback service for expired tokens. Be warned that this is a <strong>destructive
 	 * operation</strong>. According to Apple's documentation:</p>
@@ -286,6 +295,6 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
 	 */
 	public List<ExpiredToken> getExpiredTokens() throws InterruptedException {
-		return this.feedbackClient.getExpiredTokens();
+		return new FeedbackServiceClient(this).getExpiredTokens();
 	}
 }
