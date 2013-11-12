@@ -185,17 +185,17 @@ class FeedbackServiceClient {
 		this.expiredTokens.clear();
 		
 		final ChannelFuture connectFuture =
-				this.bootstrap.connect(this.environment.getFeedbackHost(), this.environment.getFeedbackPort()).sync();
+				this.bootstrap.connect(this.environment.getFeedbackHost(), this.environment.getFeedbackPort()).await();
 		
 		if (connectFuture.isSuccess()) {
 			if (this.environment.isTlsRequired()) {
-				final Future<Channel> handshakeFuture = connectFuture.channel().pipeline().get(SslHandler.class).handshakeFuture().sync();
+				final Future<Channel> handshakeFuture = connectFuture.channel().pipeline().get(SslHandler.class).handshakeFuture().await();
 				
 				if (handshakeFuture.isSuccess()) {
-					connectFuture.channel().closeFuture().sync();
+					connectFuture.channel().closeFuture().await();
 				}
 			} else {
-				connectFuture.channel().closeFuture().sync();
+				connectFuture.channel().closeFuture().await();
 			}
 		}
 		
@@ -206,6 +206,6 @@ class FeedbackServiceClient {
 	}
 	
 	public void destroy() throws InterruptedException {
-		this.bootstrap.group().shutdownGracefully().sync();
+		this.bootstrap.group().shutdownGracefully().await();
 	}
 }
