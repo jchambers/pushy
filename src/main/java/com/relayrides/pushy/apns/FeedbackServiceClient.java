@@ -33,12 +33,13 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.ReplayingDecoder;
 import io.netty.handler.ssl.SslHandler;
+import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.util.concurrent.Future;
 
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Vector;
+import java.util.concurrent.TimeUnit;
 
 /**
  * <p>A client that communicates with the APNs feedback to retrieve expired device tokens. According to Apple's
@@ -65,10 +66,9 @@ import java.util.Vector;
  */
 class FeedbackServiceClient {
 	
-	private final ApnsEnvironment environment;
+	private final PushManager<? extends ApnsPushNotification> pushManager;
 	
-	private final Bootstrap bootstrap;
-	private final Vector<ExpiredToken> expiredTokens;
+	private Vector<ExpiredToken> expiredTokens;
 	
 	private enum ExpiredTokenDecoderState {
 		EXPIRATION,
@@ -128,6 +128,11 @@ class FeedbackServiceClient {
 		protected void channelRead0(final ChannelHandlerContext context, final ExpiredToken expiredToken) {
 			this.feedbackClient.addExpiredToken(expiredToken);
 		}
+		
+		@Override
+		public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
+			context.close();
+		}
 	}
 	
 	/**
@@ -137,31 +142,7 @@ class FeedbackServiceClient {
 	 * @param pushManager the {@code PushManager} in whose environment this client should operate
 	 */
 	public FeedbackServiceClient(final PushManager<? extends ApnsPushNotification> pushManager) {
-		
-		this.environment = pushManager.getEnvironment();
-		
-		this.bootstrap = new Bootstrap();
-		this.bootstrap.group(pushManager.getWorkerGroup());
-		this.bootstrap.channel(NioSocketChannel.class);
-		
-		final FeedbackServiceClient feedbackClient = this;
-		this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
-
-			@Override
-			protected void initChannel(final SocketChannel channel) throws Exception {
-				final ChannelPipeline pipeline = channel.pipeline();
-				
-				if (environment.isTlsRequired()) {
-					pipeline.addLast("ssl", SslHandlerUtil.createSslHandler(pushManager.getKeyStore(), pushManager.getKeyStorePassword()));
-				}
-				
-				pipeline.addLast("decoder", new ExpiredTokenDecoder());
-				pipeline.addLast("handler", new FeedbackClientHandler(feedbackClient));
-			}
-			
-		});
-		
-		this.expiredTokens = new Vector<ExpiredToken>();
+		this.pushManager = pushManager;
 	}
 	
 	protected void addExpiredToken(final ExpiredToken expiredToken) {
@@ -176,18 +157,45 @@ class FeedbackServiceClient {
 	 * service, the information it returns lists only the failures that have happened since you last
 	 * connected.</blockquote>
 	 * 
+	 * @param timeout the time after the last received data after which the connection to the feedback service should
+	 * be closed
+	 * @param timeoutUnit the unit of time in which the given {@code timeout} is measured
+	 * 
 	 * @return a list of tokens that have expired since the last connection to the feedback service
 	 * 
 	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
 	 */
-	public synchronized List<ExpiredToken> getExpiredTokens() throws InterruptedException {
-		this.expiredTokens.clear();
+	public synchronized List<ExpiredToken> getExpiredTokens(final long timeout, final TimeUnit timeoutUnit) throws InterruptedException {
+		this.expiredTokens = new Vector<ExpiredToken>();
 		
-		final ChannelFuture connectFuture =
-				this.bootstrap.connect(this.environment.getFeedbackHost(), this.environment.getFeedbackPort()).await();
+		final Bootstrap bootstrap = new Bootstrap();
+		bootstrap.group(pushManager.getWorkerGroup());
+		bootstrap.channel(NioSocketChannel.class);
+		
+		final FeedbackServiceClient feedbackClient = this;
+		bootstrap.handler(new ChannelInitializer<SocketChannel>() {
+
+			@Override
+			protected void initChannel(final SocketChannel channel) throws Exception {
+				final ChannelPipeline pipeline = channel.pipeline();
+				
+				if (pushManager.getEnvironment().isTlsRequired()) {
+					pipeline.addLast("ssl", SslHandlerUtil.createSslHandler(pushManager.getKeyStore(), pushManager.getKeyStorePassword()));
+				}
+				
+				pipeline.addLast("readTiemoutHandler", new ReadTimeoutHandler(timeout, timeoutUnit));
+				pipeline.addLast("decoder", new ExpiredTokenDecoder());
+				pipeline.addLast("handler", new FeedbackClientHandler(feedbackClient));
+			}
+			
+		});
+
+		final ChannelFuture connectFuture = bootstrap.connect(
+				this.pushManager.getEnvironment().getFeedbackHost(),
+				this.pushManager.getEnvironment().getFeedbackPort()).await();
 		
 		if (connectFuture.isSuccess()) {
-			if (this.environment.isTlsRequired()) {
+			if (this.pushManager.getEnvironment().isTlsRequired()) {
 				final Future<Channel> handshakeFuture = connectFuture.channel().pipeline().get(SslHandler.class).handshakeFuture().await();
 				
 				if (handshakeFuture.isSuccess()) {
@@ -201,6 +209,6 @@ class FeedbackServiceClient {
 		// The feedback service will send us a list of device tokens as soon as we connect, then hang up. While we're
 		// waiting to sync with the connection closure, we'll be receiving messages from the feedback service from
 		// another thread.
-		return new ArrayList<ExpiredToken>(this.expiredTokens);
+		return this.expiredTokens;
 	}
 }

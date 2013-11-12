@@ -33,6 +33,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * <p>A {@code PushManager} is the main public-facing point of interaction with APNs. {@code PushManager}s manage the
@@ -283,8 +284,8 @@ public class PushManager<T extends ApnsPushNotification> {
 	}
 	
 	/**
-	 * <p>Queries the APNs feedback service for expired tokens. Be warned that this is a <strong>destructive
-	 * operation</strong>. According to Apple's documentation:</p>
+	 * <p>Queries the APNs feedback service for expired tokens using a reasonable default timeout. Be warned that this
+	 * is a <strong>destructive operation</strong>. According to Apple's documentation:</p>
 	 * 
 	 * <blockquote>The feedback service’s list is cleared after you read it. Each time you connect to the feedback
 	 * service, the information it returns lists only the failures that have happened since you last
@@ -295,6 +296,26 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
 	 */
 	public List<ExpiredToken> getExpiredTokens() throws InterruptedException {
-		return new FeedbackServiceClient(this).getExpiredTokens();
+		return this.getExpiredTokens(1, TimeUnit.SECONDS);
+	}
+	
+	/**
+	 * <p>Queries the APNs feedback service for expired tokens using the given timeout. Be warned that this is a
+	 * <strong>destructive operation</strong>. According to Apple's documentation:</p>
+	 * 
+	 * <blockquote>The feedback service’s list is cleared after you read it. Each time you connect to the feedback
+	 * service, the information it returns lists only the failures that have happened since you last
+	 * connected.</blockquote>
+	 * 
+	 * @param timeout the time after the last received data after which the connection to the feedback service should
+	 * be closed
+	 * @param timeoutUnit the unit of time in which the given {@code timeout} is measured
+	 * 
+	 * @return a list of tokens that have expired since the last connection to the feedback service
+	 * 
+	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
+	 */
+	public List<ExpiredToken> getExpiredTokens(final long timeout, final TimeUnit timeoutUnit) throws InterruptedException {
+		return new FeedbackServiceClient(this).getExpiredTokens(timeout, timeoutUnit);
 	}
 }
