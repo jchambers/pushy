@@ -177,6 +177,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		@Override
 		public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
 			// Assume this is a temporary IO problem and reconnect. Some writes will fail, but will be re-enqueued.
+			log.debug(String.format("%s caught an exception and will request reconnection.", getName()), cause);
 			this.clientThread.requestReconnection();
 		}
 	}
