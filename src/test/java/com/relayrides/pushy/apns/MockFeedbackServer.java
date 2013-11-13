@@ -24,6 +24,7 @@ package com.relayrides.pushy.apns;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
@@ -32,7 +33,6 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.MessageToByteEncoder;
-import io.netty.util.concurrent.GenericFutureListener;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +45,8 @@ public class MockFeedbackServer {
 	
 	private EventLoopGroup bossGroup;
 	private EventLoopGroup workerGroup;
+	
+	private volatile boolean closeWhenDone = false;
 	
 	private class ExpiredTokenEncoder extends MessageToByteEncoder<ExpiredToken> {
 
@@ -72,19 +74,13 @@ public class MockFeedbackServer {
 			ChannelFuture lastWriteFuture = null;
 			
 			for (final ExpiredToken expiredToken : expiredTokens) {
-				lastWriteFuture = context.writeAndFlush(expiredToken);
+				lastWriteFuture = context.write(expiredToken);
 			}
 			
-			if (lastWriteFuture != null) {
-				lastWriteFuture.addListener(new GenericFutureListener<ChannelFuture>() {
+			context.flush();
 
-					public void operationComplete(final ChannelFuture future) {
-						context.close();
-					}
-					
-				});
-			} else {
-				context.close();
+			if (this.feedbackServer.closeWhenDone && lastWriteFuture != null) {
+				lastWriteFuture.addListener(ChannelFutureListener.CLOSE);
 			}
 		}
 	}
@@ -131,5 +127,9 @@ public class MockFeedbackServer {
 		this.expiredTokens.clear();
 		
 		return tokensToReturn;
+	}
+	
+	public void setCloseWhenDone(final boolean closeWhenDone) {
+		this.closeWhenDone = closeWhenDone;
 	}
 }

@@ -33,6 +33,10 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p>A {@code PushManager} is the main public-facing point of interaction with APNs. {@code PushManager}s manage the
@@ -56,6 +60,12 @@ public class PushManager<T extends ApnsPushNotification> {
 	private final boolean shouldShutDownWorkerGroup;
 	
 	private final ExecutorService rejectedNotificationExecutorService;
+	
+	private boolean started = false;
+	private boolean shutDown = false;
+	private boolean shutDownFinished = false;
+	
+	private final Logger log = LoggerFactory.getLogger(PushManager.class);
 	
 	/**
 	 * Constructs a new {@code PushManager} that operates in the given environment with the given credentials, a single
@@ -166,16 +176,30 @@ public class PushManager<T extends ApnsPushNotification> {
 	}
 	
 	/**
-	 * Opens all connections to APNs and prepares to send push notifications. Note that enqueued push notifications
-	 * will <strong>not</strong> be sent until this method is called.
+	 * <p>Opens all connections to APNs and prepares to send push notifications. Note that enqueued push notifications
+	 * will <strong>not</strong> be sent until this method is called.</p>
+	 * 
+	 * <p>Push managers may only be started once and cannot be reused after being shut down.</p>
+	 * 
+	 * @throws IllegalStateException if the push manager has already been started or has already been shut down
 	 */
 	public synchronized void start() {
+		if (this.isStarted()) {
+			throw new IllegalStateException("Push manager has already been started.");
+		}
+		
+		if (this.isShutDown()) {
+			throw new IllegalStateException("Push manager has already been shut down and may not be restarted.");
+		}
+		
 		for (int i = 0; i < this.concurrentConnections; i++) {
 			final ApnsClientThread<T> clientThread = new ApnsClientThread<T>(this);
 			
 			this.clientThreads.add(clientThread);
 			clientThread.start();
 		}
+		
+		this.started = true;
 	}
 	
 	/**
@@ -205,12 +229,37 @@ public class PushManager<T extends ApnsPushNotification> {
 	}
 	
 	/**
+	 * Indicates whether this push manager has been started and not yet shut down.
+	 * 
+	 * @return {@code true} if this push manager has been started and has not yet been shut down or {@code false}
+	 * otherwise
+	 */
+	public boolean isStarted() {
+		if (this.shutDown) {
+			return false;
+		} else {
+			return this.started;
+		}
+	}
+	
+	/**
+	 * Indicates whether this push manager has been shut down (or is in the process of shutting down).
+	 * 
+	 * @return {@code true} if this push manager has been shut down or is in the process of shutting down or
+	 * {@code false} otherwise
+	 */
+	public boolean isShutDown() {
+		return this.shutDown;
+	}
+	
+	/**
 	 * Disconnects from the APNs and gracefully shuts down all worker threads. This method will block until all client
 	 * threads have shut down gracefully.
 	 * 
 	 * @return a list of notifications not sent before the {@code PushManager} shut down
 	 * 
 	 * @throws InterruptedException if interrupted while waiting for worker threads to exit cleanly
+	 * @throws IllegalStateException if this method is called before the push manager has been started
 	 */
 	public synchronized List<T> shutdown() throws InterruptedException {
 		return this.shutdown(0);
@@ -227,8 +276,26 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * @return a list of notifications not sent before the {@code PushManager} shut down
 	 * 
 	 * @throws InterruptedException if interrupted while waiting for worker threads to exit cleanly
+	 * @throws IllegalStateException if this method is called before the push manager has been started
 	 */
 	public synchronized List<T> shutdown(long timeout) throws InterruptedException {
+		if (this.shutDown) {
+			log.warn("Push manager has already been shut down; shutting down multiple times is harmless, but may "
+					+ "indicate a problem elsewhere.");
+		}
+		
+		if (this.shutDownFinished) {
+			// We COULD throw an IllegalStateException here, but it seems unnecessary when we could just silently return
+			// the same result without harm.
+			return new ArrayList<T>(this.queue);
+		}
+		
+		if (!this.isStarted()) {
+			throw new IllegalStateException("Push manager has not yet been started and cannot be shut down.");
+		}
+		
+		this.shutDown = true;
+		
 		for (final ApnsClientThread<T> clientThread : this.clientThreads) {
 			clientThread.requestShutdown();
 		}
@@ -260,9 +327,13 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.rejectedNotificationExecutorService.shutdown();
 		
 		if (this.shouldShutDownWorkerGroup) {
-			final Future<?> workerShutdownFuture = this.workerGroup.shutdownGracefully();
-			workerShutdownFuture.await();
+			if (!this.workerGroup.isShutdown()) {
+				final Future<?> workerShutdownFuture = this.workerGroup.shutdownGracefully();
+				workerShutdownFuture.await();
+			}
 		}
+		
+		this.shutDownFinished = true;
 		
 		return new ArrayList<T>(this.queue);
 	}
@@ -319,18 +390,51 @@ public class PushManager<T extends ApnsPushNotification> {
 	}
 	
 	/**
-	 * <p>Queries the APNs feedback service for expired tokens. Be warned that this is a <strong>destructive
-	 * operation</strong>. According to Apple's documentation:</p>
+	 * <p>Queries the APNs feedback service for expired tokens using a reasonable default timeout. Be warned that this
+	 * is a <strong>destructive operation</strong>. According to Apple's documentation:</p>
 	 * 
 	 * <blockquote>The feedback service’s list is cleared after you read it. Each time you connect to the feedback
 	 * service, the information it returns lists only the failures that have happened since you last
 	 * connected.</blockquote>
+	 * 
+	 * <p>The push manager must be started before calling this method.</p>
 	 * 
 	 * @return a list of tokens that have expired since the last connection to the feedback service
 	 * 
 	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
 	 */
 	public List<ExpiredToken> getExpiredTokens() throws InterruptedException {
-		return new FeedbackServiceClient(this).getExpiredTokens();
+		return this.getExpiredTokens(1, TimeUnit.SECONDS);
+	}
+	
+	/**
+	 * <p>Queries the APNs feedback service for expired tokens using the given timeout. Be warned that this is a
+	 * <strong>destructive operation</strong>. According to Apple's documentation:</p>
+	 * 
+	 * <blockquote>The feedback service’s list is cleared after you read it. Each time you connect to the feedback
+	 * service, the information it returns lists only the failures that have happened since you last
+	 * connected.</blockquote>
+	 * 
+	 * <p>The push manager must be started before calling this method.</p>
+	 * 
+	 * @param timeout the time after the last received data after which the connection to the feedback service should
+	 * be closed
+	 * @param timeoutUnit the unit of time in which the given {@code timeout} is measured
+	 * 
+	 * @return a list of tokens that have expired since the last connection to the feedback service
+	 * 
+	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
+	 * @throws IllegalStateException if this push manager has not been started yet or has already been shut down
+	 */
+	public List<ExpiredToken> getExpiredTokens(final long timeout, final TimeUnit timeoutUnit) throws InterruptedException {
+		if (!this.isStarted()) {
+			throw new IllegalStateException("Push manager has not been started yet.");
+		}
+		
+		if (this.isShutDown()) {
+			throw new IllegalStateException("Push manager has already been shut down.");
+		}
+		
+		return new FeedbackServiceClient(this).getExpiredTokens(timeout, timeoutUnit);
 	}
 }

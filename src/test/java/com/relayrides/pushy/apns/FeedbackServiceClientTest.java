@@ -26,6 +26,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.After;
 import org.junit.Before;
@@ -57,7 +58,7 @@ public class FeedbackServiceClientTest {
 
 	@Test
 	public void testGetExpiredTokens() throws InterruptedException {
-		assertTrue(feedbackClient.getExpiredTokens().isEmpty());
+		assertTrue(feedbackClient.getExpiredTokens(1, TimeUnit.SECONDS).isEmpty());
 		
 		// Dates will have some loss of precision since APNS only deals with SECONDS since the epoch; we choose
 		// timestamps that just happen to be on full seconds.
@@ -67,14 +68,21 @@ public class FeedbackServiceClientTest {
 		this.feedbackServer.addExpiredToken(firstToken);
 		this.feedbackServer.addExpiredToken(secondToken);
 		
-		final List<ExpiredToken> expiredTokens = this.feedbackClient.getExpiredTokens();
+		final List<ExpiredToken> expiredTokens = this.feedbackClient.getExpiredTokens(1, TimeUnit.SECONDS);
 		
 		assertEquals(2, expiredTokens.size());
 		assertTrue(expiredTokens.contains(firstToken));
 		assertTrue(expiredTokens.contains(secondToken));
 		
-		assertTrue(feedbackClient.getExpiredTokens().isEmpty());
+		assertTrue(feedbackClient.getExpiredTokens(1, TimeUnit.SECONDS).isEmpty());
 	}
+	
+	@Test
+	public void testGetExpiredTokensCloseWhenDone() throws InterruptedException {
+		this.feedbackServer.setCloseWhenDone(true);
+		this.testGetExpiredTokens();
+	}
+
 
 	@After
 	public void tearDown() throws InterruptedException {
