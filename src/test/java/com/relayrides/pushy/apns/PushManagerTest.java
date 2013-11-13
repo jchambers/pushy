@@ -157,11 +157,9 @@ public class PushManagerTest extends BasePushyTest {
 		assertFalse(testPushManager.isStarted());
 		
 		testPushManager.start();
-		
 		assertTrue(testPushManager.isStarted());
 		
 		testPushManager.shutdown();
-		
 		assertFalse(testPushManager.isStarted());
 	}
 	
@@ -173,11 +171,9 @@ public class PushManagerTest extends BasePushyTest {
 		assertFalse(testPushManager.isShutDown());
 		
 		testPushManager.start();
-		
 		assertFalse(testPushManager.isShutDown());
 		
 		testPushManager.shutdown();
-		
 		assertTrue(testPushManager.isShutDown());
 	}
 }
