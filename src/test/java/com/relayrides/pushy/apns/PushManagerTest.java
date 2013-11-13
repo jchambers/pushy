@@ -97,4 +97,55 @@ public class PushManagerTest extends BasePushyTest {
 			group.shutdownGracefully();
 		}
 	}
+	
+	@Test(expected = IllegalStateException.class)
+	public void testDoubleStart() {
+		final PushManager<ApnsPushNotification> doubleStartPushManager =
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+		
+		doubleStartPushManager.start();
+		doubleStartPushManager.start();
+	}
+	
+	@Test(expected = IllegalStateException.class)
+	public void testPrematureShutdown() throws InterruptedException {
+		final PushManager<ApnsPushNotification> prematureShutdownPushManager =
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+		
+		prematureShutdownPushManager.shutdown();
+	}
+	
+	@Test
+	public void testRepeatedShutdown() throws InterruptedException {
+		final PushManager<ApnsPushNotification> repeatedShutdownPushManager =
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+		
+		repeatedShutdownPushManager.start();
+		repeatedShutdownPushManager.shutdown();
+		repeatedShutdownPushManager.shutdown();
+	}
+	
+	@Test
+	public void testGetExpiredTokens() throws InterruptedException {
+		assertTrue(this.getPushManager().getExpiredTokens().isEmpty());
+	}
+	
+	@Test(expected = IllegalStateException.class)
+	public void testGetExpiredTokensBeforeStart() throws InterruptedException {
+		final PushManager<ApnsPushNotification> unstartedPushManager =
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+		
+		unstartedPushManager.getExpiredTokens();
+	}
+	
+	@Test(expected = IllegalStateException.class)
+	public void testGetExpiredTokensAfterShutdown() throws InterruptedException {
+		final PushManager<ApnsPushNotification> shutDownPushManager =
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+		
+		shutDownPushManager.start();
+		shutDownPushManager.shutdown();
+		
+		shutDownPushManager.getExpiredTokens();
+	}
 }
