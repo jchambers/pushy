@@ -74,7 +74,7 @@ class FeedbackServiceClient {
 	
 	private Vector<ExpiredToken> expiredTokens;
 	
-	private final Logger log = LoggerFactory.getLogger(ApnsClientThread.class);
+	private final Logger log = LoggerFactory.getLogger(FeedbackServiceClient.class);
 	
 	private enum ExpiredTokenDecoderState {
 		EXPIRATION,
