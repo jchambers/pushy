@@ -148,4 +148,36 @@ public class PushManagerTest extends BasePushyTest {
 		
 		shutDownPushManager.getExpiredTokens();
 	}
+	
+	@Test
+	public void testIsStarted() throws InterruptedException {
+		final PushManager<ApnsPushNotification> testPushManager =
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+		
+		assertFalse(testPushManager.isStarted());
+		
+		testPushManager.start();
+		
+		assertTrue(testPushManager.isStarted());
+		
+		testPushManager.shutdown();
+		
+		assertFalse(testPushManager.isStarted());
+	}
+	
+	@Test
+	public void testIsShutDown() throws InterruptedException {
+		final PushManager<ApnsPushNotification> testPushManager =
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+		
+		assertFalse(testPushManager.isShutDown());
+		
+		testPushManager.start();
+		
+		assertFalse(testPushManager.isShutDown());
+		
+		testPushManager.shutdown();
+		
+		assertTrue(testPushManager.isShutDown());
+	}
 }
