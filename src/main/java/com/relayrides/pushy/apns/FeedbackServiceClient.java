@@ -194,7 +194,7 @@ class FeedbackServiceClient {
 					pipeline.addLast("ssl", SslHandlerUtil.createSslHandler(pushManager.getKeyStore(), pushManager.getKeyStorePassword()));
 				}
 				
-				pipeline.addLast("readTiemoutHandler", new ReadTimeoutHandler(timeout, timeoutUnit));
+				pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(timeout, timeoutUnit));
 				pipeline.addLast("decoder", new ExpiredTokenDecoder());
 				pipeline.addLast("handler", new FeedbackClientHandler(feedbackClient));
 			}
