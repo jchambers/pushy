@@ -21,12 +21,11 @@
 
 package com.relayrides.pushy.apns;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Test;
@@ -175,5 +174,23 @@ public class PushManagerTest extends BasePushyTest {
 		
 		testPushManager.shutdown();
 		assertTrue(testPushManager.isShutDown());
+	}
+	
+	@Test
+	public void testDrain() throws InterruptedException {
+		final PushManager<ApnsPushNotification> testPushManager =
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+		int iterations = 200;
+		testPushManager.start();
+		final CountDownLatch latch = this.getServer().getCountDownLatch(iterations);
+
+		ApnsPushNotification notification = createTestNotification();
+		for(int i=0;i<iterations;i++) {
+			testPushManager.enqueuePushNotification(notification);
+		}
+		
+		testPushManager.setAcceptingMore(false);
+		testPushManager.drainAndShutdown(1);
+		latch.await(1, TimeUnit.MILLISECONDS);
 	}
 }
