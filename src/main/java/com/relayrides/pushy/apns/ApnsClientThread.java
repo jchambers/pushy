@@ -517,10 +517,13 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	}
 	
 	private void sendNextNotification(final long timeout, final TimeUnit timeUnit) throws InterruptedException {
-		final T notification = this.pushManager.getQueue().poll(timeout, timeUnit);
-		
+		final T notification;
+		synchronized(pushManager.getQueue()) {
+			notification = this.pushManager.getQueue().poll(timeout, timeUnit);
+			pushManager.getQueue().notifyAll();
+		}
 		if (this.isInterrupted()) {
-			this.pushManager.enqueuePushNotification(notification);
+			this.pushManager.enqueuePushNotification(notification, true);
 		} else if (notification != null) {
 			final SendableApnsPushNotification<T> sendableNotification =
 					new SendableApnsPushNotification<T>(notification, this.sequenceNumber++);
@@ -551,7 +554,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 								sendableNotification.getSequenceNumber());
 						
 						if (failedNotification != null) {
-							pushManager.enqueuePushNotification(failedNotification);
+							pushManager.enqueuePushNotification(failedNotification, true);
 						}
 					} else {
 						if (log.isTraceEnabled()) {
@@ -606,7 +609,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		// In any case, we know that all notifications sent before the rejected notification were processed and NOT
 		// rejected, while all notifications after the rejected one have not been processed and need to be re-sent.
 		this.pushManager.enqueueAllNotifications(
-				this.sentNotificationBuffer.getAndRemoveAllNotificationsAfterSequenceNumber(rejectedNotification.getSequenceNumber()));
+				this.sentNotificationBuffer.getAndRemoveAllNotificationsAfterSequenceNumber(rejectedNotification.getSequenceNumber()), true);
 	}
 	
 	private void requestReconnection() {
