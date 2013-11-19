@@ -21,9 +21,7 @@
 
 package com.relayrides.pushy.apns;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 
 import java.util.concurrent.CountDownLatch;
@@ -39,7 +37,7 @@ public class PushManagerTest extends BasePushyTest {
 		
 		private final AtomicInteger rejectedNotificationCount = new AtomicInteger(0);
 
-		public void handleRejectedNotification(final SimpleApnsPushNotification notification, final RejectedNotificationReason reason) {
+		public void handleRejectedNotification(final SimpleApnsPushNotification notification, final RejectedNotification reason) {
 			this.rejectedNotificationCount.incrementAndGet();
 		}
 		
