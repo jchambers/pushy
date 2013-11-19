@@ -21,7 +21,7 @@
 
 package com.relayrides.pushy.apns;
 
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 import java.util.Date;
 import java.util.concurrent.CountDownLatch;
@@ -65,7 +65,9 @@ public abstract class BasePushyTest {
 	
 	@After
 	public void tearDown() throws InterruptedException {
+		System.out.println("Shutting down pushManager...");
 		this.pushManager.shutdown();
+		System.out.println("Shutting down server...");
 		this.server.shutdown();
 	}
 	

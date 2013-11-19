@@ -522,10 +522,11 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * Ensure that the queue is empty before starting a timed-out shutdown
 	 * 
 	 * @param timeout
+	 * @returns 
 	 * @throws InterruptedException
 	 */
-	public void drainAndShutdown(long timeout) throws InterruptedException {
+	public List<T> drainAndShutdown(long timeout) throws InterruptedException {
 		drain();
-		shutdown(timeout);
+		return shutdown(timeout);
 	}
 }
