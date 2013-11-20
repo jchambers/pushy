@@ -468,11 +468,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	}
 	
 	private void sendNextNotification(final long timeout, final TimeUnit timeUnit) throws InterruptedException {
-		final T notification;
-		synchronized(pushManager.getQueue()) {
-			notification = this.pushManager.getQueue().poll(timeout, timeUnit);
-			pushManager.getQueue().notifyAll();
-		}
+		final T notification = this.pushManager.getQueue().poll(timeout, timeUnit);
 		if (this.isInterrupted()) {
 			this.pushManager.enqueuePushNotification(notification, true);
 		} else if (notification != null) {
@@ -490,6 +486,9 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			this.channel.write(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
 				public void operationComplete(final ChannelFuture future) {
+					synchronized(pushManager.getQueue()) {
+						pushManager.getQueue().notifyAll();
+					}
 					if (future.cause() != null) {
 						if (log.isTraceEnabled()) {
 							log.trace(String.format("%s failed to write notification %s",
