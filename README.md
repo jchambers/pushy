@@ -13,7 +13,7 @@ We believe that Pushy is already the best tool for sending APNs push notificatio
 
 ## Getting Pushy
 
-If you use [Maven](http://maven.apache.org/), you can add Pushy to your project by adding the following dependency declartion to your POM:
+If you use [Maven](http://maven.apache.org/), you can add Pushy to your project by adding the following dependency declaration to your POM:
 
 ```xml
 <dependency>
