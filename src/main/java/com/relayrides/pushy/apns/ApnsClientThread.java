@@ -91,6 +91,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
 	private static final int SENT_NOTIFICATION_BUFFER_SIZE = 4096;
 	
+	private static final long CONNECT_EXCEPTION_WAIT = 200;
+	
 	private static final long POLL_TIMEOUT = 50;
 	private static final TimeUnit POLL_TIME_UNIT = TimeUnit.MILLISECONDS;
 	private static final int BATCH_SIZE = 32;
@@ -448,6 +450,9 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		} else {
 			log.error(String.format("%s failed to connect to APNs gateway.", this.getName()), connectFuture.cause());
 			
+			// Pause here to avoid needlessly burning resources if there's no network connection at all
+			Thread.sleep(CONNECT_EXCEPTION_WAIT);
+			
 			this.connectFuture = null;
 			return false;
 		}
@@ -528,6 +533,9 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	}
 	
 	private void handleRejectedNotification(final RejectedNotification rejectedNotification) {
+		
+		log.debug(String.format("APNs gateway rejected notification with sequence number %d from %s (%s).",
+				rejectedNotification.getSequenceNumber(), this.getName(), rejectedNotification.getReason()));
 
 		// Notify listeners of the rejected notification, but only if it's not a known-bad shutdown notification
 		if (this.shutdownNotification == null || rejectedNotification.getSequenceNumber() != this.shutdownNotification.getSequenceNumber()) {
