@@ -111,6 +111,12 @@ for (final ExpiredToken expiredToken : pushManager.getExpiredTokens()) {
 }
 ```
 
+## Limitations and known issues
+
+The APNs protocol never affirmatively acknowledges receipt of notifications, so it's difficult to know what's happened to a push notification once we've attempted to send it. Between the design of the APNs protocol and the design of TCP/IP, there appear to be some fundamentally unresolveable issues. The issues we know about at this time are:
+
+- In cases where we successfully write a push notification to the OS-controlled outbound buffer, but the notification has not yet been written to the network, the push notification will be silently lost if the TCP connection is closed before the OS sends the notification over the network. See #14 for additional discussion.
+
 ## License and status
 
 Pushy is available to the public under the [MIT License](http://opensource.org/licenses/MIT).
