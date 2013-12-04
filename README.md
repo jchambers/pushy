@@ -13,7 +13,7 @@ We believe that Pushy is already the best tool for sending APNs push notificatio
 
 ## Getting Pushy
 
-If you use [Maven](http://maven.apache.org/), you can add Pushy to your project by adding the following dependency declartion to your POM:
+If you use [Maven](http://maven.apache.org/), you can add Pushy to your project by adding the following dependency declaration to your POM:
 
 ```xml
 <dependency>
@@ -110,6 +110,12 @@ for (final ExpiredToken expiredToken : pushManager.getExpiredTokens()) {
     // time is after the last time the app registered that token.
 }
 ```
+
+## Limitations and known issues
+
+The APNs protocol never affirmatively acknowledges receipt of notifications, so it's difficult to know what's happened to a push notification once we've attempted to send it. Between the design of the APNs protocol and the design of TCP/IP, there appear to be some fundamentally unresolveable issues. The issues we know about at this time are:
+
+- In cases where we successfully write a push notification to the OS-controlled outbound buffer, but the notification has not yet been written to the network, the push notification will be silently lost if the TCP connection is closed before the OS sends the notification over the network. See [#14](https://github.com/relayrides/pushy/issues/14) for additional discussion.
 
 ## License and status
 

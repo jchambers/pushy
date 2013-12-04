@@ -22,6 +22,9 @@
 package com.relayrides.pushy.apns;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import io.netty.channel.nio.NioEventLoopGroup;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -65,5 +68,112 @@ public class PushManagerTest extends BasePushyTest {
 		this.waitForLatch(latch);
 		
 		assertEquals(1, listener.getRejectedNotificationCount());
+	}
+	
+	@Test
+	public void testShutdown() throws InterruptedException {
+		{
+			final PushManager<ApnsPushNotification> defaultGroupPushManager =
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+			
+			defaultGroupPushManager.start();
+			defaultGroupPushManager.shutdown();
+			
+			assertTrue(defaultGroupPushManager.getWorkerGroup().isShutdown());
+		}
+		
+		{
+			final NioEventLoopGroup group = new NioEventLoopGroup(1);
+			
+			final PushManager<ApnsPushNotification> providedGroupPushManager =
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, group);
+			
+			providedGroupPushManager.start();
+			providedGroupPushManager.shutdown();
+			
+			assertEquals(group, providedGroupPushManager.getWorkerGroup());
+			assertFalse(group.isShutdown());
+
+			group.shutdownGracefully();
+		}
+	}
+	
+	@Test(expected = IllegalStateException.class)
+	public void testDoubleStart() {
+		final PushManager<ApnsPushNotification> doubleStartPushManager =
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+		
+		doubleStartPushManager.start();
+		doubleStartPushManager.start();
+	}
+	
+	@Test(expected = IllegalStateException.class)
+	public void testPrematureShutdown() throws InterruptedException {
+		final PushManager<ApnsPushNotification> prematureShutdownPushManager =
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+		
+		prematureShutdownPushManager.shutdown();
+	}
+	
+	@Test
+	public void testRepeatedShutdown() throws InterruptedException {
+		final PushManager<ApnsPushNotification> repeatedShutdownPushManager =
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+		
+		repeatedShutdownPushManager.start();
+		repeatedShutdownPushManager.shutdown();
+		repeatedShutdownPushManager.shutdown();
+	}
+	
+	@Test
+	public void testGetExpiredTokens() throws InterruptedException {
+		assertTrue(this.getPushManager().getExpiredTokens().isEmpty());
+	}
+	
+	@Test(expected = IllegalStateException.class)
+	public void testGetExpiredTokensBeforeStart() throws InterruptedException {
+		final PushManager<ApnsPushNotification> unstartedPushManager =
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+		
+		unstartedPushManager.getExpiredTokens();
+	}
+	
+	@Test(expected = IllegalStateException.class)
+	public void testGetExpiredTokensAfterShutdown() throws InterruptedException {
+		final PushManager<ApnsPushNotification> shutDownPushManager =
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+		
+		shutDownPushManager.start();
+		shutDownPushManager.shutdown();
+		
+		shutDownPushManager.getExpiredTokens();
+	}
+	
+	@Test
+	public void testIsStarted() throws InterruptedException {
+		final PushManager<ApnsPushNotification> testPushManager =
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+		
+		assertFalse(testPushManager.isStarted());
+		
+		testPushManager.start();
+		assertTrue(testPushManager.isStarted());
+		
+		testPushManager.shutdown();
+		assertFalse(testPushManager.isStarted());
+	}
+	
+	@Test
+	public void testIsShutDown() throws InterruptedException {
+		final PushManager<ApnsPushNotification> testPushManager =
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+		
+		assertFalse(testPushManager.isShutDown());
+		
+		testPushManager.start();
+		assertFalse(testPushManager.isShutDown());
+		
+		testPushManager.shutdown();
+		assertTrue(testPushManager.isShutDown());
 	}
 }

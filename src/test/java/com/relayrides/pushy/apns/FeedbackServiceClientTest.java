@@ -26,6 +26,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.After;
 import org.junit.Before;
@@ -38,6 +39,7 @@ public class FeedbackServiceClientTest {
 	private static final int APNS_PORT = 2195;
 	private static final int FEEDBACK_PORT = 2196;
 	
+	private PushManager<SimpleApnsPushNotification> pushManager;
 	private MockFeedbackServer feedbackServer;
 	private FeedbackServiceClient feedbackClient;
 	
@@ -46,16 +48,17 @@ public class FeedbackServiceClientTest {
 		this.feedbackServer = new MockFeedbackServer(FEEDBACK_PORT);
 		this.feedbackServer.start();
 		
-		final PushManager<SimpleApnsPushNotification> pushManager =
-				new PushManager<SimpleApnsPushNotification>(
-						new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT, false), null, null);
+		this.pushManager = new PushManager<SimpleApnsPushNotification>(
+				new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT, false), null, null);
+		
+		this.pushManager.start();
 		
 		this.feedbackClient = new FeedbackServiceClient(pushManager);
 	}
 
 	@Test
 	public void testGetExpiredTokens() throws InterruptedException {
-		assertTrue(feedbackClient.getExpiredTokens().isEmpty());
+		assertTrue(feedbackClient.getExpiredTokens(1, TimeUnit.SECONDS).isEmpty());
 		
 		// Dates will have some loss of precision since APNS only deals with SECONDS since the epoch; we choose
 		// timestamps that just happen to be on full seconds.
@@ -65,18 +68,25 @@ public class FeedbackServiceClientTest {
 		this.feedbackServer.addExpiredToken(firstToken);
 		this.feedbackServer.addExpiredToken(secondToken);
 		
-		final List<ExpiredToken> expiredTokens = this.feedbackClient.getExpiredTokens();
+		final List<ExpiredToken> expiredTokens = this.feedbackClient.getExpiredTokens(1, TimeUnit.SECONDS);
 		
 		assertEquals(2, expiredTokens.size());
 		assertTrue(expiredTokens.contains(firstToken));
 		assertTrue(expiredTokens.contains(secondToken));
 		
-		assertTrue(feedbackClient.getExpiredTokens().isEmpty());
+		assertTrue(feedbackClient.getExpiredTokens(1, TimeUnit.SECONDS).isEmpty());
 	}
+	
+	@Test
+	public void testGetExpiredTokensCloseWhenDone() throws InterruptedException {
+		this.feedbackServer.setCloseWhenDone(true);
+		this.testGetExpiredTokens();
+	}
+
 
 	@After
 	public void tearDown() throws InterruptedException {
 		this.feedbackServer.shutdown();
-		this.feedbackClient.destroy();
+		this.pushManager.shutdown();
 	}
 }
