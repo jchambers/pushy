@@ -420,7 +420,21 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			if (this.pushManager.getEnvironment().isTlsRequired()) {
 				if (this.handshakeFuture == null) {
 					log.debug(String.format("%s waiting for TLS handshake.", this.getName()));
-					this.handshakeFuture = this.channel.pipeline().get(SslHandler.class).handshakeFuture();
+					
+					final SslHandler sslHandler = this.channel.pipeline().get(SslHandler.class);
+					
+					if (sslHandler != null) {
+						this.handshakeFuture = sslHandler.handshakeFuture();
+					} else {
+						log.error(String.format("%s failed to get SSL handler and could not wait for a TLS handshake.", this.getName()));
+						
+						this.closeChannelAndLogOutcome(this.channel);
+						
+						this.connectFuture = null;
+						this.handshakeFuture = null;
+						
+						return false;
+					}
 				}
 				
 				this.handshakeFuture.await();
@@ -435,6 +449,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				} else {
 					log.error(String.format("%s failed to complete TLS handshake with APNs gateway.", this.getName()),
 							this.handshakeFuture.cause());
+					
+					this.closeChannelAndLogOutcome(this.channel);
 					
 					this.connectFuture = null;
 					this.handshakeFuture = null;
@@ -455,6 +471,26 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			
 			this.connectFuture = null;
 			return false;
+		}
+	}
+	
+	private void closeChannelAndLogOutcome(final Channel channel) {
+		if (channel.isOpen()) {
+			
+			final String clientThreadName = this.getName();
+			
+			channel.close().addListener(new GenericFutureListener<ChannelFuture> () {
+
+				public void operationComplete(final ChannelFuture future) {
+					if (future.isSuccess()) {
+						log.debug(String.format("%s successfully closed abandoned channel.", clientThreadName));
+					} else if (future.cause() != null) {
+						log.error(String.format("%s failed to close abandoned channel.", clientThreadName));
+					} else {
+						log.debug(String.format("%s cancelled closure of abandoned channel.", clientThreadName));
+					}
+				}
+			});
 		}
 	}
 	
