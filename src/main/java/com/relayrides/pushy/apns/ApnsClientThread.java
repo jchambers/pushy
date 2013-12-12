@@ -30,6 +30,7 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.nio.AbstractNioChannel.NioUnsafe;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.ByteToMessageDecoder;
@@ -402,6 +403,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		}
 	}
 	
+	// TODO Remove call to setAutoClose when Netty 5.0 is available
+	@SuppressWarnings("deprecation")
 	private boolean connectOrContinueConnecting() throws InterruptedException {
 		if (this.connectFuture == null) {
 			log.debug(String.format("%s beginning connection process.", this.getName()));
@@ -416,6 +419,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			log.debug(String.format("%s connected.", this.getName()));
 			
 			this.channel = this.connectFuture.channel();
+			this.channel.config().setAutoClose(false);
 			
 			if (this.pushManager.getEnvironment().isTlsRequired()) {
 				if (this.handshakeFuture == null) {
@@ -496,6 +500,10 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	
 	private void disconnectOrContinueDisconnecting() throws InterruptedException {
 		if (this.channel != null && this.channel.isOpen()) {
+			// We always want to try to read whatever is on the buffer before closing the connection. This is,
+			// obviously, not the preferred way to do things, but it seems we have no choice for now. See
+			// https://github.com/relayrides/pushy/issues/6 for details.
+			((NioUnsafe)this.channel.unsafe()).read();
 			this.channel.close();
 		}
 		
