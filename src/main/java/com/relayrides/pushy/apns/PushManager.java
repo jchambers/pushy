@@ -271,7 +271,7 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * as possible (and will block until shutdown is complete). Note that the returned list of undelivered push
 	 * notifications may not be accurate in cases where the timeout elapsed before the client threads shut down.
 	 * 
-	 * @param the timeout, in milliseconds, after which client threads should be shut down as quickly as possible
+	 * @param timeout the timeout, in milliseconds, after which client threads should be shut down as quickly as possible
 	 * 
 	 * @return a list of notifications not sent before the {@code PushManager} shut down
 	 * 
