@@ -588,7 +588,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			if (rejectedNotification.getReason() != RejectedNotificationReason.SHUTDOWN) {
 				this.pushManager.notifyListenersOfRejectedNotification(
 						this.sentNotificationBuffer.getAndRemoveNotificationWithSequenceNumber(
-								rejectedNotification.getSequenceNumber()), rejectedNotification.getReason());
+								rejectedNotification.getSequenceNumber()), rejectedNotification);
 			}
 		}
 		

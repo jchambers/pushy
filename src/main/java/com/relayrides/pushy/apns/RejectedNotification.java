@@ -26,7 +26,7 @@ package com.relayrides.pushy.apns;
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-class RejectedNotification {
+public class RejectedNotification {
 	private final int sequenceNumber;
 	private final RejectedNotificationReason rejectionReason;
 	
