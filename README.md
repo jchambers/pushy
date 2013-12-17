@@ -7,7 +7,7 @@ Pushy was created because we found that the other APNs libraries for Java simply
 - Asynchronous network IO (via Netty) for maximum performance
 - Efficient connection management (other libraries appear to reconnect to the APNs gateway far more frequently than is really necessary)
 - Graceful handling and reporting of permanent notification rejections
-- Thorough [documentation](http://relayrides.github.io/pushy/apidocs/0.1/)
+- Thorough [documentation](http://relayrides.github.io/pushy/apidocs/0.2/)
 
 We believe that Pushy is already the best tool for sending APNs push notifications from Java applications, and we hope you'll help us make it even better via bug reports and pull requests. Thanks!
 
@@ -19,19 +19,19 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 <dependency>
     <groupId>com.relayrides</groupId>
     <artifactId>pushy</artifactId>
-    <version>0.1.1</version>
+    <version>0.2</version>
 </dependency>
 ```
 
-If you don't use Maven, you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.1.1/pushy-0.1.1.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
+If you don't use Maven, you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.2/pushy-0.2.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
-- [netty 4.0.7.Final](http://netty.io/)
+- [netty 4.0.12.Final](http://netty.io/)
 - [slf4j 1.7.2](http://www.slf4j.org/)
 - [json.simple 1.1.1](https://code.google.com/p/json-simple/)
 
 ## Using Pushy
 
-The main public-facing part of Pushy is the [`PushManager`](http://relayrides.github.io/pushy/apidocs/0.1/com/relayrides/pushy/apns/PushManager.html) class, which manages connections to APNs and manages the queue of outbound notifications. Before you can create a `PushManager`, though, you'll need appropriate SSL certificates and keys from Apple. They can be obtained by following the steps in Apple's ["Provisioning and Development"](http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ProvisioningDevelopment.html#//apple_ref/doc/uid/TP40008194-CH104-SW1) guide.
+The main public-facing part of Pushy is the [`PushManager`](http://relayrides.github.io/pushy/apidocs/0.2/com/relayrides/pushy/apns/PushManager.html) class, which manages connections to APNs and manages the queue of outbound notifications. Before you can create a `PushManager`, though, you'll need appropriate SSL certificates and keys from Apple. They can be obtained by following the steps in Apple's ["Provisioning and Development"](http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ProvisioningDevelopment.html#//apple_ref/doc/uid/TP40008194-CH104-SW1) guide.
 
 Once you have your certificates and keys, you can construct a new `PushManager` like this:
 
@@ -80,7 +80,7 @@ Note that there's no guarantee as to when a push notification will be sent after
 
 ## Error handling
 
-Push notification providers communicate with APNs by opening a long-lived connection to Apple's push notification gateway and streaming push notification through that connection. Apple's gateway won't respond or acknowledge push notifications unless something goes wrong, in which case it will send an error code and close the connection (don't worry -- Pushy deals with all of this for you). To deal with notifications that are rejected by APNs, Pushy provides a notion of a [`RejectedNotificationListener`](http://relayrides.github.io/pushy/apidocs/0.1/com/relayrides/pushy/apns/RejectedNotificationListener.html). Rejected notification listeners are informed whenever APNs rejects a push notification. Here's an example of registering a simple listener:
+Push notification providers communicate with APNs by opening a long-lived connection to Apple's push notification gateway and streaming push notification through that connection. Apple's gateway won't respond or acknowledge push notifications unless something goes wrong, in which case it will send an error code and close the connection (don't worry -- Pushy deals with all of this for you). To deal with notifications that are rejected by APNs, Pushy provides a notion of a [`RejectedNotificationListener`](http://relayrides.github.io/pushy/apidocs/0.2/com/relayrides/pushy/apns/RejectedNotificationListener.html). Rejected notification listeners are informed whenever APNs rejects a push notification. Here's an example of registering a simple listener:
 
 ```java
 public class MyRejectedNotificationListener implements RejectedNotificationListener<SimpleApnsPushNotification> {
@@ -122,4 +122,4 @@ The APNs protocol never affirmatively acknowledges receipt of notifications, so 
 
 Pushy is available to the public under the [MIT License](http://opensource.org/licenses/MIT).
 
-The current version of Pushy is 0.1.1. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
+The current version of Pushy is 0.2. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
