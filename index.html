@@ -56,11 +56,10 @@
       <p>If you use <a href="http://maven.apache.org/">Maven</a>, you can add Pushy to your project by adding the following dependency declaration to your POM:</p>
 
       <div class="highlight highlight-xml"><pre><span class="nt">&lt;dependency&gt;</span>
-          <span class="nt">&lt;groupId&gt;</span>com.relayrides<span class="nt">&lt;/groupId&gt;</span>
-          <span class="nt">&lt;artifactId&gt;</span>pushy<span class="nt">&lt;/artifactId&gt;</span>
-          <span class="nt">&lt;version&gt;</span>0.2<span class="nt">&lt;/version&gt;</span>
-      <span class="nt">&lt;/dependency&gt;</span>
-      </pre></div>
+  <span class="nt">&lt;groupId&gt;</span>com.relayrides<span class="nt">&lt;/groupId&gt;</span>
+  <span class="nt">&lt;artifactId&gt;</span>pushy<span class="nt">&lt;/artifactId&gt;</span>
+  <span class="nt">&lt;version&gt;</span>0.2<span class="nt">&lt;/version&gt;</span>
+<span class="nt">&lt;/dependency&gt;</span></pre></div>
 
       <p>If you don't use Maven, you can <a href="https://github.com/relayrides/pushy/releases/download/pushy-0.2/pushy-0.2.jar">download Pushy as a <code>.jar</code> file</a> and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:</p>
 
@@ -75,38 +74,36 @@
 
       <p>Once you have your certificates and keys, you can construct a new <code>PushManager</code> like this:</p>
 
-      <div class="highlight highlight-java"><pre><span class="kd">final</span> <span class="n">String</span> <span class="n">keystorePassword</span> <span class="o">=</span> <span class="s">"mySecretPassword"</span><span class="o">;</span>
-      <span class="kd">final</span> <span class="n">FileInputStream</span> <span class="n">keystoreInputStream</span> <span class="o">=</span> <span class="k">new</span> <span class="n">FileInputStream</span><span class="o">(</span><span class="s">"/path/to/certificate.p12"</span><span class="o">);</span>
+      <div class="highlight highlight-java"><pre><span class="kd">final</span> <span class="n">String</span> <span class="n">mySecretPassword</span> <span class="o">=</span> <span class="s">"mySecretPassword"</span><span class="o">;</span>
+<span class="kd">final</span> <span class="n">FileInputStream</span> <span class="n">keystoreInputStream</span> <span class="o">=</span> <span class="k">new</span> <span class="n">FileInputStream</span><span class="o">(</span><span class="s">"/path/to/certificate.p12"</span><span class="o">);</span>
 
-      <span class="k">try</span> <span class="o">{</span>
-          <span class="kd">final</span> <span class="n">KeyStore</span> <span class="n">keyStore</span> <span class="o">=</span> <span class="n">KeyStore</span><span class="o">.</span><span class="na">getInstance</span><span class="o">(</span><span class="s">"PKCS12"</span><span class="o">);</span>
-          <span class="n">keyStore</span><span class="o">.</span><span class="na">load</span><span class="o">(</span><span class="n">keystoreInputStream</span><span class="o">,</span> <span class="n">keystorePassword</span><span class="o">.</span><span class="na">toCharArray</span><span class="o">());</span>
+<span class="k">try</span> <span class="o">{</span>
+  <span class="kd">final</span> <span class="n">KeyStore</span> <span class="n">keyStore</span> <span class="o">=</span> <span class="n">KeyStore</span><span class="o">.</span><span class="na">getInstance</span><span class="o">(</span><span class="s">"PKCS12"</span><span class="o">);</span>
+  <span class="n">keyStore</span><span class="o">.</span><span class="na">load</span><span class="o">(</span><span class="n">keystoreInputStream</span><span class="o">,</span> <span class="n">keystorePassword</span><span class="o">.</span><span class="na">toCharArray</span><span class="o">());</span>
 
-          <span class="kd">final</span> <span class="n">PushManager</span><span class="o">&lt;</span><span class="n">SimpleApnsPushNotification</span><span class="o">&gt;</span> <span class="n">pushManager</span> <span class="o">=</span>
-              <span class="k">new</span> <span class="n">PushManager</span><span class="o">&lt;</span><span class="n">SimpleApnsPushNotification</span><span class="o">&gt;(</span>
-                  <span class="n">ApnsEnvironment</span><span class="o">.</span><span class="na">getSandboxEnvironment</span><span class="o">(),</span> <span class="n">keyStore</span><span class="o">,</span> <span class="n">keystorePassword</span><span class="o">);</span>
+  <span class="kd">final</span> <span class="n">PushManager</span><span class="o">&lt;</span><span class="n">SimpleApnsPushNotification</span><span class="o">&gt;</span> <span class="n">pushManager</span> <span class="o">=</span>
+      <span class="k">new</span> <span class="n">PushManager</span><span class="o">&lt;</span><span class="n">SimpleApnsPushNotification</span><span class="o">&gt;(</span>
+          <span class="n">ApnsEnvironment</span><span class="o">.</span><span class="na">getSandboxEnvironment</span><span class="o">(),</span> <span class="n">keyStore</span><span class="o">,</span> <span class="n">keystorePassword</span><span class="o">);</span>
 
-          <span class="n">pushManager</span><span class="o">.</span><span class="na">start</span><span class="o">();</span>
-      <span class="o">}</span> <span class="k">finally</span> <span class="o">{</span>
-          <span class="n">keystoreInputStream</span><span class="o">.</span><span class="na">close</span><span class="o">();</span>
-      <span class="o">}</span>
-      </pre></div>
+  <span class="n">pushManager</span><span class="o">.</span><span class="na">start</span><span class="o">();</span>
+<span class="o">}</span> <span class="k">finally</span> <span class="o">{</span>
+  <span class="n">keystoreInputStream</span><span class="o">.</span><span class="na">close</span><span class="o">();</span>
+<span class="o">}</span></pre></div>
 
       <p>Once you have your <code>PushManager</code> constructed and started, you're ready to start constructing and sending push notifications. Pushy provides a number of utility classes for working with APNs tokens and payloads. Here's an example:</p>
 
       <div class="highlight highlight-java"><pre><span class="kd">final</span> <span class="kt">byte</span><span class="o">[]</span> <span class="n">token</span> <span class="o">=</span> <span class="n">TokenUtil</span><span class="o">.</span><span class="na">tokenStringToByteArray</span><span class="o">(</span>
-          <span class="s">"&lt;5f6aa01d 8e335894 9b7c25d4 61bb78ad 740f4707 462c7eaf bebcf74f a5ddb387&gt;"</span><span class="o">);</span>
+  <span class="s">"&lt;5f6aa01d 8e335894 9b7c25d4 61bb78ad 740f4707 462c7eaf bebcf74f a5ddb387&gt;"</span><span class="o">);</span>
 
-      <span class="kd">final</span> <span class="n">ApnsPayloadBuilder</span> <span class="n">payloadBuilder</span> <span class="o">=</span> <span class="k">new</span> <span class="n">ApnsPayloadBuilder</span><span class="o">();</span>
+<span class="kd">final</span> <span class="n">ApnsPayloadBuilder</span> <span class="n">payloadBuilder</span> <span class="o">=</span> <span class="k">new</span> <span class="n">ApnsPayloadBuilder</span><span class="o">();</span>
 
-      <span class="n">payloadBuilder</span><span class="o">.</span><span class="na">setAlertBody</span><span class="o">(</span><span class="s">"Ring ring, Neo."</span><span class="o">);</span>
-      <span class="n">payloadBuilder</span><span class="o">.</span><span class="na">setSoundFileName</span><span class="o">(</span><span class="s">"ring-ring.aiff"</span><span class="o">);</span>
+<span class="n">payloadBuilder</span><span class="o">.</span><span class="na">setAlertBody</span><span class="o">(</span><span class="s">"Ring ring, Neo."</span><span class="o">);</span>
+<span class="n">payloadBuilder</span><span class="o">.</span><span class="na">setSoundFileName</span><span class="o">(</span><span class="s">"ring-ring.aiff"</span><span class="o">);</span>
 
-      <span class="kd">final</span> <span class="n">String</span> <span class="n">payload</span> <span class="o">=</span> <span class="n">payloadBuilder</span><span class="o">.</span><span class="na">buildWithDefaultMaximumLength</span><span class="o">();</span>
+<span class="kd">final</span> <span class="n">String</span> <span class="n">payload</span> <span class="o">=</span> <span class="n">payloadBuilder</span><span class="o">.</span><span class="na">buildWithDefaultMaximumLength</span><span class="o">();</span>
 
-      <span class="n">pushManager</span><span class="o">.</span><span class="na">enqueuePushNotification</span><span class="o">(</span>
-              <span class="k">new</span> <span class="nf">SimpleApnsPushNotification</span><span class="o">(</span><span class="n">token</span><span class="o">,</span> <span class="n">payload</span><span class="o">));</span>
-      </pre></div>
+<span class="n">pushManager</span><span class="o">.</span><span class="na">enqueuePushNotification</span><span class="o">(</span>
+      <span class="k">new</span> <span class="nf">SimpleApnsPushNotification</span><span class="o">(</span><span class="n">token</span><span class="o">,</span> <span class="n">payload</span><span class="o">));</span></pre></div>
 
       <p>When your application shuts down, make sure to shut down the <code>PushManager</code>, too:</p>
 
@@ -122,16 +119,15 @@
 
       <div class="highlight highlight-java"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">MyRejectedNotificationListener</span> <span class="kd">implements</span> <span class="n">RejectedNotificationListener</span><span class="o">&lt;</span><span class="n">SimpleApnsPushNotification</span><span class="o">&gt;</span> <span class="o">{</span>
 
-          <span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleRejectedNotification</span><span class="o">(</span><span class="n">SimpleApnsPushNotification</span> <span class="n">notification</span><span class="o">,</span> <span class="n">RejectedNotificationReason</span> <span class="n">reason</span><span class="o">)</span> <span class="o">{</span>
-              <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">format</span><span class="o">(</span><span class="s">"%s was rejected with rejection reason %s\n"</span><span class="o">,</span> <span class="n">notification</span><span class="o">,</span> <span class="n">reason</span><span class="o">);</span>
-          <span class="o">}</span>
+  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleRejectedNotification</span><span class="o">(</span><span class="n">SimpleApnsPushNotification</span> <span class="n">notification</span><span class="o">,</span> <span class="n">RejectedNotificationReason</span> <span class="n">reason</span><span class="o">)</span> <span class="o">{</span>
+      <span class="n">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">format</span><span class="o">(</span><span class="s">"%s was rejected with rejection reason %s\n"</span><span class="o">,</span> <span class="n">notification</span><span class="o">,</span> <span class="n">reason</span><span class="o">);</span>
+  <span class="o">}</span>
 
-      <span class="o">}</span>
+<span class="o">}</span>
 
-      <span class="c1">// ...</span>
+<span class="c1">// ...</span>
 
-      <span class="n">pushManager</span><span class="o">.</span><span class="na">registerRejectedNotificationListener</span><span class="o">(</span><span class="k">new</span> <span class="n">MyRejectedNotificationListener</span><span class="o">());</span>
-      </pre></div>
+<span class="n">pushManager</span><span class="o">.</span><span class="na">registerRejectedNotificationListener</span><span class="o">(</span><span class="k">new</span> <span class="n">MyRejectedNotificationListener</span><span class="o">());</span></pre></div>
 
       <p>Lots of things can go wrong when sending notifications, but rejected notification listeners are only informed when Apple definitively rejects a push notification. All other IO problems are treated as temporary issues, and Pushy will automatically re-transmit notifications affected by IO problems later.</p>
 
@@ -143,10 +139,9 @@
       <p>To get expired device tokens with Pushy:</p>
 
       <div class="highlight highlight-java"><pre><span class="k">for</span> <span class="o">(</span><span class="kd">final</span> <span class="n">ExpiredToken</span> <span class="n">expiredToken</span> <span class="o">:</span> <span class="n">pushManager</span><span class="o">.</span><span class="na">getExpiredTokens</span><span class="o">())</span> <span class="o">{</span>
-          <span class="c1">// Stop sending push notifications to each expired token if the expiration</span>
-          <span class="c1">// time is after the last time the app registered that token.</span>
-      <span class="o">}</span>
-      </pre></div>
+  <span class="c1">// Stop sending push notifications to each expired token if the expiration</span>
+  <span class="c1">// time is after the last time the app registered that token.</span>
+<span class="o">}</span></pre></div>
 
       <h2>
       <a name="limitations-and-known-issues" class="anchor" href="#limitations-and-known-issues"><span class="octicon octicon-link"></span></a>Limitations and known issues</h2>
