@@ -30,7 +30,7 @@ import com.relayrides.pushy.apns.util.TokenUtil;
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-public class SendableApnsPushNotification<T extends ApnsPushNotification> {
+class SendableApnsPushNotification<T extends ApnsPushNotification> {
 	private final T pushNotification;
 	private final int sequenceNumber;
 	
