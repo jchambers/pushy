@@ -194,6 +194,21 @@ public class ApnsPayloadBuilderTest {
 	}
 
 	@Test
+	public void testSetContentAvailable() throws ParseException {
+		{
+			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+			assertNull(aps.get("content-available"));
+		}
+
+		{
+			this.builder.setContentAvailable(true);
+
+			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+			assertEquals(1L, aps.get("content-available"));
+		}
+	}
+
+	@Test
 	public void testAddCustomProperty() throws ParseException {
 		final String customKey = "string";
 		final String customValue = "Hello";

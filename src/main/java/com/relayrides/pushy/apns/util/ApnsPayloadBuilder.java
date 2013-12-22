@@ -46,12 +46,14 @@ public class ApnsPayloadBuilder {
 	private String localizedActionButtonKey = null;
 	private Integer badgeNumber = null;
 	private String soundFileName = null;
-	
+	private boolean contentAvailable = false;
+
 	private static final String APS_KEY = "aps";
 	private static final String ALERT_KEY = "alert";
 	private static final String BADGE_KEY = "badge";
 	private static final String SOUND_KEY = "sound";
-	
+	private static final String CONTENT_AVAILABLE_KEY = "content-available";
+
 	private static final String ALERT_BODY_KEY = "body";
 	private static final String ACTION_LOC_KEY = "action-loc-key";
 	private static final String ALERT_LOC_KEY = "loc-key";
@@ -187,7 +189,23 @@ public class ApnsPayloadBuilder {
 	public void setSoundFileName(final String soundFileName) {
 		this.soundFileName = soundFileName;
 	}
-	
+
+	/**
+	 * <p>Sets whether the payload under construction should contain a flag that indicates that new content is available
+	 * to be downloaded in the background by the receiving app. By default, no content availability flag is included
+	 * in the payload.</p>
+	 *
+	 * @param contentAvailable {@code true} to include a flag that indicates that new content is available to be
+	 * downloaded in the background or {@code false} otherwise
+	 *
+	 * @see <a href="https://developer.apple.com/library/ios/documentation/iPhone/Conceptual/iPhoneOSProgrammingGuide/ManagingYourApplicationsFlow/ManagingYourApplicationsFlow.html#//apple_ref/doc/uid/TP40007072-CH4-SW24">
+	 * iOS App Programming Guide - App States and Multitasking - Background Execution and Multitasking - Implementing
+	 * Long-Running Background Tasks</a>
+	 */
+	public void setContentAvailable(final boolean contentAvailable) {
+		this.contentAvailable = contentAvailable;
+	}
+
 	/**
 	 * <p>Adds a custom property to the payload. Values are mapped to JSON types according to the mapping table at
 	 * <a href="https://code.google.com/p/json-simple/">https://code.google.com/p/json-simple/</a>.</p>
@@ -243,7 +261,11 @@ public class ApnsPayloadBuilder {
 			if (this.soundFileName != null) {
 				aps.put(SOUND_KEY, this.soundFileName);
 			}
-			
+
+			if (this.contentAvailable) {
+				aps.put(CONTENT_AVAILABLE_KEY, 1);
+			}
+
 			final Object alertObject = this.createAlertObject();
 			
 			if (alertObject != null) {
