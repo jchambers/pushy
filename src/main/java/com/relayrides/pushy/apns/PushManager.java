@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,7 +52,8 @@ public class PushManager<T extends ApnsPushNotification> {
 	private final KeyStore keyStore;
 	private final char[] keyStorePassword;
 	private final int concurrentConnections;
-	
+	private final AtomicBoolean acceptingMore = new AtomicBoolean(true);
+
 	private final ArrayList<ApnsClientThread<T>> clientThreads;
 	
 	private final ArrayList<WeakReference<RejectedNotificationListener<T>>> rejectedNotificationListeners;
@@ -212,7 +214,25 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * @see PushManager#registerRejectedNotificationListener(RejectedNotificationListener)
 	 */
 	public void enqueuePushNotification(final T notification) {
-		this.queue.add(notification);
+		this.enqueuePushNotification(notification, false);
+	}
+	
+	/**
+	 * <p>Enqueues a push notification for transmission to the APNs service. Notifications may not be sent to APNs
+	 * immediately, and delivery is not guaranteed by APNs, but notifications rejected by APNs for specific reasons
+	 * will be passed to registered {@link RejectedNotificationListener}s.</p>
+	 * 
+	 * @param notification  the notification to enqueue
+	 * @param enqueueAnyway no matter if accepting more flag is true or false
+	 * 
+	 * @see PushManager#registerRejectedNotificationListener(RejectedNotificationListener)
+	 */
+	void enqueuePushNotification(final T notification, boolean enqueueAnyway) {
+		if (enqueueAnyway || isAcceptingMore())
+			this.queue.add(notification);
+		else
+			throw new IllegalStateException(
+					"This PushManager does not accept more notifications");
 	}
 	
 	/**
@@ -225,7 +245,26 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * @see PushManager#registerRejectedNotificationListener(RejectedNotificationListener)
 	 */
 	public void enqueueAllNotifications(final Collection<T> notifications) {
-		this.queue.addAll(notifications);
+		this.enqueueAllNotifications(notifications, false);
+	}
+	
+	/**
+	 * <p>Enqueues a collection of push notifications for transmission to the APNs service. Notifications may not be
+	 * sent to APNs immediately, and delivery is not guaranteed by APNs, but notifications rejected by APNs for
+	 * specific reasons will be passed to registered {@link RejectedNotificationListener}s.</p>
+	 * 
+	 * @param notifications the notifications to enqueue
+	 * @param enqueueAnyway no matter if accepting more flag is true or false
+	 * 
+	 * @see PushManager#registerRejectedNotificationListener(RejectedNotificationListener)
+	 */
+	void enqueueAllNotifications(final Collection<T> notifications,
+			boolean enqueueAnyway) {
+		if (enqueueAnyway || isAcceptingMore())
+			this.queue.addAll(notifications);
+		else
+			throw new IllegalStateException(
+					"This PushManager does not accept more notifications");
 	}
 	
 	/**
@@ -436,5 +475,58 @@ public class PushManager<T extends ApnsPushNotification> {
 		}
 		
 		return new FeedbackServiceClient(this).getExpiredTokens(timeout, timeoutUnit);
+	}
+	
+	/**
+	 * Sets a flag that indicates if this PushManager will accept more incoming
+	 * push notifications or not.
+	 * 
+	 * @param acceptingMore
+	 */
+	public void setAcceptingMore(boolean acceptingMore) {
+		this.acceptingMore.set(acceptingMore);
+	}
+
+	/**
+	 * Checks if this PushManager accepts more notifications or not.
+	 * 
+	 * @return
+	 */
+	public boolean isAcceptingMore() {
+		return acceptingMore.get();
+	}
+
+	/**
+	 * Ensure that the queue is empty. This only works if the queue doesn't
+	 * accept more. There is some possibility that the shutdown will still
+	 * return a list of unsent notifications, in case a rejected notification
+	 * arrives, but it makes the common case less likely to fail.
+	 * 
+	 * @throws InterruptedException
+	 */
+	public void drain() throws InterruptedException {
+		if (!isStarted())
+			throw new IllegalStateException(
+					"drain can only be performed with a started PushManager");
+		if (isAcceptingMore())
+			throw new IllegalStateException(
+					"drain can only be performed when this PushManager doesn't accept more notifications");
+		synchronized (queue) {
+			while (!queue.isEmpty()) {
+				queue.wait(100);
+			}
+		}
+	}
+
+	/**
+	 * Ensure that the queue is empty before starting a timed-out shutdown
+	 * 
+	 * @param timeout
+	 * @returns 
+	 * @throws InterruptedException
+	 */
+	public List<T> drainAndShutdown(long timeout) throws InterruptedException {
+		drain();
+		return shutdown(timeout);
 	}
 }
