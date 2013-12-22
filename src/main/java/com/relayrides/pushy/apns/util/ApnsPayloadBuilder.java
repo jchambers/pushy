@@ -46,12 +46,14 @@ public class ApnsPayloadBuilder {
 	private String localizedActionButtonKey = null;
 	private Integer badgeNumber = null;
 	private String soundFileName = null;
-	
+	private boolean contentAvailable = false;
+
 	private static final String APS_KEY = "aps";
 	private static final String ALERT_KEY = "alert";
 	private static final String BADGE_KEY = "badge";
 	private static final String SOUND_KEY = "sound";
-	
+	private static final String CONTENT_AVAILABLE_KEY = "content-available";
+
 	private static final String ALERT_BODY_KEY = "body";
 	private static final String ACTION_LOC_KEY = "action-loc-key";
 	private static final String ALERT_LOC_KEY = "loc-key";
