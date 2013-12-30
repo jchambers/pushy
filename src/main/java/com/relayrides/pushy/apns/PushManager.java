@@ -46,7 +46,8 @@ import org.slf4j.LoggerFactory;
  */
 public class PushManager<T extends ApnsPushNotification> {
 	private final BlockingQueue<T> queue;
-	
+	private final LinkedBlockingQueue<T> retryQueue;
+
 	private final ApnsEnvironment environment;
 	private final KeyStore keyStore;
 	private final char[] keyStorePassword;
@@ -126,6 +127,8 @@ public class PushManager<T extends ApnsPushNotification> {
 		}
 		
 		this.queue = new LinkedBlockingQueue<T>();
+		this.retryQueue = new LinkedBlockingQueue<T>();
+
 		this.rejectedNotificationListeners = new ArrayList<WeakReference<RejectedNotificationListener<T>>>();
 		
 		this.environment = environment;
@@ -227,7 +230,15 @@ public class PushManager<T extends ApnsPushNotification> {
 	public void enqueueAllNotifications(final Collection<T> notifications) {
 		this.queue.addAll(notifications);
 	}
-	
+
+	protected void enqueuePushNotificationForRetry(final T notification) {
+		this.retryQueue.add(notification);
+	}
+
+	protected void enqueueAllNotificationsForRetry(final Collection<T> notifications) {
+		this.retryQueue.addAll(notifications);
+	}
+
 	/**
 	 * Indicates whether this push manager has been started and not yet shut down.
 	 * 
@@ -384,7 +395,11 @@ public class PushManager<T extends ApnsPushNotification> {
 	protected BlockingQueue<T> getQueue() {
 		return this.queue;
 	}
-	
+
+	protected LinkedBlockingQueue<T> getRetryQueue() {
+		return this.retryQueue;
+	}
+
 	protected NioEventLoopGroup getWorkerGroup() {
 		return this.workerGroup;
 	}
