@@ -29,7 +29,7 @@ package com.relayrides.pushy.apns;
 class RejectedNotification {
 	private final int sequenceNumber;
 	private final RejectedNotificationReason rejectionReason;
-	
+
 	/**
 	 * Constructs a new rejected notification tuple with the given sequence number and rejection reason.
 	 * 
@@ -40,7 +40,7 @@ class RejectedNotification {
 		this.sequenceNumber = sequenceNumber;
 		this.rejectionReason = rejectionReason;
 	}
-	
+
 	/**
 	 * Returns the sequence number of the notification rejected by APNs.
 	 * 
@@ -49,7 +49,7 @@ class RejectedNotification {
 	public int getSequenceNumber() {
 		return this.sequenceNumber;
 	}
-	
+
 	/**
 	 * Returns the reason the notification was rejected by APNs.
 	 * 

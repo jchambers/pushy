@@ -41,12 +41,12 @@ import java.util.Date;
 public class ExpiredToken {
 	private final byte[] token;
 	private final Date expiration;
-	
+
 	protected ExpiredToken(final byte[] token, final Date expiration) {
 		this.token = java.util.Arrays.copyOf(token, token.length);
 		this.expiration = new Date(expiration.getTime());
 	}
-	
+
 	/**
 	 * Returns the token APNs has reported as expired.
 	 * 
@@ -55,7 +55,7 @@ public class ExpiredToken {
 	public byte[] getToken() {
 		return this.token;
 	}
-	
+
 	/**
 	 * Returns the time, rounded to the nearest second, when APNs determined that the application no longer exists on
 	 * the device.

@@ -33,7 +33,7 @@ import com.relayrides.pushy.apns.util.TokenUtil;
 class SendableApnsPushNotification<T extends ApnsPushNotification> {
 	private final T pushNotification;
 	private final int sequenceNumber;
-	
+
 	/**
 	 * Constructs a sendable push notification with the given base notification and sequence number.
 	 * 
@@ -44,7 +44,7 @@ class SendableApnsPushNotification<T extends ApnsPushNotification> {
 		this.pushNotification = pushNotification;
 		this.sequenceNumber = sequenceNumber;
 	}
-	
+
 	/**
 	 * Returns the push notification to be sent.
 	 * 
@@ -53,7 +53,7 @@ class SendableApnsPushNotification<T extends ApnsPushNotification> {
 	public T getPushNotification() {
 		return this.pushNotification;
 	}
-	
+
 	/**
 	 * Returns the channel-specific sequence number for this push notification.
 	 * 

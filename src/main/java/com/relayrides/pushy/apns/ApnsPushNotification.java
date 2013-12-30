@@ -46,14 +46,14 @@ public interface ApnsPushNotification {
 	 * @return an array of bytes containing the token of the device to which this notification is to be sent
 	 */
 	byte[] getToken();
-	
+
 	/**
 	 * Returns the JSON-encoded payload of this push notification.
 	 * 
 	 * @return the JSON-encoded payload of this push notification
 	 */
 	String getPayload();
-	
+
 	/**
 	 * Returns the time at which Apple's push notification service should stop trying to deliver this push notification.
 	 * If {@code null}, the push notification service will not attempt to store the notification at all. Note that APNs

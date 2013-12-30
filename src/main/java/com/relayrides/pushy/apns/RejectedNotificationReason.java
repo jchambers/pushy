@@ -37,7 +37,7 @@ public enum RejectedNotificationReason {
 	INVALID_TOPIC_SIZE((byte)6),
 	INVALID_PAYLOAD_SIZE((byte)7),
 	INVALID_TOKEN((byte)8),
-	
+
 	/**
 	 * <p>Indicates that the notification was accepted, but the connection is being shut down for maintenance.
 	 * According to Apple's documentation:</p>
@@ -50,15 +50,15 @@ public enum RejectedNotificationReason {
 	 * using this connection and open a new connection.</blockquote>
 	 */
 	SHUTDOWN((byte)10),
-	
+
 	UNKNOWN((byte)255);
-	
+
 	private final byte errorCode;
-	
+
 	private RejectedNotificationReason(final byte errorCode) {
 		this.errorCode = errorCode;
 	}
-	
+
 	/**
 	 * Returns the one-byte error code associated with this rejection reason.
 	 * 
@@ -67,7 +67,7 @@ public enum RejectedNotificationReason {
 	public byte getErrorCode() {
 		return this.errorCode;
 	}
-	
+
 	/**
 	 * Gets the rejection reason associated with the given error code.
 	 * 
@@ -81,7 +81,7 @@ public enum RejectedNotificationReason {
 				return error;
 			}
 		}
-		
+
 		throw new IllegalArgumentException(String.format("Unrecognized error code: %d", errorCode));
 	}
 }

@@ -35,11 +35,11 @@ import com.relayrides.pushy.apns.ApnsPushNotification;
  * @see TokenUtil
  */
 public class SimpleApnsPushNotification implements ApnsPushNotification {
-	
+
 	private final byte[] token;
 	private final String payload;
 	private final Date invalidationTime;
-	
+
 	/**
 	 * Constructs a new push notification with the given token and payload. No expiration time is set for the
 	 * notification, so APNs will not attempt to store the notification for later delivery if the initial attempt fails.
@@ -50,7 +50,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 	public SimpleApnsPushNotification(final byte[] token, final String payload) {
 		this(token, payload, null);
 	}
-	
+
 	/**
 	 * Constructs a new push notification with the given token, payload, and delivery expiration time.
 	 * 

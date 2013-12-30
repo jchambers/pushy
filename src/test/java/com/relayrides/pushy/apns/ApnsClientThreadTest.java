@@ -31,169 +31,169 @@ import org.junit.Test;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class ApnsClientThreadTest extends BasePushyTest {
-	
+
 	@Test
 	public void testSendNotification() throws InterruptedException {
-		
+
 		final SimpleApnsPushNotification notification = this.createTestNotification();
-		
+
 		final CountDownLatch latch = this.getServer().getCountDownLatch(1);
 		this.getPushManager().enqueuePushNotification(notification);
-		
+
 		this.waitForLatch(latch);
-		
+
 		final List<SimpleApnsPushNotification> receivedNotifications = this.getServer().getReceivedNotifications();
-		
+
 		assertEquals(1, receivedNotifications.size());
 		assertEquals(notification, receivedNotifications.get(0));
 	}
-	
+
 	@Test
 	public void testSendManyNotifications() throws InterruptedException {
 		final SimpleApnsPushNotification notification = this.createTestNotification();
-		
+
 		final int iterations = 1000;
 		final CountDownLatch latch = this.getServer().getCountDownLatch(iterations);
-		
+
 		for (int i = 0; i < iterations; i++) {
 			this.getPushManager().enqueuePushNotification(notification);
 		}
-		
+
 		this.waitForLatch(latch);
-		
+
 		final List<SimpleApnsPushNotification> receivedNotifications = this.getServer().getReceivedNotifications();
-		
+
 		assertEquals(iterations, receivedNotifications.size());
 	}
-	
+
 	@Test
 	public void testSendManyNotificationsWithMultipleThreads() throws InterruptedException {
 		final ApnsClientThread<SimpleApnsPushNotification> secondClientThread =
 				new ApnsClientThread<SimpleApnsPushNotification>(this.getPushManager());
-		
+
 		try {
 			secondClientThread.start();
-			
+
 			final SimpleApnsPushNotification notification = this.createTestNotification();
-			
+
 			final int iterations = 1000;
 			final CountDownLatch latch = this.getServer().getCountDownLatch(iterations);
-			
+
 			for (int i = 0; i < iterations; i++) {
 				this.getPushManager().enqueuePushNotification(notification);
 			}
-			
+
 			this.waitForLatch(latch);
-			
+
 			final List<SimpleApnsPushNotification> receivedNotifications = this.getServer().getReceivedNotifications();
-			
+
 			assertEquals(iterations, receivedNotifications.size());
 		} finally {
 			secondClientThread.requestShutdown();
 		}
 	}
-	
+
 	@Test
 	public void testSendNotificationsWithError() throws InterruptedException {
 		final SimpleApnsPushNotification notification = this.createTestNotification();
-		
+
 		final int iterations = 100;
 		this.getServer().failWithErrorAfterNotifications(RejectedNotificationReason.INVALID_TOKEN, 10);
 		final CountDownLatch latch = this.getServer().getCountDownLatch(iterations);
-		
+
 		for (int i = 0; i < iterations; i++) {
 			this.getPushManager().enqueuePushNotification(notification);
 		}
-		
+
 		this.waitForLatch(latch);
-		
+
 		final List<SimpleApnsPushNotification> receivedNotifications = this.getServer().getReceivedNotifications();
-		
+
 		assertEquals(iterations, receivedNotifications.size());
 	}
-	
+
 	@Test
 	public void testSendManyNotificationsWithMultipleThreadsAndError() throws InterruptedException {
 		final ApnsClientThread<SimpleApnsPushNotification> secondClientThread =
 				new ApnsClientThread<SimpleApnsPushNotification>(this.getPushManager());
-		
+
 		try {
 			secondClientThread.start();
-			
+
 			final SimpleApnsPushNotification notification = this.createTestNotification();
-			
+
 			final int iterations = 100;
 			this.getServer().failWithErrorAfterNotifications(RejectedNotificationReason.INVALID_TOKEN, 10);
 			final CountDownLatch latch = this.getServer().getCountDownLatch(iterations);
-			
+
 			for (int i = 0; i < iterations; i++) {
 				this.getPushManager().enqueuePushNotification(notification);
 			}
-			
+
 			this.waitForLatch(latch);
-			
+
 			final List<SimpleApnsPushNotification> receivedNotifications = this.getServer().getReceivedNotifications();
-			
+
 			assertEquals(iterations, receivedNotifications.size());
 		} finally {
 			secondClientThread.requestShutdown();
 		}
 	}
-	
+
 	@Test
 	public void testShutdown() throws InterruptedException {
 		this.getClientThread().requestShutdown();
-		
+
 		this.getClientThread().join(5000);
 		assertFalse(this.getClientThread().isAlive());
 	}
-	
+
 	@Test
 	public void testShutdownWithSentMessages() throws InterruptedException {
 		final SimpleApnsPushNotification notification = this.createTestNotification();
-		
+
 		final int iterations = 100;
 		final CountDownLatch latch = this.getServer().getCountDownLatch(iterations);
-		
+
 		for (int i = 0; i < iterations; i++) {
 			this.getPushManager().enqueuePushNotification(notification);
 		}
-		
+
 		this.waitForLatch(latch);
 		this.getClientThread().requestShutdown();
-		
+
 		for (int i = 0; i < iterations; i++) {
 			this.getPushManager().enqueuePushNotification(notification);
 		}
-		
+
 		assertEquals(
 				2 * iterations,
 				this.getPushManager().shutdown().size() + this.getServer().getReceivedNotifications().size());
-		
+
 		this.getClientThread().join(5000);
 		assertFalse(this.getClientThread().isAlive());
 	}
-	
+
 	@Test
 	public void testImmediateShutdownRequest() throws InterruptedException {
 		final ApnsClientThread<SimpleApnsPushNotification> clientThread =
 				new ApnsClientThread<SimpleApnsPushNotification>(this.getPushManager());
-		
+
 		clientThread.start();
 		clientThread.requestShutdown();
-		
+
 		clientThread.join(5000);
 		assertFalse(clientThread.isAlive());
 	}
-	
+
 	@Test
 	public void testImmediateShutdown() throws InterruptedException {
 		final ApnsClientThread<SimpleApnsPushNotification> clientThread =
 				new ApnsClientThread<SimpleApnsPushNotification>(this.getPushManager());
-		
+
 		clientThread.start();
 		clientThread.shutdownImmediately();
-		
+
 		clientThread.join(5000);
 		assertFalse(clientThread.isAlive());
 	}

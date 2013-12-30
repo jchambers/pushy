@@ -44,28 +44,28 @@ class SslHandlerUtil {
 
 	private static final String PROTOCOL = "TLS";
 	private static final String DEFAULT_ALGORITHM = "SunX509";
-	
+
 	protected SslHandlerUtil() {}
-	
+
 	protected static SslHandler createSslHandler(final KeyStore keyStore, final char[] keyStorePassword) throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException, UnrecoverableKeyException {
 		String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
-		
-        if (algorithm == null) {
-            algorithm = DEFAULT_ALGORITHM;
-        }
-        
+
+		if (algorithm == null) {
+			algorithm = DEFAULT_ALGORITHM;
+		}
+
 		final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(algorithm);
 		trustManagerFactory.init((KeyStore) null);
-		
+
 		final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(algorithm);
 		keyManagerFactory.init(keyStore, keyStorePassword);
-		
+
 		final SSLContext sslContext = SSLContext.getInstance(PROTOCOL);
 		sslContext.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
-		
+
 		final SSLEngine sslEngine = sslContext.createSSLEngine();
 		sslEngine.setUseClientMode(true);
-		
+
 		return new SslHandler(sslEngine);
 	}
 }
