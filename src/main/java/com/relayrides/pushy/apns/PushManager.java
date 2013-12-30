@@ -51,7 +51,7 @@ public class PushManager<T extends ApnsPushNotification> {
 	private final ApnsEnvironment environment;
 	private final KeyStore keyStore;
 	private final char[] keyStorePassword;
-	private final int concurrentConnections;
+	private final int concurrentConnectionCount;
 
 	private final ArrayList<ApnsClientThread<T>> clientThreads;
 
@@ -69,37 +69,6 @@ public class PushManager<T extends ApnsPushNotification> {
 	private final Logger log = LoggerFactory.getLogger(PushManager.class);
 
 	/**
-	 * Constructs a new {@code PushManager} that operates in the given environment with the given credentials, a single
-	 * connection to APNs, and a default event loop group.
-	 * 
-	 * @param environment the environment in which this {@code PushManager} operates
-	 * @param keyStore A {@code KeyStore} containing the client key to present during a TLS handshake; may be
-	 * {@code null} if the environment does not require TLS. The {@code KeyStore} should be loaded before being used
-	 * here.
-	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
-	 */
-	public PushManager(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword) {
-		this(environment, keyStore, keyStorePassword, 1);
-	}
-
-	/**
-	 * <p>Constructs a new {@code PushManager} that operates in the given environment with the given credentials, the
-	 * given number of parallel connections to APNs, and a default event loop group. See
-	 * <a href="http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW6">
-	 * Best Practices for Managing Connections</a> for additional information.</p>
-	 * 
-	 * @param environment the environment in which this {@code PushManager} operates
-	 * @param keyStore A {@code KeyStore} containing the client key to present during a TLS handshake; may be
-	 * {@code null} if the environment does not require TLS. The {@code KeyStore} should be loaded before being used
-	 * here.
-	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
-	 * @param concurrentConnections the number of parallel connections to open to APNs
-	 */
-	public PushManager(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword, final int concurrentConnections) {
-		this(environment, keyStore, keyStorePassword, concurrentConnections, null);
-	}
-
-	/**
 	 * <p>Constructs a new {@code PushManager} that operates in the given environment with the given credentials and the
 	 * given number of parallel connections to APNs. See
 	 * <a href="http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW6">
@@ -114,19 +83,21 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * {@code null} if the environment does not require TLS. The {@code KeyStore} should be loaded before being used
 	 * here.
 	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
-	 * @param concurrentConnections the number of parallel connections to open to APNs
+	 * @param concurrentConnectionCount the number of parallel connections to open to APNs
 	 * @param workerGroup the event loop group this push manager should use for its connections to the APNs gateway and
 	 * feedback service; if {@code null}, a new event loop group will be created and will be shut down automatically
 	 * when the push manager is shut down. If not {@code null}, the caller <strong>must</strong> shut down the event
 	 * loop group after shutting down the push manager
+	 * @param queue TODO
 	 */
-	public PushManager(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword, final int concurrentConnections, final NioEventLoopGroup workerGroup) {
+	protected PushManager(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword,
+			final int concurrentConnectionCount, final NioEventLoopGroup workerGroup, final BlockingQueue<T> queue) {
 
 		if (environment.isTlsRequired() && keyStore == null) {
 			throw new IllegalArgumentException("Must include a non-null KeyStore for environments that require TLS.");
 		}
 
-		this.queue = new LinkedBlockingQueue<T>();
+		this.queue = queue != null ? queue : new LinkedBlockingQueue<T>();
 		this.retryQueue = new LinkedBlockingQueue<T>();
 
 		this.rejectedNotificationListeners = new ArrayList<WeakReference<RejectedNotificationListener<T>>>();
@@ -136,8 +107,8 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.keyStore = keyStore;
 		this.keyStorePassword = keyStorePassword;
 
-		this.concurrentConnections = concurrentConnections;
-		this.clientThreads = new ArrayList<ApnsClientThread<T>>(this.concurrentConnections);
+		this.concurrentConnectionCount = concurrentConnectionCount;
+		this.clientThreads = new ArrayList<ApnsClientThread<T>>(this.concurrentConnectionCount);
 
 		this.rejectedNotificationExecutorService = Executors.newSingleThreadExecutor();
 
@@ -195,7 +166,7 @@ public class PushManager<T extends ApnsPushNotification> {
 			throw new IllegalStateException("Push manager has already been shut down and may not be restarted.");
 		}
 
-		for (int i = 0; i < this.concurrentConnections; i++) {
+		for (int i = 0; i < this.concurrentConnectionCount; i++) {
 			final ApnsClientThread<T> clientThread = new ApnsClientThread<T>(this);
 
 			this.clientThreads.add(clientThread);

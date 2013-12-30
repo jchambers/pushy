@@ -74,7 +74,7 @@ public class PushManagerTest extends BasePushyTest {
 	public void testShutdown() throws InterruptedException {
 		{
 			final PushManager<ApnsPushNotification> defaultGroupPushManager =
-					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, null, null);
 
 			defaultGroupPushManager.start();
 			defaultGroupPushManager.shutdown();
@@ -86,7 +86,7 @@ public class PushManagerTest extends BasePushyTest {
 			final NioEventLoopGroup group = new NioEventLoopGroup(1);
 
 			final PushManager<ApnsPushNotification> providedGroupPushManager =
-					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, group);
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, group, null);
 
 			providedGroupPushManager.start();
 			providedGroupPushManager.shutdown();
@@ -101,7 +101,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test(expected = IllegalStateException.class)
 	public void testDoubleStart() {
 		final PushManager<ApnsPushNotification> doubleStartPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, null, null);
 
 		doubleStartPushManager.start();
 		doubleStartPushManager.start();
@@ -110,7 +110,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test(expected = IllegalStateException.class)
 	public void testPrematureShutdown() throws InterruptedException {
 		final PushManager<ApnsPushNotification> prematureShutdownPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, null, null);
 
 		prematureShutdownPushManager.shutdown();
 	}
@@ -118,7 +118,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test
 	public void testRepeatedShutdown() throws InterruptedException {
 		final PushManager<ApnsPushNotification> repeatedShutdownPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, null, null);
 
 		repeatedShutdownPushManager.start();
 		repeatedShutdownPushManager.shutdown();
@@ -133,7 +133,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test(expected = IllegalStateException.class)
 	public void testGetExpiredTokensBeforeStart() throws InterruptedException {
 		final PushManager<ApnsPushNotification> unstartedPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, null, null);
 
 		unstartedPushManager.getExpiredTokens();
 	}
@@ -141,7 +141,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test(expected = IllegalStateException.class)
 	public void testGetExpiredTokensAfterShutdown() throws InterruptedException {
 		final PushManager<ApnsPushNotification> shutDownPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, null, null);
 
 		shutDownPushManager.start();
 		shutDownPushManager.shutdown();
@@ -152,7 +152,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test
 	public void testIsStarted() throws InterruptedException {
 		final PushManager<ApnsPushNotification> testPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, null, null);
 
 		assertFalse(testPushManager.isStarted());
 
@@ -166,7 +166,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test
 	public void testIsShutDown() throws InterruptedException {
 		final PushManager<ApnsPushNotification> testPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, null, null);
 
 		assertFalse(testPushManager.isShutDown());
 
