@@ -37,19 +37,19 @@ public class SentNotificationBufferTest {
 
 	private SimpleApnsPushNotification testNotification;
 	private SentNotificationBuffer<SimpleApnsPushNotification> buffer;
-	
+
 	private static final int CAPACITY = 2048;
-	
+
 	@Before
 	public void setUp() throws Exception {
 		this.testNotification = new SimpleApnsPushNotification(
 				new byte[] { 0x12, 0x34, 0x56, 0x78 },
 				"This is an invalid payload, but that's okay.",
 				new Date());
-		
+
 		this.buffer = new SentNotificationBuffer<SimpleApnsPushNotification>(CAPACITY);
 	}
-	
+
 	@Test(expected = IllegalArgumentException.class)
 	public void testSentNotificationBufferBadCapacity() {
 		new SentNotificationBuffer<SimpleApnsPushNotification>(37);
@@ -59,9 +59,9 @@ public class SentNotificationBufferTest {
 	public void testGetAndRemoveNotificationWithId() {
 		final SendableApnsPushNotification<SimpleApnsPushNotification> sendableNotification =
 				new SendableApnsPushNotification<SimpleApnsPushNotification>(this.testNotification, 0);
-		
+
 		this.buffer.addSentNotification(sendableNotification);
-		
+
 		assertNotNull(this.buffer.getAndRemoveNotificationWithSequenceNumber(0));
 		assertNull(this.buffer.getAndRemoveNotificationWithSequenceNumber(0));
 	}
@@ -71,10 +71,10 @@ public class SentNotificationBufferTest {
 		for (int i = 0; i < CAPACITY + 100; i++) {
 			final SendableApnsPushNotification<SimpleApnsPushNotification> sendableNotification =
 					new SendableApnsPushNotification<SimpleApnsPushNotification>(this.testNotification, i);
-			
+
 			this.buffer.addSentNotification(sendableNotification);
 		}
-		
+
 		assertEquals(199, this.buffer.getAndRemoveAllNotificationsAfterSequenceNumber(CAPACITY - 100).size());
 		assertTrue(this.buffer.getAndRemoveAllNotificationsAfterSequenceNumber(CAPACITY - 100).isEmpty());
 	}

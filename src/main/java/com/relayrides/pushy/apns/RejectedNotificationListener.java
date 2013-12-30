@@ -34,10 +34,10 @@ package com.relayrides.pushy.apns;
  * @see com.relayrides.pushy.apns.PushManager#registerRejectedNotificationListener(RejectedNotificationListener)
  */
 public interface RejectedNotificationListener<T extends ApnsPushNotification> {
-	
+
 	/**
 	 * Handles a permanent push notification rejection.
-	 *  
+	 * 
 	 * @param notification the notification rejected by the APNs server
 	 * @param rejectionReason the reason reported by APNs for the rejection
 	 */

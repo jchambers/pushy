@@ -35,12 +35,12 @@ package com.relayrides.pushy.apns;
 public class ApnsEnvironment {
 	private final String apnsGatewayHost;
 	private final int apnsGatewayPort;
-	
+
 	private final String feedbackHost;
 	private final int feedbackPort;
-	
+
 	private final boolean tlsRequired;
-	
+
 	/**
 	 * Constructs a new APenvironment with the given host names and ports.
 	 * 
@@ -53,13 +53,13 @@ public class ApnsEnvironment {
 	public ApnsEnvironment(final String apnsGatewayHost, final int apnsGatewayPort, final String feedbackHost, final int feedbackPort, final boolean tlsRequired) {
 		this.apnsGatewayHost = apnsGatewayHost;
 		this.apnsGatewayPort = apnsGatewayPort;
-		
+
 		this.feedbackHost = feedbackHost;
 		this.feedbackPort = feedbackPort;
-		
+
 		this.tlsRequired = tlsRequired;
 	}
-	
+
 	/**
 	 * Returns the host name of the APNs gateway in this environment.
 	 * 
@@ -68,7 +68,7 @@ public class ApnsEnvironment {
 	public String getApnsGatewayHost() {
 		return this.apnsGatewayHost;
 	}
-	
+
 	/**
 	 * Returns the TCP port for the APNs gateway in this environment.
 	 * 
@@ -77,7 +77,7 @@ public class ApnsEnvironment {
 	public int getApnsGatewayPort() {
 		return this.apnsGatewayPort;
 	}
-	
+
 	/**
 	 * Returns the host name of the APNs feedback service in this environment.
 	 * 
@@ -86,7 +86,7 @@ public class ApnsEnvironment {
 	public String getFeedbackHost() {
 		return this.feedbackHost;
 	}
-	
+
 	/**
 	 * Returns the TCP port for the APNs feedback service in this environment.
 	 * 
@@ -95,7 +95,7 @@ public class ApnsEnvironment {
 	public int getFeedbackPort() {
 		return this.feedbackPort;
 	}
-	
+
 	/**
 	 * Indicates whether this environment requires TLS.
 	 * 
@@ -104,7 +104,7 @@ public class ApnsEnvironment {
 	public boolean isTlsRequired() {
 		return this.tlsRequired;
 	}
-	
+
 	/**
 	 * Returns an APNs environment for connecting to Apple's production servers.
 	 * 
@@ -113,7 +113,7 @@ public class ApnsEnvironment {
 	public static ApnsEnvironment getProductionEnvironment() {
 		return new ApnsEnvironment("gateway.push.apple.com", 2195, "feedback.push.apple.com", 2196, true);
 	}
-	
+
 	/**
 	 * Returns an APNs environment for connecting to Apple's sandbox servers.
 	 * 

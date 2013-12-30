@@ -69,13 +69,13 @@ import org.slf4j.LoggerFactory;
  * Feedback Service</a>
  */
 class FeedbackServiceClient {
-	
+
 	private final PushManager<? extends ApnsPushNotification> pushManager;
-	
+
 	private Vector<ExpiredToken> expiredTokens;
-	
+
 	private final Logger log = LoggerFactory.getLogger(FeedbackServiceClient.class);
-	
+
 	private enum ExpiredTokenDecoderState {
 		EXPIRATION,
 		TOKEN_LENGTH,
@@ -86,66 +86,66 @@ class FeedbackServiceClient {
 
 		private Date expiration;
 		private byte[] token;
-		
+
 		public ExpiredTokenDecoder() {
 			super(ExpiredTokenDecoderState.EXPIRATION);
 		}
-		
+
 		@Override
 		protected void decode(final ChannelHandlerContext context, final ByteBuf in, final List<Object> out) {
 			switch (this.state()) {
 				case EXPIRATION: {
 					final long timestamp = (in.readInt() & 0xFFFFFFFFL) * 1000L;
 					this.expiration = new Date(timestamp);
-					
+
 					this.checkpoint(ExpiredTokenDecoderState.TOKEN_LENGTH);
-					
+
 					break;
 				}
-				
+
 				case TOKEN_LENGTH: {
 					this.token = new byte[in.readShort() & 0x0000FFFF];
 					this.checkpoint(ExpiredTokenDecoderState.TOKEN);
-					
+
 					break;
 				}
-				
+
 				case TOKEN: {
 					in.readBytes(this.token);
 					out.add(new ExpiredToken(this.token, this.expiration));
-					
+
 					this.checkpoint(ExpiredTokenDecoderState.EXPIRATION);
-					
+
 					break;
 				}
 			}
 		}
 	}
-	
+
 	private class FeedbackClientHandler extends SimpleChannelInboundHandler<ExpiredToken> {
 
 		private final FeedbackServiceClient feedbackClient;
-		
+
 		public FeedbackClientHandler(final FeedbackServiceClient feedbackClient) {
 			this.feedbackClient = feedbackClient;
 		}
-		
+
 		@Override
 		protected void channelRead0(final ChannelHandlerContext context, final ExpiredToken expiredToken) {
 			this.feedbackClient.addExpiredToken(expiredToken);
 		}
-		
+
 		@Override
 		public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
-			
+
 			if (!(cause instanceof ReadTimeoutException)) {
 				log.warn("Caught an unexpected exception while waiting for feedback.", cause);
 			}
-			
+
 			context.close();
 		}
 	}
-	
+
 	/**
 	 * <p>Constructs a new feedback client that connects to the feedback service in the given {@code PushManager}'s
 	 * environment.</p>
@@ -155,11 +155,11 @@ class FeedbackServiceClient {
 	public FeedbackServiceClient(final PushManager<? extends ApnsPushNotification> pushManager) {
 		this.pushManager = pushManager;
 	}
-	
+
 	protected void addExpiredToken(final ExpiredToken expiredToken) {
 		this.expiredTokens.add(expiredToken);
 	}
-	
+
 	/**
 	 * <p>Retrieves a list of expired tokens from the APNs feedback service. Be warned that this is a
 	 * <strong>destructive operation</strong>. According to Apple's documentation:</p>
@@ -178,39 +178,39 @@ class FeedbackServiceClient {
 	 */
 	public synchronized List<ExpiredToken> getExpiredTokens(final long timeout, final TimeUnit timeoutUnit) throws InterruptedException {
 		this.expiredTokens = new Vector<ExpiredToken>();
-		
+
 		final Bootstrap bootstrap = new Bootstrap();
 		bootstrap.group(pushManager.getWorkerGroup());
 		bootstrap.channel(NioSocketChannel.class);
-		
+
 		final FeedbackServiceClient feedbackClient = this;
 		bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
 			@Override
 			protected void initChannel(final SocketChannel channel) throws Exception {
 				final ChannelPipeline pipeline = channel.pipeline();
-				
+
 				if (pushManager.getEnvironment().isTlsRequired()) {
 					pipeline.addLast("ssl", SslHandlerUtil.createSslHandler(pushManager.getKeyStore(), pushManager.getKeyStorePassword()));
 				}
-				
+
 				pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(timeout, timeoutUnit));
 				pipeline.addLast("decoder", new ExpiredTokenDecoder());
 				pipeline.addLast("handler", new FeedbackClientHandler(feedbackClient));
 			}
-			
+
 		});
 
 		final ChannelFuture connectFuture = bootstrap.connect(
 				this.pushManager.getEnvironment().getFeedbackHost(),
 				this.pushManager.getEnvironment().getFeedbackPort()).await();
-		
+
 		if (connectFuture.isSuccess()) {
 			log.debug("Connected to feedback service.");
-			
+
 			if (this.pushManager.getEnvironment().isTlsRequired()) {
 				final Future<Channel> handshakeFuture = connectFuture.channel().pipeline().get(SslHandler.class).handshakeFuture().await();
-				
+
 				if (handshakeFuture.isSuccess()) {
 					log.debug("Completed TLS handshake with feedback service.");
 					connectFuture.channel().closeFuture().await();
@@ -227,7 +227,7 @@ class FeedbackServiceClient {
 		} else if (connectFuture.isCancelled()) {
 			log.debug("Attempt to connect to feedback service was cancelled.");
 		}
-		
+
 		// The feedback service will send us a list of device tokens as soon as we connect, then hang up. While we're
 		// waiting to sync with the connection closure, we'll be receiving messages from the feedback service from
 		// another thread.

@@ -38,10 +38,10 @@ import java.util.List;
  * @param <E>
  */
 class SentNotificationBuffer<E extends ApnsPushNotification> {
-	
+
 	private final ApnsPushNotification[] buffer;
 	private int lastSequenceNumber;
-	
+
 	/**
 	 * Constructs a new sent notification buffer. Note that {@code capacity} MUST be a power of 2.
 	 * 
@@ -51,10 +51,10 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 		if (capacity <= 0 || (capacity & (capacity - 1)) != 0) {
 			throw new IllegalArgumentException("Capacity must be a positive power of two.");
 		}
-		
+
 		this.buffer = new ApnsPushNotification[capacity];
 	}
-	
+
 	/**
 	 * Adds a sent notification to the buffer, potentially overwriting a previously-existing sent notification.
 	 * 
@@ -63,10 +63,10 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 	public synchronized void addSentNotification(SendableApnsPushNotification<E> notification) {
 		this.buffer[this.getArrayIndexForSequenceNumber(notification.getSequenceNumber())] =
 				notification.getPushNotification();
-		
+
 		this.lastSequenceNumber = notification.getSequenceNumber();
 	}
-	
+
 	/**
 	 * Retrieves a notification from the buffer by its sequence number and removes that notification from the buffer.
 	 * 
@@ -77,18 +77,18 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 	public synchronized E getAndRemoveNotificationWithSequenceNumber(final int sequenceNumber) {
 		if (this.mayContainSequenceNumber(sequenceNumber)) {
 			final int arrayIndex = this.getArrayIndexForSequenceNumber(sequenceNumber);
-			
+
 			@SuppressWarnings("unchecked")
 			final E notification = (E) this.buffer[arrayIndex];
 			this.buffer[arrayIndex] = null;
-			
+
 			return notification;
-			
+
 		} else {
 			return null;
 		}
 	}
-	
+
 	/**
 	 * Retrieves a list of all notifications received after the given notification sequence number (non-inclusive). All
 	 * returned notifications are removed from the buffer.
@@ -99,25 +99,25 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 	 */
 	public synchronized List<E> getAndRemoveAllNotificationsAfterSequenceNumber(final int sequenceNumber) {
 		final ArrayList<E> notifications = new ArrayList<E>();
-		
+
 		// Work around integer wrapping
 		for (int id = sequenceNumber + 1; id - this.lastSequenceNumber <= 0; id++) {
 			final E notification = this.getAndRemoveNotificationWithSequenceNumber(id);
-			
+
 			if (notification != null) {
 				notifications.add(notification);
 			}
 		}
-		
+
 		return notifications;
 	}
-	
+
 	private boolean mayContainSequenceNumber(final int sequenceNumber) {
 		final int firstNotificationId = this.lastSequenceNumber - this.buffer.length;
-		
+
 		return sequenceNumber - firstNotificationId > 0;
 	}
-	
+
 	private int getArrayIndexForSequenceNumber(final int sequenceNumber) {
 		if (sequenceNumber >= 0) {
 			return sequenceNumber % this.buffer.length;

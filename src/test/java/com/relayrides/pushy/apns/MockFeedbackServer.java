@@ -38,16 +38,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MockFeedbackServer {
-	
+
 	private final int port;
-	
+
 	private final ArrayList<ExpiredToken> expiredTokens;
-	
+
 	private EventLoopGroup bossGroup;
 	private EventLoopGroup workerGroup;
-	
+
 	private volatile boolean closeWhenDone = false;
-	
+
 	private class ExpiredTokenEncoder extends MessageToByteEncoder<ExpiredToken> {
 
 		@Override
@@ -57,26 +57,26 @@ public class MockFeedbackServer {
 			out.writeBytes(expiredToken.getToken());
 		}
 	}
-	
+
 	private class MockFeedbackServerHandler extends ChannelInboundHandlerAdapter {
-		
+
 		private final MockFeedbackServer feedbackServer;
-		
+
 		public MockFeedbackServerHandler(final MockFeedbackServer feedbackServer) {
 			this.feedbackServer = feedbackServer;
 		}
-		
+
 		@Override
-	    public void channelActive(final ChannelHandlerContext context) {
-			
+		public void channelActive(final ChannelHandlerContext context) {
+
 			final List<ExpiredToken> expiredTokens = this.feedbackServer.getAndClearAllExpiredTokens();
-			
+
 			ChannelFuture lastWriteFuture = null;
-			
+
 			for (final ExpiredToken expiredToken : expiredTokens) {
 				lastWriteFuture = context.write(expiredToken);
 			}
-			
+
 			context.flush();
 
 			if (this.feedbackServer.closeWhenDone && lastWriteFuture != null) {
@@ -84,22 +84,22 @@ public class MockFeedbackServer {
 			}
 		}
 	}
-	
+
 	public MockFeedbackServer(final int port) {
 		this.port = port;
-		
+
 		this.expiredTokens = new ArrayList<ExpiredToken>();
 	}
-	
+
 	public void start() throws InterruptedException {
 		this.bossGroup = new NioEventLoopGroup();
 		this.workerGroup = new NioEventLoopGroup();
-		
+
 		final ServerBootstrap bootstrap = new ServerBootstrap();
-		
+
 		bootstrap.group(this.bossGroup, this.workerGroup);
 		bootstrap.channel(NioServerSocketChannel.class);
-		
+
 		final MockFeedbackServer server = this;
 		bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
 
@@ -109,26 +109,26 @@ public class MockFeedbackServer {
 				channel.pipeline().addLast("handler", new MockFeedbackServerHandler(server));
 			}
 		});
-		
+
 		bootstrap.bind(this.port).sync();
 	}
-	
+
 	public void shutdown() throws InterruptedException {
 		this.workerGroup.shutdownGracefully();
 		this.bossGroup.shutdownGracefully();
 	}
-	
+
 	public synchronized void addExpiredToken(final ExpiredToken expiredToken) {
 		this.expiredTokens.add(expiredToken);
 	}
-	
+
 	protected synchronized List<ExpiredToken> getAndClearAllExpiredTokens() {
 		final ArrayList<ExpiredToken> tokensToReturn = new ArrayList<ExpiredToken>(this.expiredTokens);
 		this.expiredTokens.clear();
-		
+
 		return tokensToReturn;
 	}
-	
+
 	public void setCloseWhenDone(final boolean closeWhenDone) {
 		this.closeWhenDone = closeWhenDone;
 	}
