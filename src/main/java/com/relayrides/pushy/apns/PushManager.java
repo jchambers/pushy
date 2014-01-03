@@ -58,7 +58,7 @@ public class PushManager<T extends ApnsPushNotification> {
 
 	private final ArrayList<ApnsClientThread<T>> clientThreads;
 
-	private final Vector<RejectedNotificationListener<T>> rejectedNotificationListeners;
+	private final Vector<RejectedNotificationListener<? super T>> rejectedNotificationListeners;
 
 	private final NioEventLoopGroup workerGroup;
 	private final boolean shouldShutDownWorkerGroup;
@@ -103,7 +103,7 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.queue = queue != null ? queue : new LinkedBlockingQueue<T>();
 		this.retryQueue = new LinkedBlockingQueue<T>();
 
-		this.rejectedNotificationListeners = new Vector<RejectedNotificationListener<T>>();
+		this.rejectedNotificationListeners = new Vector<RejectedNotificationListener<? super T>>();
 
 		this.environment = environment;
 
@@ -334,7 +334,7 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * 
 	 * @see PushManager#unregisterRejectedNotificationListener(RejectedNotificationListener)
 	 */
-	public void registerRejectedNotificationListener(final RejectedNotificationListener<T> listener) {
+	public void registerRejectedNotificationListener(final RejectedNotificationListener<? super T> listener) {
 		if (this.shutDown) {
 			throw new IllegalStateException("Rejected notification listeners may not be registered after a push manager has been shut down.");
 		}
@@ -350,12 +350,12 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * @return {@code true} if the given listener was registered with this push manager and removed or {@code false} if
 	 * the listener was not already registered with this push manager
 	 */
-	public boolean unregisterRejectedNotificationListener(final RejectedNotificationListener<T> listener) {
+	public boolean unregisterRejectedNotificationListener(final RejectedNotificationListener<? super T> listener) {
 		return this.rejectedNotificationListeners.remove(listener);
 	}
 
 	protected void notifyListenersOfRejectedNotification(final T notification, final RejectedNotificationReason reason) {
-		for (final RejectedNotificationListener<T> listener : this.rejectedNotificationListeners) {
+		for (final RejectedNotificationListener<? super T> listener : this.rejectedNotificationListeners) {
 
 			// Handle the notifications in a separate thread in case a listener takes a long time to run
 			this.rejectedNotificationExecutorService.submit(new Runnable() {
