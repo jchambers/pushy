@@ -8,7 +8,7 @@ import java.util.concurrent.BlockingQueue;
 /**
  * A {@code PushManagerFactory} is used to configure and construct a new {@link PushManager}.
  * 
- * @author <a href="https://github.com/jchambers">Jon Chambers</a>
+ * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
 public class PushManagerFactory<T extends ApnsPushNotification> {
 
