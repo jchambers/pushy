@@ -314,7 +314,12 @@ public class PushManager<T extends ApnsPushNotification> {
 
 		this.shutDownFinished = true;
 
-		return new ArrayList<T>(this.queue);
+		final ArrayList<T> unsentNotifications = new ArrayList<T>();
+
+		unsentNotifications.addAll(this.retryQueue);
+		unsentNotifications.addAll(this.getQueue());
+
+		return unsentNotifications;
 	}
 
 	/**
