@@ -62,7 +62,7 @@ public class PushManagerTest extends BasePushyTest {
 		final CountDownLatch latch = this.getServer().getCountDownLatch(iterations);
 
 		for (int i = 0; i < iterations; i++) {
-			this.getPushManager().enqueuePushNotification(notification);
+			this.getPushManager().getQueue().put(notification);
 		}
 
 		this.waitForLatch(latch);

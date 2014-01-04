@@ -38,7 +38,7 @@ public class ApnsClientThreadTest extends BasePushyTest {
 		final SimpleApnsPushNotification notification = this.createTestNotification();
 
 		final CountDownLatch latch = this.getServer().getCountDownLatch(1);
-		this.getPushManager().enqueuePushNotification(notification);
+		this.getPushManager().getQueue().put(notification);
 
 		this.waitForLatch(latch);
 
@@ -56,7 +56,7 @@ public class ApnsClientThreadTest extends BasePushyTest {
 		final CountDownLatch latch = this.getServer().getCountDownLatch(iterations);
 
 		for (int i = 0; i < iterations; i++) {
-			this.getPushManager().enqueuePushNotification(notification);
+			this.getPushManager().getQueue().put(notification);
 		}
 
 		this.waitForLatch(latch);
@@ -80,7 +80,7 @@ public class ApnsClientThreadTest extends BasePushyTest {
 			final CountDownLatch latch = this.getServer().getCountDownLatch(iterations);
 
 			for (int i = 0; i < iterations; i++) {
-				this.getPushManager().enqueuePushNotification(notification);
+				this.getPushManager().getQueue().put(notification);
 			}
 
 			this.waitForLatch(latch);
@@ -102,7 +102,7 @@ public class ApnsClientThreadTest extends BasePushyTest {
 		final CountDownLatch latch = this.getServer().getCountDownLatch(iterations);
 
 		for (int i = 0; i < iterations; i++) {
-			this.getPushManager().enqueuePushNotification(notification);
+			this.getPushManager().getQueue().put(notification);
 		}
 
 		this.waitForLatch(latch);
@@ -127,7 +127,7 @@ public class ApnsClientThreadTest extends BasePushyTest {
 			final CountDownLatch latch = this.getServer().getCountDownLatch(iterations);
 
 			for (int i = 0; i < iterations; i++) {
-				this.getPushManager().enqueuePushNotification(notification);
+				this.getPushManager().getQueue().put(notification);
 			}
 
 			this.waitForLatch(latch);
@@ -156,14 +156,14 @@ public class ApnsClientThreadTest extends BasePushyTest {
 		final CountDownLatch latch = this.getServer().getCountDownLatch(iterations);
 
 		for (int i = 0; i < iterations; i++) {
-			this.getPushManager().enqueuePushNotification(notification);
+			this.getPushManager().getQueue().put(notification);
 		}
 
 		this.waitForLatch(latch);
 		this.getClientThread().requestShutdown();
 
 		for (int i = 0; i < iterations; i++) {
-			this.getPushManager().enqueuePushNotification(notification);
+			this.getPushManager().getQueue().put(notification);
 		}
 
 		assertEquals(

@@ -176,32 +176,6 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.started = true;
 	}
 
-	/**
-	 * <p>Enqueues a push notification for transmission to the APNs service. Notifications may not be sent to APNs
-	 * immediately, and delivery is not guaranteed by APNs, but notifications rejected by APNs for specific reasons
-	 * will be passed to registered {@link RejectedNotificationListener}s.</p>
-	 * 
-	 * @param notification the notification to enqueue
-	 * 
-	 * @see PushManager#registerRejectedNotificationListener(RejectedNotificationListener)
-	 */
-	public void enqueuePushNotification(final T notification) {
-		this.queue.add(notification);
-	}
-
-	/**
-	 * <p>Enqueues a collection of push notifications for transmission to the APNs service. Notifications may not be
-	 * sent to APNs immediately, and delivery is not guaranteed by APNs, but notifications rejected by APNs for
-	 * specific reasons will be passed to registered {@link RejectedNotificationListener}s.</p>
-	 * 
-	 * @param notifications the notifications to enqueue
-	 * 
-	 * @see PushManager#registerRejectedNotificationListener(RejectedNotificationListener)
-	 */
-	public void enqueueAllNotifications(final Collection<T> notifications) {
-		this.queue.addAll(notifications);
-	}
-
 	protected void enqueuePushNotificationForRetry(final T notification) {
 		this.retryQueue.add(notification);
 	}
