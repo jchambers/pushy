@@ -176,4 +176,36 @@ public class PushManagerTest extends BasePushyTest {
 		testPushManager.shutdown();
 		assertTrue(testPushManager.isShutDown());
 	}
+	
+	
+	@Test
+	public void testQueueSizeDecreasing() throws InterruptedException {
+		final SimpleApnsPushNotification notification = this.createTestNotification();
+		
+		assertEquals(0, this.getPushManager().getQueueSize());
+		
+		final int iterations = 100;
+		final CountDownLatch latch = this.getServer().getCountDownLatch(iterations);
+		for (int i = 0; i < iterations; i++) {
+			this.getPushManager().enqueuePushNotification(notification);
+		}
+		this.waitForLatch(latch);
+		
+		assertEquals(0, this.getPushManager().getQueueSize());
+	}
+	
+	@Test
+	public void testQueueSizeIncreasing() throws InterruptedException {
+		final SimpleApnsPushNotification notification = this.createTestNotification();
+		
+		assertEquals(0, this.getPushManager().getQueueSize());
+		
+		final int iterations = 100;
+		this.getClientThread().shutdownImmediately();
+		for (int i = 1; i < iterations; i++) {
+			this.getPushManager().enqueuePushNotification(notification);
+			assertEquals(i, this.getPushManager().getQueueSize());
+		}
+	}
+
 }

@@ -437,4 +437,12 @@ public class PushManager<T extends ApnsPushNotification> {
 
 		return new FeedbackServiceClient(this).getExpiredTokens(timeout, timeoutUnit);
 	}
+	
+	/**
+	 * <p>Returns the number of push notification awaiting transmission to the APNs service.</p>
+	 * @return The number of push notifications.
+	 */
+	public int getQueueSize() {
+		return this.queue.size();
+	}
 }
