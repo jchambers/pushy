@@ -40,9 +40,12 @@ import org.slf4j.LoggerFactory;
 
 /**
  * <p>A {@code PushManager} is the main public-facing point of interaction with APNs. {@code PushManager}s manage the
- * queue of outbound push notifications and manage connections to the various APNs servers.</p>
+ * queue of outbound push notifications and manage connections to the various APNs servers. {@code PushManager}s should
+ * always be created using the {@link PushManagerFactory} class.</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
+ * 
+ * @see PushManagerFactory
  */
 public class PushManager<T extends ApnsPushNotification> {
 	private final BlockingQueue<T> queue;
@@ -83,7 +86,7 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * {@code null} if the environment does not require TLS. The {@code KeyStore} should be loaded before being used
 	 * here.
 	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
-	 * @param concurrentConnectionCount the number of parallel connections to open to APNs
+	 * @param concurrentConnectionCount the number of parallel connections to maintain
 	 * @param workerGroup the event loop group this push manager should use for its connections to the APNs gateway and
 	 * feedback service; if {@code null}, a new event loop group will be created and will be shut down automatically
 	 * when the push manager is shut down. If not {@code null}, the caller <strong>must</strong> shut down the event
@@ -176,10 +179,30 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.started = true;
 	}
 
+	/**
+	 * <p>Enqueues a push notification for re-transmission to the APNs service. Notifications may not be sent to APNs
+	 * immediately, and delivery is not guaranteed by APNs, but notifications rejected by APNs for specific reasons
+	 * will be passed to registered {@link RejectedNotificationListener}s. Notifications that are to be re-transmitted
+	 * are given priority over &quot;new&quot; notifications, but are otherwise treated identically.</p>
+	 * 
+	 * @param notification the notification to enqueue for re-transmission
+	 * 
+	 * @see PushManager#registerRejectedNotificationListener(RejectedNotificationListener)
+	 */
 	protected void enqueuePushNotificationForRetry(final T notification) {
 		this.retryQueue.add(notification);
 	}
 
+	/**
+	 * <p>Enqueues a collection of push notifications for re-transmission to the APNs service. Notifications may not be
+	 * sent to APNs immediately, and delivery is not guaranteed by APNs, but notifications rejected by APNs for
+	 * specific reasons will be passed to registered {@link RejectedNotificationListener}s. Notifications that are to
+	 * be re-transmitted are given priority over &quot;new&quot; notifications, but are otherwise treated identically.</p>
+	 * 
+	 * @param notifications the notifications to enqueue for re-transmission
+	 * 
+	 * @see PushManager#registerRejectedNotificationListener(RejectedNotificationListener)
+	 */
 	protected void enqueueAllNotificationsForRetry(final Collection<T> notifications) {
 		this.retryQueue.addAll(notifications);
 	}
@@ -337,7 +360,22 @@ public class PushManager<T extends ApnsPushNotification> {
 		}
 	}
 
-	protected BlockingQueue<T> getQueue() {
+	/**
+	 * <p>Returns the queue of messages to be sent to the APNs gateway. Callers should add notifications to this queue
+	 * directly to send notifications. Notifications will be removed from this queue by Pushy when a send attempt is
+	 * started, but no guarantees are made as to when the notification will actually be sent. Successful delivery is
+	 * neither guaranteed nor acknowledged by the APNs gateway. Notifications rejected by APNs for specific reasons
+	 * will be passed to registered {@link RejectedNotificationListener}s, and notifications that could not be sent due
+	 * to temporary I/O problems will be scheduled for re-transmission in a separate, internal queue.</p>
+	 * 
+	 * <p>Notifications in this queue will only be consumed when the {@code PushManager} is running and has active
+	 * connections and when the internal &quot;retry queue&quot; is empty.</p>
+	 * 
+	 * @return the queue of new notifications to send to the APNs gateway
+	 * 
+	 * @see PushManager#registerRejectedNotificationListener(RejectedNotificationListener)
+	 */
+	public BlockingQueue<T> getQueue() {
 		return this.queue;
 	}
 
