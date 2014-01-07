@@ -27,10 +27,12 @@ import static org.junit.Assert.assertTrue;
 import io.netty.channel.nio.NioEventLoopGroup;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Test;
 
+import com.relayrides.pushy.apns.PushManager.ThreadExceptionHandler;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class PushManagerTest extends BasePushyTest {
@@ -175,5 +177,20 @@ public class PushManagerTest extends BasePushyTest {
 
 		testPushManager.shutdown();
 		assertTrue(testPushManager.isShutDown());
+	}
+	
+	@Test
+	public void testThreadReplace() {
+	   final AtomicBoolean replaced = new AtomicBoolean(false);
+	   final PushManager<ApnsPushNotification> testPushManager =
+            new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null) {
+	      @Override
+	      protected synchronized void replaceThread(Thread t) {
+	         replaced.set(true);
+	      }
+	   };
+	   final ThreadExceptionHandler<ApnsPushNotification> handler = new PushManager.ThreadExceptionHandler<ApnsPushNotification>(testPushManager);
+	   handler.uncaughtException(new Thread("runner"), null);
+	   assertTrue("Exception handler did not invoke replace thread on thread death.", replaced.get());
 	}
 }
