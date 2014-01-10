@@ -113,10 +113,11 @@ for (final ExpiredToken expiredToken : pushManager.getExpiredTokens()) {
 
 ## Limitations and known issues
 
-The APNs protocol never affirmatively acknowledges receipt of notifications, so it's difficult to know what's happened to a push notification once we've attempted to send it. Between the design of the APNs protocol and the design of TCP/IP, there appear to be some fundamentally unresolveable issues. The issues we know about at this time are:
+Although we make every effort to fix bugs and work around issues outside of our control, some problems appear to be unavoidable. The issues we know about at this time are:
 
 - In cases where we successfully write a push notification to the OS-controlled outbound buffer, but the notification has not yet been written to the network, the push notification will be silently lost if the TCP connection is closed before the OS sends the notification over the network. See [#14](https://github.com/relayrides/pushy/issues/14) for additional discussion.
 - Under Windows, if writing a notification fails after the APNs gateway has rejected a notification and closed the connection remotely, the rejection details may be lost. See [#6](https://github.com/relayrides/pushy/issues/14) for additional discussion.
+- After shutting down Pushy, a `GlobalEventExecutor` owned by Netty will continue running for about a second. This can cause warnings in environments that look for thread/resource leaks (e.g. servlet containers), but there is no real harm because the `GlobalEventExecutor` will eventually shut itself down. To avoid warnings in these environments, you can add a `Thread.sleep(1000)` call after shutting down Pushy. See [#29](https://github.com/relayrides/pushy/issues/29) for additional discussion.
 
 ## License and status
 
