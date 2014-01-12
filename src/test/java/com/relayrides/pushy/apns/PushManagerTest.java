@@ -71,6 +71,16 @@ public class PushManagerTest extends BasePushyTest {
 	}
 
 	@Test
+	public void testUnregisterRejectedNotificationListener() {
+		final TestListener listener = new TestListener();
+
+		this.getPushManager().registerRejectedNotificationListener(listener);
+
+		assertTrue(this.getPushManager().unregisterRejectedNotificationListener(listener));
+		assertFalse(this.getPushManager().unregisterRejectedNotificationListener(listener));
+	}
+
+	@Test
 	public void testShutdown() throws InterruptedException {
 		{
 			final PushManager<ApnsPushNotification> defaultGroupPushManager =
