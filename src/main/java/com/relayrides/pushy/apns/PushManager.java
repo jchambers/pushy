@@ -346,9 +346,15 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * 
 	 * @param listener the listener to register
 	 * 
+	 * @throws IllegalStateException if this push manager has already been shut down
+	 * 
 	 * @see PushManager#unregisterRejectedNotificationListener(RejectedNotificationListener)
 	 */
 	public void registerRejectedNotificationListener(final RejectedNotificationListener<T> listener) {
+		if (this.shutDown) {
+			throw new IllegalStateException("Rejected notification listeners may not be registered after a push manager has been shut down.");
+		}
+
 		this.rejectedNotificationListeners.add(listener);
 	}
 
