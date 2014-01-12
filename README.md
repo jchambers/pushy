@@ -9,7 +9,7 @@ Pushy was created because we found that the other APNs libraries for Java simply
 - Graceful handling and reporting of permanent notification rejections
 - Thorough [documentation](http://relayrides.github.io/pushy/apidocs/0.2/)
 
-We believe that Pushy is already the best tool for sending APNs push notifications from Java applications, and we hope you'll help us make it even better via bug reports and pull requests. Thanks!
+We believe that Pushy is already the best tool for sending APNs push notifications from Java applications, and we hope you'll help us make it even better via bug reports and pull requests. If you have other questions about using Pushy, please join us on [the Pushy mailing list](https://groups.google.com/d/forum/pushy-apns). Thanks!
 
 ## Getting Pushy
 
