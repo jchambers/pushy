@@ -26,6 +26,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
@@ -158,17 +159,26 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		}
 	}
 
-	private class ApnsErrorHandler extends SimpleChannelInboundHandler<RejectedNotification> {
+	private class RejectedNotificationHandler extends SimpleChannelInboundHandler<RejectedNotification> {
 
 		private final ApnsClientThread<T> clientThread;
 
-		public ApnsErrorHandler(final ApnsClientThread<T> clientThread) {
+		public RejectedNotificationHandler(final ApnsClientThread<T> clientThread) {
 			this.clientThread = clientThread;
 		}
 
 		@Override
 		protected void channelRead0(final ChannelHandlerContext context, final RejectedNotification rejectedNotification) throws Exception {
 			this.clientThread.handleRejectedNotification(rejectedNotification);
+		}
+	}
+
+	private class ApnsExceptionHandler extends ChannelInboundHandlerAdapter {
+
+		private final ApnsClientThread<T> clientThread;
+
+		public ApnsExceptionHandler(final ApnsClientThread<T> clientThread) {
+			this.clientThread = clientThread;
 		}
 
 		@Override
@@ -211,7 +221,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 
 				pipeline.addLast("decoder", new RejectedNotificationDecoder());
 				pipeline.addLast("encoder", new ApnsPushNotificationEncoder());
-				pipeline.addLast("handler", new ApnsErrorHandler(clientThread));
+				pipeline.addLast("rejectionHandler", new RejectedNotificationHandler(clientThread));
+				pipeline.addLast("exceptionHandler", new ApnsExceptionHandler(clientThread));
 			}
 		});
 	}

@@ -24,11 +24,11 @@ package com.relayrides.pushy.apns;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
 
-import java.lang.ref.WeakReference;
 import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Vector;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -58,7 +58,7 @@ public class PushManager<T extends ApnsPushNotification> {
 
 	private final ArrayList<ApnsClientThread<T>> clientThreads;
 
-	private final ArrayList<WeakReference<RejectedNotificationListener<T>>> rejectedNotificationListeners;
+	private final Vector<RejectedNotificationListener<T>> rejectedNotificationListeners;
 
 	private final NioEventLoopGroup workerGroup;
 	private final boolean shouldShutDownWorkerGroup;
@@ -103,7 +103,7 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.queue = queue != null ? queue : new LinkedBlockingQueue<T>();
 		this.retryQueue = new LinkedBlockingQueue<T>();
 
-		this.rejectedNotificationListeners = new ArrayList<WeakReference<RejectedNotificationListener<T>>>();
+		this.rejectedNotificationListeners = new Vector<RejectedNotificationListener<T>>();
 
 		this.environment = environment;
 
@@ -303,6 +303,7 @@ public class PushManager<T extends ApnsPushNotification> {
 			clientThread.join();
 		}
 
+		this.rejectedNotificationListeners.clear();
 		this.rejectedNotificationExecutorService.shutdown();
 
 		if (this.shouldShutDownWorkerGroup) {
@@ -324,44 +325,44 @@ public class PushManager<T extends ApnsPushNotification> {
 
 	/**
 	 * <p>Registers a listener for notifications rejected by APNs for specific reasons. Note that listeners are stored
-	 * as weak references, so callers should maintain a reference to listeners to prevent them from being garbage
-	 * collected.</p>
+	 * as strong references; all listeners are automatically un-registered when the push manager is shut down, but
+	 * failing to unregister a listener manually or to shut down the push manager may cause a memory leak.</p>
 	 * 
 	 * @param listener the listener to register
+	 * 
+	 * @throws IllegalStateException if this push manager has already been shut down
+	 * 
+	 * @see PushManager#unregisterRejectedNotificationListener(RejectedNotificationListener)
 	 */
-	public synchronized void registerRejectedNotificationListener(final RejectedNotificationListener<T> listener) {
-		this.rejectedNotificationListeners.add(new WeakReference<RejectedNotificationListener<T>>(listener));
-	}
-
-	protected synchronized void notifyListenersOfRejectedNotification(final T notification, final RejectedNotificationReason reason) {
-
-		final ArrayList<RejectedNotificationListener<T>> listeners = new ArrayList<RejectedNotificationListener<T>>();
-		final ArrayList<Integer> expiredListenerIndices = new ArrayList<Integer>();
-
-		for (int i = 0; i < this.rejectedNotificationListeners.size(); i++) {
-			final RejectedNotificationListener<T> listener = this.rejectedNotificationListeners.get(i).get();
-
-			if (listener != null) {
-				listeners.add(listener);
-			} else {
-				expiredListenerIndices.add(i);
-			}
+	public void registerRejectedNotificationListener(final RejectedNotificationListener<T> listener) {
+		if (this.shutDown) {
+			throw new IllegalStateException("Rejected notification listeners may not be registered after a push manager has been shut down.");
 		}
 
-		// Handle the notifications in a separate thread in case a listener takes a long time to run
-		this.rejectedNotificationExecutorService.submit(new Runnable() {
+		this.rejectedNotificationListeners.add(listener);
+	}
 
-			public void run() {
-				for (final RejectedNotificationListener<T> listener : listeners) {
+	/**
+	 * <p>Un-registers a rejected notification listener.</p>
+	 * 
+	 * @param listener the listener to un-register
+	 * 
+	 * @return {@code true} if the given listener was registered with this push manager and removed or {@code false} if
+	 * the listener was not already registered with this push manager
+	 */
+	public boolean unregisterRejectedNotificationListener(final RejectedNotificationListener<T> listener) {
+		return this.rejectedNotificationListeners.remove(listener);
+	}
+
+	protected void notifyListenersOfRejectedNotification(final T notification, final RejectedNotificationReason reason) {
+		for (final RejectedNotificationListener<T> listener : this.rejectedNotificationListeners) {
+
+			// Handle the notifications in a separate thread in case a listener takes a long time to run
+			this.rejectedNotificationExecutorService.submit(new Runnable() {
+				public void run() {
 					listener.handleRejectedNotification(notification, reason);
 				}
-			}
-
-		});
-
-		// Clear out expired listeners from right to left to avoid shifting index issues
-		for (int i = expiredListenerIndices.size() - 1; i >= 0; i--) {
-			this.rejectedNotificationListeners.remove(expiredListenerIndices.get(i));
+			});
 		}
 	}
 
