@@ -40,17 +40,21 @@ import org.slf4j.LoggerFactory;
 
 /**
  * <p>A {@code PushManager} is the main public-facing point of interaction with APNs. {@code PushManager}s manage the
- * queue of outbound push notifications and manage connections to the various APNs servers.</p>
+ * queue of outbound push notifications and manage connections to the various APNs servers. {@code PushManager}s should
+ * always be created using the {@link PushManagerFactory} class.</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
+ * 
+ * @see PushManagerFactory
  */
 public class PushManager<T extends ApnsPushNotification> {
 	private final BlockingQueue<T> queue;
+	private final LinkedBlockingQueue<T> retryQueue;
 
 	private final ApnsEnvironment environment;
 	private final KeyStore keyStore;
 	private final char[] keyStorePassword;
-	private final int concurrentConnections;
+	private final int concurrentConnectionCount;
 
 	private final ArrayList<ApnsClientThread<T>> clientThreads;
 
@@ -68,37 +72,6 @@ public class PushManager<T extends ApnsPushNotification> {
 	private final Logger log = LoggerFactory.getLogger(PushManager.class);
 
 	/**
-	 * Constructs a new {@code PushManager} that operates in the given environment with the given credentials, a single
-	 * connection to APNs, and a default event loop group.
-	 * 
-	 * @param environment the environment in which this {@code PushManager} operates
-	 * @param keyStore A {@code KeyStore} containing the client key to present during a TLS handshake; may be
-	 * {@code null} if the environment does not require TLS. The {@code KeyStore} should be loaded before being used
-	 * here.
-	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
-	 */
-	public PushManager(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword) {
-		this(environment, keyStore, keyStorePassword, 1);
-	}
-
-	/**
-	 * <p>Constructs a new {@code PushManager} that operates in the given environment with the given credentials, the
-	 * given number of parallel connections to APNs, and a default event loop group. See
-	 * <a href="http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW6">
-	 * Best Practices for Managing Connections</a> for additional information.</p>
-	 * 
-	 * @param environment the environment in which this {@code PushManager} operates
-	 * @param keyStore A {@code KeyStore} containing the client key to present during a TLS handshake; may be
-	 * {@code null} if the environment does not require TLS. The {@code KeyStore} should be loaded before being used
-	 * here.
-	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
-	 * @param concurrentConnections the number of parallel connections to open to APNs
-	 */
-	public PushManager(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword, final int concurrentConnections) {
-		this(environment, keyStore, keyStorePassword, concurrentConnections, null);
-	}
-
-	/**
 	 * <p>Constructs a new {@code PushManager} that operates in the given environment with the given credentials and the
 	 * given number of parallel connections to APNs. See
 	 * <a href="http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW6">
@@ -113,19 +86,23 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * {@code null} if the environment does not require TLS. The {@code KeyStore} should be loaded before being used
 	 * here.
 	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
-	 * @param concurrentConnections the number of parallel connections to open to APNs
+	 * @param concurrentConnectionCount the number of parallel connections to maintain
 	 * @param workerGroup the event loop group this push manager should use for its connections to the APNs gateway and
 	 * feedback service; if {@code null}, a new event loop group will be created and will be shut down automatically
 	 * when the push manager is shut down. If not {@code null}, the caller <strong>must</strong> shut down the event
 	 * loop group after shutting down the push manager
+	 * @param queue TODO
 	 */
-	public PushManager(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword, final int concurrentConnections, final NioEventLoopGroup workerGroup) {
+	protected PushManager(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword,
+			final int concurrentConnectionCount, final NioEventLoopGroup workerGroup, final BlockingQueue<T> queue) {
 
 		if (environment.isTlsRequired() && keyStore == null) {
 			throw new IllegalArgumentException("Must include a non-null KeyStore for environments that require TLS.");
 		}
 
-		this.queue = new LinkedBlockingQueue<T>();
+		this.queue = queue != null ? queue : new LinkedBlockingQueue<T>();
+		this.retryQueue = new LinkedBlockingQueue<T>();
+
 		this.rejectedNotificationListeners = new Vector<RejectedNotificationListener<T>>();
 
 		this.environment = environment;
@@ -133,8 +110,8 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.keyStore = keyStore;
 		this.keyStorePassword = keyStorePassword;
 
-		this.concurrentConnections = concurrentConnections;
-		this.clientThreads = new ArrayList<ApnsClientThread<T>>(this.concurrentConnections);
+		this.concurrentConnectionCount = concurrentConnectionCount;
+		this.clientThreads = new ArrayList<ApnsClientThread<T>>(this.concurrentConnectionCount);
 
 		this.rejectedNotificationExecutorService = Executors.newSingleThreadExecutor();
 
@@ -192,7 +169,7 @@ public class PushManager<T extends ApnsPushNotification> {
 			throw new IllegalStateException("Push manager has already been shut down and may not be restarted.");
 		}
 
-		for (int i = 0; i < this.concurrentConnections; i++) {
+		for (int i = 0; i < this.concurrentConnectionCount; i++) {
 			final ApnsClientThread<T> clientThread = new ApnsClientThread<T>(this);
 
 			this.clientThreads.add(clientThread);
@@ -203,29 +180,31 @@ public class PushManager<T extends ApnsPushNotification> {
 	}
 
 	/**
-	 * <p>Enqueues a push notification for transmission to the APNs service. Notifications may not be sent to APNs
+	 * <p>Enqueues a push notification for re-transmission to the APNs service. Notifications may not be sent to APNs
 	 * immediately, and delivery is not guaranteed by APNs, but notifications rejected by APNs for specific reasons
-	 * will be passed to registered {@link RejectedNotificationListener}s.</p>
+	 * will be passed to registered {@link RejectedNotificationListener}s. Notifications that are to be re-transmitted
+	 * are given priority over &quot;new&quot; notifications, but are otherwise treated identically.</p>
 	 * 
-	 * @param notification the notification to enqueue
+	 * @param notification the notification to enqueue for re-transmission
 	 * 
 	 * @see PushManager#registerRejectedNotificationListener(RejectedNotificationListener)
 	 */
-	public void enqueuePushNotification(final T notification) {
-		this.queue.add(notification);
+	protected void enqueuePushNotificationForRetry(final T notification) {
+		this.retryQueue.add(notification);
 	}
 
 	/**
-	 * <p>Enqueues a collection of push notifications for transmission to the APNs service. Notifications may not be
+	 * <p>Enqueues a collection of push notifications for re-transmission to the APNs service. Notifications may not be
 	 * sent to APNs immediately, and delivery is not guaranteed by APNs, but notifications rejected by APNs for
-	 * specific reasons will be passed to registered {@link RejectedNotificationListener}s.</p>
+	 * specific reasons will be passed to registered {@link RejectedNotificationListener}s. Notifications that are to
+	 * be re-transmitted are given priority over &quot;new&quot; notifications, but are otherwise treated identically.</p>
 	 * 
-	 * @param notifications the notifications to enqueue
+	 * @param notifications the notifications to enqueue for re-transmission
 	 * 
 	 * @see PushManager#registerRejectedNotificationListener(RejectedNotificationListener)
 	 */
-	public void enqueueAllNotifications(final Collection<T> notifications) {
-		this.queue.addAll(notifications);
+	protected void enqueueAllNotificationsForRetry(final Collection<T> notifications) {
+		this.retryQueue.addAll(notifications);
 	}
 
 	/**
@@ -336,7 +315,12 @@ public class PushManager<T extends ApnsPushNotification> {
 
 		this.shutDownFinished = true;
 
-		return new ArrayList<T>(this.queue);
+		final ArrayList<T> unsentNotifications = new ArrayList<T>();
+
+		unsentNotifications.addAll(this.retryQueue);
+		unsentNotifications.addAll(this.getQueue());
+
+		return unsentNotifications;
 	}
 
 	/**
@@ -382,8 +366,27 @@ public class PushManager<T extends ApnsPushNotification> {
 		}
 	}
 
-	protected BlockingQueue<T> getQueue() {
+	/**
+	 * <p>Returns the queue of messages to be sent to the APNs gateway. Callers should add notifications to this queue
+	 * directly to send notifications. Notifications will be removed from this queue by Pushy when a send attempt is
+	 * started, but no guarantees are made as to when the notification will actually be sent. Successful delivery is
+	 * neither guaranteed nor acknowledged by the APNs gateway. Notifications rejected by APNs for specific reasons
+	 * will be passed to registered {@link RejectedNotificationListener}s, and notifications that could not be sent due
+	 * to temporary I/O problems will be scheduled for re-transmission in a separate, internal queue.</p>
+	 * 
+	 * <p>Notifications in this queue will only be consumed when the {@code PushManager} is running and has active
+	 * connections and when the internal &quot;retry queue&quot; is empty.</p>
+	 * 
+	 * @return the queue of new notifications to send to the APNs gateway
+	 * 
+	 * @see PushManager#registerRejectedNotificationListener(RejectedNotificationListener)
+	 */
+	public BlockingQueue<T> getQueue() {
 		return this.queue;
+	}
+
+	protected LinkedBlockingQueue<T> getRetryQueue() {
+		return this.retryQueue;
 	}
 
 	protected NioEventLoopGroup getWorkerGroup() {

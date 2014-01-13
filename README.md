@@ -1,3 +1,5 @@
+*Note: this README refers to the current development version of Pushy and may include information and examples that refer to changes that have not yet been released. For notes on the latest release, please visit the [project page](http://relayrides.github.io/pushy/).*
+
 # pushy
 
 Pushy is a Java library for sending [APNs](http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Introduction.html) (iOS and OS X) push notifications. It is written and maintained by the engineers at [RelayRides](https://relayrides.com/) and is built on the [Netty framework](http://netty.io/).
@@ -43,10 +45,13 @@ try {
     final KeyStore keyStore = KeyStore.getInstance("PKCS12");
     keyStore.load(keystoreInputStream, keystorePassword.toCharArray());
 
-    final PushManager<SimpleApnsPushNotification> pushManager =
-        new PushManager<SimpleApnsPushNotification>(
+    final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
+        new PushManagerFactory<SimpleApnsPushNotification>(
             ApnsEnvironment.getSandboxEnvironment(), keyStore, keystorePassword);
-    
+
+    final PushManager<SimpleApnsPushNotification> pushManager =
+        pushManagerFactory.buildPushManager();
+
     pushManager.start();
 } finally {
     keystoreInputStream.close();
@@ -66,7 +71,7 @@ payloadBuilder.setSoundFileName("ring-ring.aiff");
 
 final String payload = payloadBuilder.buildWithDefaultMaximumLength();
 
-pushManager.enqueuePushNotification(
+pushManager.getQueue().put(
 		new SimpleApnsPushNotification(token, payload));
 ```
 

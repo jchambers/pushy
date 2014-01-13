@@ -43,7 +43,6 @@ import io.netty.util.concurrent.GenericFutureListener;
 import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
@@ -96,7 +95,6 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	private static final long CONNECT_EXCEPTION_WAIT = 200;
 
 	private static final long POLL_TIMEOUT = 50;
-	private static final TimeUnit POLL_TIME_UNIT = TimeUnit.MILLISECONDS;
 	private static final int BATCH_SIZE = 32;
 	private int writesSinceLastFlush = 0;
 
@@ -274,7 +272,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 
 				case READY: {
 					try {
-						this.sendNextNotification(POLL_TIMEOUT, POLL_TIME_UNIT);
+						this.sendNextNotification(POLL_TIMEOUT);
 					} catch (InterruptedException e) {
 						this.channel.flush();
 					}
@@ -527,12 +525,14 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		}
 	}
 
-	private void sendNextNotification(final long timeout, final TimeUnit timeUnit) throws InterruptedException {
-		final T notification = this.pushManager.getQueue().poll(timeout, timeUnit);
+	private void sendNextNotification(final long timeout) throws InterruptedException {
+		T notification = this.pushManager.getRetryQueue().poll();
 
-		if (this.isInterrupted()) {
-			this.pushManager.enqueuePushNotification(notification);
-		} else if (notification != null) {
+		if (notification == null) {
+			notification = this.pushManager.getQueue().poll();
+		}
+
+		if (notification != null) {
 			final SendableApnsPushNotification<T> sendableNotification =
 					new SendableApnsPushNotification<T>(notification, this.sequenceNumber++);
 
@@ -562,7 +562,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 								sendableNotification.getSequenceNumber());
 
 						if (failedNotification != null) {
-							pushManager.enqueuePushNotification(failedNotification);
+							pushManager.enqueuePushNotificationForRetry(failedNotification);
 						}
 					} else {
 						if (log.isTraceEnabled()) {
@@ -584,6 +584,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 				this.channel.flush();
 				this.writesSinceLastFlush = 0;
 			}
+
+			Thread.sleep(timeout);
 		}
 	}
 
@@ -616,7 +618,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 
 		// In any case, we know that all notifications sent before the rejected notification were processed and NOT
 		// rejected, while all notifications after the rejected one have not been processed and need to be re-sent.
-		this.pushManager.enqueueAllNotifications(
+		this.pushManager.enqueueAllNotificationsForRetry(
 				this.sentNotificationBuffer.getAndRemoveAllNotificationsAfterSequenceNumber(rejectedNotification.getSequenceNumber()));
 	}
 
