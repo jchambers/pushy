@@ -29,9 +29,7 @@ import java.lang.ref.WeakReference;
 import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -54,8 +52,8 @@ public class PushManager<T extends ApnsPushNotification> {
 	private final KeyStore keyStore;
 	private final char[] keyStorePassword;
 	private final int concurrentConnections;
-	private final Map<String, ApnsClientThread<T>> clientThreads;
-	private final ThreadExceptionHandler<T> threadExceptionHandler;
+	private final ArrayList<ApnsClientThread<T>> clientThreads;
+	private final ThreadExceptionHandler threadExceptionHandler;
 	private final ArrayList<WeakReference<RejectedNotificationListener<T>>> rejectedNotificationListeners;
 
 	private final NioEventLoopGroup workerGroup;
@@ -69,11 +67,12 @@ public class PushManager<T extends ApnsPushNotification> {
 
 	private final Logger log = LoggerFactory.getLogger(PushManager.class);
 
-	public static class ThreadExceptionHandler<T extends ApnsPushNotification> implements UncaughtExceptionHandler {
+	@SuppressWarnings("rawtypes")
+	public static class ThreadExceptionHandler implements UncaughtExceptionHandler {
 	   private static Logger log = LoggerFactory.getLogger(ThreadExceptionHandler.class);
-	   final PushManager<T> manager;
+	   final PushManager manager;
 	   
-	   public ThreadExceptionHandler(PushManager<T> manager) {
+	   public ThreadExceptionHandler(PushManager manager) {
 	      this.manager = manager;
 	   }
 	   
@@ -84,7 +83,6 @@ public class PushManager<T extends ApnsPushNotification> {
          log.error(String.format("%s died unexpectedly.", t.getName()), e);
          manager.replaceThread(t);
       }
-	   
 	}
 	
 	/**
@@ -154,8 +152,8 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.keyStorePassword = keyStorePassword;
 
 		this.concurrentConnections = concurrentConnections;
-		this.clientThreads = new HashMap<String, ApnsClientThread<T>>(this.concurrentConnections);
-		this.threadExceptionHandler = new ThreadExceptionHandler<T>(this);
+		this.clientThreads = new ArrayList<ApnsClientThread<T>>(this.concurrentConnections);
+		this.threadExceptionHandler = new ThreadExceptionHandler(this);
 
 		this.rejectedNotificationExecutorService = Executors.newSingleThreadExecutor();
 
@@ -213,11 +211,9 @@ public class PushManager<T extends ApnsPushNotification> {
 		}
 
 		for (int i = 0; i < this.concurrentConnections; i++) {
-		   
-			final ApnsClientThread<T> clientThread = new ApnsClientThread<T>(this);
-			clientThread.setUncaughtExceptionHandler(threadExceptionHandler);
-			this.clientThreads.put(clientThread.getName(), clientThread);
-			clientThread.start();
+		   final ApnsClientThread<T> clientThread = getNewClientThread();
+		   this.clientThreads.add(clientThread);
+		   clientThread.start();
 		}
 
 		this.started = true;
@@ -317,14 +313,14 @@ public class PushManager<T extends ApnsPushNotification> {
 
 		this.shutDown = true;
 
-		for (final ApnsClientThread<T> clientThread : this.clientThreads.values()) {
+		for (final ApnsClientThread<T> clientThread : this.clientThreads) {
 			clientThread.requestShutdown();
 		}
 
 		if (timeout > 0) {
 			final long deadline = System.currentTimeMillis() + timeout;
 
-			for (final ApnsClientThread<T> clientThread : this.clientThreads.values()) {
+			for (final ApnsClientThread<T> clientThread : this.clientThreads) {
 				final long remainingTimeout = deadline - System.currentTimeMillis();
 
 				if (remainingTimeout <= 0) {
@@ -334,14 +330,14 @@ public class PushManager<T extends ApnsPushNotification> {
 				clientThread.join(remainingTimeout);
 			}
 
-			for (final ApnsClientThread<T> clientThread : this.clientThreads.values()) {
+			for (final ApnsClientThread<T> clientThread : this.clientThreads) {
 				if (clientThread.isAlive()) {
 					clientThread.shutdownImmediately();
 				}
 			}
 		}
 
-		for (final ApnsClientThread<T> clientThread : this.clientThreads.values()) {
+		for (final ApnsClientThread<T> clientThread : this.clientThreads) {
 			clientThread.join();
 		}
 
@@ -374,11 +370,13 @@ public class PushManager<T extends ApnsPushNotification> {
 	   if(this.shutDown) {
 	      return;
 	   }
-	   clientThreads.remove(t.getName());
-	   ApnsClientThread<T> newThread = new ApnsClientThread<T>(this);
-	   newThread.setUncaughtExceptionHandler(threadExceptionHandler);
-	   clientThreads.put(newThread.getName(), newThread);
-	   newThread.start();
+      if(!clientThreads.remove(t)) {
+         log.warn(String.format("Did not find thread %s in list of client threads.", t.getName()));
+      }
+
+      ApnsClientThread<T> newThread = getNewClientThread();
+      clientThreads.add(newThread);
+      newThread.start();
 	}
 	
 	protected synchronized void notifyListenersOfRejectedNotification(final T notification, final RejectedNotificationReason reason) {
@@ -420,7 +418,25 @@ public class PushManager<T extends ApnsPushNotification> {
 	protected NioEventLoopGroup getWorkerGroup() {
 		return this.workerGroup;
 	}
+	
+	protected ApnsClientThread<T> getNewClientThread() {
+	   ApnsClientThread<T> thread = newClientThread();
+	   thread.setUncaughtExceptionHandler(threadExceptionHandler);
+	   return thread;
+   }
+	
+	ApnsClientThread<T> newClientThread() {
+	   return new ApnsClientThread<T>(this);
+	}
 
+	synchronized int numClientThreadsAlive() {
+      int count = 0;
+      for(ApnsClientThread<T> thread : clientThreads) {
+         if(thread.isAlive())
+            count++;
+      }
+      return count;
+   }
 	/**
 	 * <p>Queries the APNs feedback service for expired tokens using a reasonable default timeout. Be warned that this
 	 * is a <strong>destructive operation</strong>. According to Apple's documentation:</p>
