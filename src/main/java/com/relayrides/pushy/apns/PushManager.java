@@ -135,9 +135,9 @@ public class PushManager<T extends ApnsPushNotification> {
 	}
 
 	/**
-	 * Returns the {@code KeyStore} containing the client certificate to presented to TLS-enabled APNs servers.
+	 * Returns the {@code KeyStore} containing the client certificate to be presented to TLS-enabled APNs servers.
 	 * 
-	 * @return the {@code KeyStore} containing the client certificate to presented to TLS-enabled APNs servers
+	 * @return the {@code KeyStore} containing the client certificate to be presented to TLS-enabled APNs servers
 	 */
 	public KeyStore getKeyStore() {
 		return this.keyStore;
