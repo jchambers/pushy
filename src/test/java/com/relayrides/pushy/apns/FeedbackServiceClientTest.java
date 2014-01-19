@@ -50,7 +50,7 @@ public class FeedbackServiceClientTest {
 
 		final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
 				new PushManagerFactory<SimpleApnsPushNotification>(
-						new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT, false), null, null);
+						new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT), null, null);
 
 		this.pushManager = pushManagerFactory.buildPushManager();
 		this.pushManager.start();

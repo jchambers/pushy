@@ -96,7 +96,7 @@ public class PushManager<T extends ApnsPushNotification> {
 	protected PushManager(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword,
 			final int concurrentConnectionCount, final NioEventLoopGroup workerGroup, final BlockingQueue<T> queue) {
 
-		if (environment.isTlsRequired() && keyStore == null) {
+		if (keyStore == null) {
 			throw new IllegalArgumentException("Must include a non-null KeyStore for environments that require TLS.");
 		}
 

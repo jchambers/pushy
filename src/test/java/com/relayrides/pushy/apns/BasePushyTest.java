@@ -37,7 +37,7 @@ public abstract class BasePushyTest {
 	protected static final int FEEDBACK_PORT = 2196;
 
 	protected static final ApnsEnvironment TEST_ENVIRONMENT =
-			new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT, false);
+			new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT);
 
 	private static final byte[] TOKEN = new byte[] { 0x12, 0x34, 0x56 };
 	private static final String PAYLOAD = "{\"aps\":{\"alert\":\"Hello\"}}";
