@@ -179,18 +179,31 @@ public class PushManagerTest extends BasePushyTest {
 		assertTrue(testPushManager.isShutDown());
 	}
 	
-	@Test
-	public void testThreadReplace() {
-	   final AtomicBoolean replaced = new AtomicBoolean(false);
-	   final PushManager<ApnsPushNotification> testPushManager =
-            new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null) {
-	      @Override
-	      protected synchronized void replaceThread(Thread t) {
-	         replaced.set(true);
-	      }
-	   };
-	   final ThreadExceptionHandler<ApnsPushNotification> handler = new PushManager.ThreadExceptionHandler<ApnsPushNotification>(testPushManager);
-	   handler.uncaughtException(new Thread("runner"), null);
-	   assertTrue("Exception handler did not invoke replace thread on thread death.", replaced.get());
+	@Test(timeout = 1000)
+	public void testHandleThreadDeath() throws InterruptedException {
+		int threads = 3;
+		final AtomicBoolean killed = new AtomicBoolean(false);
+		final PushManager<ApnsPushNotification> testPushManager = new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, threads) {
+			@Override
+			ApnsClientThread<ApnsPushNotification> newClientThread() {
+				return new ApnsClientThread<ApnsPushNotification>(this) {
+					@Override
+					public void run() {
+						if(killed.compareAndSet(false, true)) {
+							throw new RuntimeException("killing");
+						} else {
+							super.run();
+						}
+					}
+				};
+			}
+		};
+		testPushManager.start();
+
+		// Wait for thread to start and die
+		while (!killed.get()) {
+			Thread.sleep(100);
+		}
+		assertEquals("Wrong number of client threads running.", threads, testPushManager.numClientThreadsAlive());
 	}
 }
