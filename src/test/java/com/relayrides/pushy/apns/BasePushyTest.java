@@ -56,7 +56,10 @@ public abstract class BasePushyTest {
 		this.server = new MockApnsServer(APNS_PORT);
 		this.server.start();
 
-		this.pushManager = new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+		final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
+				new PushManagerFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+
+		this.pushManager = pushManagerFactory.buildPushManager();
 		this.pushManager.start();
 
 		this.clientThread = new ApnsClientThread<SimpleApnsPushNotification>(this.pushManager);

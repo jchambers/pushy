@@ -48,9 +48,11 @@ public class FeedbackServiceClientTest {
 		this.feedbackServer = new MockFeedbackServer(FEEDBACK_PORT);
 		this.feedbackServer.start();
 
-		this.pushManager = new PushManager<SimpleApnsPushNotification>(
-				new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT, false), null, null);
+		final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
+				new PushManagerFactory<SimpleApnsPushNotification>(
+						new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT, false), null, null);
 
+		this.pushManager = pushManagerFactory.buildPushManager();
 		this.pushManager.start();
 
 		this.feedbackClient = new FeedbackServiceClient(pushManager);

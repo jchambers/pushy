@@ -1,3 +1,5 @@
+*Note: this README refers to the current development version of Pushy and may include information and examples that refer to changes that have not yet been released. For notes on the latest release, please visit the [project page](http://relayrides.github.io/pushy/).*
+
 # pushy
 
 Pushy is a Java library for sending [APNs](http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Introduction.html) (iOS and OS X) push notifications. It is written and maintained by the engineers at [RelayRides](https://relayrides.com/) and is built on the [Netty framework](http://netty.io/).
@@ -9,7 +11,7 @@ Pushy was created because we found that the other APNs libraries for Java simply
 - Graceful handling and reporting of permanent notification rejections
 - Thorough [documentation](http://relayrides.github.io/pushy/apidocs/0.2/)
 
-We believe that Pushy is already the best tool for sending APNs push notifications from Java applications, and we hope you'll help us make it even better via bug reports and pull requests. Thanks!
+We believe that Pushy is already the best tool for sending APNs push notifications from Java applications, and we hope you'll help us make it even better via bug reports and pull requests. If you have other questions about using Pushy, please join us on [the Pushy mailing list](https://groups.google.com/d/forum/pushy-apns). Thanks!
 
 ## Getting Pushy
 
@@ -43,10 +45,13 @@ try {
     final KeyStore keyStore = KeyStore.getInstance("PKCS12");
     keyStore.load(keystoreInputStream, keystorePassword.toCharArray());
 
-    final PushManager<SimpleApnsPushNotification> pushManager =
-        new PushManager<SimpleApnsPushNotification>(
+    final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
+        new PushManagerFactory<SimpleApnsPushNotification>(
             ApnsEnvironment.getSandboxEnvironment(), keyStore, keystorePassword);
-    
+
+    final PushManager<SimpleApnsPushNotification> pushManager =
+        pushManagerFactory.buildPushManager();
+
     pushManager.start();
 } finally {
     keystoreInputStream.close();
@@ -66,7 +71,7 @@ payloadBuilder.setSoundFileName("ring-ring.aiff");
 
 final String payload = payloadBuilder.buildWithDefaultMaximumLength();
 
-pushManager.enqueuePushNotification(
+pushManager.getQueue().put(
 		new SimpleApnsPushNotification(token, payload));
 ```
 
@@ -113,10 +118,11 @@ for (final ExpiredToken expiredToken : pushManager.getExpiredTokens()) {
 
 ## Limitations and known issues
 
-The APNs protocol never affirmatively acknowledges receipt of notifications, so it's difficult to know what's happened to a push notification once we've attempted to send it. Between the design of the APNs protocol and the design of TCP/IP, there appear to be some fundamentally unresolveable issues. The issues we know about at this time are:
+Although we make every effort to fix bugs and work around issues outside of our control, some problems appear to be unavoidable. The issues we know about at this time are:
 
 - In cases where we successfully write a push notification to the OS-controlled outbound buffer, but the notification has not yet been written to the network, the push notification will be silently lost if the TCP connection is closed before the OS sends the notification over the network. See [#14](https://github.com/relayrides/pushy/issues/14) for additional discussion.
 - Under Windows, if writing a notification fails after the APNs gateway has rejected a notification and closed the connection remotely, the rejection details may be lost. See [#6](https://github.com/relayrides/pushy/issues/14) for additional discussion.
+- After shutting down Pushy, a `GlobalEventExecutor` owned by Netty will continue running for about a second. This can cause warnings in environments that look for thread/resource leaks (e.g. servlet containers), but there is no real harm because the `GlobalEventExecutor` will eventually shut itself down. To avoid warnings in these environments, you can add a `Thread.sleep(1000)` call after shutting down Pushy. See [#29](https://github.com/relayrides/pushy/issues/29) for additional discussion.
 
 ## License and status
 
