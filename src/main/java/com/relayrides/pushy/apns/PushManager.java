@@ -82,7 +82,7 @@ public class PushManager<T extends ApnsPushNotification> {
 	   }
 	   
       public void uncaughtException(Thread t, Throwable e) {
-         log.error(String.format("%s died unexpectedly.", t.getName()), e);
+         log.error(String.format("%s died unexpectedly. Please file a bug with the exception details.", t.getName()), e);
          manager.replaceThread(t);
       }
 	}
