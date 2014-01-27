@@ -27,6 +27,7 @@ import static org.junit.Assert.assertTrue;
 import io.netty.channel.nio.NioEventLoopGroup;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Test;
@@ -185,5 +186,33 @@ public class PushManagerTest extends BasePushyTest {
 
 		testPushManager.shutdown();
 		assertTrue(testPushManager.isShutDown());
+	}
+	
+	@Test(timeout = 1000)
+	public void testHandleThreadDeath() throws InterruptedException {
+		int threads = 3;
+		final AtomicBoolean killed = new AtomicBoolean(false);
+		final PushManager<ApnsPushNotification> testPushManager = new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, threads, null, null) {
+			@Override
+			ApnsClientThread<ApnsPushNotification> createClientThread() {
+				return new ApnsClientThread<ApnsPushNotification>(this) {
+					@Override
+					public void run() {
+						if(killed.compareAndSet(false, true)) {
+							throw new RuntimeException("killing");
+						} else {
+							super.run();
+						}
+					}
+				};
+			}
+		};
+		testPushManager.start();
+
+		// Wait for thread to start and die
+		while (!killed.get()) {
+			Thread.sleep(100);
+		}
+		assertEquals("Wrong number of client threads running.", threads, testPushManager.numClientThreadsAlive());
 	}
 }
