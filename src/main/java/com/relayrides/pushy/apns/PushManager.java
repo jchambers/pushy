@@ -82,6 +82,9 @@ public class PushManager<T extends ApnsPushNotification> {
 		}
 
 		public void uncaughtException(final Thread t, final Throwable e) {
+
+			assert t instanceof ApnsClientThread;
+
 			log.error(String.format("%s died unexpectedly. Please file a bug with the exception details.", t.getName()), e);
 			this.manager.replaceThread(t);
 		}
@@ -186,9 +189,7 @@ public class PushManager<T extends ApnsPushNotification> {
 		}
 
 		for (int i = 0; i < this.concurrentConnectionCount; i++) {
-			final ApnsClientThread<T> clientThread = getNewClientThread();
-			this.clientThreads.add(clientThread);
-			clientThread.start();
+			this.createAndActivateClientThread();
 		}
 
 		this.started = true;
@@ -338,17 +339,27 @@ public class PushManager<T extends ApnsPushNotification> {
 		return unsentNotifications;
 	}
 
-	protected synchronized void replaceThread(Thread t) {
-		if(this.shutDown) {
-			return;
-		}
-		if(!clientThreads.remove(t)) {
-			log.warn(String.format("Did not find thread %s in list of client threads.", t.getName()));
-		}
+	protected ApnsClientThread<T> createClientThread() {
+		return new ApnsClientThread<T>(this);
+	}
 
-		ApnsClientThread<T> newThread = getNewClientThread();
-		clientThreads.add(newThread);
-		newThread.start();
+	private void createAndActivateClientThread() {
+		final ApnsClientThread<T> thread = createClientThread();
+		thread.setUncaughtExceptionHandler(this.threadExceptionHandler);
+		this.clientThreads.add(thread);
+		thread.start();
+	}
+
+	protected synchronized void replaceThread(Thread t) {
+		if (!this.shutDown) {
+			if (!this.clientThreads.remove(t)) {
+				log.warn(String.format("Did not find thread %s in list of client threads.", t.getName()));
+			}
+
+			this.createAndActivateClientThread();
+		} else {
+			log.debug("Thread died unexpectedly, but push manager is already shut down.");
+		}
 	}
 
 	/**
@@ -421,24 +432,6 @@ public class PushManager<T extends ApnsPushNotification> {
 		return this.workerGroup;
 	}
 
-	protected ApnsClientThread<T> getNewClientThread() {
-		ApnsClientThread<T> thread = createClientThread();
-		thread.setUncaughtExceptionHandler(threadExceptionHandler);
-		return thread;
-	}
-
-	ApnsClientThread<T> createClientThread() {
-		return new ApnsClientThread<T>(this);
-	}
-
-	synchronized int numClientThreadsAlive() {
-		int count = 0;
-		for(ApnsClientThread<T> thread : clientThreads) {
-			if(thread.isAlive())
-				count++;
-		}
-		return count;
-	}
 	/**
 	 * <p>Queries the APNs feedback service for expired tokens using a reasonable default timeout. Be warned that this
 	 * is a <strong>destructive operation</strong>. According to Apple's documentation:</p>
