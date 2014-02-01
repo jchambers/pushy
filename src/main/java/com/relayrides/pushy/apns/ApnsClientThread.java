@@ -31,7 +31,6 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.channel.nio.AbstractNioChannel.NioUnsafe;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.ByteToMessageDecoder;
@@ -62,7 +61,6 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	private enum ClientState {
 		CONNECT,
 		READY,
-		RECONNECT,
 		SHUTDOWN_WRITE,
 		SHUTDOWN_WAIT,
 		EXIT
@@ -183,8 +181,14 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 
 		@Override
 		public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
-			// Assume this is a temporary IO problem and reconnect. Some writes will fail, but will be re-enqueued.
-			log.debug(String.format("%s caught an exception and will request reconnection.", getName()), cause);
+			// Since this is happening on the inbound side, the most likely case is that a read timed out or the remote
+			// host closed the connection. We should log the problem, but generally assume that channel closure will be
+			// handled by channelInactive.
+			log.debug(String.format("%s caught an exception.", getName()), cause);
+		}
+
+		@Override
+		public void channelInactive(final ChannelHandlerContext context) {
 			this.clientThread.requestReconnection();
 		}
 	}
@@ -249,6 +253,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 					}
 
 					if (finishedConnecting) {
+						this.shouldReconnect = false;
+
 						if (this.shouldShutDownImmediately) {
 							nextClientState = ClientState.EXIT;
 						} else if (this.shouldShutDown) {
@@ -280,33 +286,11 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 					if (this.shouldShutDownImmediately) {
 						nextClientState = ClientState.EXIT;
 					} else if (this.shouldReconnect) {
-						nextClientState = ClientState.RECONNECT;
+						nextClientState = ClientState.CONNECT;
 					} else if (this.shouldShutDown) {
 						nextClientState = ClientState.SHUTDOWN_WRITE;
 					} else {
 						nextClientState = ClientState.READY;
-					}
-
-					break;
-				}
-
-				case RECONNECT: {
-					boolean finishedDisconnecting = false;
-
-					try {
-						this.disconnectOrContinueDisconnecting();
-						finishedDisconnecting = true;
-					} catch (InterruptedException e) {
-						log.warn(String.format("%s interrupted while waiting for connection to close.", this.getName()));
-					}
-
-					if (this.shouldShutDownImmediately) {
-						nextClientState = ClientState.EXIT;
-					} else if (finishedDisconnecting) {
-						this.shouldReconnect = false;
-						nextClientState = ClientState.CONNECT;
-					} else {
-						nextClientState = ClientState.RECONNECT;
 					}
 
 					break;
@@ -347,16 +331,16 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 								log.debug(String.format("Shutdown notification write failed in %s.", this.getName()), this.shutdownWriteFuture.cause());
 
 								this.shutdownWriteFuture = null;
-								nextClientState = ClientState.RECONNECT;
+								nextClientState = ClientState.CONNECT;
 							} else {
 								// The write was cancelled; we don't ever really expect this to happen
 								log.warn(String.format("Shutdown notification write cancelled in %s", this.getName()));
 
 								this.shutdownWriteFuture = null;
-								nextClientState = ClientState.RECONNECT;
+								nextClientState = ClientState.CONNECT;
 							}
 						} else {
-							nextClientState = this.shouldReconnect ? ClientState.RECONNECT : ClientState.SHUTDOWN_WRITE;
+							nextClientState = this.shouldReconnect ? ClientState.CONNECT : ClientState.SHUTDOWN_WRITE;
 						}
 					}
 
@@ -380,7 +364,10 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 						boolean finishedDisconnecting = false;
 
 						try {
-							this.disconnectOrContinueDisconnecting();
+							if (this.channel != null && this.channel.isOpen()) {
+								this.channel.closeFuture().await();
+							}
+
 							finishedDisconnecting = true;
 						} catch (InterruptedException e) {
 							log.debug(String.format("%s interrupted while waiting to disconnect after rejected notification.", this.getName()));
@@ -388,7 +375,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 
 						nextClientState = finishedDisconnecting ? ClientState.EXIT : ClientState.SHUTDOWN_WAIT;
 					} else {
-						nextClientState = this.shouldReconnect ? ClientState.RECONNECT : ClientState.SHUTDOWN_WAIT;
+						nextClientState = this.shouldReconnect ? ClientState.CONNECT : ClientState.SHUTDOWN_WAIT;
 					}
 
 					break;
@@ -507,24 +494,6 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 		}
 	}
 
-	private void disconnectOrContinueDisconnecting() throws InterruptedException {
-		if (this.channel != null && this.channel.isOpen()) {
-			// We always want to try to read whatever is on the buffer before closing the connection. This is,
-			// obviously, not the preferred way to do things, but it seems we have no choice for now. See
-			// https://github.com/relayrides/pushy/issues/6 for details.
-			((NioUnsafe)this.channel.unsafe()).read();
-			this.channel.close();
-		}
-
-		log.debug(String.format("%s waiting for connection to close.", this.getName()));
-		this.channel.closeFuture().await();
-
-		if (this.channel.closeFuture().cause() != null) {
-			log.warn(String.format("%s failed to cleanly close its connection.", this.getName()),
-					this.channel.closeFuture().cause());
-		}
-	}
-
 	private void sendNextNotification(final long timeout) throws InterruptedException {
 		T notification = this.pushManager.getRetryQueue().poll();
 
@@ -552,8 +521,6 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 							log.trace(String.format("%s failed to write notification %s",
 									threadName, sendableNotification), future.cause());
 						}
-
-						requestReconnection();
 
 						// Delivery failed for some IO-related reason; re-enqueue for another attempt, but
 						// only if the notification is in the sent notification buffer (i.e. if it hasn't
@@ -612,8 +579,6 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			}
 
 			this.interrupt();
-		} else {
-			this.requestReconnection();
 		}
 
 		// In any case, we know that all notifications sent before the rejected notification were processed and NOT
