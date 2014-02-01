@@ -87,12 +87,14 @@ public class ApnsPayloadBuilder {
 	 * 
 	 * @see ApnsPayloadBuilder#setLocalizedAlertMessage(String, String[])
 	 */
-	public void setAlertBody(final String alertBody) {
+	public ApnsPayloadBuilder setAlertBody(final String alertBody) {
 		if (alertBody != null && this.localizedAlertKey != null) {
 			throw new IllegalStateException("Cannot set a literal alert body when a localized alert key has already been set.");
 		}
 
 		this.alertBody = alertBody;
+      
+      return this;
 	}
 
 	/**
@@ -105,7 +107,7 @@ public class ApnsPayloadBuilder {
 	 * @param localizedAlertKey a key to a string in the receiving app's localized string list
 	 * @param alertArguments arguments to populate placeholders in the localized alert string; may be {@code null}
 	 */
-	public void setLocalizedAlertMessage(final String localizedAlertKey, final String[] alertArguments) {
+	public ApnsPayloadBuilder setLocalizedAlertMessage(final String localizedAlertKey, final String[] alertArguments) {
 		if (localizedAlertKey != null && this.alertBody != null) {
 			throw new IllegalStateException("Cannot set a localized alert key when a literal alert body has already been set.");
 		}
@@ -116,6 +118,8 @@ public class ApnsPayloadBuilder {
 
 		this.localizedAlertKey = localizedAlertKey;
 		this.localizedAlertArguments = alertArguments;
+      
+      return this;
 	}
 
 	/**
@@ -131,8 +135,9 @@ public class ApnsPayloadBuilder {
 	 * @param launchImageFilename the filename of an image file in the receiving app's bundle to be shown when launching
 	 * the app from the push notification
 	 */
-	public void setLaunchImage(final String launchImageFilename) {
+	public ApnsPayloadBuilder setLaunchImage(final String launchImageFilename) {
 		this.launchImageFileName = launchImageFilename;
+      return this;
 	}
 
 	/**
@@ -146,8 +151,9 @@ public class ApnsPayloadBuilder {
 	 * @param showActionButton {@code true} to show an action button when the push notification is presented as an
 	 * alert or {@code false} to show an alert with no action button
 	 */
-	public void setShowActionButton(final boolean showActionButton) {
+	public ApnsPayloadBuilder setShowActionButton(final boolean showActionButton) {
 		this.showActionButton = showActionButton;
+      return this;
 	}
 
 	/**
@@ -157,8 +163,9 @@ public class ApnsPayloadBuilder {
 	 * 
 	 * @param localizedActionButtonKey a key to a string in the receiving app's localized string list
 	 */
-	public void setLocalizedActionButtonKey(final String localizedActionButtonKey) {
+	public ApnsPayloadBuilder setLocalizedActionButtonKey(final String localizedActionButtonKey) {
 		this.localizedActionButtonKey = localizedActionButtonKey;
+      return this;
 	}
 
 	/**
@@ -168,8 +175,9 @@ public class ApnsPayloadBuilder {
 	 * 
 	 * @param badgeNumber the number to display as the badge of application or {@code null} to leave the badge unchanged
 	 */
-	public void setBadgeNumber(final Integer badgeNumber) {
+	public ApnsPayloadBuilder setBadgeNumber(final Integer badgeNumber) {
 		this.badgeNumber = badgeNumber;
+      return this;
 	}
 
 	/**
@@ -186,8 +194,9 @@ public class ApnsPayloadBuilder {
 	 * 
 	 * @see com.relayrides.pushy.apns.util.ApnsPayloadBuilder#DEFAULT_SOUND_FILENAME
 	 */
-	public void setSoundFileName(final String soundFileName) {
+	public ApnsPayloadBuilder setSoundFileName(final String soundFileName) {
 		this.soundFileName = soundFileName;
+      return this;
 	}
 
 	/**
@@ -202,8 +211,9 @@ public class ApnsPayloadBuilder {
 	 * iOS App Programming Guide - App States and Multitasking - Background Execution and Multitasking - Implementing
 	 * Long-Running Background Tasks</a>
 	 */
-	public void setContentAvailable(final boolean contentAvailable) {
+	public ApnsPayloadBuilder setContentAvailable(final boolean contentAvailable) {
 		this.contentAvailable = contentAvailable;
+      return this;
 	}
 
 	/**
@@ -223,8 +233,9 @@ public class ApnsPayloadBuilder {
 	 * @param key the key of the custom property in the payload object
 	 * @param value the value of the custom property
 	 */
-	public void addCustomProperty(final String key, final Object value) {
+	public ApnsPayloadBuilder addCustomProperty(final String key, final Object value) {
 		this.customProperties.put(key, value);
+      return this;
 	}
 
 	/**
