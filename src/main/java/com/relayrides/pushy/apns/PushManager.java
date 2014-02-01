@@ -110,7 +110,7 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * feedback service; if {@code null}, a new event loop group will be created and will be shut down automatically
 	 * when the push manager is shut down. If not {@code null}, the caller <strong>must</strong> shut down the event
 	 * loop group after shutting down the push manager
-	 * @param queue TODO
+	 * @param queue the queue to be used to pass new notifications to this push manager
 	 */
 	protected PushManager(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword,
 			final int concurrentConnectionCount, final NioEventLoopGroup workerGroup, final BlockingQueue<T> queue) {
