@@ -522,6 +522,9 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 									threadName, sendableNotification), future.cause());
 						}
 
+						// Double-check to make sure we don't have a rejected notification or remotely-closed connection
+						future.channel().read();
+
 						// Delivery failed for some IO-related reason; re-enqueue for another attempt, but
 						// only if the notification is in the sent notification buffer (i.e. if it hasn't
 						// been re-enqueued for another reason).
