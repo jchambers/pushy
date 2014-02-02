@@ -28,8 +28,11 @@ import io.netty.channel.nio.NioEventLoopGroup;
 
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.net.ssl.SSLContext;
 
 import org.junit.Test;
 
@@ -187,5 +190,67 @@ public class PushManagerTest extends BasePushyTest {
 
 		testPushManager.shutdown();
 		assertTrue(testPushManager.isShutDown());
+	}
+
+	@Test
+	public void testHandleThreadDeath() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException {
+
+		final class SelfDestructingApnsClientThread<T extends ApnsPushNotification> extends ApnsClientThread<T> {
+
+			public SelfDestructingApnsClientThread(final PushManager<T> pushManager) {
+				super(pushManager);
+			}
+
+			@Override
+			public void run() {
+				throw new RuntimeException("Self-destructing.");
+			}
+		}
+
+		final class NotifyOnReplacementPushManager<T extends ApnsPushNotification> extends PushManager<T> {
+
+			private final Object mutex;
+			private volatile boolean replacedThread = false;
+
+			protected NotifyOnReplacementPushManager(final ApnsEnvironment environment, final SSLContext sslContext,
+					final int concurrentConnectionCount, final NioEventLoopGroup workerGroup,
+					final BlockingQueue<T> queue, final Object mutex) {
+
+				super(environment, sslContext, concurrentConnectionCount, workerGroup, queue);
+
+				this.mutex = mutex;
+			}
+
+			@Override
+			protected SelfDestructingApnsClientThread<T> createClientThread() {
+				return new SelfDestructingApnsClientThread<T>(this);
+			}
+
+			@Override
+			protected synchronized void replaceThread(final Thread t) {
+				this.replacedThread = true;
+
+				synchronized (this.mutex) {
+					this.mutex.notifyAll();
+				}
+			}
+
+			public boolean didReplaceThread() {
+				return this.replacedThread;
+			}
+		}
+
+		final Object mutex = new Object();
+		final NotifyOnReplacementPushManager<ApnsPushNotification> testManager =
+				new NotifyOnReplacementPushManager<ApnsPushNotification>(
+						TEST_ENVIRONMENT, this.getSSLContext(), 1, null, null, mutex);
+
+		synchronized (mutex) {
+			testManager.start();
+			mutex.wait(1000);
+		}
+
+		testManager.shutdown();
+		assertTrue(testManager.didReplaceThread());
 	}
 }
