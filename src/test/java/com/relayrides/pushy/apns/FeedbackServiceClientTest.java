@@ -24,9 +24,14 @@ package com.relayrides.pushy.apns;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
 
 import org.junit.After;
 import org.junit.Before;
@@ -39,18 +44,23 @@ public class FeedbackServiceClientTest {
 	private static final int APNS_PORT = 2195;
 	private static final int FEEDBACK_PORT = 2196;
 
+	private static final String PROTOCOL = "TLS";
+
 	private PushManager<SimpleApnsPushNotification> pushManager;
 	private MockFeedbackServer feedbackServer;
 	private FeedbackServiceClient feedbackClient;
 
 	@Before
-	public void setUp() throws InterruptedException {
+	public void setUp() throws InterruptedException, NoSuchAlgorithmException, KeyManagementException {
 		this.feedbackServer = new MockFeedbackServer(FEEDBACK_PORT);
 		this.feedbackServer.start();
 
+		final SSLContext sslContext = SSLContext.getInstance(PROTOCOL);
+		sslContext.init(null, new TrustManager[] { new TrustAllTrustManager() }, null);
+
 		final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
 				new PushManagerFactory<SimpleApnsPushNotification>(
-						new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT), null, null);
+						new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT), sslContext);
 
 		this.pushManager = pushManagerFactory.buildPushManager();
 		this.pushManager.start();

@@ -26,6 +26,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import io.netty.channel.nio.NioEventLoopGroup;
 
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -81,10 +83,10 @@ public class PushManagerTest extends BasePushyTest {
 	}
 
 	@Test
-	public void testShutdown() throws InterruptedException {
+	public void testShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException {
 		{
 			final PushManager<ApnsPushNotification> defaultGroupPushManager =
-					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, null, null);
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, this.getSSLContext(), 1, null, null);
 
 			defaultGroupPushManager.start();
 			defaultGroupPushManager.shutdown();
@@ -96,7 +98,7 @@ public class PushManagerTest extends BasePushyTest {
 			final NioEventLoopGroup group = new NioEventLoopGroup(1);
 
 			final PushManager<ApnsPushNotification> providedGroupPushManager =
-					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, group, null);
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, this.getSSLContext(), 1, group, null);
 
 			providedGroupPushManager.start();
 			providedGroupPushManager.shutdown();
@@ -109,26 +111,26 @@ public class PushManagerTest extends BasePushyTest {
 	}
 
 	@Test(expected = IllegalStateException.class)
-	public void testDoubleStart() {
+	public void testDoubleStart() throws KeyManagementException, NoSuchAlgorithmException {
 		final PushManager<ApnsPushNotification> doubleStartPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, this.getSSLContext(), 1, null, null);
 
 		doubleStartPushManager.start();
 		doubleStartPushManager.start();
 	}
 
 	@Test(expected = IllegalStateException.class)
-	public void testPrematureShutdown() throws InterruptedException {
+	public void testPrematureShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException {
 		final PushManager<ApnsPushNotification> prematureShutdownPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, this.getSSLContext(), 1, null, null);
 
 		prematureShutdownPushManager.shutdown();
 	}
 
 	@Test
-	public void testRepeatedShutdown() throws InterruptedException {
+	public void testRepeatedShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException {
 		final PushManager<ApnsPushNotification> repeatedShutdownPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, this.getSSLContext(), 1, null, null);
 
 		repeatedShutdownPushManager.start();
 		repeatedShutdownPushManager.shutdown();
@@ -141,17 +143,17 @@ public class PushManagerTest extends BasePushyTest {
 	}
 
 	@Test(expected = IllegalStateException.class)
-	public void testGetExpiredTokensBeforeStart() throws InterruptedException {
+	public void testGetExpiredTokensBeforeStart() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException {
 		final PushManager<ApnsPushNotification> unstartedPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, this.getSSLContext(), 1, null, null);
 
 		unstartedPushManager.getExpiredTokens();
 	}
 
 	@Test(expected = IllegalStateException.class)
-	public void testGetExpiredTokensAfterShutdown() throws InterruptedException {
+	public void testGetExpiredTokensAfterShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException {
 		final PushManager<ApnsPushNotification> shutDownPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, this.getSSLContext(), 1, null, null);
 
 		shutDownPushManager.start();
 		shutDownPushManager.shutdown();
@@ -160,9 +162,9 @@ public class PushManagerTest extends BasePushyTest {
 	}
 
 	@Test
-	public void testIsStarted() throws InterruptedException {
+	public void testIsStarted() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException {
 		final PushManager<ApnsPushNotification> testPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, this.getSSLContext(), 1, null, null);
 
 		assertFalse(testPushManager.isStarted());
 
@@ -174,9 +176,9 @@ public class PushManagerTest extends BasePushyTest {
 	}
 
 	@Test
-	public void testIsShutDown() throws InterruptedException {
+	public void testIsShutDown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException {
 		final PushManager<ApnsPushNotification> testPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null, null, 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, this.getSSLContext(), 1, null, null);
 
 		assertFalse(testPushManager.isShutDown());
 

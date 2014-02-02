@@ -34,14 +34,21 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.MessageToByteEncoder;
 import io.netty.handler.codec.ReplayingDecoder;
+import io.netty.handler.ssl.SslHandler;
 import io.netty.util.concurrent.GenericFutureListener;
 
+import java.io.InputStream;
 import java.nio.charset.Charset;
+import java.security.KeyStore;
+import java.security.Security;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.CountDownLatch;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
 
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
@@ -59,6 +66,14 @@ public class MockApnsServer {
 	private RejectedNotificationReason errorCode;
 
 	public static final int MAX_PAYLOAD_SIZE = 256;
+
+	private static final String PROTOCOL = "TLS";
+	private static final String DEFAULT_ALGORITHM = "SunX509";
+
+	// The keystore was generated with the following command:
+	// keytool  -genkey -alias pushy-test -keysize 2048 -validity 36500 -keyalg RSA -dname "CN=pushy-test" -keypass pushy-test -storepass pushy-test -keystore pushy-test.jks
+	private static final String KEYSTORE_FILE_NAME = "pushy-test.jks";
+	private static final char[] KEYSTORE_PASSWORD = "pushy-test".toCharArray();
 
 	private enum ApnsPushNotificationDecoderState {
 		OPCODE,
@@ -233,12 +248,37 @@ public class MockApnsServer {
 		bootstrap.group(bossGroup, workerGroup);
 		bootstrap.channel(NioServerSocketChannel.class);
 
+		final SSLContext sslContext;
+
+		try {
+			final InputStream keyStoreInputStream = this.getClass().getResourceAsStream(KEYSTORE_FILE_NAME);
+
+			final KeyStore keyStore = KeyStore.getInstance("JKS");
+			keyStore.load(keyStoreInputStream, KEYSTORE_PASSWORD);
+
+			String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
+
+			if (algorithm == null) {
+				algorithm = DEFAULT_ALGORITHM;
+			}
+
+			KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(algorithm);
+			keyManagerFactory.init(keyStore, KEYSTORE_PASSWORD);
+
+			// Initialize the SSLContext to work with our key managers.
+			sslContext = SSLContext.getInstance(PROTOCOL);
+			sslContext.init(keyManagerFactory.getKeyManagers(), null, null);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to create SSL context for mock server.", e);
+		}
+
 		final MockApnsServer server = this;
 
 		bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
 
 			@Override
 			protected void initChannel(final SocketChannel channel) throws Exception {
+				channel.pipeline().addLast("ssl", new SslHandler(sslContext.createSSLEngine()));
 				channel.pipeline().addLast("encoder", new ApnsErrorEncoder());
 				channel.pipeline().addLast("decoder", new ApnsPushNotificationDecoder());
 				channel.pipeline().addLast("handler", new MockApnsServerHandler(server));
