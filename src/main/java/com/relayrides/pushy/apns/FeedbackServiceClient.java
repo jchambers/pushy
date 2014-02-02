@@ -42,6 +42,8 @@ import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.TimeUnit;
 
+import javax.net.ssl.SSLEngine;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -190,7 +192,10 @@ class FeedbackServiceClient {
 			protected void initChannel(final SocketChannel channel) throws Exception {
 				final ChannelPipeline pipeline = channel.pipeline();
 
-				pipeline.addLast("ssl", SslHandlerUtil.createSslHandler(pushManager.getKeyStore(), pushManager.getKeyStorePassword()));
+				final SSLEngine sslEngine = pushManager.getSSLContext().createSSLEngine();
+				sslEngine.setUseClientMode(true);
+
+				pipeline.addLast("ssl", new SslHandler(sslEngine));
 				pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(timeout, timeoutUnit));
 				pipeline.addLast("decoder", new ExpiredTokenDecoder());
 				pipeline.addLast("handler", new FeedbackClientHandler(feedbackClient));

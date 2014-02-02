@@ -45,6 +45,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.net.ssl.SSLEngine;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -215,7 +217,10 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			protected void initChannel(final SocketChannel channel) throws Exception {
 				final ChannelPipeline pipeline = channel.pipeline();
 
-				pipeline.addLast("ssl", SslHandlerUtil.createSslHandler(pushManager.getKeyStore(), pushManager.getKeyStorePassword()));
+				final SSLEngine sslEngine = pushManager.getSSLContext().createSSLEngine();
+				sslEngine.setUseClientMode(true);
+
+				pipeline.addLast("ssl", new SslHandler(sslEngine));
 				pipeline.addLast("decoder", new RejectedNotificationDecoder());
 				pipeline.addLast("encoder", new ApnsPushNotificationEncoder());
 				pipeline.addLast("rejectionHandler", new RejectedNotificationHandler(clientThread));

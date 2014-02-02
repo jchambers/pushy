@@ -2,8 +2,22 @@ package com.relayrides.pushy.apns;
 
 import io.netty.channel.nio.NioEventLoopGroup;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.security.KeyManagementException;
 import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.Security;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
 import java.util.concurrent.BlockingQueue;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
+
+import org.slf4j.LoggerFactory;
 
 /**
  * A {@code PushManagerFactory} is used to configure and construct a new {@link PushManager}.
@@ -12,10 +26,11 @@ import java.util.concurrent.BlockingQueue;
  */
 public class PushManagerFactory<T extends ApnsPushNotification> {
 
-	private final ApnsEnvironment environment;
+	private static final String PROTOCOL = "TLS";
+	private static final String DEFAULT_ALGORITHM = "SunX509";
 
-	private final KeyStore keyStore;
-	private final char[] keyStorePassword;
+	private final ApnsEnvironment environment;
+	private final SSLContext sslContext;
 
 	private int concurrentConnectionCount = 1;
 
@@ -28,16 +43,19 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	 * given credentials.
 	 * 
 	 * @param environment the environment in which constructed {@code PushManager}s will operate
-	 * @param keyStore A {@code KeyStore} containing the client key to present during a TLS handshake; may be
-	 * {@code null} if the environment does not require TLS. The {@code KeyStore} should be loaded before being used
-	 * here.
-	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
 	 */
-	public PushManagerFactory(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword) {
-		this.environment = environment;
+	public PushManagerFactory(final ApnsEnvironment environment, final SSLContext sslContext) {
 
-		this.keyStore = keyStore;
-		this.keyStorePassword = keyStorePassword;
+		if (environment == null) {
+			throw new NullPointerException("APNs environment must not be null.");
+		}
+
+		if (sslContext == null) {
+			throw new NullPointerException("SSL context must not be null.");
+		}
+
+		this.environment = environment;
+		this.sslContext = sslContext;
 	}
 
 	/**
@@ -92,11 +110,61 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	 * @return a new, configured {@code PushManager}
 	 */
 	public PushManager<T> buildPushManager() {
-		return new PushManager<T>(this.environment,
-				this.keyStore,
-				this.keyStorePassword,
+		return new PushManager<T>(
+				this.environment,
+				this.sslContext,
 				this.concurrentConnectionCount,
 				this.eventLoopGroup,
 				this.queue);
+	}
+
+	public static SSLContext createDefaultSSLContext(final String pathToPKCS12File, final String keystorePassword) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException, KeyManagementException, IOException {
+		final FileInputStream keystoreInputStream = new FileInputStream("/path/to/certificate.p12");
+
+		try {
+			final KeyStore keyStore = KeyStore.getInstance("PKCS12");
+			keyStore.load(keystoreInputStream, keystorePassword.toCharArray());
+
+			return PushManagerFactory.createDefaultSSLContext(keyStore, keystorePassword.toCharArray());
+		} finally {
+			try {
+				keystoreInputStream.close();
+			} catch (IOException e) {
+				LoggerFactory.getLogger(PushManagerFactory.class).error("Failed to close keystore input stream.", e);
+			}
+		}
+	}
+
+	/**
+	 * 
+	 * @param keyStore A {@code KeyStore} containing the client key to present during a TLS handshake; may be
+	 * {@code null} if the environment does not require TLS. The {@code KeyStore} should be loaded before being used
+	 * here.
+	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
+	 * 
+	 * @return
+	 * 
+	 * @throws KeyStoreException
+	 * @throws NoSuchAlgorithmException
+	 * @throws UnrecoverableKeyException
+	 * @throws KeyManagementException
+	 */
+	public static SSLContext createDefaultSSLContext(final KeyStore keyStore, final char[] keyStorePassword) throws KeyStoreException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyManagementException {
+		String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
+
+		if (algorithm == null) {
+			algorithm = DEFAULT_ALGORITHM;
+		}
+
+		final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(algorithm);
+		trustManagerFactory.init((KeyStore) null);
+
+		final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(algorithm);
+		keyManagerFactory.init(keyStore, keyStorePassword);
+
+		final SSLContext sslContext = SSLContext.getInstance(PROTOCOL);
+		sslContext.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
+
+		return sslContext;
 	}
 }
