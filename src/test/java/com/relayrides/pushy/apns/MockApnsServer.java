@@ -37,18 +37,13 @@ import io.netty.handler.codec.ReplayingDecoder;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.util.concurrent.GenericFutureListener;
 
-import java.io.InputStream;
 import java.nio.charset.Charset;
-import java.security.KeyStore;
-import java.security.Security;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.CountDownLatch;
 
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
@@ -67,14 +62,6 @@ public class MockApnsServer {
 	private RejectedNotificationReason errorCode;
 
 	public static final int MAX_PAYLOAD_SIZE = 256;
-
-	private static final String PROTOCOL = "TLS";
-	private static final String DEFAULT_ALGORITHM = "SunX509";
-
-	// The keystore was generated with the following command:
-	// keytool -genkey -alias pushy-test -keysize 2048 -validity 36500 -keyalg RSA -dname "CN=pushy-test" -keypass pushy-test -storepass pushy-test -keystore pushy-test.jks
-	private static final String KEYSTORE_FILE_NAME = "/pushy-test.jks";
-	private static final char[] KEYSTORE_PASSWORD = "pushy-test".toCharArray();
 
 	private enum ApnsPushNotificationDecoderState {
 		OPCODE,
@@ -252,28 +239,9 @@ public class MockApnsServer {
 		final SSLEngine sslEngine;
 
 		try {
-			final InputStream keyStoreInputStream = this.getClass().getResourceAsStream(KEYSTORE_FILE_NAME);
-
-			final KeyStore keyStore = KeyStore.getInstance("JKS");
-			keyStore.load(keyStoreInputStream, KEYSTORE_PASSWORD);
-
-			String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
-
-			if (algorithm == null) {
-				algorithm = DEFAULT_ALGORITHM;
-			}
-
-			KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(algorithm);
-			keyManagerFactory.init(keyStore, KEYSTORE_PASSWORD);
-
-			// Initialize the SSLContext to work with our key managers.
-			final SSLContext sslContext = SSLContext.getInstance(PROTOCOL);
-			sslContext.init(keyManagerFactory.getKeyManagers(), null, null);
-
-			sslEngine = sslContext.createSSLEngine();
-			sslEngine.setUseClientMode(false);
+			sslEngine = SSLUtil.createMockServerSSLEngine();
 		} catch (Exception e) {
-			throw new RuntimeException("Failed to create SSL context for mock server.", e);
+			throw new RuntimeException("Failed to create SSL engine for mock server.", e);
 		}
 
 		final MockApnsServer server = this;

@@ -33,9 +33,12 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.MessageToByteEncoder;
+import io.netty.handler.ssl.SslHandler;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.net.ssl.SSLEngine;
 
 public class MockFeedbackServer {
 
@@ -100,11 +103,20 @@ public class MockFeedbackServer {
 		bootstrap.group(this.bossGroup, this.workerGroup);
 		bootstrap.channel(NioServerSocketChannel.class);
 
+		final SSLEngine sslEngine;
+
+		try {
+			sslEngine = SSLUtil.createMockServerSSLEngine();
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to create SSL engine for mock server.", e);
+		}
+
 		final MockFeedbackServer server = this;
 		bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
 
 			@Override
 			protected void initChannel(final SocketChannel channel) throws Exception {
+				channel.pipeline().addLast("ssl", new SslHandler(sslEngine));
 				channel.pipeline().addLast("encoder", new ExpiredTokenEncoder());
 				channel.pipeline().addLast("handler", new MockFeedbackServerHandler(server));
 			}
