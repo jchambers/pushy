@@ -98,7 +98,7 @@ public abstract class BasePushyTest {
 	protected void waitForLatch(final CountDownLatch latch) throws InterruptedException {
 		while (latch.getCount() > 0) {
 			if (!latch.await(LATCH_TIMEOUT_VALUE, LATCH_TIMEOUT_UNIT)) {
-				fail("Timed out waiting for latch.");
+				fail(String.format("Timed out waiting for latch. Remaining count: %d", latch.getCount()));
 			}
 		}
 	}

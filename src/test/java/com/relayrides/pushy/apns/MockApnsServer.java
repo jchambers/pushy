@@ -49,6 +49,7 @@ import java.util.concurrent.CountDownLatch;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
 
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
@@ -71,8 +72,8 @@ public class MockApnsServer {
 	private static final String DEFAULT_ALGORITHM = "SunX509";
 
 	// The keystore was generated with the following command:
-	// keytool  -genkey -alias pushy-test -keysize 2048 -validity 36500 -keyalg RSA -dname "CN=pushy-test" -keypass pushy-test -storepass pushy-test -keystore pushy-test.jks
-	private static final String KEYSTORE_FILE_NAME = "pushy-test.jks";
+	// keytool -genkey -alias pushy-test -keysize 2048 -validity 36500 -keyalg RSA -dname "CN=pushy-test" -keypass pushy-test -storepass pushy-test -keystore pushy-test.jks
+	private static final String KEYSTORE_FILE_NAME = "/pushy-test.jks";
 	private static final char[] KEYSTORE_PASSWORD = "pushy-test".toCharArray();
 
 	private enum ApnsPushNotificationDecoderState {
@@ -245,10 +246,10 @@ public class MockApnsServer {
 
 		final ServerBootstrap bootstrap = new ServerBootstrap();
 
-		bootstrap.group(bossGroup, workerGroup);
+		bootstrap.group(this.bossGroup, this.workerGroup);
 		bootstrap.channel(NioServerSocketChannel.class);
 
-		final SSLContext sslContext;
+		final SSLEngine sslEngine;
 
 		try {
 			final InputStream keyStoreInputStream = this.getClass().getResourceAsStream(KEYSTORE_FILE_NAME);
@@ -266,8 +267,11 @@ public class MockApnsServer {
 			keyManagerFactory.init(keyStore, KEYSTORE_PASSWORD);
 
 			// Initialize the SSLContext to work with our key managers.
-			sslContext = SSLContext.getInstance(PROTOCOL);
+			final SSLContext sslContext = SSLContext.getInstance(PROTOCOL);
 			sslContext.init(keyManagerFactory.getKeyManagers(), null, null);
+
+			sslEngine = sslContext.createSSLEngine();
+			sslEngine.setUseClientMode(false);
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to create SSL context for mock server.", e);
 		}
@@ -278,7 +282,7 @@ public class MockApnsServer {
 
 			@Override
 			protected void initChannel(final SocketChannel channel) throws Exception {
-				channel.pipeline().addLast("ssl", new SslHandler(sslContext.createSSLEngine()));
+				channel.pipeline().addLast("ssl", new SslHandler(sslEngine));
 				channel.pipeline().addLast("encoder", new ApnsErrorEncoder());
 				channel.pipeline().addLast("decoder", new ApnsPushNotificationDecoder());
 				channel.pipeline().addLast("handler", new MockApnsServerHandler(server));
