@@ -93,8 +93,8 @@ public class ApnsPayloadBuilder {
 		}
 
 		this.alertBody = alertBody;
-      
-      return this;
+
+		return this;
 	}
 
 	/**
@@ -118,8 +118,8 @@ public class ApnsPayloadBuilder {
 
 		this.localizedAlertKey = localizedAlertKey;
 		this.localizedAlertArguments = alertArguments;
-      
-      return this;
+
+		return this;
 	}
 
 	/**
@@ -137,7 +137,7 @@ public class ApnsPayloadBuilder {
 	 */
 	public ApnsPayloadBuilder setLaunchImage(final String launchImageFilename) {
 		this.launchImageFileName = launchImageFilename;
-      return this;
+		return this;
 	}
 
 	/**
@@ -153,7 +153,7 @@ public class ApnsPayloadBuilder {
 	 */
 	public ApnsPayloadBuilder setShowActionButton(final boolean showActionButton) {
 		this.showActionButton = showActionButton;
-      return this;
+		return this;
 	}
 
 	/**
@@ -165,7 +165,7 @@ public class ApnsPayloadBuilder {
 	 */
 	public ApnsPayloadBuilder setLocalizedActionButtonKey(final String localizedActionButtonKey) {
 		this.localizedActionButtonKey = localizedActionButtonKey;
-      return this;
+		return this;
 	}
 
 	/**
@@ -177,7 +177,7 @@ public class ApnsPayloadBuilder {
 	 */
 	public ApnsPayloadBuilder setBadgeNumber(final Integer badgeNumber) {
 		this.badgeNumber = badgeNumber;
-      return this;
+		return this;
 	}
 
 	/**
@@ -196,7 +196,7 @@ public class ApnsPayloadBuilder {
 	 */
 	public ApnsPayloadBuilder setSoundFileName(final String soundFileName) {
 		this.soundFileName = soundFileName;
-      return this;
+		return this;
 	}
 
 	/**
@@ -213,7 +213,7 @@ public class ApnsPayloadBuilder {
 	 */
 	public ApnsPayloadBuilder setContentAvailable(final boolean contentAvailable) {
 		this.contentAvailable = contentAvailable;
-      return this;
+		return this;
 	}
 
 	/**
@@ -235,7 +235,7 @@ public class ApnsPayloadBuilder {
 	 */
 	public ApnsPayloadBuilder addCustomProperty(final String key, final Object value) {
 		this.customProperties.put(key, value);
-      return this;
+		return this;
 	}
 
 	/**
