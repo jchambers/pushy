@@ -46,11 +46,16 @@ public class FeedbackServiceClientTest {
 	private static final int FEEDBACK_PORT = 2196;
 
 	private PushManager<SimpleApnsPushNotification> pushManager;
+	private MockApnsServer apnsServer;
 	private MockFeedbackServer feedbackServer;
 	private FeedbackServiceClient feedbackClient;
 
 	@Before
 	public void setUp() throws InterruptedException, NoSuchAlgorithmException, KeyManagementException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
+		// While we don't use the server directly, having it up and running causes the PushManager to complain less
+		this.apnsServer = new MockApnsServer(APNS_PORT);
+		this.apnsServer.start();
+
 		this.feedbackServer = new MockFeedbackServer(FEEDBACK_PORT);
 		this.feedbackServer.start();
 
@@ -94,6 +99,7 @@ public class FeedbackServiceClientTest {
 
 	@After
 	public void tearDown() throws InterruptedException {
+		this.apnsServer.shutdown();
 		this.feedbackServer.shutdown();
 		this.pushManager.shutdown();
 	}

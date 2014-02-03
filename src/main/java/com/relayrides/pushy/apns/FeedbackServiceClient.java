@@ -182,7 +182,7 @@ class FeedbackServiceClient {
 		this.expiredTokens = new Vector<ExpiredToken>();
 
 		final Bootstrap bootstrap = new Bootstrap();
-		bootstrap.group(pushManager.getWorkerGroup());
+		bootstrap.group(this.pushManager.getWorkerGroup());
 		bootstrap.channel(NioSocketChannel.class);
 
 		final FeedbackServiceClient feedbackClient = this;

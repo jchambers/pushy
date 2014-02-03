@@ -44,13 +44,10 @@ import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.CountDownLatch;
 
-import javax.net.ssl.SSLEngine;
-
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class MockApnsServer {
 
-	private EventLoopGroup bossGroup;
 	private EventLoopGroup workerGroup;
 
 	private final int port;
@@ -228,21 +225,12 @@ public class MockApnsServer {
 	}
 
 	public void start() throws InterruptedException {
-		this.bossGroup = new NioEventLoopGroup();
 		this.workerGroup = new NioEventLoopGroup();
 
 		final ServerBootstrap bootstrap = new ServerBootstrap();
 
-		bootstrap.group(this.bossGroup, this.workerGroup);
+		bootstrap.group(this.workerGroup);
 		bootstrap.channel(NioServerSocketChannel.class);
-
-		final SSLEngine sslEngine;
-
-		try {
-			sslEngine = SSLUtil.createSSLEngineForMockServer();
-		} catch (Exception e) {
-			throw new RuntimeException("Failed to create SSL engine for mock server.", e);
-		}
 
 		final MockApnsServer server = this;
 
@@ -250,7 +238,7 @@ public class MockApnsServer {
 
 			@Override
 			protected void initChannel(final SocketChannel channel) throws Exception {
-				channel.pipeline().addLast("ssl", new SslHandler(sslEngine));
+				channel.pipeline().addLast("ssl", new SslHandler(SSLUtil.createSSLEngineForMockServer()));
 				channel.pipeline().addLast("encoder", new ApnsErrorEncoder());
 				channel.pipeline().addLast("decoder", new ApnsPushNotificationDecoder());
 				channel.pipeline().addLast("handler", new MockApnsServerHandler(server));
@@ -265,7 +253,6 @@ public class MockApnsServer {
 
 	public void shutdown() throws InterruptedException {
 		this.workerGroup.shutdownGracefully();
-		this.bossGroup.shutdownGracefully();
 	}
 
 	public void failWithErrorAfterNotifications(final RejectedNotificationReason errorCode, final int notificationCount) {

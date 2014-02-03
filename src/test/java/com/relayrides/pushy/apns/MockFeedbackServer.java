@@ -38,15 +38,12 @@ import io.netty.handler.ssl.SslHandler;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.net.ssl.SSLEngine;
-
 public class MockFeedbackServer {
 
 	private final int port;
 
 	private final ArrayList<ExpiredToken> expiredTokens;
 
-	private EventLoopGroup bossGroup;
 	private EventLoopGroup workerGroup;
 
 	private volatile boolean closeWhenDone = false;
@@ -95,28 +92,19 @@ public class MockFeedbackServer {
 	}
 
 	public void start() throws InterruptedException {
-		this.bossGroup = new NioEventLoopGroup();
 		this.workerGroup = new NioEventLoopGroup();
 
 		final ServerBootstrap bootstrap = new ServerBootstrap();
 
-		bootstrap.group(this.bossGroup, this.workerGroup);
+		bootstrap.group(this.workerGroup);
 		bootstrap.channel(NioServerSocketChannel.class);
-
-		final SSLEngine sslEngine;
-
-		try {
-			sslEngine = SSLUtil.createSSLEngineForMockServer();
-		} catch (Exception e) {
-			throw new RuntimeException("Failed to create SSL engine for mock server.", e);
-		}
 
 		final MockFeedbackServer server = this;
 		bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
 
 			@Override
 			protected void initChannel(final SocketChannel channel) throws Exception {
-				channel.pipeline().addLast("ssl", new SslHandler(sslEngine));
+				channel.pipeline().addLast("ssl", new SslHandler(SSLUtil.createSSLEngineForMockServer()));
 				channel.pipeline().addLast("encoder", new ExpiredTokenEncoder());
 				channel.pipeline().addLast("handler", new MockFeedbackServerHandler(server));
 			}
@@ -127,7 +115,6 @@ public class MockFeedbackServer {
 
 	public void shutdown() throws InterruptedException {
 		this.workerGroup.shutdownGracefully();
-		this.bossGroup.shutdownGracefully();
 	}
 
 	public synchronized void addExpiredToken(final ExpiredToken expiredToken) {
