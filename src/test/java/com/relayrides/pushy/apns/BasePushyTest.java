@@ -23,14 +23,15 @@ package com.relayrides.pushy.apns;
 
 import static org.junit.Assert.fail;
 
+import java.io.IOException;
 import java.security.KeyManagementException;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
 import java.util.Date;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
 
 import org.junit.After;
 import org.junit.Before;
@@ -51,20 +52,18 @@ public abstract class BasePushyTest {
 	private static final long LATCH_TIMEOUT_VALUE = 5;
 	private static final TimeUnit LATCH_TIMEOUT_UNIT = TimeUnit.SECONDS;
 
-	private static final String PROTOCOL = "TLS";
-
 	private PushManager<SimpleApnsPushNotification> pushManager;
 	private ApnsClientThread<SimpleApnsPushNotification> clientThread;
 
 	private MockApnsServer server;
 
 	@Before
-	public void setUp() throws InterruptedException, NoSuchAlgorithmException, KeyManagementException {
+	public void setUp() throws InterruptedException, NoSuchAlgorithmException, KeyManagementException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		this.server = new MockApnsServer(APNS_PORT);
 		this.server.start();
 
 		final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
-				new PushManagerFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT, this.getSSLContext());
+				new PushManagerFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient());
 
 		this.pushManager = pushManagerFactory.buildPushManager();
 		this.pushManager.start();
@@ -101,12 +100,5 @@ public abstract class BasePushyTest {
 				fail(String.format("Timed out waiting for latch. Remaining count: %d", latch.getCount()));
 			}
 		}
-	}
-
-	protected SSLContext getSSLContext() throws KeyManagementException, NoSuchAlgorithmException {
-		final SSLContext sslContext = SSLContext.getInstance(PROTOCOL);
-		sslContext.init(null, new TrustManager[] { new TrustAllTrustManager() }, null);
-
-		return sslContext;
 	}
 }

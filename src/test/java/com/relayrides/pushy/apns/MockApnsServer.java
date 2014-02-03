@@ -239,7 +239,7 @@ public class MockApnsServer {
 		final SSLEngine sslEngine;
 
 		try {
-			sslEngine = SSLUtil.createMockServerSSLEngine();
+			sslEngine = SSLUtil.createSSLEngineForMockServer();
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to create SSL engine for mock server.", e);
 		}
