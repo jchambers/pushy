@@ -23,6 +23,7 @@ package com.relayrides.pushy.apns;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
@@ -34,6 +35,8 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.MessageToByteEncoder;
 import io.netty.handler.ssl.SslHandler;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -69,19 +72,30 @@ public class MockFeedbackServer {
 		@Override
 		public void channelActive(final ChannelHandlerContext context) {
 
-			final List<ExpiredToken> expiredTokens = this.feedbackServer.getAndClearAllExpiredTokens();
+			context.pipeline().get(SslHandler.class).handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
 
-			ChannelFuture lastWriteFuture = null;
+				public void operationComplete(final Future<Channel> future) throws Exception {
+					if (future.isSuccess()) {
+						final List<ExpiredToken> expiredTokens = feedbackServer.getAndClearAllExpiredTokens();
 
-			for (final ExpiredToken expiredToken : expiredTokens) {
-				lastWriteFuture = context.write(expiredToken);
-			}
+						ChannelFuture lastWriteFuture = null;
 
-			context.flush();
+						for (final ExpiredToken expiredToken : expiredTokens) {
+							lastWriteFuture = context.write(expiredToken);
+						}
 
-			if (this.feedbackServer.closeWhenDone && lastWriteFuture != null) {
-				lastWriteFuture.addListener(ChannelFutureListener.CLOSE);
-			}
+						context.flush();
+
+						if (feedbackServer.closeWhenDone && lastWriteFuture != null) {
+							lastWriteFuture.addListener(ChannelFutureListener.CLOSE);
+						}
+					} else {
+						throw new RuntimeException("Failed to complete TLS handshake.", future.cause());
+					}
+				}
+
+			});
+
 		}
 	}
 
