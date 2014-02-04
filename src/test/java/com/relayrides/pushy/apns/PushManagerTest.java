@@ -196,7 +196,7 @@ public class PushManagerTest extends BasePushyTest {
 		assertTrue(testPushManager.isShutDown());
 	}
 
-	@Test
+	/* @Test
 	public void testHandleThreadDeath() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 
 		final class SelfDestructingApnsClientThread<T extends ApnsPushNotification> extends ApnsClientThread<T> {
@@ -256,5 +256,5 @@ public class PushManagerTest extends BasePushyTest {
 
 		testManager.shutdown();
 		assertTrue(testManager.didReplaceThread());
-	}
+	} */
 }

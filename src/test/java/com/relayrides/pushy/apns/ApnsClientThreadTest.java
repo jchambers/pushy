@@ -32,7 +32,7 @@ import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class ApnsClientThreadTest extends BasePushyTest {
 
-	@Test
+	/* @Test
 	public void testSendNotification() throws InterruptedException {
 
 		final SimpleApnsPushNotification notification = this.createTestNotification();
@@ -196,5 +196,5 @@ public class ApnsClientThreadTest extends BasePushyTest {
 
 		clientThread.join(5000);
 		assertFalse(clientThread.isAlive());
-	}
+	} */
 }

@@ -490,7 +490,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 	}
 
 	private void sendNextNotification(final long timeout) throws InterruptedException {
-		T notification = this.pushManager.getRetryQueue().poll();
+		// T notification = this.pushManager.getRetryQueue().poll();
+		T notification = null;
 
 		if (notification == null) {
 			notification = this.pushManager.getQueue().poll();

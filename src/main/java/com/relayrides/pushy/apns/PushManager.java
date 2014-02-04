@@ -27,6 +27,7 @@ import io.netty.util.concurrent.Future;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.BlockingQueue;
@@ -56,10 +57,11 @@ public class PushManager<T extends ApnsPushNotification> {
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
 	private final int concurrentConnectionCount;
-	private final ArrayList<ApnsClientThread<T>> clientThreads;
-	private final ThreadExceptionHandler<T> threadExceptionHandler;
+	private final ApnsConnectionPool<T> connectionPool;
+	// private final ThreadExceptionHandler<T> threadExceptionHandler;
 	private final Vector<RejectedNotificationListener<? super T>> rejectedNotificationListeners;
 
+	private Thread dispatchThread;
 	private final NioEventLoopGroup workerGroup;
 	private final boolean shouldShutDownWorkerGroup;
 
@@ -70,6 +72,8 @@ public class PushManager<T extends ApnsPushNotification> {
 	private boolean shutDownFinished = false;
 
 	private final Logger log = LoggerFactory.getLogger(PushManager.class);
+
+	private static final long POLL_TIMEOUT = 50; // Milliseconds
 
 	public static class ThreadExceptionHandler<T extends ApnsPushNotification> implements UncaughtExceptionHandler {
 		private final Logger log = LoggerFactory.getLogger(ThreadExceptionHandler.class);
@@ -85,7 +89,7 @@ public class PushManager<T extends ApnsPushNotification> {
 			assert t instanceof ApnsClientThread;
 
 			log.error(String.format("%s died unexpectedly. Please file a bug with the exception details.", t.getName()), e);
-			this.manager.replaceThread(t);
+			// this.manager.replaceThread(t);
 		}
 	}
 
@@ -120,8 +124,8 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.sslContext = sslContext;
 
 		this.concurrentConnectionCount = concurrentConnectionCount;
-		this.clientThreads = new ArrayList<ApnsClientThread<T>>(this.concurrentConnectionCount);
-		this.threadExceptionHandler = new ThreadExceptionHandler<T>(this);
+		this.connectionPool = new ApnsConnectionPool<T>();
+		// this.threadExceptionHandler = new ThreadExceptionHandler<T>(this);
 
 		this.rejectedNotificationExecutorService = Executors.newSingleThreadExecutor();
 
@@ -165,10 +169,42 @@ public class PushManager<T extends ApnsPushNotification> {
 		}
 
 		for (int i = 0; i < this.concurrentConnectionCount; i++) {
-			this.createAndActivateClientThread();
+			final ApnsConnection<T> apnsConnection = new ApnsConnection<T>(this);
+			apnsConnection.connect();
 		}
 
+		this.startDispatchThread();
+
 		this.started = true;
+	}
+
+	private void startDispatchThread() {
+		this.dispatchThread = new Thread(new Runnable() {
+
+			public void run() {
+				while (!shutDown) {
+					try {
+						final ApnsConnection<T> connection = connectionPool.getNextConnection();
+
+						T notification = retryQueue.poll();
+
+						if (notification == null) {
+							notification = queue.poll();
+						}
+
+						if (notification != null) {
+							connection.sendNotification(notification);
+						} else {
+							// Take a rest here to avoid burning resources
+							Thread.sleep(POLL_TIMEOUT);
+						}
+					} catch (InterruptedException e) {
+						continue;
+					}
+				}
+			}
+
+		});
 	}
 
 	/**
@@ -258,7 +294,13 @@ public class PushManager<T extends ApnsPushNotification> {
 		if (this.shutDownFinished) {
 			// We COULD throw an IllegalStateException here, but it seems unnecessary when we could just silently return
 			// the same result without harm.
-			return new ArrayList<T>(this.queue);
+			final ArrayList<T> unsentNotifications = new ArrayList<T>();
+
+			unsentNotifications.addAll(this.retryQueue);
+			unsentNotifications.addAll(this.getQueue());
+
+			return unsentNotifications;
+
 		}
 
 		if (!this.isStarted()) {
@@ -267,33 +309,19 @@ public class PushManager<T extends ApnsPushNotification> {
 
 		this.shutDown = true;
 
-		for (final ApnsClientThread<T> clientThread : this.clientThreads) {
-			clientThread.requestShutdown();
+		for (final ApnsConnection<T> connection : this.connectionPool.getAll()) {
+			connection.shutdownGracefully();
 		}
 
 		if (timeout > 0) {
-			final long deadline = System.currentTimeMillis() + timeout;
-
-			for (final ApnsClientThread<T> clientThread : this.clientThreads) {
-				final long remainingTimeout = deadline - System.currentTimeMillis();
-
-				if (remainingTimeout <= 0) {
-					break;
-				}
-
-				clientThread.join(remainingTimeout);
-			}
-
-			for (final ApnsClientThread<T> clientThread : this.clientThreads) {
-				if (clientThread.isAlive()) {
-					clientThread.shutdownImmediately();
-				}
-			}
+			final Date deadline = new Date(System.currentTimeMillis() + timeout);
+			this.connectionPool.waitForEmptyPool(deadline);
+		} else {
+			this.connectionPool.waitForEmptyPool(null);
 		}
 
-		for (final ApnsClientThread<T> clientThread : this.clientThreads) {
-			clientThread.join();
-		}
+		this.dispatchThread.interrupt();
+		this.dispatchThread.join();
 
 		this.rejectedNotificationListeners.clear();
 		this.rejectedNotificationExecutorService.shutdown();
@@ -313,29 +341,6 @@ public class PushManager<T extends ApnsPushNotification> {
 		unsentNotifications.addAll(this.getQueue());
 
 		return unsentNotifications;
-	}
-
-	protected ApnsClientThread<T> createClientThread() {
-		return new ApnsClientThread<T>(this);
-	}
-
-	private void createAndActivateClientThread() {
-		final ApnsClientThread<T> thread = createClientThread();
-		thread.setUncaughtExceptionHandler(this.threadExceptionHandler);
-		this.clientThreads.add(thread);
-		thread.start();
-	}
-
-	protected synchronized void replaceThread(Thread t) {
-		if (!this.shutDown) {
-			if (!this.clientThreads.remove(t)) {
-				log.warn(String.format("Did not find thread %s in list of client threads.", t.getName()));
-			}
-
-			this.createAndActivateClientThread();
-		} else {
-			log.debug("Thread died unexpectedly, but push manager is already shut down.");
-		}
 	}
 
 	/**
@@ -400,10 +405,6 @@ public class PushManager<T extends ApnsPushNotification> {
 		return this.queue;
 	}
 
-	protected LinkedBlockingQueue<T> getRetryQueue() {
-		return this.retryQueue;
-	}
-
 	protected NioEventLoopGroup getWorkerGroup() {
 		return this.workerGroup;
 	}
@@ -458,14 +459,27 @@ public class PushManager<T extends ApnsPushNotification> {
 	}
 
 	protected void handleConnectionSuccess(final ApnsConnection<T> connection) {
-
+		this.connectionPool.addConnection(connection);
 	}
 
 	protected void handleConnectionFailure(final ApnsConnection<T> connection, final Throwable cause) {
+		// TODO Do more to react to specific causes
 
+		// We tried to open a connection, but failed. As long as we're not shut down, try to open a new one.
+		if (!this.isShutDown()) {
+			new ApnsConnection<T>(this).connect();
+		}
 	}
 
 	protected void handleConnectionClosure(final ApnsConnection<T> connection) {
+		this.connectionPool.removeConnection(connection);
 
+		if (this.dispatchThread != null && this.dispatchThread.isAlive()) {
+			this.dispatchThread.interrupt();
+		}
+
+		if (!this.isShutDown()) {
+			new ApnsConnection<T>(this).connect();
+		}
 	}
 }
