@@ -22,6 +22,7 @@
 package com.relayrides.pushy.apns;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -39,90 +40,88 @@ import java.util.List;
  */
 class SentNotificationBuffer<E extends ApnsPushNotification> {
 
-	private final ApnsPushNotification[] buffer;
-	private int lastSequenceNumber;
+	private final int capacity;
+	private final LinkedList<SendableApnsPushNotification<E>> sentNotifications;
 
 	/**
-	 * Constructs a new sent notification buffer. Note that {@code capacity} MUST be a power of 2.
+	 * Constructs a new sent notification buffer with the given maximum capacity.
 	 * 
-	 * @param capacity the capacity of the buffer; must be a power of 2
+	 * @param capacity the capacity of the buffer
 	 */
 	public SentNotificationBuffer(final int capacity) {
-		if (capacity <= 0 || (capacity & (capacity - 1)) != 0) {
-			throw new IllegalArgumentException("Capacity must be a positive power of two.");
+		if (capacity <= 0) {
+			throw new IllegalArgumentException("Capacity must be positive.");
 		}
 
-		this.buffer = new ApnsPushNotification[capacity];
+		this.capacity = capacity;
+		this.sentNotifications = new LinkedList<SendableApnsPushNotification<E>>();
 	}
 
 	/**
-	 * Adds a sent notification to the buffer, potentially overwriting a previously-existing sent notification.
+	 * Adds a sent notification to the buffer, potentially discarding a previously-existing sent notification.
 	 * 
 	 * @param notification the notification to add to the buffer
 	 */
-	public synchronized void addSentNotification(SendableApnsPushNotification<E> notification) {
-		this.buffer[this.getArrayIndexForSequenceNumber(notification.getSequenceNumber())] =
-				notification.getPushNotification();
+	public synchronized void addSentNotification(final SendableApnsPushNotification<E> notification) {
+		this.sentNotifications.addLast(notification);
 
-		this.lastSequenceNumber = notification.getSequenceNumber();
+		while (this.sentNotifications.size() > this.capacity) {
+			this.sentNotifications.removeFirst();
+		}
 	}
 
 	/**
-	 * Retrieves a notification from the buffer by its sequence number and removes that notification from the buffer.
+	 * Removes all sent notifications from the buffer if they come before the given sequence number (exclusive and
+	 * accounting for potential integer wrapping).
+	 * 
+	 * @param sequenceNumber the sequence number (exclusive) before which to remove sent notifications
+	 */
+	public synchronized void clearNotificationsBeforeSequenceNumber(final int sequenceNumber) {
+		// We avoid a direct "greater than" comparison here to account for integer wrapping
+		while (!this.sentNotifications.isEmpty() && sequenceNumber - this.sentNotifications.getFirst().getSequenceNumber() > 0) {
+			this.sentNotifications.removeFirst();
+		}
+	}
+
+	/**
+	 * Retrieves a notification from the buffer by its sequence number.
 	 * 
 	 * @param sequenceNumber the sequence number of the notification to retrieve
 	 * 
 	 * @return the notification with the given sequence number or {@code null} if no such notification was found
 	 */
-	public synchronized E getAndRemoveNotificationWithSequenceNumber(final int sequenceNumber) {
-		if (this.mayContainSequenceNumber(sequenceNumber)) {
-			final int arrayIndex = this.getArrayIndexForSequenceNumber(sequenceNumber);
-
-			@SuppressWarnings("unchecked")
-			final E notification = (E) this.buffer[arrayIndex];
-			this.buffer[arrayIndex] = null;
-
-			return notification;
-
-		} else {
-			return null;
+	public synchronized E getNotificationWithSequenceNumber(final int sequenceNumber) {
+		for (final SendableApnsPushNotification<E> sentNotification : this.sentNotifications) {
+			if (sentNotification.getSequenceNumber() == sequenceNumber) {
+				return sentNotification.getPushNotification();
+			}
 		}
+
+		return null;
 	}
 
 	/**
-	 * Retrieves a list of all notifications received after the given notification sequence number (non-inclusive). All
-	 * returned notifications are removed from the buffer.
+	 * Retrieves a list of all notifications received after the given notification sequence number (non-inclusive).
 	 * 
 	 * @param sequenceNumber the sequence number of the notification (exclusive) after which to retrieve notifications
 	 * 
 	 * @return all notifications in the buffer sent after the given sequence number
 	 */
-	public synchronized List<E> getAndRemoveAllNotificationsAfterSequenceNumber(final int sequenceNumber) {
-		final ArrayList<E> notifications = new ArrayList<E>();
+	public synchronized List<E> getAllNotificationsAfterSequenceNumber(final int sequenceNumber) {
+		final ArrayList<E> notifications = new ArrayList<E>(this.sentNotifications.size());
 
-		// Work around integer wrapping
-		for (int id = sequenceNumber + 1; id - this.lastSequenceNumber <= 0; id++) {
-			final E notification = this.getAndRemoveNotificationWithSequenceNumber(id);
-
-			if (notification != null) {
-				notifications.add(notification);
+		for (final SendableApnsPushNotification<E> sentNotification : this.sentNotifications) {
+			// We avoid a direct "greater than" comparison here to account for integer wrapping
+			if (sentNotification.getSequenceNumber() - sequenceNumber > 0) {
+				notifications.add(sentNotification.getPushNotification());
 			}
 		}
 
+		notifications.trimToSize();
 		return notifications;
 	}
 
-	private boolean mayContainSequenceNumber(final int sequenceNumber) {
-		final int firstNotificationId = this.lastSequenceNumber - this.buffer.length;
-
-		return sequenceNumber - firstNotificationId > 0;
-	}
-
-	private int getArrayIndexForSequenceNumber(final int sequenceNumber) {
-		if (sequenceNumber >= 0) {
-			return sequenceNumber % this.buffer.length;
-		} else {
-			return (this.buffer.length + (sequenceNumber % this.buffer.length)) % this.buffer.length;
-		}
+	protected int size() {
+		return this.sentNotifications.size();
 	}
 }

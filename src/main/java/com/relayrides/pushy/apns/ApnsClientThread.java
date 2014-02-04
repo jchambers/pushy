@@ -523,12 +523,12 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 						// Delivery failed for some IO-related reason; re-enqueue for another attempt, but
 						// only if the notification is in the sent notification buffer (i.e. if it hasn't
 						// been re-enqueued for another reason).
-						final T failedNotification = sentNotificationBuffer.getAndRemoveNotificationWithSequenceNumber(
+						/* final T failedNotification = sentNotificationBuffer.getAndRemoveNotificationWithSequenceNumber(
 								sendableNotification.getSequenceNumber());
 
 						if (failedNotification != null) {
 							pushManager.enqueuePushNotificationForRetry(failedNotification);
-						}
+						} */
 					} else {
 						if (log.isTraceEnabled()) {
 							log.trace(String.format("%s successfully wrote notification %d",
@@ -564,9 +564,9 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			// SHUTDOWN errors from Apple are harmless; nothing bad happened with the delivered notification, so
 			// we don't want to notify listeners of the error (but we still do need to reconnect).
 			if (rejectedNotification.getReason() != RejectedNotificationReason.SHUTDOWN) {
-				this.pushManager.notifyListenersOfRejectedNotification(
+				/* this.pushManager.notifyListenersOfRejectedNotification(
 						this.sentNotificationBuffer.getAndRemoveNotificationWithSequenceNumber(
-								rejectedNotification.getSequenceNumber()), rejectedNotification.getReason());
+								rejectedNotification.getSequenceNumber()), rejectedNotification.getReason()); */
 			}
 		}
 
@@ -581,8 +581,8 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 
 		// In any case, we know that all notifications sent before the rejected notification were processed and NOT
 		// rejected, while all notifications after the rejected one have not been processed and need to be re-sent.
-		this.pushManager.enqueueAllNotificationsForRetry(
-				this.sentNotificationBuffer.getAndRemoveAllNotificationsAfterSequenceNumber(rejectedNotification.getSequenceNumber()));
+		/* this.pushManager.enqueueAllNotificationsForRetry(
+				this.sentNotificationBuffer.getAndRemoveAllNotificationsAfterSequenceNumber(rejectedNotification.getSequenceNumber())); */
 	}
 
 	private void requestReconnection() {

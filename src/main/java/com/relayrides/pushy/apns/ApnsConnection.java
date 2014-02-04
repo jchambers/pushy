@@ -324,14 +324,24 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		log.debug(String.format("APNs gateway rejected notification with sequence number %d from %s (%s).",
 				rejectedNotification.getSequenceNumber(), this.name, rejectedNotification.getReason()));
 
+		this.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
+
 		// Notify listeners of the rejected notification, but only if it's not a known-bad shutdown notification
 		if (this.shutdownNotification == null || rejectedNotification.getSequenceNumber() != this.shutdownNotification.getSequenceNumber()) {
 			// SHUTDOWN errors from Apple are harmless; nothing bad happened with the delivered notification, so
 			// we don't want to notify listeners of the error (but we still do need to reconnect).
 			if (rejectedNotification.getReason() != RejectedNotificationReason.SHUTDOWN) {
-				this.pushManager.notifyListenersOfRejectedNotification(
-						this.sentNotificationBuffer.getAndRemoveNotificationWithSequenceNumber(
-								rejectedNotification.getSequenceNumber()), rejectedNotification.getReason());
+
+				final T notification = this.sentNotificationBuffer.getNotificationWithSequenceNumber(
+						rejectedNotification.getSequenceNumber());
+
+				if (notification != null) {
+					this.pushManager.notifyListenersOfRejectedNotification(notification, rejectedNotification.getReason());
+				} else {
+					log.error(String.format("%s failed to find rejected notification with sequence number %d; this " +
+							"most likely means the sent notification buffer is too small. Please report this as a bug.",
+							this.name, rejectedNotification.getSequenceNumber()));
+				}
 			}
 		}
 
@@ -339,7 +349,8 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		// NOT rejected, while all notifications after the rejected one have definitely not been processed and need to
 		// be re-sent.
 		this.pushManager.enqueueAllNotificationsForRetry(
-				this.sentNotificationBuffer.getAndRemoveAllNotificationsAfterSequenceNumber(rejectedNotification.getSequenceNumber()));
+				this.sentNotificationBuffer.getAllNotificationsAfterSequenceNumber(
+						rejectedNotification.getSequenceNumber()));
 	}
 
 	/**
