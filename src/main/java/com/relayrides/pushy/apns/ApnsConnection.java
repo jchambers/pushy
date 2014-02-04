@@ -167,8 +167,10 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 		@Override
 		public void channelInactive(final ChannelHandlerContext context) {
-			// TODO Notify listener that connection has closed
-			// TODO Decide what to do with messages on the sent buffer
+			// It's conceivable that the channel will become inactive without warning, though that would be a breach of
+			// the APNs protocol. It's not clear what we should do with messages in the sent buffer in that case, but
+			// for now we'll just leave them alone and assume they went somewhere.
+			pushManager.handleConnectionClosure(apnsConnection);
 		}
 	}
 
@@ -215,15 +217,15 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	@SuppressWarnings("deprecation")
 	public synchronized void connect() {
 
-		final String connectionName = this.name;
+		final ApnsConnection<T> apnsConnection = this;
 
 		if (this.startedConnectionAttempt) {
-			throw new IllegalStateException(String.format("%s already started a connection attempt.", connectionName));
+			throw new IllegalStateException(String.format("%s already started a connection attempt.", apnsConnection.name));
 		}
 
 		this.startedConnectionAttempt = true;
 
-		log.debug(String.format("%s beginning connection process.", connectionName));
+		log.debug(String.format("%s beginning connection process.", apnsConnection.name));
 		this.bootstrap.connect(
 				this.pushManager.getEnvironment().getApnsGatewayHost(),
 				this.pushManager.getEnvironment().getApnsGatewayPort()).addListener(
@@ -231,7 +233,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 							public void operationComplete(final ChannelFuture connectFuture) {
 								if (connectFuture.isSuccess()) {
-									log.debug(String.format("%s connected; waiting for TLS handshake.", connectionName));
+									log.debug(String.format("%s connected; waiting for TLS handshake.", apnsConnection.name));
 
 									final SslHandler sslHandler = connectFuture.channel().pipeline().get(SslHandler.class);
 
@@ -240,33 +242,31 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 											public void operationComplete(final Future<Channel> handshakeFuture) {
 												if (handshakeFuture.isSuccess()) {
-													log.debug(String.format("%s successfully completed TLS handshake.", connectionName));
+													log.debug(String.format("%s successfully completed TLS handshake.", apnsConnection.name));
 
-													// this.channel = this.connectFuture.channel();
-													// this.channel.config().setAutoClose(false);
+													apnsConnection.channel = connectFuture.channel();
+													apnsConnection.channel.config().setAutoClose(false);
 
-													// TODO Notify listeners of success
+													pushManager.handleConnectionSuccess(apnsConnection);
 												} else {
-													log.error(String.format("%s failed to complete TLS handshake with APNs gateway.", connectionName),
+													log.error(String.format("%s failed to complete TLS handshake with APNs gateway.", apnsConnection.name),
 															handshakeFuture.cause());
 
 													connectFuture.channel().close();
-
-													// TODO Notify listeners of failure
+													pushManager.handleConnectionFailure(apnsConnection, handshakeFuture.cause());
 												}
 											}});
 									} else {
-										log.error(String.format("%s failed to get SSL handler and could not wait for a TLS handshake.", connectionName));
+										log.error(String.format("%s failed to get SSL handler and could not wait for a TLS handshake.", apnsConnection.name));
 
 										connectFuture.channel().close();
-
-										// TODO Notify listeners of failure
+										pushManager.handleConnectionFailure(apnsConnection, null);
 									}
 								} else {
-									log.error(String.format("%s failed to connect to APNs gateway.", connectionName),
+									log.error(String.format("%s failed to connect to APNs gateway.", apnsConnection.name),
 											connectFuture.cause());
 
-									// TODO Notify listeners of failure
+									pushManager.handleConnectionFailure(apnsConnection, connectFuture.cause());
 								}
 							}
 						});
@@ -405,7 +405,6 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		this.shuttingDown = true;
 
 		if (this.channel != null) {
-			// TODO Decide how to synchronize on this
 			this.channel.close();
 		}
 	}

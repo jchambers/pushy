@@ -456,4 +456,16 @@ public class PushManager<T extends ApnsPushNotification> {
 
 		return new FeedbackServiceClient(this).getExpiredTokens(timeout, timeoutUnit);
 	}
+
+	protected void handleConnectionSuccess(final ApnsConnection<T> connection) {
+
+	}
+
+	protected void handleConnectionFailure(final ApnsConnection<T> connection, final Throwable cause) {
+
+	}
+
+	protected void handleConnectionClosure(final ApnsConnection<T> connection) {
+
+	}
 }
