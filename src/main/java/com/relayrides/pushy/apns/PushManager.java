@@ -50,7 +50,7 @@ import org.slf4j.LoggerFactory;
  * 
  * @see PushManagerFactory
  */
-public class PushManager<T extends ApnsPushNotification> {
+public class PushManager<T extends ApnsPushNotification> implements ApnsConnectionListener<T> {
 	private final BlockingQueue<T> queue;
 	private final LinkedBlockingQueue<T> retryQueue;
 
@@ -139,19 +139,6 @@ public class PushManager<T extends ApnsPushNotification> {
 	}
 
 	/**
-	 * Returns the environment in which this {@code PushManager} is operating.
-	 * 
-	 * @return the environment in which this {@code PushManager} is operating
-	 */
-	public ApnsEnvironment getEnvironment() {
-		return this.environment;
-	}
-
-	protected SSLContext getSSLContext() {
-		return this.sslContext;
-	}
-
-	/**
 	 * <p>Opens all connections to APNs and prepares to send push notifications. Note that enqueued push notifications
 	 * will <strong>not</strong> be sent until this method is called.</p>
 	 * 
@@ -169,8 +156,7 @@ public class PushManager<T extends ApnsPushNotification> {
 		}
 
 		for (int i = 0; i < this.concurrentConnectionCount; i++) {
-			final ApnsConnection<T> apnsConnection = new ApnsConnection<T>(this);
-			apnsConnection.connect();
+			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this).connect();
 		}
 
 		this.startDispatchThread();
@@ -205,34 +191,6 @@ public class PushManager<T extends ApnsPushNotification> {
 			}
 
 		});
-	}
-
-	/**
-	 * <p>Enqueues a push notification for re-transmission to the APNs service. Notifications may not be sent to APNs
-	 * immediately, and delivery is not guaranteed by APNs, but notifications rejected by APNs for specific reasons
-	 * will be passed to registered {@link RejectedNotificationListener}s. Notifications that are to be re-transmitted
-	 * are given priority over &quot;new&quot; notifications, but are otherwise treated identically.</p>
-	 * 
-	 * @param notification the notification to enqueue for re-transmission
-	 * 
-	 * @see PushManager#registerRejectedNotificationListener(RejectedNotificationListener)
-	 */
-	protected void enqueuePushNotificationForRetry(final T notification) {
-		this.retryQueue.add(notification);
-	}
-
-	/**
-	 * <p>Enqueues a collection of push notifications for re-transmission to the APNs service. Notifications may not be
-	 * sent to APNs immediately, and delivery is not guaranteed by APNs, but notifications rejected by APNs for
-	 * specific reasons will be passed to registered {@link RejectedNotificationListener}s. Notifications that are to
-	 * be re-transmitted are given priority over &quot;new&quot; notifications, but are otherwise treated identically.</p>
-	 * 
-	 * @param notifications the notifications to enqueue for re-transmission
-	 * 
-	 * @see PushManager#registerRejectedNotificationListener(RejectedNotificationListener)
-	 */
-	protected void enqueueAllNotificationsForRetry(final Collection<T> notifications) {
-		this.retryQueue.addAll(notifications);
 	}
 
 	/**
@@ -374,18 +332,6 @@ public class PushManager<T extends ApnsPushNotification> {
 		return this.rejectedNotificationListeners.remove(listener);
 	}
 
-	protected void notifyListenersOfRejectedNotification(final T notification, final RejectedNotificationReason reason) {
-		for (final RejectedNotificationListener<? super T> listener : this.rejectedNotificationListeners) {
-
-			// Handle the notifications in a separate thread in case a listener takes a long time to run
-			this.rejectedNotificationExecutorService.submit(new Runnable() {
-				public void run() {
-					listener.handleRejectedNotification(notification, reason);
-				}
-			});
-		}
-	}
-
 	/**
 	 * <p>Returns the queue of messages to be sent to the APNs gateway. Callers should add notifications to this queue
 	 * directly to send notifications. Notifications will be removed from this queue by Pushy when a send attempt is
@@ -403,10 +349,6 @@ public class PushManager<T extends ApnsPushNotification> {
 	 */
 	public BlockingQueue<T> getQueue() {
 		return this.queue;
-	}
-
-	protected NioEventLoopGroup getWorkerGroup() {
-		return this.workerGroup;
 	}
 
 	/**
@@ -458,20 +400,20 @@ public class PushManager<T extends ApnsPushNotification> {
 		return new FeedbackServiceClient(this).getExpiredTokens(timeout, timeoutUnit);
 	}
 
-	protected void handleConnectionSuccess(final ApnsConnection<T> connection) {
+	public void handleConnectionSuccess(final ApnsConnection<T> connection) {
 		this.connectionPool.addConnection(connection);
 	}
 
-	protected void handleConnectionFailure(final ApnsConnection<T> connection, final Throwable cause) {
+	public void handleConnectionFailure(final ApnsConnection<T> connection, final Throwable cause) {
 		// TODO Do more to react to specific causes
 
 		// We tried to open a connection, but failed. As long as we're not shut down, try to open a new one.
 		if (!this.isShutDown()) {
-			new ApnsConnection<T>(this).connect();
+			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this).connect();
 		}
 	}
 
-	protected void handleConnectionClosure(final ApnsConnection<T> connection) {
+	public void handleConnectionClosure(final ApnsConnection<T> connection) {
 		this.connectionPool.removeConnection(connection);
 
 		if (this.dispatchThread != null && this.dispatchThread.isAlive()) {
@@ -479,7 +421,31 @@ public class PushManager<T extends ApnsPushNotification> {
 		}
 
 		if (!this.isShutDown()) {
-			new ApnsConnection<T>(this).connect();
+			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this).connect();
 		}
+	}
+
+	public void handleWriteFailure(ApnsConnection<T> connection, T notification, Throwable cause) {
+		this.retryQueue.add(notification);
+	}
+
+	public void handleRejectedNotification(final ApnsConnection<T> connection, final T rejectedNotification,
+			final RejectedNotificationReason reason, final Collection<T> unprocessedNotifications) {
+
+		// SHUTDOWN errors from Apple are harmless; nothing bad happened with the delivered notification, so
+		// we don't want to notify listeners of the error (but we still do need to reconnect).
+		if (!RejectedNotificationReason.SHUTDOWN.equals(reason)) {
+			for (final RejectedNotificationListener<? super T> listener : this.rejectedNotificationListeners) {
+
+				// Handle the notifications in a separate thread in case a listener takes a long time to run
+				this.rejectedNotificationExecutorService.submit(new Runnable() {
+					public void run() {
+						listener.handleRejectedNotification(rejectedNotification, reason);
+					}
+				});
+			}
+		}
+
+		this.retryQueue.addAll(unprocessedNotifications);
 	}
 }

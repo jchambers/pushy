@@ -89,7 +89,7 @@ public class PushManagerTest extends BasePushyTest {
 		assertFalse(this.getPushManager().unregisterRejectedNotificationListener(listener));
 	}
 
-	@Test
+	/* @Test
 	public void testShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		{
 			final PushManager<ApnsPushNotification> defaultGroupPushManager =
@@ -115,7 +115,7 @@ public class PushManagerTest extends BasePushyTest {
 
 			group.shutdownGracefully();
 		}
-	}
+	} */
 
 	@Test(expected = IllegalStateException.class)
 	public void testDoubleStart() throws KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
