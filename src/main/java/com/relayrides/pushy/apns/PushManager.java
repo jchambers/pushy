@@ -1,15 +1,15 @@
 /* Copyright (c) 2013 RelayRides
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -46,7 +46,7 @@ import org.slf4j.LoggerFactory;
  * always be created using the {@link PushManagerFactory} class.</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
- * 
+ *
  * @see PushManagerFactory
  */
 public class PushManager<T extends ApnsPushNotification> implements ApnsConnectionListener<T> {
@@ -98,11 +98,11 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * given number of parallel connections to APNs. See
 	 * <a href="http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW6">
 	 * Best Practices for Managing Connections</a> for additional information.</p>
-	 * 
+	 *
 	 * <p>This constructor may take an event loop group as an argument; if an event loop group is provided, the caller
 	 * is responsible for managing the lifecycle of the group and <strong>must</strong> shut it down after shutting down
 	 * this {@code PushManager}.</p>
-	 * 
+	 *
 	 * @param environment the environment in which this {@code PushManager} operates
 	 * @param sslContext TODO
 	 * @param concurrentConnectionCount the number of parallel connections to maintain
@@ -143,9 +143,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	/**
 	 * <p>Opens all connections to APNs and prepares to send push notifications. Note that enqueued push notifications
 	 * will <strong>not</strong> be sent until this method is called.</p>
-	 * 
+	 *
 	 * <p>Push managers may only be started once and cannot be reused after being shut down.</p>
-	 * 
+	 *
 	 * @throws IllegalStateException if the push manager has already been started or has already been shut down
 	 */
 	public synchronized void start() {
@@ -193,11 +193,13 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			}
 
 		});
+
+		this.dispatchThread.start();
 	}
 
 	/**
 	 * Indicates whether this push manager has been started and not yet shut down.
-	 * 
+	 *
 	 * @return {@code true} if this push manager has been started and has not yet been shut down or {@code false}
 	 * otherwise
 	 */
@@ -211,7 +213,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	/**
 	 * Indicates whether this push manager has been shut down (or is in the process of shutting down).
-	 * 
+	 *
 	 * @return {@code true} if this push manager has been shut down or is in the process of shutting down or
 	 * {@code false} otherwise
 	 */
@@ -222,9 +224,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	/**
 	 * Disconnects from the APNs and gracefully shuts down all worker threads. This method will block until all client
 	 * threads have shut down gracefully.
-	 * 
+	 *
 	 * @return a list of notifications not sent before the {@code PushManager} shut down
-	 * 
+	 *
 	 * @throws InterruptedException if interrupted while waiting for worker threads to exit cleanly
 	 * @throws IllegalStateException if this method is called before the push manager has been started
 	 */
@@ -237,11 +239,11 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * timeout expires for client threads to shut down gracefully, and will then instruct them to shut down as soon
 	 * as possible (and will block until shutdown is complete). Note that the returned list of undelivered push
 	 * notifications may not be accurate in cases where the timeout elapsed before the client threads shut down.
-	 * 
+	 *
 	 * @param timeout the timeout, in milliseconds, after which client threads should be shut down as quickly as possible
-	 * 
+	 *
 	 * @return a list of notifications not sent before the {@code PushManager} shut down
-	 * 
+	 *
 	 * @throws InterruptedException if interrupted while waiting for worker threads to exit cleanly
 	 * @throws IllegalStateException if this method is called before the push manager has been started
 	 */
@@ -307,11 +309,11 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * <p>Registers a listener for notifications rejected by APNs for specific reasons. Note that listeners are stored
 	 * as strong references; all listeners are automatically un-registered when the push manager is shut down, but
 	 * failing to unregister a listener manually or to shut down the push manager may cause a memory leak.</p>
-	 * 
+	 *
 	 * @param listener the listener to register
-	 * 
+	 *
 	 * @throws IllegalStateException if this push manager has already been shut down
-	 * 
+	 *
 	 * @see PushManager#unregisterRejectedNotificationListener(RejectedNotificationListener)
 	 */
 	public void registerRejectedNotificationListener(final RejectedNotificationListener<? super T> listener) {
@@ -324,9 +326,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	/**
 	 * <p>Un-registers a rejected notification listener.</p>
-	 * 
+	 *
 	 * @param listener the listener to un-register
-	 * 
+	 *
 	 * @return {@code true} if the given listener was registered with this push manager and removed or {@code false} if
 	 * the listener was not already registered with this push manager
 	 */
@@ -341,12 +343,12 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * neither guaranteed nor acknowledged by the APNs gateway. Notifications rejected by APNs for specific reasons
 	 * will be passed to registered {@link RejectedNotificationListener}s, and notifications that could not be sent due
 	 * to temporary I/O problems will be scheduled for re-transmission in a separate, internal queue.</p>
-	 * 
+	 *
 	 * <p>Notifications in this queue will only be consumed when the {@code PushManager} is running and has active
 	 * connections and when the internal &quot;retry queue&quot; is empty.</p>
-	 * 
+	 *
 	 * @return the queue of new notifications to send to the APNs gateway
-	 * 
+	 *
 	 * @see PushManager#registerRejectedNotificationListener(RejectedNotificationListener)
 	 */
 	public BlockingQueue<T> getQueue() {
@@ -356,15 +358,15 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	/**
 	 * <p>Queries the APNs feedback service for expired tokens using a reasonable default timeout. Be warned that this
 	 * is a <strong>destructive operation</strong>. According to Apple's documentation:</p>
-	 * 
+	 *
 	 * <blockquote>The feedback service’s list is cleared after you read it. Each time you connect to the feedback
 	 * service, the information it returns lists only the failures that have happened since you last
 	 * connected.</blockquote>
-	 * 
+	 *
 	 * <p>The push manager must be started before calling this method.</p>
-	 * 
+	 *
 	 * @return a list of tokens that have expired since the last connection to the feedback service
-	 * 
+	 *
 	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
 	 * @throws FeedbackConnectionException TODO
 	 */
@@ -375,19 +377,19 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	/**
 	 * <p>Queries the APNs feedback service for expired tokens using the given timeout. Be warned that this is a
 	 * <strong>destructive operation</strong>. According to Apple's documentation:</p>
-	 * 
+	 *
 	 * <blockquote>The feedback service’s list is cleared after you read it. Each time you connect to the feedback
 	 * service, the information it returns lists only the failures that have happened since you last
 	 * connected.</blockquote>
-	 * 
+	 *
 	 * <p>The push manager must be started before calling this method.</p>
-	 * 
+	 *
 	 * @param timeout the time after the last received data after which the connection to the feedback service should
 	 * be closed
 	 * @param timeoutUnit the unit of time in which the given {@code timeout} is measured
-	 * 
+	 *
 	 * @return a list of tokens that have expired since the last connection to the feedback service
-	 * 
+	 *
 	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
 	 * @throws FeedbackConnectionException TODO
 	 * @throws IllegalStateException if this push manager has not been started yet or has already been shut down
