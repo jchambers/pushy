@@ -41,10 +41,8 @@ import org.junit.Test;
 
 public class FeedbackServiceClientTest {
 
-	private static final int APNS_PORT = 2195;
-	private static final int FEEDBACK_PORT = 2196;
 	private static final ApnsEnvironment TEST_ENVIRONMENT =
-			new ApnsEnvironment("localhost", APNS_PORT, "localhost", FEEDBACK_PORT);
+			new ApnsEnvironment("localhost", 2195, "localhost", 2196);
 
 	private NioEventLoopGroup workerGroup;
 
@@ -53,7 +51,7 @@ public class FeedbackServiceClientTest {
 
 	@Before
 	public void setUp() throws InterruptedException, NoSuchAlgorithmException, KeyManagementException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
-		this.feedbackServer = new MockFeedbackServer(FEEDBACK_PORT);
+		this.feedbackServer = new MockFeedbackServer(TEST_ENVIRONMENT.getFeedbackPort());
 		this.feedbackServer.start();
 
 		// TODO Make the feedback server use this group, too
