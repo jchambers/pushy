@@ -258,7 +258,12 @@ public class PushManager<T extends ApnsPushNotification> {
 		if (this.shutDownFinished) {
 			// We COULD throw an IllegalStateException here, but it seems unnecessary when we could just silently return
 			// the same result without harm.
-			return new ArrayList<T>(this.queue);
+			final ArrayList<T> unsentNotifications = new ArrayList<T>();
+
+			unsentNotifications.addAll(this.retryQueue);
+			unsentNotifications.addAll(this.getQueue());
+
+			return unsentNotifications;
 		}
 
 		if (!this.isStarted()) {
