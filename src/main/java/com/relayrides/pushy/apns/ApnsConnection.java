@@ -299,18 +299,18 @@ class ApnsConnection<T extends ApnsPushNotification> {
 						});
 	}
 
-	public synchronized void sendNotification(final T notification) {
+	public synchronized void sendNotification(final T notification) throws ConnectionNotActiveException {
 		final SendableApnsPushNotification<T> sendableNotification =
 				new SendableApnsPushNotification<T>(notification, this.sequenceNumber.getAndIncrement());
 
 		final ApnsConnection<T> apnsConnection = this;
 
 		if (this.channel == null || !this.channel.isActive()) {
-			throw new IllegalStateException(String.format("%s is not connected.", apnsConnection.name));
+			throw new ConnectionNotActiveException(String.format("%s is not connected.", apnsConnection.name));
 		}
 
 		if (this.shuttingDown) {
-			throw new IllegalStateException(String.format("%s is shutting down.", apnsConnection.name));
+			throw new ConnectionNotActiveException(String.format("%s is shutting down.", apnsConnection.name));
 		}
 
 		if (log.isTraceEnabled()) {

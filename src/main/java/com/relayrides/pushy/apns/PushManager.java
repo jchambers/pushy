@@ -182,7 +182,14 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 						}
 
 						if (notification != null) {
-							connection.sendNotification(notification);
+							try {
+								connection.sendNotification(notification);
+							} catch (ConnectionNotActiveException e) {
+								// The connection probably became inactive in the time it took us to grab the next
+								// notification; enqueue the notification for a retry, but assume the connection itself
+								// will fall out of rotation on its own shortly.
+								retryQueue.add(notification);
+							}
 						} else {
 							// Take a rest here to avoid burning resources
 							Thread.sleep(POLL_TIMEOUT);
