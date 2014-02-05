@@ -41,8 +41,10 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	/**
 	 * Constructs a new factory that will construct {@link PushManager}s that operate in the given environment with the
 	 * given credentials.
-	 * 
+	 *
 	 * @param environment the environment in which constructed {@code PushManager}s will operate
+	 * @param sslContext the SSL context in which connections controlled by the constructed {@code PushManager} will
+	 * operate
 	 */
 	public PushManagerFactory(final ApnsEnvironment environment, final SSLContext sslContext) {
 
@@ -118,12 +120,20 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 				this.queue);
 	}
 
+	/**
+	 * Creates a new SSL context using the JVM default trust managers and the certificates in the given PKCS12 file.
+	 *
+	 * @param pathToPKCS12File the path to a PKCS12 file that contains the client certificate
+	 * @param keystorePassword the password to read the PKCS12 file; may be {@code null}
+	 *
+	 * @return an SSL context configured with the given client certificate and the JVM default trust managers
+	 */
 	public static SSLContext createDefaultSSLContext(final String pathToPKCS12File, final String keystorePassword) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException, KeyManagementException, IOException {
 		final FileInputStream keystoreInputStream = new FileInputStream("/path/to/certificate.p12");
 
 		try {
 			final KeyStore keyStore = KeyStore.getInstance("PKCS12");
-			keyStore.load(keystoreInputStream, keystorePassword.toCharArray());
+			keyStore.load(keystoreInputStream, keystorePassword != null ? keystorePassword.toCharArray() : null);
 
 			return PushManagerFactory.createDefaultSSLContext(keyStore, keystorePassword.toCharArray());
 		} finally {
@@ -136,18 +146,14 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	}
 
 	/**
-	 * 
-	 * @param keyStore A {@code KeyStore} containing the client key to present during a TLS handshake; may be
+	 * Creates a new SSL context using the JVM default trust managers and the certificates in the given keystore.
+	 *
+	 * @param keyStore A {@code KeyStore} containing the client certificates to present during a TLS handshake; may be
 	 * {@code null} if the environment does not require TLS. The {@code KeyStore} should be loaded before being used
 	 * here.
 	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
-	 * 
-	 * @return
-	 * 
-	 * @throws KeyStoreException
-	 * @throws NoSuchAlgorithmException
-	 * @throws UnrecoverableKeyException
-	 * @throws KeyManagementException
+	 *
+	 * @return an SSL context configured with the certificates in the given keystore and the JVM default trust managers
 	 */
 	public static SSLContext createDefaultSSLContext(final KeyStore keyStore, final char[] keyStorePassword) throws KeyStoreException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyManagementException {
 		String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
