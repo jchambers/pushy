@@ -24,6 +24,7 @@ package com.relayrides.pushy.apns;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -202,16 +203,8 @@ public class MockApnsServer {
 				final RejectedNotification rejection = this.server.handleReceivedNotification(receivedNotification);
 
 				if (rejection != null) {
-
 					this.rejectFutureMessages = true;
-
-					context.writeAndFlush(rejection).addListener(new GenericFutureListener<ChannelFuture>() {
-
-						public void operationComplete(final ChannelFuture future) {
-							context.close();
-						}
-
-					});
+					context.writeAndFlush(rejection).addListener(ChannelFutureListener.CLOSE);
 				}
 			}
 		}
