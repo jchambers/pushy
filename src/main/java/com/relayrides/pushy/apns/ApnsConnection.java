@@ -71,7 +71,6 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	private final AtomicInteger sequenceNumber = new AtomicInteger(0);
 
 	private boolean startedConnectionAttempt = false;
-	private boolean shuttingDown = false;
 	private boolean hasEverSentNotification = false;;
 
 	private SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
@@ -303,14 +302,8 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 		final ApnsConnection<T> apnsConnection = this;
 
-		if (this.channel == null || !this.channel.isActive()) {
-			this.listener.handleWriteFailure(this, notification,new IllegalStateException(
-					String.format("%s is not active.", this.name)));
-		}
-
-		if (this.shuttingDown) {
-			this.listener.handleWriteFailure(this, notification,new IllegalStateException(
-					String.format("%s is shutting down.", this.name)));
+		if (this.channel == null) {
+			throw new IllegalStateException(String.format("%s has not connected.", this.name));
 		}
 
 		if (log.isTraceEnabled()) {
@@ -353,8 +346,6 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 		final ApnsConnection<T> apnsConnection = this;
 
-		this.shuttingDown = true;
-
 		if (this.hasEverSentNotification && this.shutdownNotification == null) {
 
 			// It's conceivable that the channel has become inactive already; if so, our work here is already done.
@@ -395,8 +386,6 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	}
 
 	public synchronized void shutdownImmediately() {
-		this.shuttingDown = true;
-
 		if (this.channel != null) {
 			this.channel.close();
 		}
