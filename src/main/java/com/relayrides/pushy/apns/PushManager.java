@@ -24,7 +24,6 @@ package com.relayrides.pushy.apns;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
 
-import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -182,14 +181,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 						}
 
 						if (notification != null) {
-							try {
-								connection.sendNotification(notification);
-							} catch (ConnectionNotActiveException e) {
-								// The connection probably became inactive in the time it took us to grab the next
-								// notification; enqueue the notification for a retry, but assume the connection itself
-								// will fall out of rotation on its own shortly.
-								retryQueue.add(notification);
-							}
+							connection.sendNotification(notification);
 						} else {
 							// Take a rest here to avoid burning resources
 							Thread.sleep(POLL_TIMEOUT);
