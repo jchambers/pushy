@@ -23,6 +23,7 @@ package com.relayrides.pushy.apns;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import io.netty.channel.nio.NioEventLoopGroup;
 
 import java.io.IOException;
 import java.security.KeyManagementException;
@@ -38,40 +39,32 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
-
 public class FeedbackServiceClientTest {
 
 	private static final int APNS_PORT = 2195;
 	private static final int FEEDBACK_PORT = 2196;
+	private static final ApnsEnvironment TEST_ENVIRONMENT =
+			new ApnsEnvironment("localhost", APNS_PORT, "localhost", FEEDBACK_PORT);
 
-	private PushManager<SimpleApnsPushNotification> pushManager;
-	private MockApnsServer apnsServer;
+	private NioEventLoopGroup workerGroup;
+
 	private MockFeedbackServer feedbackServer;
 	private FeedbackServiceClient feedbackClient;
 
-	/* @Before
+	@Before
 	public void setUp() throws InterruptedException, NoSuchAlgorithmException, KeyManagementException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
-		// While we don't use the server directly, having it up and running causes the PushManager to complain less
-		this.apnsServer = new MockApnsServer(APNS_PORT);
-		this.apnsServer.start();
-
 		this.feedbackServer = new MockFeedbackServer(FEEDBACK_PORT);
 		this.feedbackServer.start();
 
-		final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
-				new PushManagerFactory<SimpleApnsPushNotification>(
-						new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT), SSLUtil.createSSLContextForTestClient());
+		// TODO Make the feedback server use this group, too
+		this.workerGroup = new NioEventLoopGroup();
 
-		this.pushManager = pushManagerFactory.buildPushManager();
-		this.pushManager.start();
-
-		this.feedbackClient = new FeedbackServiceClient(pushManager);
+		this.feedbackClient = new FeedbackServiceClient(TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient(), this.workerGroup);
 	}
 
 	@Test
-	public void testGetExpiredTokens() throws InterruptedException {
-		assertTrue(feedbackClient.getExpiredTokens(1, TimeUnit.SECONDS).isEmpty());
+	public void testGetExpiredTokens() throws InterruptedException, FeedbackConnectionException {
+		assertTrue(this.feedbackClient.getExpiredTokens(1, TimeUnit.SECONDS).isEmpty());
 
 		// Dates will have some loss of precision since APNS only deals with SECONDS since the epoch; we choose
 		// timestamps that just happen to be on full seconds.
@@ -91,7 +84,7 @@ public class FeedbackServiceClientTest {
 	}
 
 	@Test
-	public void testGetExpiredTokensCloseWhenDone() throws InterruptedException {
+	public void testGetExpiredTokensCloseWhenDone() throws InterruptedException, FeedbackConnectionException {
 		this.feedbackServer.setCloseWhenDone(true);
 		this.testGetExpiredTokens();
 	}
@@ -99,8 +92,7 @@ public class FeedbackServiceClientTest {
 
 	@After
 	public void tearDown() throws InterruptedException {
-		this.apnsServer.shutdown();
 		this.feedbackServer.shutdown();
-		this.pushManager.shutdown();
-	} */
+		this.workerGroup.shutdownGracefully().await();
+	}
 }
