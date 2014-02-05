@@ -204,7 +204,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	 */
 	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup workerGroup, final ApnsConnectionListener<T> listener) {
 
-		if (this.listener == null) {
+		if (listener == null) {
 			throw new NullPointerException("Listener must not be null.");
 		}
 
