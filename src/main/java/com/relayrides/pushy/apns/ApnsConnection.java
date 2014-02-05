@@ -140,15 +140,34 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 	private class RejectedNotificationHandler extends SimpleChannelInboundHandler<RejectedNotification> {
 
-		private final ApnsConnection<T> clientThread;
+		private final ApnsConnection<T> apnsConnection;
 
 		public RejectedNotificationHandler(final ApnsConnection<T> clientThread) {
-			this.clientThread = clientThread;
+			this.apnsConnection = clientThread;
 		}
 
 		@Override
 		protected void channelRead0(final ChannelHandlerContext context, final RejectedNotification rejectedNotification) throws Exception {
-			this.clientThread.handleRejectedNotification(rejectedNotification);
+			log.debug(String.format("APNs gateway rejected notification with sequence number %d from %s (%s).",
+					rejectedNotification.getSequenceNumber(), this.apnsConnection.name, rejectedNotification.getReason()));
+
+			this.apnsConnection.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
+
+			// Notify listeners of the rejected notification, but only if it's not a known-bad shutdown notification
+			if (this.apnsConnection.shutdownNotification == null || rejectedNotification.getSequenceNumber() != this.apnsConnection.shutdownNotification.getSequenceNumber()) {
+				final T notification = this.apnsConnection.sentNotificationBuffer.getNotificationWithSequenceNumber(
+						rejectedNotification.getSequenceNumber());
+
+				if (notification != null) {
+					this.apnsConnection.listener.handleRejectedNotification(this.apnsConnection, notification, rejectedNotification.getReason(),
+							this.apnsConnection.sentNotificationBuffer.getAllNotificationsAfterSequenceNumber(
+									rejectedNotification.getSequenceNumber()));
+				} else {
+					log.error(String.format("%s failed to find rejected notification with sequence number %d; this " +
+							"most likely means the sent notification buffer is too small. Please report this as a bug.",
+							this.apnsConnection.name, rejectedNotification.getSequenceNumber()));
+				}
+			}
 		}
 	}
 
@@ -324,30 +343,6 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		});
 
 		this.hasEverSentNotification = true;
-	}
-
-	private void handleRejectedNotification(final RejectedNotification rejectedNotification) {
-
-		log.debug(String.format("APNs gateway rejected notification with sequence number %d from %s (%s).",
-				rejectedNotification.getSequenceNumber(), this.name, rejectedNotification.getReason()));
-
-		this.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
-
-		// Notify listeners of the rejected notification, but only if it's not a known-bad shutdown notification
-		if (this.shutdownNotification == null || rejectedNotification.getSequenceNumber() != this.shutdownNotification.getSequenceNumber()) {
-			final T notification = this.sentNotificationBuffer.getNotificationWithSequenceNumber(
-					rejectedNotification.getSequenceNumber());
-
-			if (notification != null) {
-				this.listener.handleRejectedNotification(this, notification, rejectedNotification.getReason(),
-						this.sentNotificationBuffer.getAllNotificationsAfterSequenceNumber(
-								rejectedNotification.getSequenceNumber()));
-			} else {
-				log.error(String.format("%s failed to find rejected notification with sequence number %d; this " +
-						"most likely means the sent notification buffer is too small. Please report this as a bug.",
-						this.name, rejectedNotification.getSequenceNumber()));
-			}
-		}
 	}
 
 	/**
