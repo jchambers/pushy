@@ -32,8 +32,12 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.net.ssl.SSLContext;
 
 import org.junit.Test;
 
@@ -186,65 +190,137 @@ public class PushManagerTest extends BasePushyTest {
 		assertTrue(this.getPushManager().isShutDown());
 	}
 
-	/* @Test
-	public void testHandleThreadDeath() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
+	@Test
+	public void testSendNotifications() throws InterruptedException {
+		final int iterations = 1000;
 
-		final class SelfDestructingApnsClientThread<T extends ApnsPushNotification> extends ApnsClientThread<T> {
+		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations);
 
-			public SelfDestructingApnsClientThread(final PushManager<T> pushManager) {
-				super(pushManager);
-			}
-
-			@Override
-			public void run() {
-				throw new RuntimeException("Self-destructing.");
-			}
+		for (int i = 0; i < iterations; i++) {
+			this.getPushManager().getQueue().add(this.createTestNotification());
 		}
 
-		final class NotifyOnReplacementPushManager<T extends ApnsPushNotification> extends PushManager<T> {
+		this.getPushManager().start();
+		this.waitForLatch(latch);
+		this.getPushManager().shutdown();
 
-			private final Object mutex;
-			private volatile boolean replacedThread = false;
+		assertEquals(iterations, this.getApnsServer().getReceivedNotifications().size());
+	}
 
-			protected NotifyOnReplacementPushManager(final ApnsEnvironment environment, final SSLContext sslContext,
-					final int concurrentConnectionCount, final NioEventLoopGroup workerGroup,
-					final BlockingQueue<T> queue, final Object mutex) {
+	@Test
+	public void testSendNotificationsWithError() throws InterruptedException {
+		final int iterations = 1000;
+
+		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations);
+
+		for (int i = 0; i < iterations; i++) {
+			this.getPushManager().getQueue().add(this.createTestNotification());
+		}
+
+		this.getApnsServer().failWithErrorAfterNotifications(RejectedNotificationReason.PROCESSING_ERROR, iterations / 2);
+
+		this.getPushManager().start();
+		this.waitForLatch(latch);
+		this.getPushManager().shutdown();
+
+		assertEquals(iterations, this.getApnsServer().getReceivedNotifications().size());
+	}
+
+	@Test
+	public void testSendNotificationsWithParallelConnections() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, InterruptedException {
+		final PushManagerFactory<SimpleApnsPushNotification> factory =
+				new PushManagerFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient());
+
+		factory.setEventLoopGroup(this.getWorkerGroup());
+		factory.setConcurrentConnectionCount(4);
+
+		final PushManager<SimpleApnsPushNotification> parallelPushManager = factory.buildPushManager();
+
+		final int iterations = 1000;
+
+		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations);
+
+		for (int i = 0; i < iterations; i++) {
+			parallelPushManager.getQueue().add(this.createTestNotification());
+		}
+
+		parallelPushManager.start();
+		this.waitForLatch(latch);
+		parallelPushManager.shutdown();
+
+		assertEquals(iterations, this.getApnsServer().getReceivedNotifications().size());
+	}
+
+	@Test
+	public void testSendNotificationsWithParallelConnectionsAndError() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, InterruptedException {
+		final PushManagerFactory<SimpleApnsPushNotification> factory =
+				new PushManagerFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient());
+
+		factory.setEventLoopGroup(this.getWorkerGroup());
+		factory.setConcurrentConnectionCount(4);
+
+		final PushManager<SimpleApnsPushNotification> parallelPushManager = factory.buildPushManager();
+
+		final int iterations = 1000;
+
+		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations);
+
+		for (int i = 0; i < iterations; i++) {
+			parallelPushManager.getQueue().add(this.createTestNotification());
+		}
+
+		this.getApnsServer().failWithErrorAfterNotifications(RejectedNotificationReason.PROCESSING_ERROR, iterations / 2);
+
+		parallelPushManager.start();
+		this.waitForLatch(latch);
+		parallelPushManager.shutdown();
+
+		assertEquals(iterations, this.getApnsServer().getReceivedNotifications().size());
+	}
+
+	@Test
+	public void testHandleDispatchThreadException() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
+
+		class PushManagerWithSelfDestructingDispatchThread extends PushManager<SimpleApnsPushNotification> {
+
+			private final CountDownLatch latch;
+
+			protected PushManagerWithSelfDestructingDispatchThread(
+					ApnsEnvironment environment, SSLContext sslContext,
+					int concurrentConnectionCount,
+					NioEventLoopGroup workerGroup,
+					BlockingQueue<SimpleApnsPushNotification> queue,
+					CountDownLatch latch) {
 
 				super(environment, sslContext, concurrentConnectionCount, workerGroup, queue);
 
-				this.mutex = mutex;
+				this.latch = latch;
 			}
 
 			@Override
-			protected SelfDestructingApnsClientThread<T> createClientThread() {
-				return new SelfDestructingApnsClientThread<T>(this);
-			}
+			protected Thread createDispatchThread() {
+				this.latch.countDown();
 
-			@Override
-			protected synchronized void replaceThread(final Thread t) {
-				this.replacedThread = true;
+				return new Thread(new Runnable() {
 
-				synchronized (this.mutex) {
-					this.mutex.notifyAll();
-				}
-			}
+					public void run() {
+						throw new RuntimeException("This is a test of thread replacement; please DO NOT report this as a bug.");
+					}
 
-			public boolean didReplaceThread() {
-				return this.replacedThread;
+				});
 			}
 		}
 
-		final Object mutex = new Object();
-		final NotifyOnReplacementPushManager<ApnsPushNotification> testManager =
-				new NotifyOnReplacementPushManager<ApnsPushNotification>(
-						TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient(), 1, null, null, mutex);
+		// We want to make sure at least two threads get created: one for the initial start, and then one replacement
+		final CountDownLatch latch = new CountDownLatch(2);
 
-		synchronized (mutex) {
-			testManager.start();
-			mutex.wait(1000);
-		}
+		final PushManagerWithSelfDestructingDispatchThread testManager =
+				new PushManagerWithSelfDestructingDispatchThread(
+						TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient(), 1, this.getWorkerGroup(),
+						new LinkedBlockingQueue<SimpleApnsPushNotification>(), latch);
 
+		testManager.start();
+		this.waitForLatch(latch);
 		testManager.shutdown();
-		assertTrue(testManager.didReplaceThread());
-	} */
+	}
 }

@@ -24,6 +24,7 @@ package com.relayrides.pushy.apns;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
 
+import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -75,23 +76,23 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private static final long POLL_TIMEOUT = 50; // Milliseconds
 
-	/* public static class ThreadExceptionHandler<T extends ApnsPushNotification> implements UncaughtExceptionHandler {
-		private final Logger log = LoggerFactory.getLogger(ThreadExceptionHandler.class);
+	public static class DispatchThreadExceptionHandler<T extends ApnsPushNotification> implements UncaughtExceptionHandler {
+		private final Logger log = LoggerFactory.getLogger(DispatchThreadExceptionHandler.class);
 
 		final PushManager<T> manager;
 
-		public ThreadExceptionHandler(final PushManager<T> manager) {
+		public DispatchThreadExceptionHandler(final PushManager<T> manager) {
 			this.manager = manager;
 		}
 
 		public void uncaughtException(final Thread t, final Throwable e) {
+			log.error("Dispatch thread died unexpectedly. Please file a bug with the exception details.", e);
 
-			assert t instanceof ApnsClientThread;
-
-			log.error(String.format("%s died unexpectedly. Please file a bug with the exception details.", t.getName()), e);
-			// this.manager.replaceThread(t);
+			if (this.manager.isStarted()) {
+				this.manager.createAndStartDispatchThread();
+			}
 		}
-	} */
+	}
 
 	/**
 	 * <p>Constructs a new {@code PushManager} that operates in the given environment with the given credentials and the
@@ -161,13 +162,18 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this).connect();
 		}
 
-		this.startDispatchThread();
-
+		this.createAndStartDispatchThread();
 		this.started = true;
 	}
 
-	private void startDispatchThread() {
-		this.dispatchThread = new Thread(new Runnable() {
+	private void createAndStartDispatchThread() {
+		this.dispatchThread = createDispatchThread();
+		this.dispatchThread.setUncaughtExceptionHandler(new DispatchThreadExceptionHandler<T>(this));
+		this.dispatchThread.start();
+	}
+
+	protected Thread createDispatchThread() {
+		return new Thread(new Runnable() {
 
 			public void run() {
 				while (!shutDown) {
@@ -193,8 +199,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			}
 
 		});
-
-		this.dispatchThread.start();
 	}
 
 	/**

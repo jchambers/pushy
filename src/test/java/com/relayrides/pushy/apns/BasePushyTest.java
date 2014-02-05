@@ -39,7 +39,7 @@ import org.junit.Before;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public abstract class BasePushyTest {
-	protected static final ApnsEnvironment TEST_ENVIRONMENT =
+	public static final ApnsEnvironment TEST_ENVIRONMENT =
 			new ApnsEnvironment("127.0.0.1", 2195, "127.0.0.1", 2196);
 
 	private static final long LATCH_TIMEOUT_VALUE = 2;
