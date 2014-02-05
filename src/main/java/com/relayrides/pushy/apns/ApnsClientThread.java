@@ -189,6 +189,7 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 
 		@Override
 		public void channelInactive(final ChannelHandlerContext context) {
+			log.debug(String.format("%s became inactive.", getName()));
 			this.clientThread.requestReconnection();
 		}
 	}
