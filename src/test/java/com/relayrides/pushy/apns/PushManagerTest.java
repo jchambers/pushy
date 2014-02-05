@@ -144,7 +144,7 @@ public class PushManagerTest extends BasePushyTest {
 		repeatedShutdownPushManager.shutdown();
 	}
 
-	@Test
+	/* @Test
 	public void testGetExpiredTokens() throws InterruptedException {
 		assertTrue(this.getPushManager().getExpiredTokens().isEmpty());
 	}
@@ -166,7 +166,7 @@ public class PushManagerTest extends BasePushyTest {
 		shutDownPushManager.shutdown();
 
 		shutDownPushManager.getExpiredTokens();
-	}
+	} */
 
 	@Test
 	public void testIsStarted() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {

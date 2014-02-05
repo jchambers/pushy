@@ -61,6 +61,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	private final ApnsConnectionListener<T> listener;
 	private final ApnsEnvironment environment;
 
+	private static final AtomicInteger connectionCounter = new AtomicInteger(0);
 	private final String name;
 
 	private final Bootstrap bootstrap;
@@ -68,16 +69,14 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 	private final AtomicInteger sequenceNumber = new AtomicInteger(0);
 
-	private volatile boolean startedConnectionAttempt = false;
-	private volatile boolean shuttingDown = false;
-	private volatile boolean hasEverSentNotification = false;;
+	private boolean startedConnectionAttempt = false;
+	private boolean shuttingDown = false;
+	private boolean hasEverSentNotification = false;;
 
-	private volatile SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
+	private SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
 
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
 	private static final int SENT_NOTIFICATION_BUFFER_SIZE = 4096;
-
-	private static AtomicInteger connectionCounter = new AtomicInteger(0);
 
 	private final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
 
@@ -298,7 +297,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 						});
 	}
 
-	public void sendNotification(final T notification) {
+	public synchronized void sendNotification(final T notification) {
 		final SendableApnsPushNotification<T> sendableNotification =
 				new SendableApnsPushNotification<T>(notification, this.sequenceNumber.getAndIncrement());
 
@@ -348,7 +347,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	/**
 	 * Gracefully and asynchronously shuts down this client thread.
 	 */
-	protected synchronized void shutdownGracefully() {
+	public synchronized void shutdownGracefully() {
 
 		final ApnsConnection<T> apnsConnection = this;
 
@@ -393,7 +392,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		}
 	}
 
-	protected synchronized void shutdownImmediately() {
+	public synchronized void shutdownImmediately() {
 		this.shuttingDown = true;
 
 		if (this.channel != null) {

@@ -58,6 +58,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final SSLContext sslContext;
 	private final int concurrentConnectionCount;
 	private final ApnsConnectionPool<T> connectionPool;
+	private final FeedbackServiceClient feedbackServiceClient;
 	// private final ThreadExceptionHandler<T> threadExceptionHandler;
 	private final Vector<RejectedNotificationListener<? super T>> rejectedNotificationListeners;
 
@@ -126,6 +127,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		this.concurrentConnectionCount = concurrentConnectionCount;
 		this.connectionPool = new ApnsConnectionPool<T>();
 		// this.threadExceptionHandler = new ThreadExceptionHandler<T>(this);
+
+		this.feedbackServiceClient = new FeedbackServiceClient(environment, sslContext, workerGroup);
 
 		this.rejectedNotificationExecutorService = Executors.newSingleThreadExecutor();
 
@@ -364,8 +367,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @return a list of tokens that have expired since the last connection to the feedback service
 	 * 
 	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
+	 * @throws FeedbackConnectionException TODO
 	 */
-	public List<ExpiredToken> getExpiredTokens() throws InterruptedException {
+	public List<ExpiredToken> getExpiredTokens() throws InterruptedException, FeedbackConnectionException {
 		return this.getExpiredTokens(1, TimeUnit.SECONDS);
 	}
 
@@ -386,9 +390,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @return a list of tokens that have expired since the last connection to the feedback service
 	 * 
 	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
+	 * @throws FeedbackConnectionException TODO
 	 * @throws IllegalStateException if this push manager has not been started yet or has already been shut down
 	 */
-	public List<ExpiredToken> getExpiredTokens(final long timeout, final TimeUnit timeoutUnit) throws InterruptedException {
+	public List<ExpiredToken> getExpiredTokens(final long timeout, final TimeUnit timeoutUnit) throws InterruptedException, FeedbackConnectionException {
 		if (!this.isStarted()) {
 			throw new IllegalStateException("Push manager has not been started yet.");
 		}
@@ -397,7 +402,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			throw new IllegalStateException("Push manager has already been shut down.");
 		}
 
-		return new FeedbackServiceClient(this).getExpiredTokens(timeout, timeoutUnit);
+		return this.feedbackServiceClient.getExpiredTokens(timeout, timeoutUnit);
 	}
 
 	public void handleConnectionSuccess(final ApnsConnection<T> connection) {

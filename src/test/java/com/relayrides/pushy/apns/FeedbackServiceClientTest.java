@@ -50,7 +50,7 @@ public class FeedbackServiceClientTest {
 	private MockFeedbackServer feedbackServer;
 	private FeedbackServiceClient feedbackClient;
 
-	@Before
+	/* @Before
 	public void setUp() throws InterruptedException, NoSuchAlgorithmException, KeyManagementException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		// While we don't use the server directly, having it up and running causes the PushManager to complain less
 		this.apnsServer = new MockApnsServer(APNS_PORT);
@@ -102,5 +102,5 @@ public class FeedbackServiceClientTest {
 		this.apnsServer.shutdown();
 		this.feedbackServer.shutdown();
 		this.pushManager.shutdown();
-	}
+	} */
 }
