@@ -53,7 +53,6 @@ public abstract class BasePushyTest {
 	private static final TimeUnit LATCH_TIMEOUT_UNIT = TimeUnit.SECONDS;
 
 	private PushManager<SimpleApnsPushNotification> pushManager;
-	private ApnsClientThread<SimpleApnsPushNotification> clientThread;
 
 	private MockApnsServer server;
 
@@ -67,9 +66,6 @@ public abstract class BasePushyTest {
 
 		this.pushManager = pushManagerFactory.buildPushManager();
 		this.pushManager.start();
-
-		this.clientThread = new ApnsClientThread<SimpleApnsPushNotification>(this.pushManager);
-		this.clientThread.start();
 	}
 
 	@After
@@ -80,10 +76,6 @@ public abstract class BasePushyTest {
 
 	public PushManager<SimpleApnsPushNotification> getPushManager() {
 		return this.pushManager;
-	}
-
-	public ApnsClientThread<SimpleApnsPushNotification> getClientThread() {
-		return this.clientThread;
 	}
 
 	public MockApnsServer getServer() {

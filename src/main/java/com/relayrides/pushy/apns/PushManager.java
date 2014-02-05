@@ -75,7 +75,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private static final long POLL_TIMEOUT = 50; // Milliseconds
 
-	public static class ThreadExceptionHandler<T extends ApnsPushNotification> implements UncaughtExceptionHandler {
+	/* public static class ThreadExceptionHandler<T extends ApnsPushNotification> implements UncaughtExceptionHandler {
 		private final Logger log = LoggerFactory.getLogger(ThreadExceptionHandler.class);
 
 		final PushManager<T> manager;
@@ -91,7 +91,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			log.error(String.format("%s died unexpectedly. Please file a bug with the exception details.", t.getName()), e);
 			// this.manager.replaceThread(t);
 		}
-	}
+	} */
 
 	/**
 	 * <p>Constructs a new {@code PushManager} that operates in the given environment with the given credentials and the
