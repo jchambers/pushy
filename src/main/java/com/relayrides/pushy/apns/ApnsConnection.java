@@ -58,13 +58,14 @@ import org.slf4j.LoggerFactory;
  */
 class ApnsConnection<T extends ApnsPushNotification> {
 
-	private final ApnsConnectionListener<T> listener;
 	private final ApnsEnvironment environment;
+	private final SSLContext sslContext;
+	private final NioEventLoopGroup workerGroup;
+	private final ApnsConnectionListener<T> listener;
 
 	private static final AtomicInteger connectionCounter = new AtomicInteger(0);
 	private final String name;
 
-	private final Bootstrap bootstrap;
 	private Channel channel;
 
 	private final AtomicInteger sequenceNumber = new AtomicInteger(0);
@@ -207,35 +208,14 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			throw new NullPointerException("Listener must not be null.");
 		}
 
-		this.listener = listener;
 		this.environment = environment;
+		this.sslContext = sslContext;
+		this.workerGroup = workerGroup;
+		this.listener = listener;
 
 		this.name = String.format("ApnsConnection-%d", ApnsConnection.connectionCounter.getAndIncrement());
 
 		this.sentNotificationBuffer = new SentNotificationBuffer<T>(SENT_NOTIFICATION_BUFFER_SIZE);
-
-		this.bootstrap = new Bootstrap();
-		this.bootstrap.group(workerGroup);
-		this.bootstrap.channel(NioSocketChannel.class);
-		this.bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
-
-		final ApnsConnection<T> apnsConnection = this;
-		this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
-
-			@Override
-			protected void initChannel(final SocketChannel channel) throws Exception {
-				final ChannelPipeline pipeline = channel.pipeline();
-
-				final SSLEngine sslEngine = sslContext.createSSLEngine();
-				sslEngine.setUseClientMode(true);
-
-				pipeline.addLast("ssl", new SslHandler(sslEngine));
-				pipeline.addLast("decoder", new RejectedNotificationDecoder());
-				pipeline.addLast("encoder", new ApnsPushNotificationEncoder());
-				pipeline.addLast("rejectionHandler", new RejectedNotificationHandler(apnsConnection));
-				pipeline.addLast("exceptionHandler", new ApnsExceptionHandler(apnsConnection));
-			}
-		});
 	}
 
 	// TODO Remove call to setAutoClose when Netty 5.0 is available
@@ -245,13 +225,35 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		final ApnsConnection<T> apnsConnection = this;
 
 		if (this.startedConnectionAttempt) {
-			throw new IllegalStateException(String.format("%s already started a connection attempt.", apnsConnection.name));
+			throw new IllegalStateException(String.format("%s already started a connection attempt.", this.name));
 		}
 
 		this.startedConnectionAttempt = true;
 
+		final Bootstrap bootstrap = new Bootstrap();
+		bootstrap.group(this.workerGroup);
+		bootstrap.channel(NioSocketChannel.class);
+		bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+
+		bootstrap.handler(new ChannelInitializer<SocketChannel>() {
+
+			@Override
+			protected void initChannel(final SocketChannel channel) throws Exception {
+				final ChannelPipeline pipeline = channel.pipeline();
+
+				final SSLEngine sslEngine = apnsConnection.sslContext.createSSLEngine();
+				sslEngine.setUseClientMode(true);
+
+				pipeline.addLast("ssl", new SslHandler(sslEngine));
+				pipeline.addLast("decoder", new RejectedNotificationDecoder());
+				pipeline.addLast("encoder", new ApnsPushNotificationEncoder());
+				pipeline.addLast("rejectionHandler", new RejectedNotificationHandler(apnsConnection));
+				pipeline.addLast("exceptionHandler", new ApnsExceptionHandler(apnsConnection));
+			}
+		});
+
 		log.debug(String.format("%s beginning connection process.", apnsConnection.name));
-		this.bootstrap.connect(
+		bootstrap.connect(
 				this.environment.getApnsGatewayHost(),
 				this.environment.getApnsGatewayPort()).addListener(
 						new GenericFutureListener<ChannelFuture>() {
