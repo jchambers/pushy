@@ -253,50 +253,48 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		});
 
 		log.debug(String.format("%s beginning connection process.", apnsConnection.name));
-		bootstrap.connect(
-				this.environment.getApnsGatewayHost(),
-				this.environment.getApnsGatewayPort()).addListener(
-						new GenericFutureListener<ChannelFuture>() {
+		bootstrap.connect(this.environment.getApnsGatewayHost(), this.environment.getApnsGatewayPort()).addListener(
+				new GenericFutureListener<ChannelFuture>() {
 
-							public void operationComplete(final ChannelFuture connectFuture) {
-								if (connectFuture.isSuccess()) {
-									log.debug(String.format("%s connected; waiting for TLS handshake.", apnsConnection.name));
+					public void operationComplete(final ChannelFuture connectFuture) {
+						if (connectFuture.isSuccess()) {
+							log.debug(String.format("%s connected; waiting for TLS handshake.", apnsConnection.name));
 
-									final SslHandler sslHandler = connectFuture.channel().pipeline().get(SslHandler.class);
+							final SslHandler sslHandler = connectFuture.channel().pipeline().get(SslHandler.class);
 
-									if (sslHandler != null) {
-										sslHandler.handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
+							if (sslHandler != null) {
+								sslHandler.handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
 
-											public void operationComplete(final Future<Channel> handshakeFuture) {
-												if (handshakeFuture.isSuccess()) {
-													log.debug(String.format("%s successfully completed TLS handshake.", apnsConnection.name));
+									public void operationComplete(final Future<Channel> handshakeFuture) {
+										if (handshakeFuture.isSuccess()) {
+											log.debug(String.format("%s successfully completed TLS handshake.", apnsConnection.name));
 
-													apnsConnection.channel = connectFuture.channel();
-													apnsConnection.channel.config().setAutoClose(false);
+											apnsConnection.channel = connectFuture.channel();
+											apnsConnection.channel.config().setAutoClose(false);
 
-													apnsConnection.listener.handleConnectionSuccess(apnsConnection);
-												} else {
-													log.error(String.format("%s failed to complete TLS handshake with APNs gateway.", apnsConnection.name),
-															handshakeFuture.cause());
+											apnsConnection.listener.handleConnectionSuccess(apnsConnection);
+										} else {
+											log.error(String.format("%s failed to complete TLS handshake with APNs gateway.", apnsConnection.name),
+													handshakeFuture.cause());
 
-													connectFuture.channel().close();
-													apnsConnection.listener.handleConnectionFailure(apnsConnection, handshakeFuture.cause());
-												}
-											}});
-									} else {
-										log.error(String.format("%s failed to get SSL handler and could not wait for a TLS handshake.", apnsConnection.name));
+											connectFuture.channel().close();
+											apnsConnection.listener.handleConnectionFailure(apnsConnection, handshakeFuture.cause());
+										}
+									}});
+							} else {
+								log.error(String.format("%s failed to get SSL handler and could not wait for a TLS handshake.", apnsConnection.name));
 
-										connectFuture.channel().close();
-										apnsConnection.listener.handleConnectionFailure(apnsConnection, null);
-									}
-								} else {
-									log.error(String.format("%s failed to connect to APNs gateway.", apnsConnection.name),
-											connectFuture.cause());
-
-									apnsConnection.listener.handleConnectionFailure(apnsConnection, connectFuture.cause());
-								}
+								connectFuture.channel().close();
+								apnsConnection.listener.handleConnectionFailure(apnsConnection, null);
 							}
-						});
+						} else {
+							log.error(String.format("%s failed to connect to APNs gateway.", apnsConnection.name),
+									connectFuture.cause());
+
+							apnsConnection.listener.handleConnectionFailure(apnsConnection, connectFuture.cause());
+						}
+					}
+				});
 	}
 
 	public synchronized void sendNotification(final T notification) {
