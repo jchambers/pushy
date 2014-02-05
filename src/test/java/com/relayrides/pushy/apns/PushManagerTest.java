@@ -24,7 +24,6 @@ package com.relayrides.pushy.apns;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import io.netty.channel.nio.NioEventLoopGroup;
 
 import java.io.IOException;
@@ -34,32 +33,13 @@ import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
-public class PushManagerTest {
-
-	protected static final ApnsEnvironment TEST_ENVIRONMENT =
-			new ApnsEnvironment("127.0.0.1", 2195, "127.0.0.1", 2196);
-
-	private static final byte[] TOKEN = new byte[] { 0x12, 0x34, 0x56 };
-	private static final String PAYLOAD = "{\"aps\":{\"alert\":\"Hello\"}}";
-
-	private static final long LATCH_TIMEOUT_VALUE = 2;
-	private static final TimeUnit LATCH_TIMEOUT_UNIT = TimeUnit.SECONDS;
-
-	private MockApnsServer apnsServer;
-	private MockFeedbackServer feedbackServer;
-
-	private NioEventLoopGroup workerGroup;
-	private PushManager<SimpleApnsPushNotification> pushManager;
+public class PushManagerTest extends BasePushyTest {
 
 	private class TestListener implements RejectedNotificationListener<SimpleApnsPushNotification> {
 
@@ -74,60 +54,39 @@ public class PushManagerTest {
 		}
 	}
 
-	@Before
-	public void setUp() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, InterruptedException {
-		this.apnsServer = new MockApnsServer(TEST_ENVIRONMENT.getApnsGatewayPort());
-		this.apnsServer.start();
-
-		this.feedbackServer = new MockFeedbackServer(TEST_ENVIRONMENT.getFeedbackPort());
-		this.feedbackServer.start();
-
-		this.workerGroup = new NioEventLoopGroup();
-		this.pushManager = new PushManager<SimpleApnsPushNotification>(
-				TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient(), 1, this.workerGroup,
-				new LinkedBlockingQueue<SimpleApnsPushNotification>());
-	}
-
-	@After
-	public void tearDown() throws InterruptedException {
-		this.apnsServer.shutdown();
-		this.feedbackServer.shutdown();
-		this.workerGroup.shutdownGracefully().await();
-	}
-
 	@Test
 	public void testRegisterRejectedNotificationListener() throws InterruptedException {
 		final SimpleApnsPushNotification notification = this.createTestNotification();
 
 		final TestListener listener = new TestListener();
-		this.pushManager.registerRejectedNotificationListener(listener);
+		this.getPushManager().registerRejectedNotificationListener(listener);
 
 		assertEquals(0, listener.getRejectedNotificationCount());
 
 		final int iterations = 100;
-		this.apnsServer.failWithErrorAfterNotifications(RejectedNotificationReason.INVALID_TOKEN, 10);
-		final CountDownLatch latch = this.apnsServer.getCountDownLatch(iterations);
+		this.getApnsServer().failWithErrorAfterNotifications(RejectedNotificationReason.INVALID_TOKEN, 10);
+		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations);
 
 		for (int i = 0; i < iterations; i++) {
-			this.pushManager.getQueue().put(notification);
+			this.getPushManager().getQueue().put(notification);
 		}
 
-		this.pushManager.start();
+		this.getPushManager().start();
 
 		this.waitForLatch(latch);
 		assertEquals(1, listener.getRejectedNotificationCount());
 
-		this.pushManager.shutdown();
+		this.getPushManager().shutdown();
 	}
 
 	@Test
 	public void testUnregisterRejectedNotificationListener() {
 		final TestListener listener = new TestListener();
 
-		this.pushManager.registerRejectedNotificationListener(listener);
+		this.getPushManager().registerRejectedNotificationListener(listener);
 
-		assertTrue(this.pushManager.unregisterRejectedNotificationListener(listener));
-		assertFalse(this.pushManager.unregisterRejectedNotificationListener(listener));
+		assertTrue(this.getPushManager().unregisterRejectedNotificationListener(listener));
+		assertFalse(this.getPushManager().unregisterRejectedNotificationListener(listener));
 	}
 
 	@Test
@@ -187,44 +146,44 @@ public class PushManagerTest {
 
 	@Test
 	public void testGetExpiredTokens() throws InterruptedException, FeedbackConnectionException {
-		this.pushManager.start();
-		assertTrue(this.pushManager.getExpiredTokens().isEmpty());
-		this.pushManager.shutdown();
+		this.getPushManager().start();
+		assertTrue(this.getPushManager().getExpiredTokens().isEmpty());
+		this.getPushManager().shutdown();
 	}
 
 	@Test(expected = IllegalStateException.class)
 	public void testGetExpiredTokensBeforeStart() throws InterruptedException, FeedbackConnectionException {
-		this.pushManager.getExpiredTokens();
+		this.getPushManager().getExpiredTokens();
 	}
 
 	@Test(expected = IllegalStateException.class)
 	public void testGetExpiredTokensAfterShutdown() throws InterruptedException, FeedbackConnectionException {
-		this.pushManager.start();
-		this.pushManager.shutdown();
+		this.getPushManager().start();
+		this.getPushManager().shutdown();
 
-		this.pushManager.getExpiredTokens();
+		this.getPushManager().getExpiredTokens();
 	}
 
 	@Test
 	public void testIsStarted() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
-		assertFalse(this.pushManager.isStarted());
+		assertFalse(this.getPushManager().isStarted());
 
-		this.pushManager.start();
-		assertTrue(this.pushManager.isStarted());
+		this.getPushManager().start();
+		assertTrue(this.getPushManager().isStarted());
 
-		this.pushManager.shutdown();
-		assertFalse(this.pushManager.isStarted());
+		this.getPushManager().shutdown();
+		assertFalse(this.getPushManager().isStarted());
 	}
 
 	@Test
 	public void testIsShutDown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
-		assertFalse(this.pushManager.isShutDown());
+		assertFalse(this.getPushManager().isShutDown());
 
-		this.pushManager.start();
-		assertFalse(this.pushManager.isShutDown());
+		this.getPushManager().start();
+		assertFalse(this.getPushManager().isShutDown());
 
-		this.pushManager.shutdown();
-		assertTrue(this.pushManager.isShutDown());
+		this.getPushManager().shutdown();
+		assertTrue(this.getPushManager().isShutDown());
 	}
 
 	/* @Test
@@ -288,16 +247,4 @@ public class PushManagerTest {
 		testManager.shutdown();
 		assertTrue(testManager.didReplaceThread());
 	} */
-
-	private SimpleApnsPushNotification createTestNotification() {
-		return new SimpleApnsPushNotification(new byte[] { 0x12, 0x34, 0x56 }, "{\"aps\":{\"alert\":\"Hello\"}}");
-	}
-
-	private void waitForLatch(final CountDownLatch latch) throws InterruptedException {
-		while (latch.getCount() > 0) {
-			if (!latch.await(LATCH_TIMEOUT_VALUE, LATCH_TIMEOUT_UNIT)) {
-				fail(String.format("Timed out waiting for latch. Remaining count: %d", latch.getCount()));
-			}
-		}
-	}
 }

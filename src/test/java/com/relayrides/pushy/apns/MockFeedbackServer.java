@@ -1,15 +1,15 @@
 /* Copyright (c) 2013 RelayRides
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -29,7 +29,6 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
-import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -45,9 +44,10 @@ public class MockFeedbackServer {
 
 	private final int port;
 
-	private final ArrayList<ExpiredToken> expiredTokens;
+	private final NioEventLoopGroup workerGroup;
+	private final boolean shouldShutDownWorkerGroup;
 
-	private EventLoopGroup workerGroup;
+	private final ArrayList<ExpiredToken> expiredTokens;
 
 	private volatile boolean closeWhenDone = false;
 
@@ -100,14 +100,24 @@ public class MockFeedbackServer {
 	}
 
 	public MockFeedbackServer(final int port) {
+		this(port, null);
+	}
+
+	public MockFeedbackServer(final int port, final NioEventLoopGroup workerGroup) {
 		this.port = port;
+
+		if (workerGroup == null) {
+			this.workerGroup = new NioEventLoopGroup();
+			this.shouldShutDownWorkerGroup = true;
+		} else {
+			this.workerGroup = workerGroup;
+			this.shouldShutDownWorkerGroup = false;
+		}
 
 		this.expiredTokens = new ArrayList<ExpiredToken>();
 	}
 
 	public void start() throws InterruptedException {
-		this.workerGroup = new NioEventLoopGroup();
-
 		final ServerBootstrap bootstrap = new ServerBootstrap();
 
 		bootstrap.group(this.workerGroup);
@@ -128,7 +138,9 @@ public class MockFeedbackServer {
 	}
 
 	public void shutdown() throws InterruptedException {
-		this.workerGroup.shutdownGracefully();
+		if (this.shouldShutDownWorkerGroup) {
+			this.workerGroup.shutdownGracefully().await();
+		}
 	}
 
 	public synchronized void addExpiredToken(final ExpiredToken expiredToken) {

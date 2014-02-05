@@ -1,15 +1,15 @@
 /* Copyright (c) 2013 RelayRides
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -27,7 +27,6 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
@@ -48,7 +47,8 @@ import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class MockApnsServer {
 
-	private EventLoopGroup workerGroup;
+	private final NioEventLoopGroup workerGroup;
+	private final boolean shouldShutDownWorkerGroup;
 
 	private final int port;
 
@@ -218,15 +218,26 @@ public class MockApnsServer {
 	}
 
 	public MockApnsServer(final int port) {
+		this(port, null);
+	}
+
+	public MockApnsServer(final int port, final NioEventLoopGroup workerGroup) {
 		this.port = port;
+
+		if (workerGroup == null) {
+			this.workerGroup = new NioEventLoopGroup();
+			this.shouldShutDownWorkerGroup = true;
+		} else {
+			this.workerGroup = workerGroup;
+			this.shouldShutDownWorkerGroup = false;
+		}
 
 		this.receivedNotifications = new Vector<SimpleApnsPushNotification>();
 		this.countdownLatches = new Vector<CountDownLatch>();
+
 	}
 
 	public void start() throws InterruptedException {
-		this.workerGroup = new NioEventLoopGroup();
-
 		final ServerBootstrap bootstrap = new ServerBootstrap();
 
 		bootstrap.group(this.workerGroup);
@@ -252,7 +263,9 @@ public class MockApnsServer {
 	}
 
 	public void shutdown() throws InterruptedException {
-		this.workerGroup.shutdownGracefully();
+		if (this.shouldShutDownWorkerGroup) {
+			this.workerGroup.shutdownGracefully().await();
+		}
 	}
 
 	public void failWithErrorAfterNotifications(final RejectedNotificationReason errorCode, final int notificationCount) {
