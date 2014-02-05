@@ -129,7 +129,7 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	 * @return an SSL context configured with the given client certificate and the JVM default trust managers
 	 */
 	public static SSLContext createDefaultSSLContext(final String pathToPKCS12File, final String keystorePassword) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException, KeyManagementException, IOException {
-		final FileInputStream keystoreInputStream = new FileInputStream("/path/to/certificate.p12");
+		final FileInputStream keystoreInputStream = new FileInputStream(pathToPKCS12File);
 
 		try {
 			final KeyStore keyStore = KeyStore.getInstance("PKCS12");
