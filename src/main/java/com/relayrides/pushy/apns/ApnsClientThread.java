@@ -441,24 +441,23 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 
 			this.handshakeFuture.await();
 
+			final boolean finished;
+
 			if (this.handshakeFuture.isSuccess()) {
 				log.debug(String.format("%s successfully completed TLS handshake.", this.getName()));
-
-				this.connectFuture = null;
-				this.handshakeFuture = null;
-
-				return true;
+				finished = true;
 			} else {
 				log.error(String.format("%s failed to complete TLS handshake with APNs gateway.", this.getName()),
 						this.handshakeFuture.cause());
 
 				this.closeChannelAndLogOutcome(this.channel);
-
-				this.connectFuture = null;
-				this.handshakeFuture = null;
-
-				return false;
+				finished = false;
 			}
+
+			this.connectFuture = null;
+			this.handshakeFuture = null;
+
+			return finished;
 		} else {
 			log.error(String.format("%s failed to connect to APNs gateway.", this.getName()), connectFuture.cause());
 
