@@ -159,6 +159,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 			this.apnsConnection.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
 
+			// TODO This is wrong! We should notify listeners EVEN IF it's a known-bad notification, but with a null notification and rejection reason
 			// Notify listeners of the rejected notification, but only if it's not a known-bad shutdown notification
 			if (this.apnsConnection.shutdownNotification == null || rejectedNotification.getSequenceNumber() != this.apnsConnection.shutdownNotification.getSequenceNumber()) {
 				final T notification = this.apnsConnection.sentNotificationBuffer.getNotificationWithSequenceNumber(
