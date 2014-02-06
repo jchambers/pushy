@@ -38,24 +38,16 @@ The main public-facing part of Pushy is the [`PushManager`](http://relayrides.gi
 Once you have your certificates and keys, you can construct a new `PushManager` like this:
 
 ```java
-final String keystorePassword = "mySecretPassword";
-final FileInputStream keystoreInputStream = new FileInputStream("/path/to/certificate.p12");
-
-try {
-    final KeyStore keyStore = KeyStore.getInstance("PKCS12");
-    keyStore.load(keystoreInputStream, keystorePassword.toCharArray());
-
-    final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
+final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
         new PushManagerFactory<SimpleApnsPushNotification>(
-            ApnsEnvironment.getSandboxEnvironment(), keyStore, keystorePassword);
+                ApnsEnvironment.getSandboxEnvironment(),
+                PushManagerFactory.createDefaultSSLContext(
+                        "/path/to/certificate.p12", "mySecretPassword"));
 
-    final PushManager<SimpleApnsPushNotification> pushManager =
+final PushManager<SimpleApnsPushNotification> pushManager =
         pushManagerFactory.buildPushManager();
 
-    pushManager.start();
-} finally {
-    keystoreInputStream.close();
-}
+pushManager.start();
 ```
 
 Once you have your `PushManager` constructed and started, you're ready to start constructing and sending push notifications. Pushy provides a number of utility classes for working with APNs tokens and payloads. Here's an example:
@@ -81,7 +73,7 @@ When your application shuts down, make sure to shut down the `PushManager`, too:
 List<SimpleApnsPushNotification> unsentNotifications = pushManager.shutdown();
 ```
 
-Note that there's no guarantee as to when a push notification will be sent after it's enqueued. Shutting down the `PushManager` returns a list of notifications still in the outbound queue so you'll know what hasn't been transmitted to APNs.
+Note that there's no guarantee as to when a push notification will be sent after it's enqueued. Shutting down the `PushManager` returns a list of notifications still in the outbound queue so you'll know what hasn't been transmitted to the APNs gateway by the time the `PushManager` has been shut down.
 
 ## Error handling
 
@@ -90,7 +82,9 @@ Push notification providers communicate with APNs by opening a long-lived connec
 ```java
 public class MyRejectedNotificationListener implements RejectedNotificationListener<SimpleApnsPushNotification> {
 
-    public void handleRejectedNotification(SimpleApnsPushNotification notification, RejectedNotificationReason reason) {
+    public void handleRejectedNotification(
+        SimpleApnsPushNotification notification, RejectedNotificationReason reason) {
+
         System.out.format("%s was rejected with rejection reason %s\n", notification, reason);
     }
 
