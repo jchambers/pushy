@@ -61,7 +61,7 @@ public class FeedbackServiceClientTest {
 
 		final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
 				new PushManagerFactory<SimpleApnsPushNotification>(
-						new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT), SSLUtil.createSSLContextForTestClient());
+						new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT), SSLTestUtil.createSSLContextForTestClient());
 
 		this.pushManager = pushManagerFactory.buildPushManager();
 		this.pushManager.start();

@@ -118,7 +118,7 @@ public class MockFeedbackServer {
 
 			@Override
 			protected void initChannel(final SocketChannel channel) throws Exception {
-				channel.pipeline().addLast("ssl", new SslHandler(SSLUtil.createSSLEngineForMockServer()));
+				channel.pipeline().addLast("ssl", new SslHandler(SSLTestUtil.createSSLEngineForMockServer()));
 				channel.pipeline().addLast("encoder", new ExpiredTokenEncoder());
 				channel.pipeline().addLast("handler", new MockFeedbackServerHandler(server));
 			}

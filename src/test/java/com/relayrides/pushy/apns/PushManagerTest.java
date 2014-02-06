@@ -93,7 +93,7 @@ public class PushManagerTest extends BasePushyTest {
 	public void testShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		{
 			final PushManager<ApnsPushNotification> defaultGroupPushManager =
-					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient(), 1, null, null);
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
 
 			defaultGroupPushManager.start();
 			defaultGroupPushManager.shutdown();
@@ -105,7 +105,7 @@ public class PushManagerTest extends BasePushyTest {
 			final NioEventLoopGroup group = new NioEventLoopGroup(1);
 
 			final PushManager<ApnsPushNotification> providedGroupPushManager =
-					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient(), 1, group, null);
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, group, null);
 
 			providedGroupPushManager.start();
 			providedGroupPushManager.shutdown();
@@ -120,7 +120,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test(expected = IllegalStateException.class)
 	public void testDoubleStart() throws KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		final PushManager<ApnsPushNotification> doubleStartPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient(), 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
 
 		doubleStartPushManager.start();
 		doubleStartPushManager.start();
@@ -129,7 +129,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test(expected = IllegalStateException.class)
 	public void testPrematureShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		final PushManager<ApnsPushNotification> prematureShutdownPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient(), 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
 
 		prematureShutdownPushManager.shutdown();
 	}
@@ -137,7 +137,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test
 	public void testRepeatedShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		final PushManager<ApnsPushNotification> repeatedShutdownPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient(), 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
 
 		repeatedShutdownPushManager.start();
 		repeatedShutdownPushManager.shutdown();
@@ -152,7 +152,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test(expected = IllegalStateException.class)
 	public void testGetExpiredTokensBeforeStart() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		final PushManager<ApnsPushNotification> unstartedPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient(), 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
 
 		unstartedPushManager.getExpiredTokens();
 	}
@@ -160,7 +160,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test(expected = IllegalStateException.class)
 	public void testGetExpiredTokensAfterShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		final PushManager<ApnsPushNotification> shutDownPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient(), 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
 
 		shutDownPushManager.start();
 		shutDownPushManager.shutdown();
@@ -171,7 +171,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test
 	public void testIsStarted() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		final PushManager<ApnsPushNotification> testPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient(), 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
 
 		assertFalse(testPushManager.isStarted());
 
@@ -185,7 +185,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test
 	public void testIsShutDown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		final PushManager<ApnsPushNotification> testPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient(), 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
 
 		assertFalse(testPushManager.isShutDown());
 
@@ -247,7 +247,7 @@ public class PushManagerTest extends BasePushyTest {
 		final Object mutex = new Object();
 		final NotifyOnReplacementPushManager<ApnsPushNotification> testManager =
 				new NotifyOnReplacementPushManager<ApnsPushNotification>(
-						TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient(), 1, null, null, mutex);
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null, mutex);
 
 		synchronized (mutex) {
 			testManager.start();

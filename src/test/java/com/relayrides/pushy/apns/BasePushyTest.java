@@ -63,7 +63,7 @@ public abstract class BasePushyTest {
 		this.server.start();
 
 		final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
-				new PushManagerFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient());
+				new PushManagerFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient());
 
 		this.pushManager = pushManagerFactory.buildPushManager();
 		this.pushManager.start();
