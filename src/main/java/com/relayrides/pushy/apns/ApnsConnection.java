@@ -1,15 +1,15 @@
 /* Copyright (c) 2013 RelayRides
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -52,8 +52,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * TODO
- * 
+ * <p>A connection to an APNs gateway. An {@code ApnsConnection} is responsible for sending push notifications to the
+ * APNs gateway, and reports lifecycle events via its {@link ApnsConnectionListener}.</p>
+ *
+ * <p>Generally, connections should be managed by a parent {@link PushManager} and not manipulated directly (although
+ * connections are fully functional on their own). Connections are created in a disconnected state, and must be
+ * explicitly connected before they can be used to send push notifications.</p>
+ *
+ * @see PushManager
+ *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
 class ApnsConnection<T extends ApnsPushNotification> {
@@ -196,10 +203,14 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	}
 
 	/**
-	 * Constructs a new APNs client thread. The thread connects to the APNs gateway in the given {@code PushManager}'s
-	 * environment and reads notifications from the {@code PushManager}'s queue.
-	 * 
-	 * @param TODO
+	 * Constructs a new APNs connection. The connection connects to the APNs gateway in the given environment with the
+	 * credentials and key/trust managers in the given SSL context.
+	 *
+	 * @param environment the environment in which this connection will operate
+	 * @param sslContext an SSL context with the keys/certificates and trust managers this connection should use when
+	 * communicating with the APNs gateway
+	 * @param workerGroup the event loop group this connection should use for asynchronous network operations
+	 * @param listener the listener to which this connection will report lifecycle events; must not be {@code null}
 	 */
 	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup workerGroup, final ApnsConnectionListener<T> listener) {
 
@@ -217,7 +228,13 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		this.sentNotificationBuffer = new SentNotificationBuffer<T>(SENT_NOTIFICATION_BUFFER_SIZE);
 	}
 
-	// TODO Remove call to setAutoClose when Netty 5.0 is available
+	/**
+	 * Asynchronously connects to the APNs gateway in this connection's environment. The outcome of the connection
+	 * attempt is reported via this connection's listener.
+	 *
+	 * @see ApnsConnectionListener#handleConnectionSuccess(ApnsConnection)
+	 * @see ApnsConnectionListener#handleConnectionFailure(ApnsConnection, Throwable)
+	 */
 	@SuppressWarnings("deprecation")
 	public synchronized void connect() {
 
@@ -268,6 +285,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 										if (handshakeFuture.isSuccess()) {
 											log.debug(String.format("%s successfully completed TLS handshake.", apnsConnection.name));
 
+											// TODO Remove call to setAutoClose when Netty 5.0 is available
 											apnsConnection.channel = connectFuture.channel();
 											apnsConnection.channel.config().setAutoClose(false);
 
@@ -296,6 +314,16 @@ class ApnsConnection<T extends ApnsPushNotification> {
 				});
 	}
 
+	/**
+	 * Asynchronously sends a push notification to the connected APNs gateway. Successful notifications are
+	 * <strong>not</strong> acknowledged by the APNs gateway; failed attempts to write push notifications to the
+	 * outbound buffer and notification rejections are reported via this connection's listener.
+	 *
+	 * @param notification the notification to send
+	 *
+	 * @see ApnsConnectionListener#handleWriteFailure(ApnsConnection, ApnsPushNotification, Throwable)
+	 * @see ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason, java.util.Collection)
+	 */
 	public synchronized void sendNotification(final T notification) {
 		final SendableApnsPushNotification<T> sendableNotification =
 				new SendableApnsPushNotification<T>(notification, this.sequenceNumber.getAndIncrement());
@@ -340,7 +368,14 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	}
 
 	/**
-	 * Gracefully and asynchronously shuts down this client thread.
+	 * Gracefully and asynchronously shuts down this client thread. Graceful disconnection is triggered by sending a
+	 * known-bad notification to the APNs gateway; when the gateway rejects the notification, it can be assumed with a
+	 * reasonable degree of confidence that preceding notifications were processed successfully and known with certainty
+	 * that all following notifications were not processed at all. The gateway will close the connection after rejecting
+	 * the notification, and this connection's listener will be notified when the connection is closed.
+	 *
+	 * @see ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason, java.util.Collection)
+	 * @see ApnsConnectionListener#handleConnectionClosure(ApnsConnection)
 	 */
 	public synchronized void shutdownGracefully() {
 
@@ -385,6 +420,14 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		}
 	}
 
+	/**
+	 * Immediately closes this connection (assuming it was ever open). The fate of messages sent by this connection
+	 * remains unknown when calling this method; callers should generally prefer
+	 * {@link ApnsConnection#shutdownGracefully} to this method. This connection's listener will be notified when the
+	 * connection has finished closing.
+	 *
+	 * @see ApnsConnectionListener#handleConnectionClosure(ApnsConnection)
+	 */
 	public synchronized void shutdownImmediately() {
 		if (this.channel != null) {
 			this.channel.close();
