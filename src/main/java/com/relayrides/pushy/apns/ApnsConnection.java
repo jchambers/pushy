@@ -159,22 +159,31 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 			this.apnsConnection.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
 
-			// TODO This is wrong! We should notify listeners EVEN IF it's a known-bad notification, but with a null notification and rejection reason
-			// Notify listeners of the rejected notification, but only if it's not a known-bad shutdown notification
-			if (this.apnsConnection.shutdownNotification == null || rejectedNotification.getSequenceNumber() != this.apnsConnection.shutdownNotification.getSequenceNumber()) {
-				final T notification = this.apnsConnection.sentNotificationBuffer.getNotificationWithSequenceNumber(
+			final boolean isShutdownRejection = this.apnsConnection.shutdownNotification != null &&
+					rejectedNotification.getSequenceNumber() == this.apnsConnection.shutdownNotification.getSequenceNumber();
+
+			final T notification;
+			final RejectedNotificationReason reason;
+
+			if (isShutdownRejection) {
+				notification = null;
+				reason = null;
+			} else {
+				notification = this.apnsConnection.sentNotificationBuffer.getNotificationWithSequenceNumber(
 						rejectedNotification.getSequenceNumber());
 
-				if (notification != null) {
-					this.apnsConnection.listener.handleRejectedNotification(this.apnsConnection, notification, rejectedNotification.getReason(),
-							this.apnsConnection.sentNotificationBuffer.getAllNotificationsAfterSequenceNumber(
-									rejectedNotification.getSequenceNumber()));
-				} else {
+				reason = rejectedNotification.getReason();
+
+				if (notification == null) {
 					log.error(String.format("%s failed to find rejected notification with sequence number %d; this " +
 							"most likely means the sent notification buffer is too small. Please report this as a bug.",
 							this.apnsConnection.name, rejectedNotification.getSequenceNumber()));
 				}
 			}
+
+			this.apnsConnection.listener.handleRejectedNotification(this.apnsConnection, notification, reason,
+					this.apnsConnection.sentNotificationBuffer.getAllNotificationsAfterSequenceNumber(
+							rejectedNotification.getSequenceNumber()));
 		}
 	}
 
