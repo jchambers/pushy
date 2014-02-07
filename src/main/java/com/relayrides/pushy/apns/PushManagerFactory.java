@@ -135,7 +135,7 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 			final KeyStore keyStore = KeyStore.getInstance("PKCS12");
 			keyStore.load(keystoreInputStream, keystorePassword != null ? keystorePassword.toCharArray() : null);
 
-			return PushManagerFactory.createDefaultSSLContext(keyStore, keystorePassword.toCharArray());
+			return PushManagerFactory.createDefaultSSLContext(keyStore, keystorePassword != null ? keystorePassword.toCharArray() : null);
 		} finally {
 			try {
 				keystoreInputStream.close();
