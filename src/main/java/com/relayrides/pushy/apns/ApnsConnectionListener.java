@@ -28,7 +28,7 @@ import java.util.Collection;
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-public interface ApnsConnectionListener<T extends ApnsPushNotification> {
+interface ApnsConnectionListener<T extends ApnsPushNotification> {
 
 	/**
 	 * Indicates that the given connection successfully connected to an APNs gateway and is ready to send push

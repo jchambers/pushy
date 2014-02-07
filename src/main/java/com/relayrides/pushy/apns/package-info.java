@@ -29,7 +29,7 @@
  * 
  * <p>The {@link com.relayrides.pushy.apns.ApnsPushNotification} interface represents a single APNs push notification
  * sent to a single device. A simple concrete implementation of the {@code ApnsPushNotification} interface and tools
- * for constructing push notification payloads can be found in the {@code com.relayrides.pushy.apns.util} package.
+ * for constructing push notification payloads can be found in the {@code com.relayrides.pushy.apns.util} package.</p>
  * 
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */

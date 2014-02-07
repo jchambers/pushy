@@ -26,17 +26,14 @@ import java.util.LinkedList;
 import java.util.List;
 
 /**
- * <p>A fixed-length buffer meant to store sent APNs notifications. This is necessary because the APNs protocol is
+ * <p>A bounded-length buffer meant to store sent APNs notifications. This is necessary because the APNs protocol is
  * asynchronous, and notifications may be identified as failed or in need of retransmission after they've been
  * successfully written to the wire.</p>
  * 
- * <p>If a notification is present in the buffer, its state is assumed to be unknown. Notifications are removed either
- * when they are known to have failed or be in need of retransmission or when enough subsequent messages are added to
- * push the notification out of the buffer.</p>
+ * <p>If a notification is present in the buffer, it is assumed to have been written to the outbound network buffer,
+ * but its state is otherwise unknown.</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
- *
- * @param <E>
  */
 class SentNotificationBuffer<E extends ApnsPushNotification> {
 
@@ -121,6 +118,11 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 		return notifications;
 	}
 
+	/**
+	 * Returns the number of notifications currently stored in this buffer.
+	 * 
+	 * @return the number of notifications currently stored in this buffer
+	 */
 	protected int size() {
 		return this.sentNotifications.size();
 	}

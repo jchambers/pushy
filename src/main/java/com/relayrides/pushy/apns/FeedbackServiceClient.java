@@ -225,9 +225,9 @@ class FeedbackServiceClient {
 				if (handshakeFuture.isSuccess()) {
 					log.debug("Completed TLS handshake with feedback service.");
 
-					// The feedback service will send us a list of device tokens as soon as we connect, then hang up.
-					// While we're waiting to sync with the connection closure, we'll be receiving messages from the
-					// feedback service from another thread.
+					// The feedback service will send us a list of device tokens as soon as we complete the SSL
+					// handshake, then hang up. While we're waiting to sync with the connection closure, we'll be
+					// receiving messages from the feedback service from another thread.
 					connectFuture.channel().closeFuture().await();
 				} else {
 					log.warn("Failed to complete TLS handshake with feedback service.", handshakeFuture.cause());

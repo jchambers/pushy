@@ -42,9 +42,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * <p>A {@code PushManager} is the main public-facing point of interaction with APNs. {@code PushManager}s manage the
- * queue of outbound push notifications and manage connections to the various APNs servers. {@code PushManager}s should
- * always be created using the {@link PushManagerFactory} class.</p>
+ * <p>A {@code PushManager} is the main public-facing point of interaction with APNs. Push managers manage the queue of
+ * outbound push notifications and manage connections to the various APNs servers. Push managers should always be
+ * created using the {@link PushManagerFactory} class.</p>
+ * 
+ * <p>Callers send push notifications by adding them to the push manager's queue. The push manager will send
+ * notifications from the queue as quickly as it is able to do so, and will never put notifications back in the queue
+ * (push managers maintain a separate, internal queue for notifications that should be re-sent).</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  *
@@ -59,7 +63,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final int concurrentConnectionCount;
 	private final ApnsConnectionPool<T> connectionPool;
 	private final FeedbackServiceClient feedbackServiceClient;
-	// private final ThreadExceptionHandler<T> threadExceptionHandler;
 	private final Vector<RejectedNotificationListener<? super T>> rejectedNotificationListeners;
 
 	private Thread dispatchThread;
@@ -76,7 +79,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private static final long POLL_TIMEOUT = 50; // Milliseconds
 
-	public static class DispatchThreadExceptionHandler<T extends ApnsPushNotification> implements UncaughtExceptionHandler {
+	private static class DispatchThreadExceptionHandler<T extends ApnsPushNotification> implements UncaughtExceptionHandler {
 		private final Logger log = LoggerFactory.getLogger(DispatchThreadExceptionHandler.class);
 
 		final PushManager<T> manager;
@@ -95,7 +98,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	/**
-	 * <p>Constructs a new {@code PushManager} that operates in the given environment with the given credentials and the
+	 * <p>Constructs a new {@code PushManager} that operates in the given environment with the given SSL context and the
 	 * given number of parallel connections to APNs. See
 	 * <a href="http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW6">
 	 * Best Practices for Managing Connections</a> for additional information.</p>
@@ -216,7 +219,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	/**
-	 * Indicates whether this push manager has been shut down (or is in the process of shutting down).
+	 * Indicates whether this push manager has been shut down (or is in the process of shutting down). Once a push
+	 * manager has been shut down, it may not be restarted.
 	 *
 	 * @return {@code true} if this push manager has been shut down or is in the process of shutting down or
 	 * {@code false} otherwise
@@ -226,12 +230,12 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	/**
-	 * Disconnects from the APNs and gracefully shuts down all worker threads. This method will block until all client
-	 * threads have shut down gracefully.
+	 * Disconnects from APNs and gracefully shuts down all connections. This method will block until all connections
+	 * have shut down gracefully.
 	 *
 	 * @return a list of notifications not sent before the {@code PushManager} shut down
 	 *
-	 * @throws InterruptedException if interrupted while waiting for worker threads to exit cleanly
+	 * @throws InterruptedException if interrupted while waiting for connections to close cleanly
 	 * @throws IllegalStateException if this method is called before the push manager has been started
 	 */
 	public synchronized List<T> shutdown() throws InterruptedException {
@@ -239,16 +243,16 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	/**
-	 * Disconnects from the APNs and gracefully shuts down all worker threads. This method will wait until the given
-	 * timeout expires for client threads to shut down gracefully, and will then instruct them to shut down as soon
-	 * as possible (and will block until shutdown is complete). Note that the returned list of undelivered push
+	 * Disconnects from the APNs and gracefully shuts down all connections. This method will wait until the given
+	 * timeout expires for connections to close gracefully, and will then instruct them to shut down as soon as
+	 * possible (and will block until shutdown is complete). Note that the returned list of undelivered push
 	 * notifications may not be accurate in cases where the timeout elapsed before the client threads shut down.
 	 *
 	 * @param timeout the timeout, in milliseconds, after which client threads should be shut down as quickly as possible
 	 *
 	 * @return a list of notifications not sent before the {@code PushManager} shut down
 	 *
-	 * @throws InterruptedException if interrupted while waiting for worker threads to exit cleanly
+	 * @throws InterruptedException if interrupted while waiting for connections to close cleanly
 	 * @throws IllegalStateException if this method is called before the push manager has been started
 	 */
 	public synchronized List<T> shutdown(long timeout) throws InterruptedException {
@@ -371,7 +375,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @return a list of tokens that have expired since the last connection to the feedback service
 	 *
 	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
-	 * @throws FeedbackConnectionException TODO
+	 * @throws FeedbackConnectionException if the attempt to connect to the feedback service failed for any reason
 	 */
 	public List<ExpiredToken> getExpiredTokens() throws InterruptedException, FeedbackConnectionException {
 		return this.getExpiredTokens(1, TimeUnit.SECONDS);
@@ -381,7 +385,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * <p>Queries the APNs feedback service for expired tokens using the given timeout. Be warned that this is a
 	 * <strong>destructive operation</strong>. According to Apple's documentation:</p>
 	 *
-	 * <blockquote>The feedback service’s list is cleared after you read it. Each time you connect to the feedback
+	 * <blockquote>The feedback service's list is cleared after you read it. Each time you connect to the feedback
 	 * service, the information it returns lists only the failures that have happened since you last
 	 * connected.</blockquote>
 	 *
@@ -394,7 +398,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @return a list of tokens that have expired since the last connection to the feedback service
 	 *
 	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
-	 * @throws FeedbackConnectionException TODO
+	 * @throws FeedbackConnectionException if the attempt to connect to the feedback service failed for any reason
 	 * @throws IllegalStateException if this push manager has not been started yet or has already been shut down
 	 */
 	public List<ExpiredToken> getExpiredTokens(final long timeout, final TimeUnit timeoutUnit) throws InterruptedException, FeedbackConnectionException {
@@ -409,10 +413,18 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		return this.feedbackServiceClient.getExpiredTokens(timeout, timeoutUnit);
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionSuccess(com.relayrides.pushy.apns.ApnsConnection)
+	 */
 	public void handleConnectionSuccess(final ApnsConnection<T> connection) {
 		this.connectionPool.addConnection(connection);
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionFailure(com.relayrides.pushy.apns.ApnsConnection, java.lang.Throwable)
+	 */
 	public void handleConnectionFailure(final ApnsConnection<T> connection, final Throwable cause) {
 		// TODO Do more to react to specific causes
 
@@ -422,6 +434,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionClosure(com.relayrides.pushy.apns.ApnsConnection)
+	 */
 	public void handleConnectionClosure(final ApnsConnection<T> connection) {
 		this.connectionPool.removeConnection(connection);
 
@@ -434,16 +450,25 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleWriteFailure(com.relayrides.pushy.apns.ApnsConnection, com.relayrides.pushy.apns.ApnsPushNotification, java.lang.Throwable)
+	 */
 	public void handleWriteFailure(ApnsConnection<T> connection, T notification, Throwable cause) {
 		this.retryQueue.add(notification);
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleRejectedNotification(com.relayrides.pushy.apns.ApnsConnection, com.relayrides.pushy.apns.ApnsPushNotification, com.relayrides.pushy.apns.RejectedNotificationReason, java.util.Collection)
+	 */
 	public void handleRejectedNotification(final ApnsConnection<T> connection, final T rejectedNotification,
 			final RejectedNotificationReason reason, final Collection<T> unprocessedNotifications) {
 
-		// SHUTDOWN errors from Apple are harmless; nothing bad happened with the delivered notification, so
-		// we don't want to notify listeners of the error (but we still do need to reconnect).
-		if (!RejectedNotificationReason.SHUTDOWN.equals(reason)) {
+		// SHUTDOWN errors from Apple are harmless; nothing bad happened with the delivered notification, so we don't
+		// want to notify listeners of the rejection. Null reasons are given for known-bad shutdown notifications, and
+		// we don't want to raise the alarm there, either.
+		if (!RejectedNotificationReason.SHUTDOWN.equals(reason) && reason != null) {
 			for (final RejectedNotificationListener<? super T> listener : this.rejectedNotificationListeners) {
 
 				// Handle the notifications in a separate thread in case a listener takes a long time to run
@@ -455,6 +480,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			}
 		}
 
+		// In all cases, we want to attempt to re-send unprocessed notifications
 		this.retryQueue.addAll(unprocessedNotifications);
 	}
 }
