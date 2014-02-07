@@ -8,7 +8,7 @@ keytool -genkey -alias pushy-test-client -keysize 2048 -validity 36500 -keyalg R
 keytool -export -storepass pushy-test -keystore pushy-test-server.jks -alias pushy-test-server -file pushy-test-server.crt
 keytool -import -storepass pushy-test -keystore pushy-test-client.jks -alias pushy-test-server -noprompt -file pushy-test-server.crt
 
-# Import the clent certificate into the server trust store
+# Import the client certificate into the server trust store
 keytool -export -storepass pushy-test -keystore pushy-test-client.jks -alias pushy-test-client -file pushy-test-client.crt
 keytool -import -storepass pushy-test -keystore pushy-test-server.jks -alias pushy-test-client -noprompt -file pushy-test-client.crt
 
