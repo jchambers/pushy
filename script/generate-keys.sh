@@ -1,7 +1,5 @@
 #!/bin/sh
 
-# TODO: Make this run as part of the maven test process lifecycle thing (I am a maven n00b)
-
 # Generate new keys for the client and server
 keytool -genkey -alias pushy-test-server -keysize 2048 -validity 36500 -keyalg RSA -dname "CN=pushy" -keypass pushy-test -storepass pushy-test -keystore pushy-test-server.jks
 keytool -genkey -alias pushy-test-client -keysize 2048 -validity 36500 -keyalg RSA -dname "CN=pushy" -keypass pushy-test -storepass pushy-test -keystore pushy-test-client.jks
