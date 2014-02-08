@@ -460,27 +460,27 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	/*
 	 * (non-Javadoc)
-	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleRejectedNotification(com.relayrides.pushy.apns.ApnsConnection, com.relayrides.pushy.apns.ApnsPushNotification, com.relayrides.pushy.apns.RejectedNotificationReason, java.util.Collection)
+	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleRejectedNotification(com.relayrides.pushy.apns.ApnsConnection, com.relayrides.pushy.apns.ApnsPushNotification, com.relayrides.pushy.apns.RejectedNotificationReason)
 	 */
 	public void handleRejectedNotification(final ApnsConnection<T> connection, final T rejectedNotification,
-			final RejectedNotificationReason reason, final Collection<T> unprocessedNotifications) {
+			final RejectedNotificationReason reason) {
 
-		// SHUTDOWN errors from Apple are harmless; nothing bad happened with the delivered notification, so we don't
-		// want to notify listeners of the rejection. Null reasons are given for known-bad shutdown notifications, and
-		// we don't want to raise the alarm there, either.
-		if (!RejectedNotificationReason.SHUTDOWN.equals(reason) && reason != null) {
-			for (final RejectedNotificationListener<? super T> listener : this.rejectedNotificationListeners) {
+		for (final RejectedNotificationListener<? super T> listener : this.rejectedNotificationListeners) {
 
-				// Handle the notifications in a separate thread in case a listener takes a long time to run
-				this.rejectedNotificationExecutorService.submit(new Runnable() {
-					public void run() {
-						listener.handleRejectedNotification(rejectedNotification, reason);
-					}
-				});
-			}
+			// Handle the notifications in a separate thread in case a listener takes a long time to run
+			this.rejectedNotificationExecutorService.submit(new Runnable() {
+				public void run() {
+					listener.handleRejectedNotification(rejectedNotification, reason);
+				}
+			});
 		}
+	}
 
-		// In all cases, we want to attempt to re-send unprocessed notifications
+	/*
+	 * (non-Javadoc)
+	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleUnprocessedNotifications(com.relayrides.pushy.apns.ApnsConnection, java.util.Collection)
+	 */
+	public void handleUnprocessedNotifications(ApnsConnection<T> connection, Collection<T> unprocessedNotifications) {
 		this.retryQueue.addAll(unprocessedNotifications);
 	}
 }

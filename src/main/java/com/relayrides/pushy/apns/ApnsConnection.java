@@ -41,6 +41,7 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
 import java.nio.charset.Charset;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -153,37 +154,43 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		}
 
 		@Override
-		protected void channelRead0(final ChannelHandlerContext context, final RejectedNotification rejectedNotification) throws Exception {
+		protected void channelRead0(final ChannelHandlerContext context, final RejectedNotification rejectedNotification) {
 			log.debug(String.format("APNs gateway rejected notification with sequence number %d from %s (%s).",
 					rejectedNotification.getSequenceNumber(), this.apnsConnection.name, rejectedNotification.getReason()));
 
 			this.apnsConnection.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
 
-			final boolean isShutdownRejection = this.apnsConnection.shutdownNotification != null &&
+			final boolean isKnownBadRejection = this.apnsConnection.shutdownNotification != null &&
 					rejectedNotification.getSequenceNumber() == this.apnsConnection.shutdownNotification.getSequenceNumber();
 
-			final T notification;
-			final RejectedNotificationReason reason;
-
-			if (isShutdownRejection) {
-				notification = null;
-				reason = null;
-			} else {
-				notification = this.apnsConnection.sentNotificationBuffer.getNotificationWithSequenceNumber(
+			// We only want to notify listeners of an actual rejection if something actually went wrong. We don't want
+			// to notify listeners if a known-bad notification was rejected because that's an expected case, and we
+			// don't want to notify listeners if the gateway is shutting down the connection, but still processed the
+			// named notification successfully.
+			if (!isKnownBadRejection && !RejectedNotificationReason.SHUTDOWN.equals(rejectedNotification.getReason())) {
+				final T notification = this.apnsConnection.sentNotificationBuffer.getNotificationWithSequenceNumber(
 						rejectedNotification.getSequenceNumber());
 
-				reason = rejectedNotification.getReason();
-
-				if (notification == null) {
+				if (notification != null) {
+					this.apnsConnection.listener.handleRejectedNotification(
+							this.apnsConnection, notification, rejectedNotification.getReason());
+				} else {
 					log.error(String.format("%s failed to find rejected notification with sequence number %d; this " +
 							"most likely means the sent notification buffer is too small. Please report this as a bug.",
 							this.apnsConnection.name, rejectedNotification.getSequenceNumber()));
 				}
 			}
 
-			this.apnsConnection.listener.handleRejectedNotification(this.apnsConnection, notification, reason,
+			// Regardless of the cause, we ALWAYS want to notify listeners that some sent notifications were not
+			// processed by the gateway (assuming there are some such notifications).
+			final Collection<T> unprocessedNotifications =
 					this.apnsConnection.sentNotificationBuffer.getAllNotificationsAfterSequenceNumber(
-							rejectedNotification.getSequenceNumber()));
+							rejectedNotification.getSequenceNumber());
+
+			if (!unprocessedNotifications.isEmpty()) {
+				this.apnsConnection.listener.handleUnprocessedNotifications(
+						this.apnsConnection, unprocessedNotifications);
+			}
 		}
 	}
 

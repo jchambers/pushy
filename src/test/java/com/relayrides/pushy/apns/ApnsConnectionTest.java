@@ -1,7 +1,6 @@
 package com.relayrides.pushy.apns;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import java.io.IOException;
 import java.security.KeyManagementException;
@@ -36,10 +35,13 @@ public class ApnsConnectionTest extends BasePushyTest {
 		private SimpleApnsPushNotification rejectedNotification;
 		private RejectedNotificationReason rejectionReason;
 
+		private ArrayList<SimpleApnsPushNotification> unprocessedNotifications;
+
 		public TestListener(final Object mutex) {
 			this.mutex = mutex;
 
 			this.writeFailures = new ArrayList<SimpleApnsPushNotification>();
+			this.unprocessedNotifications = new ArrayList<SimpleApnsPushNotification>();
 		}
 
 		public void handleConnectionSuccess(final ApnsConnection<SimpleApnsPushNotification> connection) {
@@ -71,14 +73,17 @@ public class ApnsConnectionTest extends BasePushyTest {
 			this.writeFailures.add(notification);
 		}
 
-		public void handleRejectedNotification(
-				ApnsConnection<SimpleApnsPushNotification> connection,
-				SimpleApnsPushNotification rejectedNotification,
-				RejectedNotificationReason reason,
-				Collection<SimpleApnsPushNotification> unprocessedNotifications) {
+		public void handleRejectedNotification(ApnsConnection<SimpleApnsPushNotification> connection,
+				SimpleApnsPushNotification rejectedNotification, RejectedNotificationReason reason) {
 
 			this.rejectedNotification = rejectedNotification;
 			this.rejectionReason = reason;
+		}
+
+		public void handleUnprocessedNotifications(ApnsConnection<SimpleApnsPushNotification> connection,
+				Collection<SimpleApnsPushNotification> unprocessedNotifications) {
+
+			this.unprocessedNotifications.addAll(unprocessedNotifications);
 		}
 	}
 
@@ -228,6 +233,9 @@ public class ApnsConnectionTest extends BasePushyTest {
 		}
 
 		assertTrue(listener.connectionClosed);
+		assertNull(listener.rejectedNotification);
+		assertNull(listener.rejectionReason);
+		assertTrue(listener.unprocessedNotifications.isEmpty());
 	}
 
 	@Test

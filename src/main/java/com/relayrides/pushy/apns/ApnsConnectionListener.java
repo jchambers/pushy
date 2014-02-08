@@ -68,32 +68,29 @@ interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	void handleWriteFailure(ApnsConnection<T> connection, T notification, Throwable cause);
 
 	/**
-	 * <p>Indicates that a notification sent via the given connection was definitively rejected by the APNs gateway.
-	 * When an APNs gateway rejects a notification, the rejection should be considered a permanent failure and the
-	 * notification should not be sent again (exception: some notifications may be rejected with the
-	 * {@link RejectedNotificationReason#SHUTDOWN} status code, which indicates that the notification was processed
-	 * successfully, but the connection was closed regardless).</p>
-	 *
-	 * <p>The APNs gateway will close the connection after rejecting a notification, and all notifications sent after
-	 * the rejected notification were not processed by the gateway and should be re-sent at a later time. The collection
-	 * of unprocessed notifications is passed as an argument to this method, and callers generally do not need to
-	 * maintain a buffer of sent notifications on their own.</p>
-	 *
-	 * <p>When shutting down a connection gracefully, an {@link ApnsConnection} will send a known-bad notification to
-	 * the gateway, and this method will be called with a {@code null} rejected notification and rejection reason. The
-	 * rejected notification may also be {@code null} if the connection was unable to retrieve the rejected notification
-	 * from its sent notification buffer, but this should be considered an error case and reported as a bug. In this
-	 * case, the rejection reason will be non-null.</p>
-	 *
+	 * Indicates that a notification sent via the given connection was definitively rejected by the APNs gateway. When
+	 * an APNs gateway rejects a notification, the rejection should be considered a permanent failure and the
+	 * notification should not be sent again. The APNs gateway will close the connection after rejecting a notification,
+	 * and all notifications sent after the rejected notification were not processed by the gateway and should be
+	 * re-sent later.
+	 * 
 	 * @param connection the connection that sent the notification that was rejected
-	 * @param rejectedNotification the notification that was rejected (may be {@code null})
-	 * @param reason the reason for the rejection; this will be {@code null} if the rejected notification was a known-bad
-	 * shutdown notification
-	 * @param unprocessedNotifications a collection of all notifications sent after the rejected notification; these
-	 * notifications were not processed by the APNs gateway and may be re-sent later
+	 * @param rejectedNotification the notification that was rejected
+	 * @param reason the reason for the rejection
 	 *
-	 * @see ApnsConnection#shutdownGracefully()
-	 * @see RejectedNotificationReason#SHUTDOWN
+	 * @see ApnsConnectionListener#handleConnectionClosure(ApnsConnection)
+	 * @see ApnsConnectionListener#handleUnprocessedNotifications(ApnsConnection, Collection)
 	 */
-	void handleRejectedNotification(ApnsConnection<T> connection, T rejectedNotification, RejectedNotificationReason reason, Collection<T> unprocessedNotifications);
+	void handleRejectedNotification(ApnsConnection<T> connection, T rejectedNotification, RejectedNotificationReason reason);
+
+	/**
+	 * Indicates that notifications that had previously been sent to an APNs gateway by the given connection were not
+	 * processed by the gateway and should be sent again later. This generally happens after a notification has been
+	 * rejected by the gateway, but may also happen when a connection is closed gracefully by Pushy or closed remotely
+	 * by the APNs gateway without a rejected notification.
+	 * 
+	 * @param connection the connection that sent the notifications that were not processed
+	 * @param unprocessedNotifications the notifications known to have not been processed by the APNs gateway
+	 */
+	void handleUnprocessedNotifications(ApnsConnection<T> connection, Collection<T> unprocessedNotifications);
 }

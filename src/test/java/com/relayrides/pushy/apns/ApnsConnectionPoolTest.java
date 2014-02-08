@@ -85,13 +85,13 @@ public class ApnsConnectionPoolTest {
 		new Thread(new Runnable() {
 
 			public void run() {
-					try {
-						// TODO This is a little hacky
-						Thread.sleep(50);
-					} catch (InterruptedException ignored) {
-					}
+				try {
+					// TODO This is a little hacky
+					Thread.sleep(50);
+				} catch (InterruptedException ignored) {
+				}
 
-					pool.removeConnection(testConnection);
+				pool.removeConnection(testConnection);
 			}
 		}).start();
 
@@ -106,7 +106,8 @@ public class ApnsConnectionPoolTest {
 			public void handleConnectionFailure(ApnsConnection<SimpleApnsPushNotification> connection, Throwable cause) {}
 			public void handleConnectionClosure(ApnsConnection<SimpleApnsPushNotification> connection) {}
 			public void handleWriteFailure(ApnsConnection<SimpleApnsPushNotification> connection, SimpleApnsPushNotification notification, Throwable cause) {}
-			public void handleRejectedNotification(ApnsConnection<SimpleApnsPushNotification> connection, SimpleApnsPushNotification rejectedNotification, RejectedNotificationReason reason, Collection<SimpleApnsPushNotification> unprocessedNotifications) {}
+			public void handleRejectedNotification(ApnsConnection<SimpleApnsPushNotification> connection, SimpleApnsPushNotification rejectedNotification, RejectedNotificationReason reason) {}
+			public void handleUnprocessedNotifications(ApnsConnection<SimpleApnsPushNotification> connection, Collection<SimpleApnsPushNotification> unprocessedNotifications) {}
 		});
 	}
 }
