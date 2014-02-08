@@ -5,6 +5,7 @@ import static org.junit.Assert.*;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -69,6 +70,11 @@ public class PushManagerFactoryTest {
 		PushManagerFactory.createDefaultSSLContext(this.getFullPath(CLIENT_PKCS12_FILE_NAME), "incorrect-password");
 	}
 
+	@Test(expected = GeneralSecurityException.class)
+	public void testCreateDefaultSSLContextFromPKCS12FileNullPassword() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException {
+		PushManagerFactory.createDefaultSSLContext(this.getFullPath(CLIENT_PKCS12_FILE_NAME), null);
+	}
+
 	@Test(expected = KeyStoreException.class)
 	public void testCreateDefaultSSLContextFromEmptyPKCS12File() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException {
 		PushManagerFactory.createDefaultSSLContext(this.getFullPath(CLIENT_EMPTY_PKCS12_FILE_NAME), KEYSTORE_PASSWORD);
@@ -99,6 +105,21 @@ public class PushManagerFactoryTest {
 			keyStore.load(keyStoreInputStream, KEYSTORE_PASSWORD.toCharArray());
 
 			PushManagerFactory.createDefaultSSLContext(keyStore, "incorrect".toCharArray());
+		} finally {
+			keyStoreInputStream.close();
+		}
+	}
+
+	@Test(expected = GeneralSecurityException.class)
+	public void testCreateDefaultSSLContextFromJKSFileNullPassword() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, IOException, CertificateException {
+		final FileInputStream keyStoreInputStream =
+				new FileInputStream(this.getFullPath(CLIENT_KEYSTORE_FILE_NAME));
+
+		try {
+			final KeyStore keyStore = KeyStore.getInstance("JKS");
+			keyStore.load(keyStoreInputStream, KEYSTORE_PASSWORD.toCharArray());
+
+			PushManagerFactory.createDefaultSSLContext(keyStore, null);
 		} finally {
 			keyStoreInputStream.close();
 		}
