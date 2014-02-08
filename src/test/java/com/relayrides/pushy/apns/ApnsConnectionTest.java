@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CountDownLatch;
 
+import javax.net.ssl.SSLHandshakeException;
+
 import org.junit.Test;
 
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
@@ -24,7 +26,10 @@ public class ApnsConnectionTest extends BasePushyTest {
 		private final Object mutex;
 
 		private boolean connectionSucceeded = false;
+		private boolean connectionFailed = false;
 		private boolean connectionClosed = false;
+
+		private Throwable connectionFailureCause;
 
 		private final ArrayList<SimpleApnsPushNotification> writeFailures;
 
@@ -46,6 +51,9 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		public void handleConnectionFailure(final ApnsConnection<SimpleApnsPushNotification> connection, final Throwable cause) {
 			synchronized (mutex) {
+				this.connectionFailed = true;
+				this.connectionFailureCause = cause;
+
 				this.mutex.notifyAll();
 			}
 		}
@@ -101,6 +109,48 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		apnsConnection.connect();
 		apnsConnection.connect();
+	}
+
+	@Test
+	public void testConnectEmptyKeystore() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, InterruptedException {
+
+		final Object mutex = new Object();
+
+		final TestListener listener = new TestListener(mutex);
+
+		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
+				new ApnsConnection<SimpleApnsPushNotification>(
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient("/empty-keystore.jks"), this.getWorkerGroup(),
+						listener);
+
+		synchronized (mutex) {
+			apnsConnection.connect();
+			mutex.wait(1000);
+		}
+
+		assertTrue(listener.connectionFailed);
+		assertTrue(listener.connectionFailureCause instanceof SSLHandshakeException);
+	}
+
+	@Test
+	public void testConnectUntrustedKeystore() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, InterruptedException {
+
+		final Object mutex = new Object();
+
+		final TestListener listener = new TestListener(mutex);
+
+		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
+				new ApnsConnection<SimpleApnsPushNotification>(
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient("/pushy-test-client-untrusted.jks"), this.getWorkerGroup(),
+						listener);
+
+		synchronized (mutex) {
+			apnsConnection.connect();
+			mutex.wait(1000);
+		}
+
+		assertTrue(listener.connectionFailed);
+		assertTrue(listener.connectionFailureCause instanceof SSLHandshakeException);
 	}
 
 	@Test

@@ -208,6 +208,11 @@ public class MockApnsServer {
 				}
 			}
 		}
+
+		@Override
+		public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
+			context.close();
+		}
 	}
 
 	public MockApnsServer(final int port) {

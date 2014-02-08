@@ -59,8 +59,11 @@ class SSLTestUtil {
 	}
 
 	public static SSLContext createSSLContextForTestClient() throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, UnrecoverableKeyException, KeyManagementException {
+		return SSLTestUtil.createSSLContextForTestClient(CLIENT_KEYSTORE_FILE_NAME);
+	}
 
-		final InputStream keyStoreInputStream = SSLTestUtil.class.getResourceAsStream(CLIENT_KEYSTORE_FILE_NAME);
+	public static SSLContext createSSLContextForTestClient(final String keystoreFileName) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, UnrecoverableKeyException, KeyManagementException {
+		final InputStream keyStoreInputStream = SSLTestUtil.class.getResourceAsStream(keystoreFileName);
 
 		if (keyStoreInputStream == null) {
 			throw new RuntimeException("Server keystore file not found.");
