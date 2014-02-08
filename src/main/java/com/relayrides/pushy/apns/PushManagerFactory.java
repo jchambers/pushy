@@ -162,6 +162,10 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 			algorithm = DEFAULT_ALGORITHM;
 		}
 
+		if (keyStore.size() == 0) {
+			throw new KeyStoreException("Keystore is empty; while this is legal for keystores in general, APNs clients must have at least one key.");
+		}
+
 		final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(algorithm);
 		trustManagerFactory.init((KeyStore) null);
 
