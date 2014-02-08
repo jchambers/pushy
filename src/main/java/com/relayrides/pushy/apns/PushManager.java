@@ -108,7 +108,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * this {@code PushManager}.</p>
 	 *
 	 * @param environment the environment in which this {@code PushManager} operates
-	 * @param sslContext TODO
+	 * @param sslContext the SSL context in which APNs connections controlled by this {@code PushManager} will operate
 	 * @param concurrentConnectionCount the number of parallel connections to maintain
 	 * @param workerGroup the event loop group this push manager should use for its connections to the APNs gateway and
 	 * feedback service; if {@code null}, a new event loop group will be created and will be shut down automatically

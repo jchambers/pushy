@@ -242,7 +242,7 @@ public class MockApnsServer {
 
 			@Override
 			protected void initChannel(final SocketChannel channel) throws Exception {
-				channel.pipeline().addLast("ssl", new SslHandler(SSLUtil.createSSLEngineForMockServer()));
+				channel.pipeline().addLast("ssl", new SslHandler(SSLTestUtil.createSSLEngineForMockServer()));
 				channel.pipeline().addLast("encoder", new ApnsErrorEncoder());
 				channel.pipeline().addLast("decoder", new ApnsPushNotificationDecoder());
 				channel.pipeline().addLast("handler", new MockApnsServerHandler(server));

@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A {@code PushManagerFactory} is used to configure and construct a new {@link PushManager}.
- * 
+ *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
 public class PushManagerFactory<T extends ApnsPushNotification> {
@@ -41,8 +41,10 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	/**
 	 * Constructs a new factory that will construct {@link PushManager}s that operate in the given environment with the
 	 * given credentials.
-	 * 
+	 *
 	 * @param environment the environment in which constructed {@code PushManager}s will operate
+	 * @param sslContext the SSL context in which connections controlled by the constructed {@code PushManager} will
+	 * operate
 	 */
 	public PushManagerFactory(final ApnsEnvironment environment, final SSLContext sslContext) {
 
@@ -61,9 +63,9 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	/**
 	 * <p>Sets the number of concurrent connections constructed {@code PushManagers} should maintain to the APNs
 	 * gateway. By default, constructed {@code PushManagers} will maintain a single connection to the gateway.</p>
-	 * 
+	 *
 	 * @param concurrentConnectionCount the number of parallel connections to maintain
-	 * 
+	 *
 	 * @return a reference to this factory for ease of chaining configuration calls
 	 */
 	public PushManagerFactory<T> setConcurrentConnectionCount(final int concurrentConnectionCount) {
@@ -76,14 +78,14 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	 * {@code PushManagers} will be create and maintain their own event loop groups. If a non-{@code null} event loop
 	 * group is provided, callers <strong>must</strong> shut down the event loop group after shutting down all
 	 * {@code PushManager} instances that use that event loop group.</p>
-	 * 
+	 *
 	 * <p>By default, constructed {@code PushManagers} will construct and maintain their own event loop groups.</p>
-	 * 
+	 *
 	 * @param eventLoopGroup the event loop group constructed {@code PushManagers} should use for their connections to
 	 * the APNs gateway and feedback service; if {@code null}, a new event loop group will be created and will be shut
 	 * down automatically when the push manager is shut down. If not {@code null}, the caller <strong>must</strong> shut
 	 * down the event loop group after shutting down all push managers that use the group
-	 * 
+	 *
 	 * @return a reference to this factory for ease of chaining configuration calls
 	 */
 	public PushManagerFactory<T> setEventLoopGroup(final NioEventLoopGroup eventLoopGroup) {
@@ -94,7 +96,7 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	/**
 	 * <p>Sets the queue to be used to pass new notifications to constructed {@code PushManagers}. If {@code null} (the
 	 * default), constructed push managers will construct their own queues.</p>
-	 * 
+	 *
 	 * @param queue the queue to be used to pass new notifications to constructed push managers
 	 * @return
 	 */
@@ -106,7 +108,7 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	/**
 	 * <p>Constructs a new {@link PushManager} with the settings provided to this factory. The returned push manager
 	 * will not be started automatically.</p>
-	 * 
+	 *
 	 * @return a new, configured {@code PushManager}
 	 */
 	public PushManager<T> buildPushManager() {
@@ -118,14 +120,22 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 				this.queue);
 	}
 
+	/**
+	 * Creates a new SSL context using the JVM default trust managers and the certificates in the given PKCS12 file.
+	 *
+	 * @param pathToPKCS12File the path to a PKCS12 file that contains the client certificate
+	 * @param keystorePassword the password to read the PKCS12 file; may be {@code null}
+	 *
+	 * @return an SSL context configured with the given client certificate and the JVM default trust managers
+	 */
 	public static SSLContext createDefaultSSLContext(final String pathToPKCS12File, final String keystorePassword) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException, KeyManagementException, IOException {
-		final FileInputStream keystoreInputStream = new FileInputStream("/path/to/certificate.p12");
+		final FileInputStream keystoreInputStream = new FileInputStream(pathToPKCS12File);
 
 		try {
 			final KeyStore keyStore = KeyStore.getInstance("PKCS12");
-			keyStore.load(keystoreInputStream, keystorePassword.toCharArray());
+			keyStore.load(keystoreInputStream, keystorePassword != null ? keystorePassword.toCharArray() : null);
 
-			return PushManagerFactory.createDefaultSSLContext(keyStore, keystorePassword.toCharArray());
+			return PushManagerFactory.createDefaultSSLContext(keyStore, keystorePassword != null ? keystorePassword.toCharArray() : null);
 		} finally {
 			try {
 				keystoreInputStream.close();
@@ -136,24 +146,24 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	}
 
 	/**
-	 * 
-	 * @param keyStore A {@code KeyStore} containing the client key to present during a TLS handshake; may be
+	 * Creates a new SSL context using the JVM default trust managers and the certificates in the given keystore.
+	 *
+	 * @param keyStore A {@code KeyStore} containing the client certificates to present during a TLS handshake; may be
 	 * {@code null} if the environment does not require TLS. The {@code KeyStore} should be loaded before being used
 	 * here.
 	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
-	 * 
-	 * @return
-	 * 
-	 * @throws KeyStoreException
-	 * @throws NoSuchAlgorithmException
-	 * @throws UnrecoverableKeyException
-	 * @throws KeyManagementException
+	 *
+	 * @return an SSL context configured with the certificates in the given keystore and the JVM default trust managers
 	 */
 	public static SSLContext createDefaultSSLContext(final KeyStore keyStore, final char[] keyStorePassword) throws KeyStoreException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyManagementException {
 		String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
 
 		if (algorithm == null) {
 			algorithm = DEFAULT_ALGORITHM;
+		}
+
+		if (keyStore.size() == 0) {
+			throw new KeyStoreException("Keystore is empty; while this is legal for keystores in general, APNs clients must have at least one key.");
 		}
 
 		final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(algorithm);

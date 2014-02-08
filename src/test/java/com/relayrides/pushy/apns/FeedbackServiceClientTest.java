@@ -57,7 +57,7 @@ public class FeedbackServiceClientTest {
 		// TODO Make the feedback server use this group, too
 		this.workerGroup = new NioEventLoopGroup();
 
-		this.feedbackClient = new FeedbackServiceClient(TEST_ENVIRONMENT, SSLUtil.createSSLContextForTestClient(), this.workerGroup);
+		this.feedbackClient = new FeedbackServiceClient(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.workerGroup);
 	}
 
 	@Test

@@ -15,7 +15,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.TrustManagerFactory;
 
-class SSLUtil {
+class SSLTestUtil {
 
 	private static final String PROTOCOL = "TLS";
 	private static final String DEFAULT_ALGORITHM = "SunX509";
@@ -26,7 +26,7 @@ class SSLUtil {
 
 	public static SSLEngine createSSLEngineForMockServer() throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, UnrecoverableKeyException, KeyManagementException {
 
-		final InputStream keyStoreInputStream = SSLUtil.class.getResourceAsStream(SERVER_KEYSTORE_FILE_NAME);
+		final InputStream keyStoreInputStream = SSLTestUtil.class.getResourceAsStream(SERVER_KEYSTORE_FILE_NAME);
 
 		if (keyStoreInputStream == null) {
 			throw new RuntimeException("Server keystore file not found.");
@@ -60,7 +60,7 @@ class SSLUtil {
 
 	public static SSLContext createSSLContextForTestClient() throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, UnrecoverableKeyException, KeyManagementException {
 
-		final InputStream keyStoreInputStream = SSLUtil.class.getResourceAsStream(CLIENT_KEYSTORE_FILE_NAME);
+		final InputStream keyStoreInputStream = SSLTestUtil.class.getResourceAsStream(CLIENT_KEYSTORE_FILE_NAME);
 
 		if (keyStoreInputStream == null) {
 			throw new RuntimeException("Server keystore file not found.");
