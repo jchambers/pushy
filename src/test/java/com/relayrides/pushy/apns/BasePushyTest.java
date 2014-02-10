@@ -23,6 +23,12 @@ package com.relayrides.pushy.apns;
 
 import static org.junit.Assert.fail;
 
+import java.io.IOException;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
 import java.util.Date;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -37,7 +43,7 @@ public abstract class BasePushyTest {
 	protected static final int FEEDBACK_PORT = 2196;
 
 	protected static final ApnsEnvironment TEST_ENVIRONMENT =
-			new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT, false);
+			new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT);
 
 	private static final byte[] TOKEN = new byte[] { 0x12, 0x34, 0x56 };
 	private static final String PAYLOAD = "{\"aps\":{\"alert\":\"Hello\"}}";
@@ -52,12 +58,12 @@ public abstract class BasePushyTest {
 	private MockApnsServer server;
 
 	@Before
-	public void setUp() throws InterruptedException {
+	public void setUp() throws InterruptedException, NoSuchAlgorithmException, KeyManagementException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		this.server = new MockApnsServer(APNS_PORT);
 		this.server.start();
 
 		final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
-				new PushManagerFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT, null, null);
+				new PushManagerFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient());
 
 		this.pushManager = pushManagerFactory.buildPushManager();
 		this.pushManager.start();
@@ -91,7 +97,7 @@ public abstract class BasePushyTest {
 	protected void waitForLatch(final CountDownLatch latch) throws InterruptedException {
 		while (latch.getCount() > 0) {
 			if (!latch.await(LATCH_TIMEOUT_VALUE, LATCH_TIMEOUT_UNIT)) {
-				fail("Timed out waiting for latch.");
+				fail(String.format("Timed out waiting for latch. Remaining count: %d", latch.getCount()));
 			}
 		}
 	}

@@ -24,6 +24,12 @@ package com.relayrides.pushy.apns;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.io.IOException;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -40,17 +46,22 @@ public class FeedbackServiceClientTest {
 	private static final int FEEDBACK_PORT = 2196;
 
 	private PushManager<SimpleApnsPushNotification> pushManager;
+	private MockApnsServer apnsServer;
 	private MockFeedbackServer feedbackServer;
 	private FeedbackServiceClient feedbackClient;
 
 	@Before
-	public void setUp() throws InterruptedException {
+	public void setUp() throws InterruptedException, NoSuchAlgorithmException, KeyManagementException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
+		// While we don't use the server directly, having it up and running causes the PushManager to complain less
+		this.apnsServer = new MockApnsServer(APNS_PORT);
+		this.apnsServer.start();
+
 		this.feedbackServer = new MockFeedbackServer(FEEDBACK_PORT);
 		this.feedbackServer.start();
 
 		final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
 				new PushManagerFactory<SimpleApnsPushNotification>(
-						new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT, false), null, null);
+						new ApnsEnvironment("127.0.0.1", APNS_PORT, "127.0.0.1", FEEDBACK_PORT), SSLTestUtil.createSSLContextForTestClient());
 
 		this.pushManager = pushManagerFactory.buildPushManager();
 		this.pushManager.start();
@@ -88,6 +99,7 @@ public class FeedbackServiceClientTest {
 
 	@After
 	public void tearDown() throws InterruptedException {
+		this.apnsServer.shutdown();
 		this.feedbackServer.shutdown();
 		this.pushManager.shutdown();
 	}

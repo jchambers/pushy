@@ -42,6 +42,8 @@ import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.TimeUnit;
 
+import javax.net.ssl.SSLEngine;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -180,7 +182,7 @@ class FeedbackServiceClient {
 		this.expiredTokens = new Vector<ExpiredToken>();
 
 		final Bootstrap bootstrap = new Bootstrap();
-		bootstrap.group(pushManager.getWorkerGroup());
+		bootstrap.group(this.pushManager.getWorkerGroup());
 		bootstrap.channel(NioSocketChannel.class);
 
 		final FeedbackServiceClient feedbackClient = this;
@@ -190,10 +192,10 @@ class FeedbackServiceClient {
 			protected void initChannel(final SocketChannel channel) throws Exception {
 				final ChannelPipeline pipeline = channel.pipeline();
 
-				if (pushManager.getEnvironment().isTlsRequired()) {
-					pipeline.addLast("ssl", SslHandlerUtil.createSslHandler(pushManager.getKeyStore(), pushManager.getKeyStorePassword()));
-				}
+				final SSLEngine sslEngine = pushManager.getSSLContext().createSSLEngine();
+				sslEngine.setUseClientMode(true);
 
+				pipeline.addLast("ssl", new SslHandler(sslEngine));
 				pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(timeout, timeoutUnit));
 				pipeline.addLast("decoder", new ExpiredTokenDecoder());
 				pipeline.addLast("handler", new FeedbackClientHandler(feedbackClient));
@@ -208,19 +210,24 @@ class FeedbackServiceClient {
 		if (connectFuture.isSuccess()) {
 			log.debug("Connected to feedback service.");
 
-			if (this.pushManager.getEnvironment().isTlsRequired()) {
-				final Future<Channel> handshakeFuture = connectFuture.channel().pipeline().get(SslHandler.class).handshakeFuture().await();
+			final SslHandler sslHandler = connectFuture.channel().pipeline().get(SslHandler.class);
+
+			if (sslHandler != null) {
+				final Future<Channel> handshakeFuture = sslHandler.handshakeFuture().await();
 
 				if (handshakeFuture.isSuccess()) {
 					log.debug("Completed TLS handshake with feedback service.");
 					connectFuture.channel().closeFuture().await();
 				} else if (handshakeFuture.cause() != null) {
 					log.warn("Failed to complete TLS handshake with feedback service.", handshakeFuture.cause());
+					connectFuture.channel().close().await();
 				} else if (handshakeFuture.isCancelled()) {
 					log.debug("TLS handhsake attempt was cancelled.");
+					connectFuture.channel().close().await();
 				}
 			} else {
-				connectFuture.channel().closeFuture().await();
+				log.error("Feedback client failed to get SSL handler and could not wait for TLS handshake.");
+				connectFuture.channel().close().await();
 			}
 		} else if (connectFuture.cause() != null) {
 			log.warn("Failed to connect to feedback service.", connectFuture.cause());

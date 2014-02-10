@@ -25,7 +25,6 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
 
 import java.lang.Thread.UncaughtExceptionHandler;
-import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -35,6 +34,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+
+import javax.net.ssl.SSLContext;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,9 +54,7 @@ public class PushManager<T extends ApnsPushNotification> {
 	private final LinkedBlockingQueue<T> retryQueue;
 
 	private final ApnsEnvironment environment;
-	private final KeyStore keyStore;
-	private final char[] keyStorePassword;
-
+	private final SSLContext sslContext;
 	private final int concurrentConnectionCount;
 	private final ArrayList<ApnsClientThread<T>> clientThreads;
 	private final ThreadExceptionHandler<T> threadExceptionHandler;
@@ -101,10 +100,7 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * this {@code PushManager}.</p>
 	 * 
 	 * @param environment the environment in which this {@code PushManager} operates
-	 * @param keyStore A {@code KeyStore} containing the client key to present during a TLS handshake; may be
-	 * {@code null} if the environment does not require TLS. The {@code KeyStore} should be loaded before being used
-	 * here.
-	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
+	 * @param sslContext the SSL context in which APNs connections controlled by this {@code PushManager} will operate
 	 * @param concurrentConnectionCount the number of parallel connections to maintain
 	 * @param workerGroup the event loop group this push manager should use for its connections to the APNs gateway and
 	 * feedback service; if {@code null}, a new event loop group will be created and will be shut down automatically
@@ -112,12 +108,8 @@ public class PushManager<T extends ApnsPushNotification> {
 	 * loop group after shutting down the push manager
 	 * @param queue the queue to be used to pass new notifications to this push manager
 	 */
-	protected PushManager(final ApnsEnvironment environment, final KeyStore keyStore, final char[] keyStorePassword,
+	protected PushManager(final ApnsEnvironment environment, final SSLContext sslContext,
 			final int concurrentConnectionCount, final NioEventLoopGroup workerGroup, final BlockingQueue<T> queue) {
-
-		if (environment.isTlsRequired() && keyStore == null) {
-			throw new IllegalArgumentException("Must include a non-null KeyStore for environments that require TLS.");
-		}
 
 		this.queue = queue != null ? queue : new LinkedBlockingQueue<T>();
 		this.retryQueue = new LinkedBlockingQueue<T>();
@@ -125,9 +117,7 @@ public class PushManager<T extends ApnsPushNotification> {
 		this.rejectedNotificationListeners = new Vector<RejectedNotificationListener<? super T>>();
 
 		this.environment = environment;
-
-		this.keyStore = keyStore;
-		this.keyStorePassword = keyStorePassword;
+		this.sslContext = sslContext;
 
 		this.concurrentConnectionCount = concurrentConnectionCount;
 		this.clientThreads = new ArrayList<ApnsClientThread<T>>(this.concurrentConnectionCount);
@@ -153,22 +143,8 @@ public class PushManager<T extends ApnsPushNotification> {
 		return this.environment;
 	}
 
-	/**
-	 * Returns the {@code KeyStore} containing the client certificate to be presented to TLS-enabled APNs servers.
-	 * 
-	 * @return the {@code KeyStore} containing the client certificate to be presented to TLS-enabled APNs servers
-	 */
-	public KeyStore getKeyStore() {
-		return this.keyStore;
-	}
-
-	/**
-	 * Returns the key to unlock the {@code KeyStore} for this {@code PushManager}.
-	 * 
-	 * @return the key to unlock the {@code KeyStore} for this {@code PushManager}
-	 */
-	public char[] getKeyStorePassword() {
-		return this.keyStorePassword;
+	protected SSLContext getSSLContext() {
+		return this.sslContext;
 	}
 
 	/**

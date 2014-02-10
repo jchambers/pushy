@@ -44,6 +44,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.net.ssl.SSLEngine;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -220,10 +222,10 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			protected void initChannel(final SocketChannel channel) throws Exception {
 				final ChannelPipeline pipeline = channel.pipeline();
 
-				if (pushManager.getEnvironment().isTlsRequired()) {
-					pipeline.addLast("ssl", SslHandlerUtil.createSslHandler(pushManager.getKeyStore(), pushManager.getKeyStorePassword()));
-				}
+				final SSLEngine sslEngine = pushManager.getSSLContext().createSSLEngine();
+				sslEngine.setUseClientMode(true);
 
+				pipeline.addLast("ssl", new SslHandler(sslEngine));
 				pipeline.addLast("decoder", new RejectedNotificationDecoder());
 				pipeline.addLast("encoder", new ApnsPushNotificationEncoder());
 				pipeline.addLast("rejectionHandler", new RejectedNotificationHandler(clientThread));
@@ -418,38 +420,15 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 			this.channel = this.connectFuture.channel();
 			this.channel.config().setAutoClose(false);
 
-			if (this.pushManager.getEnvironment().isTlsRequired()) {
-				if (this.handshakeFuture == null) {
-					log.debug(String.format("%s waiting for TLS handshake.", this.getName()));
+			if (this.handshakeFuture == null) {
+				log.debug(String.format("%s waiting for TLS handshake.", this.getName()));
 
-					final SslHandler sslHandler = this.channel.pipeline().get(SslHandler.class);
+				final SslHandler sslHandler = this.channel.pipeline().get(SslHandler.class);
 
-					if (sslHandler != null) {
-						this.handshakeFuture = sslHandler.handshakeFuture();
-					} else {
-						log.error(String.format("%s failed to get SSL handler and could not wait for a TLS handshake.", this.getName()));
-
-						this.closeChannelAndLogOutcome(this.channel);
-
-						this.connectFuture = null;
-						this.handshakeFuture = null;
-
-						return false;
-					}
-				}
-
-				this.handshakeFuture.await();
-
-				if (this.handshakeFuture.isSuccess()) {
-					log.debug(String.format("%s successfully completed TLS handshake.", this.getName()));
-
-					this.connectFuture = null;
-					this.handshakeFuture = null;
-
-					return true;
+				if (sslHandler != null) {
+					this.handshakeFuture = sslHandler.handshakeFuture();
 				} else {
-					log.error(String.format("%s failed to complete TLS handshake with APNs gateway.", this.getName()),
-							this.handshakeFuture.cause());
+					log.error(String.format("%s failed to get SSL handler and could not wait for a TLS handshake.", this.getName()));
 
 					this.closeChannelAndLogOutcome(this.channel);
 
@@ -458,12 +437,27 @@ class ApnsClientThread<T extends ApnsPushNotification> extends Thread {
 
 					return false;
 				}
-			} else {
-				log.debug(String.format("%s does not require a TLS handshake.", this.getName()));
-
-				this.connectFuture = null;
-				return true;
 			}
+
+			this.handshakeFuture.await();
+
+			final boolean finished;
+
+			if (this.handshakeFuture.isSuccess()) {
+				log.debug(String.format("%s successfully completed TLS handshake.", this.getName()));
+				finished = true;
+			} else {
+				log.error(String.format("%s failed to complete TLS handshake with APNs gateway.", this.getName()),
+						this.handshakeFuture.cause());
+
+				this.closeChannelAndLogOutcome(this.channel);
+				finished = false;
+			}
+
+			this.connectFuture = null;
+			this.handshakeFuture = null;
+
+			return finished;
 		} else {
 			log.error(String.format("%s failed to connect to APNs gateway.", this.getName()), connectFuture.cause());
 

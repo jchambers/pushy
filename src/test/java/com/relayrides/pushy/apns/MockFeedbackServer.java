@@ -23,6 +23,7 @@ package com.relayrides.pushy.apns;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
@@ -33,6 +34,9 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.MessageToByteEncoder;
+import io.netty.handler.ssl.SslHandler;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,7 +47,6 @@ public class MockFeedbackServer {
 
 	private final ArrayList<ExpiredToken> expiredTokens;
 
-	private EventLoopGroup bossGroup;
 	private EventLoopGroup workerGroup;
 
 	private volatile boolean closeWhenDone = false;
@@ -69,19 +72,30 @@ public class MockFeedbackServer {
 		@Override
 		public void channelActive(final ChannelHandlerContext context) {
 
-			final List<ExpiredToken> expiredTokens = this.feedbackServer.getAndClearAllExpiredTokens();
+			context.pipeline().get(SslHandler.class).handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
 
-			ChannelFuture lastWriteFuture = null;
+				public void operationComplete(final Future<Channel> future) throws Exception {
+					if (future.isSuccess()) {
+						final List<ExpiredToken> expiredTokens = feedbackServer.getAndClearAllExpiredTokens();
 
-			for (final ExpiredToken expiredToken : expiredTokens) {
-				lastWriteFuture = context.write(expiredToken);
-			}
+						ChannelFuture lastWriteFuture = null;
 
-			context.flush();
+						for (final ExpiredToken expiredToken : expiredTokens) {
+							lastWriteFuture = context.write(expiredToken);
+						}
 
-			if (this.feedbackServer.closeWhenDone && lastWriteFuture != null) {
-				lastWriteFuture.addListener(ChannelFutureListener.CLOSE);
-			}
+						context.flush();
+
+						if (feedbackServer.closeWhenDone && lastWriteFuture != null) {
+							lastWriteFuture.addListener(ChannelFutureListener.CLOSE);
+						}
+					} else {
+						throw new RuntimeException("Failed to complete TLS handshake.", future.cause());
+					}
+				}
+
+			});
+
 		}
 	}
 
@@ -92,12 +106,11 @@ public class MockFeedbackServer {
 	}
 
 	public void start() throws InterruptedException {
-		this.bossGroup = new NioEventLoopGroup();
 		this.workerGroup = new NioEventLoopGroup();
 
 		final ServerBootstrap bootstrap = new ServerBootstrap();
 
-		bootstrap.group(this.bossGroup, this.workerGroup);
+		bootstrap.group(this.workerGroup);
 		bootstrap.channel(NioServerSocketChannel.class);
 
 		final MockFeedbackServer server = this;
@@ -105,6 +118,7 @@ public class MockFeedbackServer {
 
 			@Override
 			protected void initChannel(final SocketChannel channel) throws Exception {
+				channel.pipeline().addLast("ssl", new SslHandler(SSLTestUtil.createSSLEngineForMockServer()));
 				channel.pipeline().addLast("encoder", new ExpiredTokenEncoder());
 				channel.pipeline().addLast("handler", new MockFeedbackServerHandler(server));
 			}
@@ -115,7 +129,6 @@ public class MockFeedbackServer {
 
 	public void shutdown() throws InterruptedException {
 		this.workerGroup.shutdownGracefully();
-		this.bossGroup.shutdownGracefully();
 	}
 
 	public synchronized void addExpiredToken(final ExpiredToken expiredToken) {
