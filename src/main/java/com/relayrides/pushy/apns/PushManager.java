@@ -413,7 +413,11 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionSuccess(com.relayrides.pushy.apns.ApnsConnection)
 	 */
 	public void handleConnectionSuccess(final ApnsConnection<T> connection) {
-		this.connectionPool.addConnection(connection);
+		if (this.isShutDown()) {
+			connection.shutdownImmediately();
+		} else {
+			this.connectionPool.addConnection(connection);
+		}
 	}
 
 	/*
