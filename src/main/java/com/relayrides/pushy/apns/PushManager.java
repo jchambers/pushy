@@ -77,8 +77,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private final Logger log = LoggerFactory.getLogger(PushManager.class);
 
-	private static final long POLL_TIMEOUT = 50; // Milliseconds
-
 	private static class DispatchThreadExceptionHandler<T extends ApnsPushNotification> implements UncaughtExceptionHandler {
 		private final Logger log = LoggerFactory.getLogger(DispatchThreadExceptionHandler.class);
 
@@ -186,15 +184,12 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 						T notification = retryQueue.poll();
 
 						if (notification == null) {
-							notification = queue.poll();
+							// We'll park here either until a new notification is available from the outside or until
+							// something shows up in the retry queue, at which point we'll be interrupted.
+							notification = queue.take();
 						}
 
-						if (notification != null) {
-							connection.sendNotification(notification);
-						} else {
-							// Take a rest here to avoid burning resources
-							Thread.sleep(POLL_TIMEOUT);
-						}
+						connection.sendNotification(notification);
 					} catch (InterruptedException e) {
 						continue;
 					}
@@ -456,6 +451,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public void handleWriteFailure(ApnsConnection<T> connection, T notification, Throwable cause) {
 		this.retryQueue.add(notification);
+
+		if (this.dispatchThread != null) {
+			this.dispatchThread.interrupt();
+		}
 	}
 
 	/*
@@ -482,5 +481,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public void handleUnprocessedNotifications(ApnsConnection<T> connection, Collection<T> unprocessedNotifications) {
 		this.retryQueue.addAll(unprocessedNotifications);
+
+		if (this.dispatchThread != null) {
+			this.dispatchThread.interrupt();
+		}
 	}
 }
