@@ -69,10 +69,9 @@ public class ApnsConnectionPoolTest {
 				public void run() {
 					try {
 						Thread.sleep(50);
+						pool.addConnection(createTestConnection());
 					} catch (InterruptedException e) {
 					}
-
-					pool.addConnection(createTestConnection());
 				}
 			}).start();
 
