@@ -1,15 +1,15 @@
 /* Copyright (c) 2013 RelayRides
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -53,16 +53,16 @@ import org.slf4j.LoggerFactory;
 /**
  * <p>A client that communicates with the APNs feedback to retrieve expired device tokens. According to Apple's
  * documentation:</p>
- * 
+ *
  * <blockquote>The Apple Push Notification Service includes a feedback service to give you information about failed
  * push notifications. When a push notification cannot be delivered because the intended app does not exist on the
  * device, the feedback service adds that device's token to its list. Push notifications that expire before being
  * delivered are not considered a failed delivery and don't impact the feedback service...</blockquote>
- * 
+ *
  * <blockquote>Query the feedback service daily to get the list of device tokens. Use the timestamp to verify that the
  * device tokens haven't been reregistered since the feedback entry was generated. For each device that has not been
  * reregistered, stop sending notifications.</blockquote>
- * 
+ *
  * <p>Generally, users of Pushy should <em>not</em> instantiate a {@code FeedbackServiceClient} directly, but should
  * instead call {@link com.relayrides.pushy.apns.PushManager#getExpiredTokens()}, which will manage the creation
  * and configuration of a {@code FeedbackServiceClient} internally.</p>
@@ -154,10 +154,13 @@ class FeedbackServiceClient {
 	}
 
 	/**
-	 * <p>Constructs a new feedback client that connects to the feedback service in the given {@code PushManager}'s
-	 * environment.</p>
-	 * 
-	 * @param TODO
+	 * <p>Constructs a new feedback client that connects to the feedback service in the given environment with the
+	 * credentials and key/trust managers in the given SSL context.</p>
+
+	 * @param environment the environment in which this feedback client will operate
+	 * @param sslContext an SSL context with the keys/certificates and trust managers this client should use when
+	 * communicating with the APNs feedback service
+	 * @param workerGroup the event loop group this client should use for asynchronous network operations
 	 */
 	public FeedbackServiceClient(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup workerGroup) {
 		this.environment = environment;
@@ -170,19 +173,19 @@ class FeedbackServiceClient {
 	/**
 	 * <p>Retrieves a list of expired tokens from the APNs feedback service. Be warned that this is a
 	 * <strong>destructive operation</strong>. According to Apple's documentation:</p>
-	 * 
+	 *
 	 * <blockquote>The feedback service's list is cleared after you read it. Each time you connect to the feedback
 	 * service, the information it returns lists only the failures that have happened since you last
 	 * connected.</blockquote>
-	 * 
+	 *
 	 * @param timeout the time after the last received data after which the connection to the feedback service should
 	 * be closed
 	 * @param timeoutUnit the unit of time in which the given {@code timeout} is measured
-	 * 
+	 *
 	 * @return a list of tokens that have expired since the last connection to the feedback service
-	 * 
+	 *
 	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
-	 * @throws FeedbackConnectionException TODO
+	 * @throws FeedbackConnectionException if the connection to the feedback service failed for any reason
 	 */
 	public synchronized List<ExpiredToken> getExpiredTokens(final long timeout, final TimeUnit timeoutUnit) throws InterruptedException, FeedbackConnectionException {
 
