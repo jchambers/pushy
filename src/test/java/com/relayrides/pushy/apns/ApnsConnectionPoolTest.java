@@ -3,10 +3,7 @@ package com.relayrides.pushy.apns;
 import static org.junit.Assert.*;
 
 import java.util.Collection;
-import java.util.Date;
 
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
@@ -64,18 +61,40 @@ public class ApnsConnectionPoolTest {
 			final ApnsConnectionPool<SimpleApnsPushNotification> pool =
 					new ApnsConnectionPool<SimpleApnsPushNotification>();
 
-			new Thread(new Runnable() {
+			final Object mutex = new Object();
 
+			final class ConnectionConsumerThread extends Thread {
+
+				private ApnsConnection<SimpleApnsPushNotification> connection;
+
+				@Override
 				public void run() {
 					try {
-						Thread.sleep(50);
-						pool.addConnection(createTestConnection());
+						this.connection = pool.getNextConnection();
+
+						synchronized (mutex) {
+							mutex.notifyAll();
+						}
 					} catch (InterruptedException e) {
 					}
 				}
-			}).start();
+			}
 
-			assertNotNull(pool.getNextConnection());
+			final ConnectionConsumerThread consumerThread = new ConnectionConsumerThread();
+
+			consumerThread.start();
+
+			while (!Thread.State.WAITING.equals(consumerThread.getState())) {
+				Thread.yield();
+			}
+
+			// At this point, we know the consumer thread is waiting for a connection
+			synchronized (mutex) {
+				pool.addConnection(this.createTestConnection());
+				mutex.wait();
+			}
+
+			assertNotNull(consumerThread.connection);
 		}
 	}
 
@@ -95,30 +114,64 @@ public class ApnsConnectionPoolTest {
 		assertTrue(pool.getAll().contains(secondConnection));
 	}
 
-	@Test
+	@Test(timeout = 1000)
 	public void testWaitForEmptyPool() throws InterruptedException {
-		final ApnsConnectionPool<SimpleApnsPushNotification> pool =
-				new ApnsConnectionPool<SimpleApnsPushNotification>();
+		{
+			final ApnsConnectionPool<SimpleApnsPushNotification> pool =
+					new ApnsConnectionPool<SimpleApnsPushNotification>();
 
-		final ApnsConnection<SimpleApnsPushNotification> testConnection = this.createTestConnection();
+			assertTrue(pool.getAll().isEmpty());
+			pool.waitForEmptyPool(null);
+			assertTrue(pool.getAll().isEmpty());
+		}
 
-		pool.addConnection(testConnection);
+		{
+			final ApnsConnectionPool<SimpleApnsPushNotification> pool =
+					new ApnsConnectionPool<SimpleApnsPushNotification>();
 
-		new Thread(new Runnable() {
+			final ApnsConnection<SimpleApnsPushNotification> testConnection = this.createTestConnection();
 
-			public void run() {
-				try {
-					Thread.sleep(50);
-					pool.removeConnection(testConnection);
-				} catch (InterruptedException ignored) {
+			pool.addConnection(testConnection);
+
+			final Object mutex = new Object();
+
+			final class WaitForEmptyThread extends Thread {
+
+				private boolean finished = false;
+
+				@Override
+				public void run() {
+					try {
+						pool.waitForEmptyPool(null);
+
+						synchronized (mutex) {
+							this.finished = true;
+							mutex.notifyAll();
+						}
+					} catch (InterruptedException e) {
+					}
+
 				}
-
 			}
-		}).start();
 
-		assertFalse(pool.getAll().isEmpty());
-		pool.waitForEmptyPool(new Date(System.currentTimeMillis() + 1000));
-		assertTrue(pool.getAll().isEmpty());
+			assertFalse(pool.getAll().isEmpty());
+
+			final WaitForEmptyThread waitThread = new WaitForEmptyThread();
+			waitThread.start();
+
+			while (!Thread.State.WAITING.equals(waitThread.getState())) {
+				Thread.yield();
+			}
+
+			// At this point, we know the consumer thread is waiting for the pool to become empty
+			synchronized (mutex) {
+				pool.removeConnection(testConnection);
+				mutex.wait();
+			}
+
+			assertTrue(waitThread.finished);
+			assertTrue(pool.getAll().isEmpty());
+		}
 	}
 
 	private ApnsConnection<SimpleApnsPushNotification> createTestConnection() {
