@@ -136,6 +136,8 @@ public class PushManagerTest extends BasePushyTest {
 			mutex.wait();
 		}
 
+		badCredentialManager.shutdown();
+
 		assertEquals(badCredentialManager, listener.pushManager);
 		assertTrue(listener.cause instanceof SSLHandshakeException);
 	}
