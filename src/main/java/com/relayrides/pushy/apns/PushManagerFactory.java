@@ -12,6 +12,7 @@ import java.security.Security;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -35,6 +36,7 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	private int concurrentConnectionCount = 1;
 
 	private NioEventLoopGroup eventLoopGroup;
+	private ExecutorService listenerExecutorService;
 
 	private BlockingQueue<T> queue;
 
@@ -82,14 +84,32 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	 * <p>By default, constructed {@code PushManagers} will construct and maintain their own event loop groups.</p>
 	 *
 	 * @param eventLoopGroup the event loop group constructed {@code PushManagers} should use for their connections to
-	 * the APNs gateway and feedback service; if {@code null}, a new event loop group will be created and will be shut
-	 * down automatically when the push manager is shut down. If not {@code null}, the caller <strong>must</strong> shut
+	 * the APNs gateway and feedback service; if not {@code null}, the caller <strong>must</strong> shut
 	 * down the event loop group after shutting down all push managers that use the group
 	 *
 	 * @return a reference to this factory for ease of chaining configuration calls
 	 */
 	public PushManagerFactory<T> setEventLoopGroup(final NioEventLoopGroup eventLoopGroup) {
 		this.eventLoopGroup = eventLoopGroup;
+		return this;
+	}
+
+	/**
+	 * <p>Sets a custom executor service to be used by constructed {@code PushManagers} to dispatch notifications to
+	 * registered listeners. If {@code null}, constructed {@code PushManager} instances will create and maintain their
+	 * own executor services. If a non-{@code null} executor service is provided, callers <strong>must</strong> shut
+	 * down the executor service after shutting down all {@code PushManager} instances that use that executor service.</p>
+	 * 
+	 * <p>By default, constructed {@code PushManagers} will construct and maintain their own executor services.</p>
+	 * 
+	 * @param listenerExecutorService the executor service to be used by constructed {@code PushManager} instances to
+	 * dispatch notifications to registered listeners; if not {@code null}, the caller <strong>must</strong> shut down
+	 * the executor service after shutting down all push managers that use the executor service
+	 * 
+	 * @return a reference to this factory for ease of chaining configuration calls
+	 */
+	public PushManagerFactory<T> setListenerExecutorService(final ExecutorService listenerExecutorService) {
+		this.listenerExecutorService = listenerExecutorService;
 		return this;
 	}
 
@@ -117,6 +137,7 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 				this.sslContext,
 				this.concurrentConnectionCount,
 				this.eventLoopGroup,
+				this.listenerExecutorService,
 				this.queue);
 	}
 

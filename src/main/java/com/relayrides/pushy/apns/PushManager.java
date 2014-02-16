@@ -71,7 +71,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final NioEventLoopGroup workerGroup;
 	private final boolean shouldShutDownWorkerGroup;
 
-	private final ExecutorService rejectedNotificationExecutorService;
+	private final ExecutorService listenerExecutorService;
+	private final boolean shouldShutDownListenerExecutorService;
 
 	private boolean started = false;
 	private boolean shutDown = false;
@@ -115,11 +116,16 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @param workerGroup the event loop group this push manager should use for its connections to the APNs gateway and
 	 * feedback service; if {@code null}, a new event loop group will be created and will be shut down automatically
 	 * when the push manager is shut down. If not {@code null}, the caller <strong>must</strong> shut down the event
-	 * loop group after shutting down the push manager
+	 * loop group after shutting down the push manager.
+	 * @param listenerExecutorService the executor service this push manager should use to dispatch notifications to
+	 * registered listeners. If {@code null}, a new single-thread executor service will be created and will be shut
+	 * down automatically with the push manager is shut down. If not {@code null}, the caller <strong>must</strong>
+	 * shut down the executor service after shutting down the push manager.
 	 * @param queue the queue to be used to pass new notifications to this push manager
 	 */
 	protected PushManager(final ApnsEnvironment environment, final SSLContext sslContext,
-			final int concurrentConnectionCount, final NioEventLoopGroup workerGroup, final BlockingQueue<T> queue) {
+			final int concurrentConnectionCount, final NioEventLoopGroup workerGroup,
+			final ExecutorService listenerExecutorService, final BlockingQueue<T> queue) {
 
 		this.queue = queue != null ? queue : new LinkedBlockingQueue<T>();
 		this.retryQueue = new LinkedBlockingQueue<T>();
@@ -135,14 +141,20 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		this.feedbackServiceClient = new FeedbackServiceClient(environment, sslContext, workerGroup);
 
-		this.rejectedNotificationExecutorService = Executors.newSingleThreadExecutor();
-
 		if (workerGroup != null) {
 			this.workerGroup = workerGroup;
 			this.shouldShutDownWorkerGroup = false;
 		} else {
 			this.workerGroup = new NioEventLoopGroup();
 			this.shouldShutDownWorkerGroup = true;
+		}
+
+		if (listenerExecutorService != null) {
+			this.listenerExecutorService = listenerExecutorService;
+			this.shouldShutDownListenerExecutorService = false;
+		} else {
+			this.listenerExecutorService = Executors.newSingleThreadExecutor();
+			this.shouldShutDownListenerExecutorService = true;
 		}
 	}
 
@@ -295,7 +307,11 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		this.dispatchThread.join();
 
 		this.rejectedNotificationListeners.clear();
-		this.rejectedNotificationExecutorService.shutdown();
+		this.failedConnectionListeners.clear();
+
+		if (this.shouldShutDownListenerExecutorService) {
+			this.listenerExecutorService.shutdown();
+		}
 
 		if (this.shouldShutDownWorkerGroup) {
 			if (!this.workerGroup.isShutdown()) {
@@ -506,7 +522,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		for (final RejectedNotificationListener<? super T> listener : this.rejectedNotificationListeners) {
 
 			// Handle the notifications in a separate thread in case a listener takes a long time to run
-			this.rejectedNotificationExecutorService.submit(new Runnable() {
+			this.listenerExecutorService.submit(new Runnable() {
 				public void run() {
 					listener.handleRejectedNotification(pushManager, rejectedNotification, reason);
 				}

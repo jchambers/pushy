@@ -34,6 +34,8 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -152,7 +154,7 @@ public class PushManagerTest extends BasePushyTest {
 	public void testShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		{
 			final PushManager<ApnsPushNotification> defaultGroupPushManager =
-					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null, null);
 
 			defaultGroupPushManager.start();
 			defaultGroupPushManager.shutdown();
@@ -164,7 +166,7 @@ public class PushManagerTest extends BasePushyTest {
 			final NioEventLoopGroup group = new NioEventLoopGroup(1);
 
 			final PushManager<ApnsPushNotification> providedGroupPushManager =
-					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, group, null);
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, group, null, null);
 
 			providedGroupPushManager.start();
 			providedGroupPushManager.shutdown();
@@ -174,12 +176,27 @@ public class PushManagerTest extends BasePushyTest {
 
 			group.shutdownGracefully();
 		}
+
+		{
+			final ExecutorService listenerExecutorService = Executors.newSingleThreadExecutor();
+
+			final PushManager<ApnsPushNotification> providedExecutorServicePushManager =
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, listenerExecutorService, null);
+
+			providedExecutorServicePushManager.start();
+			providedExecutorServicePushManager.shutdown();
+
+			assertTrue(providedExecutorServicePushManager.isShutDown());
+			assertFalse(listenerExecutorService.isShutdown());
+
+			listenerExecutorService.shutdown();
+		}
 	}
 
 	@Test(expected = IllegalStateException.class)
 	public void testDoubleStart() throws KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		final PushManager<ApnsPushNotification> doubleStartPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null, null);
 
 		doubleStartPushManager.start();
 		doubleStartPushManager.start();
@@ -188,7 +205,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test(expected = IllegalStateException.class)
 	public void testPrematureShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		final PushManager<ApnsPushNotification> prematureShutdownPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null, null);
 
 		prematureShutdownPushManager.shutdown();
 	}
@@ -196,7 +213,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test
 	public void testRepeatedShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		final PushManager<ApnsPushNotification> repeatedShutdownPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null, null);
 
 		repeatedShutdownPushManager.start();
 		repeatedShutdownPushManager.shutdown();
@@ -347,7 +364,7 @@ public class PushManagerTest extends BasePushyTest {
 					BlockingQueue<SimpleApnsPushNotification> queue,
 					CountDownLatch latch) {
 
-				super(environment, sslContext, concurrentConnectionCount, workerGroup, queue);
+				super(environment, sslContext, concurrentConnectionCount, workerGroup, null, queue);
 
 				this.latch = latch;
 			}
