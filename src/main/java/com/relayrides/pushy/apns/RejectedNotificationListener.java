@@ -38,8 +38,9 @@ public interface RejectedNotificationListener<T extends ApnsPushNotification> {
 	/**
 	 * Handles a permanent push notification rejection.
 	 * 
+	 * @param pushManager the push manager that sent the rejected notification
 	 * @param notification the notification rejected by the APNs server
 	 * @param rejectionReason the reason reported by APNs for the rejection
 	 */
-	void handleRejectedNotification(T notification, RejectedNotificationReason rejectionReason);
+	void handleRejectedNotification(PushManager<? extends T> pushManager, T notification, RejectedNotificationReason rejectionReason);
 }

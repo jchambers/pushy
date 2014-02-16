@@ -50,7 +50,7 @@ public class PushManagerTest extends BasePushyTest {
 
 		private final AtomicInteger rejectedNotificationCount = new AtomicInteger(0);
 
-		public void handleRejectedNotification(final SimpleApnsPushNotification notification, final RejectedNotificationReason reason) {
+		public void handleRejectedNotification(final PushManager<? extends SimpleApnsPushNotification> pushManager, final SimpleApnsPushNotification notification, final RejectedNotificationReason reason) {
 			this.rejectedNotificationCount.incrementAndGet();
 		}
 
