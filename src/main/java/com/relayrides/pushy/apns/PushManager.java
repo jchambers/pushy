@@ -63,7 +63,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final int concurrentConnectionCount;
 	private final ApnsConnectionPool<T> connectionPool;
 	private final FeedbackServiceClient feedbackServiceClient;
+
 	private final Vector<RejectedNotificationListener<? super T>> rejectedNotificationListeners;
+	private final Vector<FailedConnectionListener<? super T>> failedConnectionListeners;
 
 	private Thread dispatchThread;
 	private final NioEventLoopGroup workerGroup;
@@ -123,13 +125,13 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		this.retryQueue = new LinkedBlockingQueue<T>();
 
 		this.rejectedNotificationListeners = new Vector<RejectedNotificationListener<? super T>>();
+		this.failedConnectionListeners = new Vector<FailedConnectionListener<? super T>>();
 
 		this.environment = environment;
 		this.sslContext = sslContext;
 
 		this.concurrentConnectionCount = concurrentConnectionCount;
 		this.connectionPool = new ApnsConnectionPool<T>();
-		// this.threadExceptionHandler = new ThreadExceptionHandler<T>(this);
 
 		this.feedbackServiceClient = new FeedbackServiceClient(environment, sslContext, workerGroup);
 
@@ -313,9 +315,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	/**
-	 * <p>Registers a listener for notifications rejected by APNs for specific reasons. Note that listeners are stored
-	 * as strong references; all listeners are automatically un-registered when the push manager is shut down, but
-	 * failing to unregister a listener manually or to shut down the push manager may cause a memory leak.</p>
+	 * <p>Registers a listener for notifications rejected by APNs for specific reasons.</p>
 	 *
 	 * @param listener the listener to register
 	 *
@@ -341,6 +341,35 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public boolean unregisterRejectedNotificationListener(final RejectedNotificationListener<? super T> listener) {
 		return this.rejectedNotificationListeners.remove(listener);
+	}
+
+	/**
+	 * <p>Registers a listener for failed attempts to connect to the APNs gateway.</p>
+	 * 
+	 * @param listener the listener to register
+	 * 
+	 * @throws IllegalStateException if this push manager has already been shut down
+	 * 
+	 * @see PushManager#unregisterFailedConnectionListener(FailedConnectionListener)
+	 */
+	public void registerFailedConnectionListener(final FailedConnectionListener<? super T> listener) {
+		if (this.shutDown) {
+			throw new IllegalStateException("Failed connection listeners may not be registered after a push manager has been shut down.");
+		}
+
+		this.failedConnectionListeners.add(listener);
+	}
+
+	/**
+	 * <p>Un-registers a connection failure listener.</p>
+	 * 
+	 * @param listener the listener to un-register
+	 * 
+	 * @return {@code true} if the given listener was registered with this push manager and removed or {@code false} if
+	 * the listener was not already registered with this push manager
+	 */
+	public boolean unregisterFailedConnectionListener(final FailedConnectionListener<? super T> listener) {
+		return this.failedConnectionListeners.remove(listener);
 	}
 
 	/**
@@ -430,7 +459,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionFailure(com.relayrides.pushy.apns.ApnsConnection, java.lang.Throwable)
 	 */
 	public void handleConnectionFailure(final ApnsConnection<T> connection, final Throwable cause) {
-		// TODO Do more to react to specific causes
+
+		for (final FailedConnectionListener<? super T> listener : this.failedConnectionListeners) {
+			listener.handleFailedConnection(this, cause);
+		}
 
 		// We tried to open a connection, but failed. As long as we're not shut down, try to open a new one.
 		if (!this.isShutDown()) {
