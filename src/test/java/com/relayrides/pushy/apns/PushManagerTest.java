@@ -38,6 +38,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLHandshakeException;
 
 import org.junit.Test;
 
@@ -45,7 +46,7 @@ import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class PushManagerTest extends BasePushyTest {
 
-	private class TestListener implements RejectedNotificationListener<SimpleApnsPushNotification> {
+	private class TestRejectedNotificationListener implements RejectedNotificationListener<SimpleApnsPushNotification> {
 
 		private final AtomicInteger rejectedNotificationCount = new AtomicInteger(0);
 
@@ -58,11 +59,32 @@ public class PushManagerTest extends BasePushyTest {
 		}
 	}
 
+	private class TestFailedConnectionListener implements FailedConnectionListener<SimpleApnsPushNotification> {
+
+		private final Object mutex;
+
+		private PushManager<? extends SimpleApnsPushNotification> pushManager;
+		private Throwable cause;
+
+		public TestFailedConnectionListener(final Object mutex) {
+			this.mutex = mutex;
+		}
+
+		public void handleFailedConnection(final PushManager<? extends SimpleApnsPushNotification> pushManager, final Throwable cause) {
+			this.pushManager = pushManager;
+			this.cause = cause;
+
+			synchronized (this.mutex) {
+				this.mutex.notifyAll();
+			}
+		}
+	}
+
 	@Test
 	public void testRegisterRejectedNotificationListener() throws InterruptedException {
 		final SimpleApnsPushNotification notification = this.createTestNotification();
 
-		final TestListener listener = new TestListener();
+		final TestRejectedNotificationListener listener = new TestRejectedNotificationListener();
 		this.getPushManager().registerRejectedNotificationListener(listener);
 
 		assertEquals(0, listener.getRejectedNotificationCount());
@@ -85,12 +107,45 @@ public class PushManagerTest extends BasePushyTest {
 
 	@Test
 	public void testUnregisterRejectedNotificationListener() {
-		final TestListener listener = new TestListener();
+		final TestRejectedNotificationListener listener = new TestRejectedNotificationListener();
 
 		this.getPushManager().registerRejectedNotificationListener(listener);
 
 		assertTrue(this.getPushManager().unregisterRejectedNotificationListener(listener));
 		assertFalse(this.getPushManager().unregisterRejectedNotificationListener(listener));
+	}
+
+	@Test
+	public void testRegisterFailedNotificationListener() throws Exception {
+
+		final PushManagerFactory<SimpleApnsPushNotification> factory =
+				new PushManagerFactory<SimpleApnsPushNotification>(
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient("/pushy-test-client-untrusted.jks"));
+
+		final PushManager<SimpleApnsPushNotification> badCredentialManager = factory.buildPushManager();
+
+		final Object mutex = new Object();
+		final TestFailedConnectionListener listener = new TestFailedConnectionListener(mutex);
+
+		badCredentialManager.registerFailedConnectionListener(listener);
+
+		synchronized (mutex) {
+			badCredentialManager.start();
+			mutex.wait();
+		}
+
+		assertEquals(badCredentialManager, listener.pushManager);
+		assertTrue(listener.cause instanceof SSLHandshakeException);
+	}
+
+	@Test
+	public void testUnregisterFailedNotificationListener() {
+		final TestFailedConnectionListener listener = new TestFailedConnectionListener(null);
+
+		this.getPushManager().registerFailedConnectionListener(listener);
+
+		assertTrue(this.getPushManager().unregisterFailedConnectionListener(listener));
+		assertFalse(this.getPushManager().unregisterFailedConnectionListener(listener));
 	}
 
 	@Test
