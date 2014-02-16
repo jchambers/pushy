@@ -476,11 +476,19 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public void handleConnectionFailure(final ApnsConnection<T> connection, final Throwable cause) {
 
+		final PushManager<T> pushManager = this;
+
 		for (final FailedConnectionListener<? super T> listener : this.failedConnectionListeners) {
-			listener.handleFailedConnection(this, cause);
+
+			// Handle connection failures in a separate thread in case a handler takes a long time to run
+			this.listenerExecutorService.submit(new Runnable() {
+				public void run() {
+					listener.handleFailedConnection(pushManager, cause);
+				}
+			});
 		}
 
-		// We tried to open a connection, but failed. As long as we're not shut down, try to open a new one.
+		// As long as we're not shut down, keep trying to open a replacement connection.
 		if (!this.isShutDown()) {
 			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this).connect();
 		}
