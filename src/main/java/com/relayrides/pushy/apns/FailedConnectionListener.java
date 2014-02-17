@@ -11,6 +11,9 @@ import javax.net.ssl.SSLHandshakeException;
  * encouraged to register a listener that shuts down a push manager in the event of a handshake exception.</p>
  * 
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
+ * 
+ * @see com.relayrides.pushy.apns.PushManager#registerFailedConnectionListener(FailedConnectionListener)
+ * @see com.relayrides.pushy.apns.PushManager#unregisterFailedConnectionListener(FailedConnectionListener)
  */
 public interface FailedConnectionListener<T extends ApnsPushNotification> {
 

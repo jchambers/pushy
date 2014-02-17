@@ -32,6 +32,7 @@ package com.relayrides.pushy.apns;
  * Binary Interface and Notification Formats</a>
  * 
  * @see com.relayrides.pushy.apns.PushManager#registerRejectedNotificationListener(RejectedNotificationListener)
+ * @see com.relayrides.pushy.apns.PushManager#unregisterRejectedNotificationListener(RejectedNotificationListener)
  */
 public interface RejectedNotificationListener<T extends ApnsPushNotification> {
 
