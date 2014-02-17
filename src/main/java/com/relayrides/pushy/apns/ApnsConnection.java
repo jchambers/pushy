@@ -26,7 +26,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
@@ -145,11 +144,11 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		}
 	}
 
-	private class RejectedNotificationHandler extends SimpleChannelInboundHandler<RejectedNotification> {
+	private class ApnsConnectionHandler extends SimpleChannelInboundHandler<RejectedNotification> {
 
 		private final ApnsConnection<T> apnsConnection;
 
-		public RejectedNotificationHandler(final ApnsConnection<T> clientThread) {
+		public ApnsConnectionHandler(final ApnsConnection<T> clientThread) {
 			this.apnsConnection = clientThread;
 		}
 
@@ -192,22 +191,13 @@ class ApnsConnection<T extends ApnsPushNotification> {
 						this.apnsConnection, unprocessedNotifications);
 			}
 		}
-	}
-
-	private class ApnsExceptionHandler extends ChannelInboundHandlerAdapter {
-
-		private final ApnsConnection<T> apnsConnection;
-
-		public ApnsExceptionHandler(final ApnsConnection<T> apnsConnection) {
-			this.apnsConnection = apnsConnection;
-		}
 
 		@Override
 		public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
 			// Since this is happening on the inbound side, the most likely case is that a read timed out or the remote
 			// host closed the connection. We should log the problem, but generally assume that channel closure will be
 			// handled by channelInactive.
-			log.debug(String.format("%s caught an exception.", apnsConnection.name), cause);
+			log.debug(String.format("%s caught an exception.", this.apnsConnection.name), cause);
 		}
 
 		@Override
@@ -215,7 +205,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			// It's conceivable that the channel will become inactive without warning, though that would be a breach of
 			// the APNs protocol. It's not clear what we should do with messages in the sent buffer in that case, but
 			// for now we'll just leave them alone and assume they went somewhere.
-			listener.handleConnectionClosure(apnsConnection);
+			this.apnsConnection.listener.handleConnectionClosure(this.apnsConnection);
 		}
 	}
 
@@ -280,8 +270,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 				pipeline.addLast("ssl", new SslHandler(sslEngine));
 				pipeline.addLast("decoder", new RejectedNotificationDecoder());
 				pipeline.addLast("encoder", new ApnsPushNotificationEncoder());
-				pipeline.addLast("rejectionHandler", new RejectedNotificationHandler(apnsConnection));
-				pipeline.addLast("exceptionHandler", new ApnsExceptionHandler(apnsConnection));
+				pipeline.addLast("handler", new ApnsConnectionHandler(apnsConnection));
 			}
 		});
 
