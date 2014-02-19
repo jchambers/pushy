@@ -78,9 +78,8 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	private final AtomicInteger sequenceNumber = new AtomicInteger(0);
 
 	private boolean startedConnectionAttempt = false;
-	private boolean hasEverSentNotification = false;;
 
-	private SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
+	private volatile SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
 
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
 	private static final int SENT_NOTIFICATION_BUFFER_SIZE = 4096;
@@ -378,8 +377,6 @@ class ApnsConnection<T extends ApnsPushNotification> {
 				}
 			}
 		});
-
-		this.hasEverSentNotification = true;
 	}
 
 	/**
@@ -396,8 +393,8 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 		final ApnsConnection<T> apnsConnection = this;
 
-		if (this.hasEverSentNotification && this.shutdownNotification == null) {
-
+		// Don't send a second shutdown notification if we've already started the graceful shutdown process.
+		if (this.shutdownNotification == null) {
 			// It's conceivable that the channel has become inactive already; if so, our work here is already done.
 			if (this.channel.isActive()) {
 
@@ -429,9 +426,6 @@ class ApnsConnection<T extends ApnsPushNotification> {
 					}
 				});
 			}
-
-		} else {
-			this.shutdownImmediately();
 		}
 	}
 
