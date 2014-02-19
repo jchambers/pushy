@@ -368,9 +368,6 @@ class ApnsConnection<T extends ApnsPushNotification> {
 								apnsConnection.name, sendableNotification), writeFuture.cause());
 					}
 
-					// Double-check to make sure we don't have a rejected notification or remotely-closed connection
-					writeFuture.channel().read();
-
 					// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
 					// even manage to write the notification to the wire) and re-enqueue for another send attempt.
 					apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
