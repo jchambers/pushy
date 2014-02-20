@@ -127,7 +127,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		this.concurrentConnectionCount = concurrentConnectionCount;
 		this.connectionPool = new ApnsConnectionPool<T>();
-		// this.threadExceptionHandler = new ThreadExceptionHandler<T>(this);
 
 		this.feedbackServiceClient = new FeedbackServiceClient(environment, sslContext, workerGroup);
 
