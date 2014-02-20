@@ -267,6 +267,18 @@ public class ApnsConnectionTest extends BasePushyTest {
 	}
 
 	@Test
+	public void testShutdownGracefullyBeforeConnect() throws Exception {
+		final Object mutex = new Object();
+
+		final TestListener listener = new TestListener(mutex);
+		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
+				new ApnsConnection<SimpleApnsPushNotification>(
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getWorkerGroup(), listener);
+
+		apnsConnection.shutdownGracefully();
+	}
+
+	@Test
 	public void testShutdownImmediately() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, InterruptedException {
 		final Object mutex = new Object();
 
@@ -288,5 +300,17 @@ public class ApnsConnectionTest extends BasePushyTest {
 		}
 
 		assertTrue(listener.connectionClosed);
+	}
+
+	@Test
+	public void testShutdownImmediatelyBeforeConnect() throws Exception {
+		final Object mutex = new Object();
+
+		final TestListener listener = new TestListener(mutex);
+		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
+				new ApnsConnection<SimpleApnsPushNotification>(
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getWorkerGroup(), listener);
+
+		apnsConnection.shutdownImmediately();
 	}
 }

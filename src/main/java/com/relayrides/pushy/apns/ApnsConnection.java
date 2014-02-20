@@ -377,11 +377,17 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	}
 
 	/**
-	 * Gracefully and asynchronously shuts down this client thread. Graceful disconnection is triggered by sending a
+	 * <p>Gracefully and asynchronously shuts down this client thread. Graceful disconnection is triggered by sending a
 	 * known-bad notification to the APNs gateway; when the gateway rejects the notification, it can be assumed with a
 	 * reasonable degree of confidence that preceding notifications were processed successfully and known with certainty
 	 * that all following notifications were not processed at all. The gateway will close the connection after rejecting
-	 * the notification, and this connection's listener will be notified when the connection is closed.
+	 * the notification, and this connection's listener will be notified when the connection is closed.</p>
+	 * 
+	 * <p>Note that if/when the known-bad notification is rejected by the APNs gateway, this connection's listener will
+	 * <em>not</em> be notified of the rejection.</p>
+	 * 
+	 * <p>Calling this method before establishing a connection with the APNs gateway or while a graceful shutdown
+	 * attempt is already in progress has no effect.</p>
 	 *
 	 * @see ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason, java.util.Collection)
 	 * @see ApnsConnectionListener#handleConnectionClosure(ApnsConnection)
@@ -393,7 +399,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		// Don't send a second shutdown notification if we've already started the graceful shutdown process.
 		if (this.shutdownNotification == null) {
 			// It's conceivable that the channel has become inactive already; if so, our work here is already done.
-			if (this.channel.isActive()) {
+			if (this.channel != null && this.channel.isActive()) {
 
 				this.shutdownNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
 						new KnownBadPushNotification(), this.sequenceNumber.getAndIncrement());
@@ -427,10 +433,12 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	}
 
 	/**
-	 * Immediately closes this connection (assuming it was ever open). The fate of messages sent by this connection
+	 * <p>Immediately closes this connection (assuming it was ever open). The fate of messages sent by this connection
 	 * remains unknown when calling this method; callers should generally prefer
 	 * {@link ApnsConnection#shutdownGracefully} to this method. This connection's listener will be notified when the
-	 * connection has finished closing.
+	 * connection has finished closing.</p>
+	 * 
+	 * <p>Calling this method while not connected has no effect.</p>
 	 *
 	 * @see ApnsConnectionListener#handleConnectionClosure(ApnsConnection)
 	 */
