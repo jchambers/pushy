@@ -289,6 +289,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		this.drainingBeforeShutdown = true;
 		this.shutDown = true;
 
+		if (this.dispatchThread != null && this.dispatchThread.isAlive()) {
+			this.dispatchThread.interrupt();
+		}
+
 		while (!this.retryQueue.isEmpty()) {
 			this.connectionPool.waitForEmptyPool(timeout > 0 ? new Date(System.currentTimeMillis() + timeout) : null);
 
@@ -438,7 +442,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionSuccess(com.relayrides.pushy.apns.ApnsConnection)
 	 */
 	public void handleConnectionSuccess(final ApnsConnection<T> connection) {
-		if (this.isShutDown()) {
+		if (this.isShutDown() && !this.drainingBeforeShutdown) {
 			connection.shutdownImmediately();
 		} else {
 			this.connectionPool.addConnection(connection);
@@ -453,7 +457,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		// TODO Do more to react to specific causes
 
 		// We tried to open a connection, but failed. As long as we're not shut down, try to open a new one.
-		if (!this.isShutDown()) {
+		if (!this.isShutDown() || this.drainingBeforeShutdown) {
 			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this).connect();
 		}
 	}
