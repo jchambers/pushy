@@ -21,8 +21,8 @@
 
 package com.relayrides.pushy.apns;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -38,7 +38,7 @@ import java.util.List;
 class SentNotificationBuffer<E extends ApnsPushNotification> {
 
 	private final int capacity;
-	private final LinkedList<SendableApnsPushNotification<E>> sentNotifications;
+	private final ArrayDeque<SendableApnsPushNotification<E>> sentNotifications;
 
 	/**
 	 * Constructs a new sent notification buffer with the given maximum capacity.
@@ -51,7 +51,7 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 		}
 
 		this.capacity = capacity;
-		this.sentNotifications = new LinkedList<SendableApnsPushNotification<E>>();
+		this.sentNotifications = new ArrayDeque<SendableApnsPushNotification<E>>();
 	}
 
 	/**

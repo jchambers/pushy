@@ -79,8 +79,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private final Logger log = LoggerFactory.getLogger(PushManager.class);
 
-	private static final long POLL_TIMEOUT = 50; // Milliseconds
-
 	private static class DispatchThreadExceptionHandler<T extends ApnsPushNotification> implements UncaughtExceptionHandler {
 		private final Logger log = LoggerFactory.getLogger(DispatchThreadExceptionHandler.class);
 
@@ -131,7 +129,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		this.concurrentConnectionCount = concurrentConnectionCount;
 		this.connectionPool = new ApnsConnectionPool<T>();
-		// this.threadExceptionHandler = new ThreadExceptionHandler<T>(this);
 
 		this.feedbackServiceClient = new FeedbackServiceClient(environment, sslContext, workerGroup);
 
@@ -188,7 +185,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 						T notification = retryQueue.poll();
 
 						if (notification == null && !drainingBeforeShutdown) {
-							notification = queue.poll();
+							// We'll park here either until a new notification is available from the outside or until
+							// something shows up in the retry queue, at which point we'll be interrupted.
+							notification = queue.take();
 						}
 
 						if (notification != null) {
@@ -202,9 +201,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 									connectionToClose.shutdownGracefully();
 								}
 							}
-
-							// Take a rest here to avoid burning resources
-							Thread.sleep(POLL_TIMEOUT);
 						}
 					} catch (InterruptedException e) {
 						continue;
@@ -442,7 +438,11 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionSuccess(com.relayrides.pushy.apns.ApnsConnection)
 	 */
 	public void handleConnectionSuccess(final ApnsConnection<T> connection) {
-		this.connectionPool.addConnection(connection);
+		if (this.isShutDown()) {
+			connection.shutdownImmediately();
+		} else {
+			this.connectionPool.addConnection(connection);
+		}
 	}
 
 	/*
@@ -491,6 +491,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public void handleWriteFailure(ApnsConnection<T> connection, T notification, Throwable cause) {
 		this.retryQueue.add(notification);
+
+		if (this.dispatchThread != null) {
+			this.dispatchThread.interrupt();
+		}
 	}
 
 	/*
@@ -517,5 +521,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public void handleUnprocessedNotifications(ApnsConnection<T> connection, Collection<T> unprocessedNotifications) {
 		this.retryQueue.addAll(unprocessedNotifications);
+
+		if (this.dispatchThread != null) {
+			this.dispatchThread.interrupt();
+		}
 	}
 }

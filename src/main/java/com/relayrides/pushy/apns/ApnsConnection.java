@@ -26,7 +26,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
@@ -79,9 +78,8 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	private final AtomicInteger sequenceNumber = new AtomicInteger(0);
 
 	private boolean startedConnectionAttempt = false;
-	private boolean hasEverSentNotification = false;;
 
-	private SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
+	private volatile SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
 
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
 	private static final int SENT_NOTIFICATION_BUFFER_SIZE = 4096;
@@ -145,11 +143,11 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		}
 	}
 
-	private class RejectedNotificationHandler extends SimpleChannelInboundHandler<RejectedNotification> {
+	private class ApnsConnectionHandler extends SimpleChannelInboundHandler<RejectedNotification> {
 
 		private final ApnsConnection<T> apnsConnection;
 
-		public RejectedNotificationHandler(final ApnsConnection<T> clientThread) {
+		public ApnsConnectionHandler(final ApnsConnection<T> clientThread) {
 			this.apnsConnection = clientThread;
 		}
 
@@ -158,48 +156,43 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			log.debug(String.format("APNs gateway rejected notification with sequence number %d from %s (%s).",
 					rejectedNotification.getSequenceNumber(), this.apnsConnection.name, rejectedNotification.getReason()));
 
-			this.apnsConnection.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
+			this.apnsConnection.workerGroup.submit(new Runnable() {
 
-			final boolean isKnownBadRejection = this.apnsConnection.shutdownNotification != null &&
-					rejectedNotification.getSequenceNumber() == this.apnsConnection.shutdownNotification.getSequenceNumber();
+				public void run() {
+					apnsConnection.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
 
-			// We only want to notify listeners of an actual rejection if something actually went wrong. We don't want
-			// to notify listeners if a known-bad notification was rejected because that's an expected case, and we
-			// don't want to notify listeners if the gateway is shutting down the connection, but still processed the
-			// named notification successfully.
-			if (!isKnownBadRejection && !RejectedNotificationReason.SHUTDOWN.equals(rejectedNotification.getReason())) {
-				final T notification = this.apnsConnection.sentNotificationBuffer.getNotificationWithSequenceNumber(
-						rejectedNotification.getSequenceNumber());
+					final boolean isKnownBadRejection = apnsConnection.shutdownNotification != null &&
+							rejectedNotification.getSequenceNumber() == apnsConnection.shutdownNotification.getSequenceNumber();
 
-				if (notification != null) {
-					this.apnsConnection.listener.handleRejectedNotification(
-							this.apnsConnection, notification, rejectedNotification.getReason());
-				} else {
-					log.error(String.format("%s failed to find rejected notification with sequence number %d; this " +
-							"most likely means the sent notification buffer is too small. Please report this as a bug.",
-							this.apnsConnection.name, rejectedNotification.getSequenceNumber()));
+					// We only want to notify listeners of an actual rejection if something actually went wrong. We don't want
+					// to notify listeners if a known-bad notification was rejected because that's an expected case, and we
+					// don't want to notify listeners if the gateway is shutting down the connection, but still processed the
+					// named notification successfully.
+					if (!isKnownBadRejection && !RejectedNotificationReason.SHUTDOWN.equals(rejectedNotification.getReason())) {
+						final T notification = apnsConnection.sentNotificationBuffer.getNotificationWithSequenceNumber(
+								rejectedNotification.getSequenceNumber());
+
+						if (notification != null) {
+							apnsConnection.listener.handleRejectedNotification(
+									apnsConnection, notification, rejectedNotification.getReason());
+						} else {
+							log.error(String.format("%s failed to find rejected notification with sequence number %d; this " +
+									"most likely means the sent notification buffer is too small. Please report this as a bug.",
+									apnsConnection.name, rejectedNotification.getSequenceNumber()));
+						}
+					}
+
+					// Regardless of the cause, we ALWAYS want to notify listeners that some sent notifications were not
+					// processed by the gateway (assuming there are some such notifications).
+					final Collection<T> unprocessedNotifications =
+							apnsConnection.sentNotificationBuffer.getAllNotificationsAfterSequenceNumber(
+									rejectedNotification.getSequenceNumber());
+
+					if (!unprocessedNotifications.isEmpty()) {
+						apnsConnection.listener.handleUnprocessedNotifications(apnsConnection, unprocessedNotifications);
+					}
 				}
-			}
-
-			// Regardless of the cause, we ALWAYS want to notify listeners that some sent notifications were not
-			// processed by the gateway (assuming there are some such notifications).
-			final Collection<T> unprocessedNotifications =
-					this.apnsConnection.sentNotificationBuffer.getAllNotificationsAfterSequenceNumber(
-							rejectedNotification.getSequenceNumber());
-
-			if (!unprocessedNotifications.isEmpty()) {
-				this.apnsConnection.listener.handleUnprocessedNotifications(
-						this.apnsConnection, unprocessedNotifications);
-			}
-		}
-	}
-
-	private class ApnsExceptionHandler extends ChannelInboundHandlerAdapter {
-
-		private final ApnsConnection<T> apnsConnection;
-
-		public ApnsExceptionHandler(final ApnsConnection<T> apnsConnection) {
-			this.apnsConnection = apnsConnection;
+			});
 		}
 
 		@Override
@@ -207,7 +200,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			// Since this is happening on the inbound side, the most likely case is that a read timed out or the remote
 			// host closed the connection. We should log the problem, but generally assume that channel closure will be
 			// handled by channelInactive.
-			log.debug(String.format("%s caught an exception.", apnsConnection.name), cause);
+			log.debug(String.format("%s caught an exception.", this.apnsConnection.name), cause);
 		}
 
 		@Override
@@ -215,7 +208,12 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			// It's conceivable that the channel will become inactive without warning, though that would be a breach of
 			// the APNs protocol. It's not clear what we should do with messages in the sent buffer in that case, but
 			// for now we'll just leave them alone and assume they went somewhere.
-			listener.handleConnectionClosure(apnsConnection);
+			this.apnsConnection.workerGroup.submit(new Runnable() {
+
+				public void run() {
+					apnsConnection.listener.handleConnectionClosure(apnsConnection);
+				}
+			});
 		}
 	}
 
@@ -280,8 +278,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 				pipeline.addLast("ssl", new SslHandler(sslEngine));
 				pipeline.addLast("decoder", new RejectedNotificationDecoder());
 				pipeline.addLast("encoder", new ApnsPushNotificationEncoder());
-				pipeline.addLast("rejectionHandler", new RejectedNotificationHandler(apnsConnection));
-				pipeline.addLast("exceptionHandler", new ApnsExceptionHandler(apnsConnection));
+				pipeline.addLast("handler", new ApnsConnectionHandler(apnsConnection));
 			}
 		});
 
@@ -371,25 +368,26 @@ class ApnsConnection<T extends ApnsPushNotification> {
 								apnsConnection.name, sendableNotification), writeFuture.cause());
 					}
 
-					// Double-check to make sure we don't have a rejected notification or remotely-closed connection
-					writeFuture.channel().read();
-
 					// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
 					// even manage to write the notification to the wire) and re-enqueue for another send attempt.
 					apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
 				}
 			}
 		});
-
-		this.hasEverSentNotification = true;
 	}
 
 	/**
-	 * Gracefully and asynchronously shuts down this client thread. Graceful disconnection is triggered by sending a
+	 * <p>Gracefully and asynchronously shuts down this client thread. Graceful disconnection is triggered by sending a
 	 * known-bad notification to the APNs gateway; when the gateway rejects the notification, it can be assumed with a
 	 * reasonable degree of confidence that preceding notifications were processed successfully and known with certainty
 	 * that all following notifications were not processed at all. The gateway will close the connection after rejecting
-	 * the notification, and this connection's listener will be notified when the connection is closed.
+	 * the notification, and this connection's listener will be notified when the connection is closed.</p>
+	 * 
+	 * <p>Note that if/when the known-bad notification is rejected by the APNs gateway, this connection's listener will
+	 * <em>not</em> be notified of the rejection.</p>
+	 * 
+	 * <p>Calling this method before establishing a connection with the APNs gateway or while a graceful shutdown
+	 * attempt is already in progress has no effect.</p>
 	 *
 	 * @see ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason, java.util.Collection)
 	 * @see ApnsConnectionListener#handleConnectionClosure(ApnsConnection)
@@ -398,10 +396,10 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 		final ApnsConnection<T> apnsConnection = this;
 
-		if (this.hasEverSentNotification && this.shutdownNotification == null) {
-
+		// Don't send a second shutdown notification if we've already started the graceful shutdown process.
+		if (this.shutdownNotification == null) {
 			// It's conceivable that the channel has become inactive already; if so, our work here is already done.
-			if (this.channel.isActive()) {
+			if (this.channel != null && this.channel.isActive()) {
 
 				this.shutdownNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
 						new KnownBadPushNotification(), this.sequenceNumber.getAndIncrement());
@@ -431,17 +429,16 @@ class ApnsConnection<T extends ApnsPushNotification> {
 					}
 				});
 			}
-
-		} else {
-			this.shutdownImmediately();
 		}
 	}
 
 	/**
-	 * Immediately closes this connection (assuming it was ever open). The fate of messages sent by this connection
+	 * <p>Immediately closes this connection (assuming it was ever open). The fate of messages sent by this connection
 	 * remains unknown when calling this method; callers should generally prefer
 	 * {@link ApnsConnection#shutdownGracefully} to this method. This connection's listener will be notified when the
-	 * connection has finished closing.
+	 * connection has finished closing.</p>
+	 * 
+	 * <p>Calling this method while not connected has no effect.</p>
 	 *
 	 * @see ApnsConnectionListener#handleConnectionClosure(ApnsConnection)
 	 */
