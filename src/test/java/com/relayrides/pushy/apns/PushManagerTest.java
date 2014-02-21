@@ -122,7 +122,7 @@ public class PushManagerTest extends BasePushyTest {
 		}
 	}
 
-	@Test
+	@Test(timeout = 5000)
 	public void testDrainBeforeShutdown() throws InterruptedException {
 		final int iterations = 1000;
 		final ArrayList<SimpleApnsPushNotification> notificationsToSend = new ArrayList<SimpleApnsPushNotification>(iterations);
