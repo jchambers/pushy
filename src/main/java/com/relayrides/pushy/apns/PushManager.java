@@ -193,13 +193,13 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 						if (notification != null) {
 							connection.sendNotification(notification);
 						} else {
-							if (drainingBeforeShutdown) {
-								// The retry queue is empty; close all connections and see if it's still empty. The
-								// push manager will restore connections if one closes while the retry queue is not
-								// empty.
-								for (final ApnsConnection<T> connectionToClose : connectionPool.getAll()) {
-									connectionToClose.shutdownGracefully();
-								}
+							// The only way we can get here is if the retry queue is empty and we're trying to drain
+							// before shutdown (i.e. we're NOT taking notifications from the public queue). We want to
+							// close all connections at this point. If notifications wind up back in the retry queue
+							// during the shutdown process (maybe because notifications got rejected), connections will
+							// be reopened.
+							for (final ApnsConnection<T> connectionToClose : connectionPool.getAll()) {
+								connectionToClose.shutdownGracefully();
 							}
 						}
 					} catch (InterruptedException e) {
@@ -207,7 +207,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 					}
 				}
 			}
-
 		});
 	}
 
