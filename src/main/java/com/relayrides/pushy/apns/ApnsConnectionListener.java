@@ -24,7 +24,10 @@ package com.relayrides.pushy.apns;
 import java.util.Collection;
 
 /**
- * An {@code ApnsConnectionListener} receives lifecycle events from {@link ApnsConnection} instances.
+ * An {@code ApnsConnectionListener} receives lifecycle events from {@link ApnsConnection} instances. Handler methods
+ * are called from IO threads in the connection's event loop group, and implementations should run slow tasks in
+ * separate threads. If a handler method must wait for conditions affected by other handler methods, it must do so in a
+ * separate thread to avoid deadlocks.
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */

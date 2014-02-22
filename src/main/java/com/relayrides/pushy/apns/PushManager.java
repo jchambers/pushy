@@ -457,24 +457,29 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this).connect();
 		}
 
-		try {
-			connection.waitForPendingOperationsToFinish();
+		// TODO Do this in an executor service instead of spawning a new thread
+		new Thread(new Runnable() {
 
-			this.connectionLock.lock();
+			public void run() {
+				try {
+					connection.waitForPendingOperationsToFinish();
 
-			try {
-				this.unfinishedConnectionCount -= 1;
+					connectionLock.lock();
 
-				if (this.unfinishedConnectionCount == 0) {
-					this.connectionsFinished.signalAll();
+					try {
+						unfinishedConnectionCount -= 1;
+
+						if (unfinishedConnectionCount == 0) {
+							connectionsFinished.signalAll();
+						}
+					} finally {
+						connectionLock.unlock();
+					}
+				} catch (InterruptedException e) {
+					log.warn("Interrupted while waiting for closed connection's pending operations to finish.");
 				}
-			} finally {
-				this.connectionLock.unlock();
 			}
-		} catch (InterruptedException e) {
-			log.warn("Interrupted while waiting for closed connection's pending operations to finish.");
-		}
-
+		}).start();
 	}
 
 	/*
