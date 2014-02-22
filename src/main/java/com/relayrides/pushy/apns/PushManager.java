@@ -514,8 +514,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this).connect();
 		}
 
-		// TODO Do this in an executor service instead of spawning a new thread
-		new Thread(new Runnable() {
+		this.listenerExecutorService.submit(new Runnable() {
 
 			public void run() {
 				try {
@@ -536,7 +535,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 					log.warn("Interrupted while waiting for closed connection's pending operations to finish.");
 				}
 			}
-		}).start();
+		});
 	}
 
 	/*
