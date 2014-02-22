@@ -31,6 +31,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.After;
@@ -45,7 +47,8 @@ public abstract class BasePushyTest {
 	private static final long LATCH_TIMEOUT_VALUE = 2;
 	private static final TimeUnit LATCH_TIMEOUT_UNIT = TimeUnit.SECONDS;
 
-	private NioEventLoopGroup workerGroup;
+	private NioEventLoopGroup eventLoopGroup;
+	private ExecutorService listenerExecutorService;
 
 	private PushManager<SimpleApnsPushNotification> pushManager;
 	private MockApnsServer apnsServer;
@@ -54,18 +57,19 @@ public abstract class BasePushyTest {
 	@Before
 	public void setUp() throws InterruptedException, UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException {
 
-		this.workerGroup = new NioEventLoopGroup();
+		this.eventLoopGroup = new NioEventLoopGroup();
+		this.listenerExecutorService = Executors.newSingleThreadExecutor();
 
-		this.apnsServer = new MockApnsServer(TEST_ENVIRONMENT.getApnsGatewayPort(), this.workerGroup);
+		this.apnsServer = new MockApnsServer(TEST_ENVIRONMENT.getApnsGatewayPort(), this.eventLoopGroup);
 		this.apnsServer.start();
 
-		this.feedbackServer = new MockFeedbackServer(TEST_ENVIRONMENT.getFeedbackPort(), this.workerGroup);
+		this.feedbackServer = new MockFeedbackServer(TEST_ENVIRONMENT.getFeedbackPort(), this.eventLoopGroup);
 		this.feedbackServer.start();
 
 		final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
 				new PushManagerFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient());
 
-		pushManagerFactory.setEventLoopGroup(this.workerGroup);
+		pushManagerFactory.setEventLoopGroup(this.eventLoopGroup);
 
 		this.pushManager = pushManagerFactory.buildPushManager();
 	}
@@ -75,11 +79,16 @@ public abstract class BasePushyTest {
 		this.apnsServer.shutdown();
 		this.feedbackServer.shutdown();
 
-		this.workerGroup.shutdownGracefully().await();
+		this.eventLoopGroup.shutdownGracefully().await();
+		this.listenerExecutorService.shutdown();
 	}
 
-	public NioEventLoopGroup getWorkerGroup() {
-		return this.workerGroup;
+	public NioEventLoopGroup getEventLoopGroup() {
+		return this.eventLoopGroup;
+	}
+
+	public ExecutorService getListenerExecutorService() {
+		return this.listenerExecutorService;
 	}
 
 	public PushManager<SimpleApnsPushNotification> getPushManager() {
