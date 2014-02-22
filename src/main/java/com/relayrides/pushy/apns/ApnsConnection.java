@@ -254,6 +254,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	 * @param sslContext an SSL context with the keys/certificates and trust managers this connection should use when
 	 * communicating with the APNs gateway
 	 * @param eventLoopGroup the event loop group this connection should use for asynchronous network operations
+	 * @param listenerExecutorService the executor service to be used to dispatch notifications to registered listeners
 	 * @param listener the listener to which this connection will report lifecycle events; must not be {@code null}
 	 */
 	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup, final ExecutorService listenerExecutorService, final ApnsConnectionListener<T> listener) {
