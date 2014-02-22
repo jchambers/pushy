@@ -83,9 +83,9 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 	private volatile SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
 
-	private final ReentrantLock outstandingWriteLock = new ReentrantLock();
-	private final Condition outstandingWritesFinished = this.outstandingWriteLock.newCondition();
-	private int outstandingWriteCount = 0;
+	private final ReentrantLock pendingOperationLock = new ReentrantLock();
+	private final Condition pendingOperationsFinished = this.pendingOperationLock.newCondition();
+	private int pendingOperationCount = 0;
 
 	private final SentNotificationBuffer<T> sentNotificationBuffer = new SentNotificationBuffer<T>(4096);
 
@@ -161,6 +161,14 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			log.debug(String.format("APNs gateway rejected notification with sequence number %d from %s (%s).",
 					rejectedNotification.getSequenceNumber(), this.apnsConnection.name, rejectedNotification.getReason()));
 
+			this.apnsConnection.pendingOperationLock.lock();
+
+			try {
+				this.apnsConnection.pendingOperationCount += 1;
+			} finally {
+				this.apnsConnection.pendingOperationLock.unlock();
+			}
+
 			// TODO Don't do this in the IO event loop group
 			this.apnsConnection.workerGroup.submit(new Runnable() {
 
@@ -196,6 +204,18 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 					if (!unprocessedNotifications.isEmpty()) {
 						apnsConnection.listener.handleUnprocessedNotifications(apnsConnection, unprocessedNotifications);
+					}
+
+					apnsConnection.pendingOperationLock.lock();
+
+					try {
+						apnsConnection.pendingOperationCount -= 1;
+
+						if (apnsConnection.pendingOperationCount == 0) {
+							apnsConnection.pendingOperationsFinished.signalAll();
+						}
+					} finally {
+						apnsConnection.pendingOperationLock.unlock();
 					}
 				}
 			});
@@ -358,10 +378,10 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			log.trace(String.format("%s sending %s", apnsConnection.name, sendableNotification));
 		}
 
-		this.outstandingWriteLock.lock();
+		this.pendingOperationLock.lock();
 
 		try {
-			this.outstandingWriteCount += 1;
+			this.pendingOperationCount += 1;
 
 			this.channel.writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
@@ -384,21 +404,33 @@ class ApnsConnection<T extends ApnsPushNotification> {
 						apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
 					}
 
-					apnsConnection.outstandingWriteLock.lock();
+					apnsConnection.pendingOperationLock.lock();
 
 					try {
-						apnsConnection.outstandingWriteCount -= 1;
+						apnsConnection.pendingOperationCount -= 1;
 
-						if (apnsConnection.outstandingWriteCount == 0) {
-							apnsConnection.outstandingWritesFinished.signalAll();
+						if (apnsConnection.pendingOperationCount == 0) {
+							apnsConnection.pendingOperationsFinished.signalAll();
 						}
 					} finally {
-						apnsConnection.outstandingWriteLock.unlock();
+						apnsConnection.pendingOperationLock.unlock();
 					}
 				}
 			});
 		} finally {
-			this.outstandingWriteLock.unlock();
+			this.pendingOperationLock.unlock();
+		}
+	}
+
+	public void waitForPendingOperationsToFinish() throws InterruptedException {
+		this.pendingOperationLock.lock();
+
+		try {
+			while (this.pendingOperationCount > 0) {
+				this.pendingOperationsFinished.await();
+			}
+		} finally {
+			this.pendingOperationLock.unlock();
 		}
 	}
 

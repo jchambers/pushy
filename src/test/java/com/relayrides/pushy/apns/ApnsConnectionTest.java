@@ -313,4 +313,80 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		apnsConnection.shutdownImmediately();
 	}
+
+	@Test(timeout = 5000)
+	public void testWaitForPendingOperationsToFinish() throws Exception {
+		// For the purposes of this test, we're happy just as long as we don't time out waiting for writes to finish.
+
+		{
+			final Object mutex = new Object();
+
+			final TestListener listener = new TestListener(mutex);
+			final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
+					new ApnsConnection<SimpleApnsPushNotification>(
+							TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getWorkerGroup(), listener);
+
+			apnsConnection.waitForPendingOperationsToFinish();
+			apnsConnection.shutdownImmediately();
+		}
+
+		{
+			final Object mutex = new Object();
+
+			final TestListener listener = new TestListener(mutex);
+			final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
+					new ApnsConnection<SimpleApnsPushNotification>(
+							TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getWorkerGroup(), listener);
+
+			synchronized (mutex) {
+				apnsConnection.connect();
+				mutex.wait(1000);
+			}
+
+			assertTrue(listener.connectionSucceeded);
+
+			for (int i = 0; i < 1000; i++) {
+				apnsConnection.sendNotification(this.createTestNotification());
+			}
+
+			apnsConnection.waitForPendingOperationsToFinish();
+			apnsConnection.shutdownGracefully();
+		}
+	}
+
+	@Test(timeout = 5000)
+	public void testWaitForPendingOperationsToFinishWithError() throws Exception {
+		final Object mutex = new Object();
+
+		final TestListener listener = new TestListener(mutex);
+		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
+				new ApnsConnection<SimpleApnsPushNotification>(
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getWorkerGroup(), listener);
+
+		synchronized (mutex) {
+			apnsConnection.connect();
+			mutex.wait();
+		}
+
+		assertTrue(listener.connectionSucceeded);
+
+		final SimpleApnsPushNotification bogusNotification =
+				new SimpleApnsPushNotification(new byte[] {}, "This is a bogus notification and should be rejected.");
+
+		synchronized (mutex) {
+			for (int i = 0; i < 1000; i++) {
+				apnsConnection.sendNotification(this.createTestNotification());
+			}
+
+			apnsConnection.sendNotification(bogusNotification);
+			apnsConnection.waitForPendingOperationsToFinish();
+
+			while (!listener.connectionClosed) {
+				mutex.wait();
+			}
+		}
+
+		assertEquals(bogusNotification, listener.rejectedNotification);
+		assertEquals(RejectedNotificationReason.MISSING_TOKEN, listener.rejectionReason);
+	}
 }
