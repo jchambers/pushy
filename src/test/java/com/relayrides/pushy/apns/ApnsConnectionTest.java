@@ -61,6 +61,11 @@ public class ApnsConnectionTest extends BasePushyTest {
 		}
 
 		public void handleConnectionClosure(ApnsConnection<SimpleApnsPushNotification> connection) {
+			try {
+				connection.waitForPendingOperationsToFinish();
+			} catch (InterruptedException ignored) {
+			}
+
 			synchronized (mutex) {
 				this.connectionClosed = true;
 				this.mutex.notifyAll();
@@ -352,41 +357,5 @@ public class ApnsConnectionTest extends BasePushyTest {
 			apnsConnection.waitForPendingOperationsToFinish();
 			apnsConnection.shutdownGracefully();
 		}
-	}
-
-	@Test(timeout = 5000)
-	public void testWaitForPendingOperationsToFinishWithError() throws Exception {
-		final Object mutex = new Object();
-
-		final TestListener listener = new TestListener(mutex);
-		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
-				new ApnsConnection<SimpleApnsPushNotification>(
-						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getWorkerGroup(), listener);
-
-		synchronized (mutex) {
-			apnsConnection.connect();
-			mutex.wait();
-		}
-
-		assertTrue(listener.connectionSucceeded);
-
-		final SimpleApnsPushNotification bogusNotification =
-				new SimpleApnsPushNotification(new byte[] {}, "This is a bogus notification and should be rejected.");
-
-		synchronized (mutex) {
-			for (int i = 0; i < 1000; i++) {
-				apnsConnection.sendNotification(this.createTestNotification());
-			}
-
-			apnsConnection.sendNotification(bogusNotification);
-			apnsConnection.waitForPendingOperationsToFinish();
-
-			while (!listener.connectionClosed) {
-				mutex.wait();
-			}
-		}
-
-		assertEquals(bogusNotification, listener.rejectedNotification);
-		assertEquals(RejectedNotificationReason.MISSING_TOKEN, listener.rejectionReason);
 	}
 }
