@@ -61,6 +61,11 @@ public class ApnsConnectionTest extends BasePushyTest {
 		}
 
 		public void handleConnectionClosure(ApnsConnection<SimpleApnsPushNotification> connection) {
+			try {
+				connection.waitForPendingOperationsToFinish();
+			} catch (InterruptedException ignored) {
+			}
+
 			synchronized (mutex) {
 				this.connectionClosed = true;
 				this.mutex.notifyAll();
@@ -267,6 +272,18 @@ public class ApnsConnectionTest extends BasePushyTest {
 	}
 
 	@Test
+	public void testShutdownGracefullyBeforeConnect() throws Exception {
+		final Object mutex = new Object();
+
+		final TestListener listener = new TestListener(mutex);
+		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
+				new ApnsConnection<SimpleApnsPushNotification>(
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getWorkerGroup(), listener);
+
+		apnsConnection.shutdownGracefully();
+	}
+
+	@Test
 	public void testShutdownImmediately() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, InterruptedException {
 		final Object mutex = new Object();
 
@@ -288,5 +305,57 @@ public class ApnsConnectionTest extends BasePushyTest {
 		}
 
 		assertTrue(listener.connectionClosed);
+	}
+
+	@Test
+	public void testShutdownImmediatelyBeforeConnect() throws Exception {
+		final Object mutex = new Object();
+
+		final TestListener listener = new TestListener(mutex);
+		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
+				new ApnsConnection<SimpleApnsPushNotification>(
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getWorkerGroup(), listener);
+
+		apnsConnection.shutdownImmediately();
+	}
+
+	@Test(timeout = 5000)
+	public void testWaitForPendingOperationsToFinish() throws Exception {
+		// For the purposes of this test, we're happy just as long as we don't time out waiting for writes to finish.
+
+		{
+			final Object mutex = new Object();
+
+			final TestListener listener = new TestListener(mutex);
+			final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
+					new ApnsConnection<SimpleApnsPushNotification>(
+							TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getWorkerGroup(), listener);
+
+			apnsConnection.waitForPendingOperationsToFinish();
+			apnsConnection.shutdownImmediately();
+		}
+
+		{
+			final Object mutex = new Object();
+
+			final TestListener listener = new TestListener(mutex);
+			final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
+					new ApnsConnection<SimpleApnsPushNotification>(
+							TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getWorkerGroup(), listener);
+
+			synchronized (mutex) {
+				apnsConnection.connect();
+				mutex.wait(1000);
+			}
+
+			assertTrue(listener.connectionSucceeded);
+
+			for (int i = 0; i < 1000; i++) {
+				apnsConnection.sendNotification(this.createTestNotification());
+			}
+
+			apnsConnection.waitForPendingOperationsToFinish();
+			apnsConnection.shutdownGracefully();
+		}
 	}
 }

@@ -23,7 +23,6 @@ package com.relayrides.pushy.apns;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Date;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -124,29 +123,6 @@ class ApnsConnectionPool<T extends ApnsPushNotification> {
 
 		try {
 			return new ArrayList<ApnsConnection<T>>(this.connections);
-		} finally {
-			this.lock.unlock();
-		}
-	}
-
-	/**
-	 * Waits for all connections to be removed from this pool until the given deadline.
-	 *
-	 * @param deadline the time after which the current thread should no longer wait
-	 *
-	 * @throws InterruptedException if interrupted while waiting for the pool to become empty
-	 */
-	public void waitForEmptyPool(final Date deadline) throws InterruptedException {
-		this.lock.lock();
-
-		try {
-			while (!this.connections.isEmpty()) {
-				if (deadline != null) {
-					this.poolEmpty.awaitUntil(deadline);
-				} else {
-					this.poolEmpty.await();
-				}
-			}
 		} finally {
 			this.lock.unlock();
 		}

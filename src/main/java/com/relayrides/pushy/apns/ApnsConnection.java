@@ -44,6 +44,8 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
@@ -81,8 +83,11 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 	private volatile SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
 
-	private final SentNotificationBuffer<T> sentNotificationBuffer;
-	private static final int SENT_NOTIFICATION_BUFFER_SIZE = 4096;
+	private final ReentrantLock pendingOperationLock = new ReentrantLock();
+	private final Condition pendingOperationsFinished = this.pendingOperationLock.newCondition();
+	private int pendingOperationCount = 0;
+
+	private final SentNotificationBuffer<T> sentNotificationBuffer = new SentNotificationBuffer<T>(4096);
 
 	private final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
 
@@ -156,6 +161,15 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			log.debug(String.format("APNs gateway rejected notification with sequence number %d from %s (%s).",
 					rejectedNotification.getSequenceNumber(), this.apnsConnection.name, rejectedNotification.getReason()));
 
+			this.apnsConnection.pendingOperationLock.lock();
+
+			try {
+				this.apnsConnection.pendingOperationCount += 1;
+			} finally {
+				this.apnsConnection.pendingOperationLock.unlock();
+			}
+
+			// TODO Don't do this in the IO event loop group
 			this.apnsConnection.workerGroup.submit(new Runnable() {
 
 				public void run() {
@@ -191,6 +205,18 @@ class ApnsConnection<T extends ApnsPushNotification> {
 					if (!unprocessedNotifications.isEmpty()) {
 						apnsConnection.listener.handleUnprocessedNotifications(apnsConnection, unprocessedNotifications);
 					}
+
+					apnsConnection.pendingOperationLock.lock();
+
+					try {
+						apnsConnection.pendingOperationCount -= 1;
+
+						if (apnsConnection.pendingOperationCount == 0) {
+							apnsConnection.pendingOperationsFinished.signalAll();
+						}
+					} finally {
+						apnsConnection.pendingOperationLock.unlock();
+					}
 				}
 			});
 		}
@@ -208,6 +234,8 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			// It's conceivable that the channel will become inactive without warning, though that would be a breach of
 			// the APNs protocol. It's not clear what we should do with messages in the sent buffer in that case, but
 			// for now we'll just leave them alone and assume they went somewhere.
+
+			// TODO Don't do this in the IO event loop group
 			this.apnsConnection.workerGroup.submit(new Runnable() {
 
 				public void run() {
@@ -239,8 +267,6 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		this.listener = listener;
 
 		this.name = String.format("ApnsConnection-%d", ApnsConnection.connectionCounter.getAndIncrement());
-
-		this.sentNotificationBuffer = new SentNotificationBuffer<T>(SENT_NOTIFICATION_BUFFER_SIZE);
 	}
 
 	/**
@@ -352,39 +378,74 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			log.trace(String.format("%s sending %s", apnsConnection.name, sendableNotification));
 		}
 
-		this.channel.writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+		this.pendingOperationLock.lock();
 
-			public void operationComplete(final ChannelFuture writeFuture) {
-				if (writeFuture.isSuccess()) {
-					if (log.isTraceEnabled()) {
-						log.trace(String.format("%s successfully wrote notification %d",
-								apnsConnection.name, sendableNotification.getSequenceNumber()));
+		try {
+			this.pendingOperationCount += 1;
+
+			this.channel.writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+
+				public void operationComplete(final ChannelFuture writeFuture) {
+					if (writeFuture.isSuccess()) {
+						if (log.isTraceEnabled()) {
+							log.trace(String.format("%s successfully wrote notification %d",
+									apnsConnection.name, sendableNotification.getSequenceNumber()));
+						}
+
+						apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
+					} else {
+						if (log.isTraceEnabled()) {
+							log.trace(String.format("%s failed to write notification %s",
+									apnsConnection.name, sendableNotification), writeFuture.cause());
+						}
+
+						// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
+						// even manage to write the notification to the wire) and re-enqueue for another send attempt.
+						apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
 					}
 
-					sentNotificationBuffer.addSentNotification(sendableNotification);
-				} else {
-					if (log.isTraceEnabled()) {
-						log.trace(String.format("%s failed to write notification %s",
-								apnsConnection.name, sendableNotification), writeFuture.cause());
+					apnsConnection.pendingOperationLock.lock();
+
+					try {
+						apnsConnection.pendingOperationCount -= 1;
+
+						if (apnsConnection.pendingOperationCount == 0) {
+							apnsConnection.pendingOperationsFinished.signalAll();
+						}
+					} finally {
+						apnsConnection.pendingOperationLock.unlock();
 					}
-
-					// Double-check to make sure we don't have a rejected notification or remotely-closed connection
-					writeFuture.channel().read();
-
-					// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
-					// even manage to write the notification to the wire) and re-enqueue for another send attempt.
-					apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
 				}
+			});
+		} finally {
+			this.pendingOperationLock.unlock();
+		}
+	}
+
+	public void waitForPendingOperationsToFinish() throws InterruptedException {
+		this.pendingOperationLock.lock();
+
+		try {
+			while (this.pendingOperationCount > 0) {
+				this.pendingOperationsFinished.await();
 			}
-		});
+		} finally {
+			this.pendingOperationLock.unlock();
+		}
 	}
 
 	/**
-	 * Gracefully and asynchronously shuts down this client thread. Graceful disconnection is triggered by sending a
+	 * <p>Gracefully and asynchronously shuts down this client thread. Graceful disconnection is triggered by sending a
 	 * known-bad notification to the APNs gateway; when the gateway rejects the notification, it can be assumed with a
 	 * reasonable degree of confidence that preceding notifications were processed successfully and known with certainty
 	 * that all following notifications were not processed at all. The gateway will close the connection after rejecting
-	 * the notification, and this connection's listener will be notified when the connection is closed.
+	 * the notification, and this connection's listener will be notified when the connection is closed.</p>
+	 * 
+	 * <p>Note that if/when the known-bad notification is rejected by the APNs gateway, this connection's listener will
+	 * <em>not</em> be notified of the rejection.</p>
+	 * 
+	 * <p>Calling this method before establishing a connection with the APNs gateway or while a graceful shutdown
+	 * attempt is already in progress has no effect.</p>
 	 *
 	 * @see ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason, java.util.Collection)
 	 * @see ApnsConnectionListener#handleConnectionClosure(ApnsConnection)
@@ -396,7 +457,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		// Don't send a second shutdown notification if we've already started the graceful shutdown process.
 		if (this.shutdownNotification == null) {
 			// It's conceivable that the channel has become inactive already; if so, our work here is already done.
-			if (this.channel.isActive()) {
+			if (this.channel != null && this.channel.isActive()) {
 
 				this.shutdownNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
 						new KnownBadPushNotification(), this.sequenceNumber.getAndIncrement());
@@ -430,10 +491,12 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	}
 
 	/**
-	 * Immediately closes this connection (assuming it was ever open). The fate of messages sent by this connection
+	 * <p>Immediately closes this connection (assuming it was ever open). The fate of messages sent by this connection
 	 * remains unknown when calling this method; callers should generally prefer
 	 * {@link ApnsConnection#shutdownGracefully} to this method. This connection's listener will be notified when the
-	 * connection has finished closing.
+	 * connection has finished closing.</p>
+	 * 
+	 * <p>Calling this method while not connected has no effect.</p>
 	 *
 	 * @see ApnsConnectionListener#handleConnectionClosure(ApnsConnection)
 	 */

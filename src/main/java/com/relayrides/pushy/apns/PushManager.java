@@ -35,6 +35,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 import javax.net.ssl.SSLContext;
 
@@ -70,6 +72,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private Thread dispatchThread;
 	private final NioEventLoopGroup workerGroup;
 	private final boolean shouldShutDownWorkerGroup;
+
+	private ReentrantLock connectionLock = new ReentrantLock();
+	private Condition connectionsFinished = this.connectionLock.newCondition();
+	private int unfinishedConnectionCount = 0;
 
 	private final ExecutorService listenerExecutorService;
 	private final boolean shouldShutDownListenerExecutorService;
@@ -291,12 +297,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			connection.shutdownGracefully();
 		}
 
-		if (timeout > 0) {
-			final Date deadline = new Date(System.currentTimeMillis() + timeout);
-			this.connectionPool.waitForEmptyPool(deadline);
-		} else {
-			this.connectionPool.waitForEmptyPool(null);
-		}
+		final Date deadline = timeout > 0 ? new Date(System.currentTimeMillis() + timeout) : null;
+
+		this.waitForAllOperationsToFinish(deadline);
 
 		this.dispatchThread.interrupt();
 		this.dispatchThread.join();
@@ -461,7 +464,14 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		if (this.isShutDown()) {
 			connection.shutdownImmediately();
 		} else {
-			this.connectionPool.addConnection(connection);
+			this.connectionLock.lock();
+
+			try {
+				this.unfinishedConnectionCount += 1;
+				this.connectionPool.addConnection(connection);
+			} finally {
+				this.connectionLock.unlock();
+			}
 		}
 	}
 
@@ -503,6 +513,25 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		if (!this.isShutDown()) {
 			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this).connect();
 		}
+
+		try {
+			connection.waitForPendingOperationsToFinish();
+
+			this.connectionLock.lock();
+
+			try {
+				this.unfinishedConnectionCount -= 1;
+
+				if (this.unfinishedConnectionCount == 0) {
+					this.connectionsFinished.signalAll();
+				}
+			} finally {
+				this.connectionLock.unlock();
+			}
+		} catch (InterruptedException e) {
+			log.warn("Interrupted while waiting for closed connection's pending operations to finish.");
+		}
+
 	}
 
 	/*
@@ -546,6 +575,22 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		if (this.dispatchThread != null) {
 			this.dispatchThread.interrupt();
+		}
+	}
+
+	private void waitForAllOperationsToFinish(final Date deadline) throws InterruptedException {
+		this.connectionLock.lock();
+
+		try {
+			while (this.unfinishedConnectionCount > 0) {
+				if (deadline != null) {
+					this.connectionsFinished.awaitUntil(deadline);
+				} else {
+					this.connectionsFinished.await();
+				}
+			}
+		} finally {
+			this.connectionLock.unlock();
 		}
 	}
 }
