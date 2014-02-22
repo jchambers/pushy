@@ -169,56 +169,50 @@ class ApnsConnection<T extends ApnsPushNotification> {
 				this.apnsConnection.pendingOperationLock.unlock();
 			}
 
-			// TODO Don't do this in the IO event loop group
-			this.apnsConnection.workerGroup.submit(new Runnable() {
+			this.apnsConnection.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
 
-				public void run() {
-					apnsConnection.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
+			final boolean isKnownBadRejection = this.apnsConnection.shutdownNotification != null &&
+					rejectedNotification.getSequenceNumber() == this.apnsConnection.shutdownNotification.getSequenceNumber();
 
-					final boolean isKnownBadRejection = apnsConnection.shutdownNotification != null &&
-							rejectedNotification.getSequenceNumber() == apnsConnection.shutdownNotification.getSequenceNumber();
+			// We only want to notify listeners of an actual rejection if something actually went wrong. We don't want
+			// to notify listeners if a known-bad notification was rejected because that's an expected case, and we
+			// don't want to notify listeners if the gateway is shutting down the connection, but still processed the
+			// named notification successfully.
+			if (!isKnownBadRejection && !RejectedNotificationReason.SHUTDOWN.equals(rejectedNotification.getReason())) {
+				final T notification = this.apnsConnection.sentNotificationBuffer.getNotificationWithSequenceNumber(
+						rejectedNotification.getSequenceNumber());
 
-					// We only want to notify listeners of an actual rejection if something actually went wrong. We don't want
-					// to notify listeners if a known-bad notification was rejected because that's an expected case, and we
-					// don't want to notify listeners if the gateway is shutting down the connection, but still processed the
-					// named notification successfully.
-					if (!isKnownBadRejection && !RejectedNotificationReason.SHUTDOWN.equals(rejectedNotification.getReason())) {
-						final T notification = apnsConnection.sentNotificationBuffer.getNotificationWithSequenceNumber(
-								rejectedNotification.getSequenceNumber());
-
-						if (notification != null) {
-							apnsConnection.listener.handleRejectedNotification(
-									apnsConnection, notification, rejectedNotification.getReason());
-						} else {
-							log.error(String.format("%s failed to find rejected notification with sequence number %d; this " +
-									"most likely means the sent notification buffer is too small. Please report this as a bug.",
-									apnsConnection.name, rejectedNotification.getSequenceNumber()));
-						}
-					}
-
-					// Regardless of the cause, we ALWAYS want to notify listeners that some sent notifications were not
-					// processed by the gateway (assuming there are some such notifications).
-					final Collection<T> unprocessedNotifications =
-							apnsConnection.sentNotificationBuffer.getAllNotificationsAfterSequenceNumber(
-									rejectedNotification.getSequenceNumber());
-
-					if (!unprocessedNotifications.isEmpty()) {
-						apnsConnection.listener.handleUnprocessedNotifications(apnsConnection, unprocessedNotifications);
-					}
-
-					apnsConnection.pendingOperationLock.lock();
-
-					try {
-						apnsConnection.pendingOperationCount -= 1;
-
-						if (apnsConnection.pendingOperationCount == 0) {
-							apnsConnection.pendingOperationsFinished.signalAll();
-						}
-					} finally {
-						apnsConnection.pendingOperationLock.unlock();
-					}
+				if (notification != null) {
+					this.apnsConnection.listener.handleRejectedNotification(
+							this.apnsConnection, notification, rejectedNotification.getReason());
+				} else {
+					log.error(String.format("%s failed to find rejected notification with sequence number %d; this " +
+							"most likely means the sent notification buffer is too small. Please report this as a bug.",
+							this.apnsConnection.name, rejectedNotification.getSequenceNumber()));
 				}
-			});
+			}
+
+			// Regardless of the cause, we ALWAYS want to notify listeners that some sent notifications were not
+			// processed by the gateway (assuming there are some such notifications).
+			final Collection<T> unprocessedNotifications =
+					this.apnsConnection.sentNotificationBuffer.getAllNotificationsAfterSequenceNumber(
+							rejectedNotification.getSequenceNumber());
+
+			if (!unprocessedNotifications.isEmpty()) {
+				this.apnsConnection.listener.handleUnprocessedNotifications(this.apnsConnection, unprocessedNotifications);
+			}
+
+			this.apnsConnection.pendingOperationLock.lock();
+
+			try {
+				this.apnsConnection.pendingOperationCount -= 1;
+
+				if (this.apnsConnection.pendingOperationCount == 0) {
+					this.apnsConnection.pendingOperationsFinished.signalAll();
+				}
+			} finally {
+				this.apnsConnection.pendingOperationLock.unlock();
+			}
 		}
 
 		@Override
@@ -231,17 +225,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 		@Override
 		public void channelInactive(final ChannelHandlerContext context) {
-			// It's conceivable that the channel will become inactive without warning, though that would be a breach of
-			// the APNs protocol. It's not clear what we should do with messages in the sent buffer in that case, but
-			// for now we'll just leave them alone and assume they went somewhere.
-
-			// TODO Don't do this in the IO event loop group
-			this.apnsConnection.workerGroup.submit(new Runnable() {
-
-				public void run() {
-					apnsConnection.listener.handleConnectionClosure(apnsConnection);
-				}
-			});
+			this.apnsConnection.listener.handleConnectionClosure(apnsConnection);
 		}
 	}
 
