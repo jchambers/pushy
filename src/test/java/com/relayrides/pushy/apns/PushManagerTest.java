@@ -305,7 +305,7 @@ public class PushManagerTest extends BasePushyTest {
 		final PushManagerFactory<SimpleApnsPushNotification> factory =
 				new PushManagerFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient());
 
-		factory.setEventLoopGroup(this.getEventLoopGroup());
+		factory.setEventLoopGroup(this.getWorkerGroup());
 		factory.setConcurrentConnectionCount(4);
 
 		final PushManager<SimpleApnsPushNotification> parallelPushManager = factory.buildPushManager();
@@ -330,7 +330,7 @@ public class PushManagerTest extends BasePushyTest {
 		final PushManagerFactory<SimpleApnsPushNotification> factory =
 				new PushManagerFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient());
 
-		factory.setEventLoopGroup(this.getEventLoopGroup());
+		factory.setEventLoopGroup(this.getWorkerGroup());
 		factory.setConcurrentConnectionCount(4);
 
 		final PushManager<SimpleApnsPushNotification> parallelPushManager = factory.buildPushManager();
@@ -390,7 +390,7 @@ public class PushManagerTest extends BasePushyTest {
 
 		final PushManagerWithSelfDestructingDispatchThread testManager =
 				new PushManagerWithSelfDestructingDispatchThread(
-						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, this.getEventLoopGroup(),
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, this.getWorkerGroup(),
 						new LinkedBlockingQueue<SimpleApnsPushNotification>(), latch);
 
 		testManager.start();

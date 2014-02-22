@@ -180,7 +180,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		for (int i = 0; i < this.concurrentConnectionCount; i++) {
-			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this.listenerExecutorService, this).connect();
+			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this).connect();
 		}
 
 		this.createAndStartDispatchThread();
@@ -495,7 +495,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		// As long as we're not shut down, keep trying to open a replacement connection.
 		if (!this.isShutDown()) {
-			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this.listenerExecutorService, this).connect();
+			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this).connect();
 		}
 	}
 
@@ -511,7 +511,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		if (!this.isShutDown()) {
-			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this.listenerExecutorService, this).connect();
+			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this).connect();
 		}
 
 		try {

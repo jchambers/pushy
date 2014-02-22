@@ -115,7 +115,7 @@ public class ApnsConnectionPoolTest {
 	}
 
 	private ApnsConnection<SimpleApnsPushNotification> createTestConnection() {
-		return new ApnsConnection<SimpleApnsPushNotification>(ApnsEnvironment.getSandboxEnvironment(), null, null, null, new ApnsConnectionListener<SimpleApnsPushNotification>() {
+		return new ApnsConnection<SimpleApnsPushNotification>(ApnsEnvironment.getSandboxEnvironment(), null, null, new ApnsConnectionListener<SimpleApnsPushNotification>() {
 			public void handleConnectionSuccess(ApnsConnection<SimpleApnsPushNotification> connection) {}
 			public void handleConnectionFailure(ApnsConnection<SimpleApnsPushNotification> connection, Throwable cause) {}
 			public void handleConnectionClosure(ApnsConnection<SimpleApnsPushNotification> connection) {}
