@@ -44,6 +44,8 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
@@ -81,8 +83,11 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 	private volatile SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
 
-	private final SentNotificationBuffer<T> sentNotificationBuffer;
-	private static final int SENT_NOTIFICATION_BUFFER_SIZE = 4096;
+	private final ReentrantLock outstandingWriteLock = new ReentrantLock();
+	private final Condition outstandingWritesFinished = this.outstandingWriteLock.newCondition();
+	private int outstandingWriteCount = 0;
+
+	private final SentNotificationBuffer<T> sentNotificationBuffer = new SentNotificationBuffer<T>(4096);
 
 	private final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
 
@@ -156,6 +161,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			log.debug(String.format("APNs gateway rejected notification with sequence number %d from %s (%s).",
 					rejectedNotification.getSequenceNumber(), this.apnsConnection.name, rejectedNotification.getReason()));
 
+			// TODO Don't do this in the IO event loop group
 			this.apnsConnection.workerGroup.submit(new Runnable() {
 
 				public void run() {
@@ -208,6 +214,8 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			// It's conceivable that the channel will become inactive without warning, though that would be a breach of
 			// the APNs protocol. It's not clear what we should do with messages in the sent buffer in that case, but
 			// for now we'll just leave them alone and assume they went somewhere.
+
+			// TODO Don't do this in the IO event loop group
 			this.apnsConnection.workerGroup.submit(new Runnable() {
 
 				public void run() {
@@ -239,8 +247,6 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		this.listener = listener;
 
 		this.name = String.format("ApnsConnection-%d", ApnsConnection.connectionCounter.getAndIncrement());
-
-		this.sentNotificationBuffer = new SentNotificationBuffer<T>(SENT_NOTIFICATION_BUFFER_SIZE);
 	}
 
 	/**
@@ -352,28 +358,48 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			log.trace(String.format("%s sending %s", apnsConnection.name, sendableNotification));
 		}
 
-		this.channel.writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+		this.outstandingWriteLock.lock();
 
-			public void operationComplete(final ChannelFuture writeFuture) {
-				if (writeFuture.isSuccess()) {
-					if (log.isTraceEnabled()) {
-						log.trace(String.format("%s successfully wrote notification %d",
-								apnsConnection.name, sendableNotification.getSequenceNumber()));
+		try {
+			this.outstandingWriteCount += 1;
+
+			this.channel.writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+
+				public void operationComplete(final ChannelFuture writeFuture) {
+					if (writeFuture.isSuccess()) {
+						if (log.isTraceEnabled()) {
+							log.trace(String.format("%s successfully wrote notification %d",
+									apnsConnection.name, sendableNotification.getSequenceNumber()));
+						}
+
+						apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
+					} else {
+						if (log.isTraceEnabled()) {
+							log.trace(String.format("%s failed to write notification %s",
+									apnsConnection.name, sendableNotification), writeFuture.cause());
+						}
+
+						// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
+						// even manage to write the notification to the wire) and re-enqueue for another send attempt.
+						apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
 					}
 
-					sentNotificationBuffer.addSentNotification(sendableNotification);
-				} else {
-					if (log.isTraceEnabled()) {
-						log.trace(String.format("%s failed to write notification %s",
-								apnsConnection.name, sendableNotification), writeFuture.cause());
-					}
+					apnsConnection.outstandingWriteLock.lock();
 
-					// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
-					// even manage to write the notification to the wire) and re-enqueue for another send attempt.
-					apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
+					try {
+						apnsConnection.outstandingWriteCount -= 1;
+
+						if (apnsConnection.outstandingWriteCount == 0) {
+							apnsConnection.outstandingWritesFinished.signalAll();
+						}
+					} finally {
+						apnsConnection.outstandingWriteLock.unlock();
+					}
 				}
-			}
-		});
+			});
+		} finally {
+			this.outstandingWriteLock.unlock();
+		}
 	}
 
 	/**
