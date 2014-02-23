@@ -32,6 +32,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.util.ArrayList;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -193,6 +194,29 @@ public class PushManagerTest extends BasePushyTest {
 
 			listenerExecutorService.shutdown();
 		}
+	}
+
+	@Test(timeout = 10000)
+	public void testDrainBeforeShutdown() throws InterruptedException {
+		final int iterations = 1000;
+		final ArrayList<SimpleApnsPushNotification> notificationsToSend = new ArrayList<SimpleApnsPushNotification>(iterations);
+
+		for (int i = 0; i < iterations; i++) {
+			notificationsToSend.add(this.createTestNotification());
+		}
+
+		this.getApnsServer().failWithErrorAfterNotifications(RejectedNotificationReason.PROCESSING_ERROR, iterations / 2);
+
+		this.getPushManager().start();
+
+		// Hacky: wait for a non-empty connection pool
+		Thread.sleep(1000);
+
+		this.getPushManager().getRetryQueue().addAll(notificationsToSend);
+		this.getPushManager().shutdown();
+
+		assertEquals(iterations, this.getApnsServer().getReceivedNotifications().size());
+		assertTrue(this.getPushManager().getRetryQueue().isEmpty());
 	}
 
 	@Test(expected = IllegalStateException.class)

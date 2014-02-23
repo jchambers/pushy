@@ -405,6 +405,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		return this.queue;
 	}
 
+	protected BlockingQueue<T> getRetryQueue() {
+		return this.retryQueue;
+	}
+
 	/**
 	 * <p>Queries the APNs feedback service for expired tokens using a reasonable default timeout. Be warned that this
 	 * is a <strong>destructive operation</strong>. According to Apple's documentation:</p>
