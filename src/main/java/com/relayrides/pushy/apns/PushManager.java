@@ -97,7 +97,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		public void uncaughtException(final Thread t, final Throwable e) {
 			log.error("Dispatch thread died unexpectedly. Please file a bug with the exception details.", e);
 
-			if (this.manager.isStarted()) {
+			if (!this.manager.drainingFinished) {
 				this.manager.createAndStartDispatchThread();
 			}
 		}
@@ -185,7 +185,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		this.createAndStartDispatchThread();
 	}
 
-	private synchronized void createAndStartDispatchThread() {
+	private void createAndStartDispatchThread() {
 		this.dispatchThread = createDispatchThread();
 		this.dispatchThread.setUncaughtExceptionHandler(new DispatchThreadExceptionHandler<T>(this));
 		this.dispatchThread.start();
