@@ -204,9 +204,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 							if (drainingRetryQueue) {
 								// We're trying to drain the retry queue, which is now empty. Attempt to close all
 								// open connections gracefully and see if the retry queue stays empty.
-
-								// TODO Synchronize this somehow to avoid the case where notifications can be added
-								// after we get the list and we fail to shut them down
 								for (final ApnsConnection<T> connectionToClose : connectionPool.getAll()) {
 									connectionToClose.shutdownGracefully();
 								}
