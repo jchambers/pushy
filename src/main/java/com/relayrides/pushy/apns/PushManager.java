@@ -256,8 +256,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	/**
-	 * Disconnects from APNs and gracefully shuts down all connections. This method will block until all connections
-	 * have shut down gracefully.
+	 * Disconnects from APNs and gracefully shuts down all connections. This method will block until the internal retry
+	 * queue has been emptied and until all connections have shut down gracefully.
 	 *
 	 * @return a list of notifications not sent before the {@code PushManager} shut down
 	 *
@@ -270,9 +270,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	/**
 	 * Disconnects from the APNs and gracefully shuts down all connections. This method will wait until the given
-	 * timeout expires for connections to close gracefully, and will then instruct them to shut down as soon as
-	 * possible (and will block until shutdown is complete). Note that the returned list of undelivered push
-	 * notifications may not be accurate in cases where the timeout elapsed before the client threads shut down.
+	 * timeout expires for the internal retry queue to empty and for connections to close gracefully, and will then
+	 * instruct them to shut down as soon as possible (and will block until shutdown is complete). Note that the
+	 * returned list of undelivered push notifications may not be accurate in cases where the timeout elapsed before
+	 * the client threads shut down.
 	 *
 	 * @param timeout the timeout, in milliseconds, after which client threads should be shut down as quickly as possible
 	 *
