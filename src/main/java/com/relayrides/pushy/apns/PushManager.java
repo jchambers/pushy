@@ -607,7 +607,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		this.connectionLock.lock();
 
 		try {
-			while (this.unfinishedConnectionCount > 0) {
+			while (this.unfinishedConnectionCount > 0 && (deadline == null || System.currentTimeMillis() < deadline.getTime())) {
 				if (deadline != null) {
 					this.connectionsFinished.awaitUntil(deadline);
 				} else {
