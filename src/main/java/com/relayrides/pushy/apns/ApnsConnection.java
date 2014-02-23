@@ -406,6 +406,24 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		}
 	}
 
+	/**
+	 * <p>Waits for all pending read and write operations to finish. When this method exits normally (i.e. when it does
+	 * not throw an {@code InterruptedException}), the following guarantees are made:</p>
+	 *
+	 * <ol>
+	 * 	<li>All pending writes will have either finished successfully or been dispatched to this connection's listener
+	 * 	via the {@link ApnsConnectionListener#handleWriteFailure(ApnsConnection, ApnsPushNotification, Throwable)}
+	 * 	method.</li>
+	 * 	<li>All pending reads will have completed, and rejected/unprocessed notifications will be dispatched to this
+	 * 	connection's listener via the {@link ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason)}
+	 * 	and {@link ApnsConnectionListener#handleUnprocessedNotifications(ApnsConnection, Collection)} methods.</li>
+	 * </ol>
+	 *
+	 * <p>It is advisable for listeners to call this method when a connection is closed (though they must do so in a
+	 * separate thread.</p>
+	 *
+	 * @throws InterruptedException if interrupted while waiting for pending read/write operations to finish
+	 */
 	public void waitForPendingOperationsToFinish() throws InterruptedException {
 		this.pendingOperationLock.lock();
 
