@@ -22,7 +22,6 @@
 package com.relayrides.pushy.apns;
 
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.util.concurrent.Future;
 
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
@@ -68,8 +67,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final Vector<RejectedNotificationListener<? super T>> rejectedNotificationListeners;
 
 	private Thread dispatchThread;
-	private final NioEventLoopGroup workerGroup;
-	private final boolean shouldShutDownWorkerGroup;
+	private final NioEventLoopGroup eventLoopGroup;
+	private final boolean shouldShutDownEventLoopGroup;
 
 	private ReentrantLock connectionLock = new ReentrantLock();
 	private Condition connectionsFinished = this.connectionLock.newCondition();
@@ -114,14 +113,14 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @param environment the environment in which this {@code PushManager} operates
 	 * @param sslContext the SSL context in which APNs connections controlled by this {@code PushManager} will operate
 	 * @param concurrentConnectionCount the number of parallel connections to maintain
-	 * @param workerGroup the event loop group this push manager should use for its connections to the APNs gateway and
+	 * @param eventLoopGroup the event loop group this push manager should use for its connections to the APNs gateway and
 	 * feedback service; if {@code null}, a new event loop group will be created and will be shut down automatically
 	 * when the push manager is shut down. If not {@code null}, the caller <strong>must</strong> shut down the event
 	 * loop group after shutting down the push manager
 	 * @param queue the queue to be used to pass new notifications to this push manager
 	 */
 	protected PushManager(final ApnsEnvironment environment, final SSLContext sslContext,
-			final int concurrentConnectionCount, final NioEventLoopGroup workerGroup, final BlockingQueue<T> queue) {
+			final int concurrentConnectionCount, final NioEventLoopGroup eventLoopGroup, final BlockingQueue<T> queue) {
 
 		this.queue = queue != null ? queue : new LinkedBlockingQueue<T>();
 		this.retryQueue = new LinkedBlockingQueue<T>();
@@ -134,16 +133,16 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		this.concurrentConnectionCount = concurrentConnectionCount;
 		this.connectionPool = new ApnsConnectionPool<T>();
 
-		this.feedbackServiceClient = new FeedbackServiceClient(environment, sslContext, workerGroup);
+		this.feedbackServiceClient = new FeedbackServiceClient(environment, sslContext, eventLoopGroup);
 
 		this.rejectedNotificationExecutorService = Executors.newSingleThreadExecutor();
 
-		if (workerGroup != null) {
-			this.workerGroup = workerGroup;
-			this.shouldShutDownWorkerGroup = false;
+		if (eventLoopGroup != null) {
+			this.eventLoopGroup = eventLoopGroup;
+			this.shouldShutDownEventLoopGroup = false;
 		} else {
-			this.workerGroup = new NioEventLoopGroup();
-			this.shouldShutDownWorkerGroup = true;
+			this.eventLoopGroup = new NioEventLoopGroup();
+			this.shouldShutDownEventLoopGroup = true;
 		}
 	}
 
@@ -165,7 +164,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		for (int i = 0; i < this.concurrentConnectionCount; i++) {
-			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this).connect();
+			new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this).connect();
 		}
 
 		this.createAndStartDispatchThread();
@@ -292,10 +291,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		this.rejectedNotificationListeners.clear();
 		this.rejectedNotificationExecutorService.shutdown();
 
-		if (this.shouldShutDownWorkerGroup) {
-			if (!this.workerGroup.isShutdown()) {
-				final Future<?> workerShutdownFuture = this.workerGroup.shutdownGracefully();
-				workerShutdownFuture.await();
+		if (this.shouldShutDownEventLoopGroup) {
+			if (!this.eventLoopGroup.isShutdown()) {
+				this.eventLoopGroup.shutdownGracefully().await();
 			}
 		}
 
@@ -438,7 +436,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		// We tried to open a connection, but failed. As long as we're not shut down, try to open a new one.
 		if (!this.isShutDown()) {
-			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this).connect();
+			new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this).connect();
 		}
 	}
 
@@ -454,7 +452,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		if (!this.isShutDown()) {
-			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this).connect();
+			new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this).connect();
 		}
 
 		// TODO Do this in an executor service instead of spawning a new thread

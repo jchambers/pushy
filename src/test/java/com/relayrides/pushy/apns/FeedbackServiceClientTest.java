@@ -44,19 +44,19 @@ public class FeedbackServiceClientTest {
 	private static final ApnsEnvironment TEST_ENVIRONMENT =
 			new ApnsEnvironment("localhost", 2195, "localhost", 2196);
 
-	private NioEventLoopGroup workerGroup;
+	private NioEventLoopGroup eventLoopGroup;
 
 	private MockFeedbackServer feedbackServer;
 	private FeedbackServiceClient feedbackClient;
 
 	@Before
 	public void setUp() throws InterruptedException, NoSuchAlgorithmException, KeyManagementException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
-		this.workerGroup = new NioEventLoopGroup();
+		this.eventLoopGroup = new NioEventLoopGroup();
 
-		this.feedbackServer = new MockFeedbackServer(TEST_ENVIRONMENT.getFeedbackPort(), this.workerGroup);
+		this.feedbackServer = new MockFeedbackServer(TEST_ENVIRONMENT.getFeedbackPort(), this.eventLoopGroup);
 		this.feedbackServer.start();
 
-		this.feedbackClient = new FeedbackServiceClient(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.workerGroup);
+		this.feedbackClient = new FeedbackServiceClient(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.eventLoopGroup);
 	}
 
 	@Test
@@ -90,6 +90,6 @@ public class FeedbackServiceClientTest {
 	@After
 	public void tearDown() throws InterruptedException {
 		this.feedbackServer.shutdown();
-		this.workerGroup.shutdownGracefully().await();
+		this.eventLoopGroup.shutdownGracefully().await();
 	}
 }

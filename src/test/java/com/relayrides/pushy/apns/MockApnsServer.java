@@ -48,8 +48,8 @@ import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class MockApnsServer {
 
-	private final NioEventLoopGroup workerGroup;
-	private final boolean shouldShutDownWorkerGroup;
+	private final NioEventLoopGroup eventLoopGroup;
+	private final boolean shouldShutDownEventLoopGroup;
 
 	private final int port;
 
@@ -219,15 +219,15 @@ public class MockApnsServer {
 		this(port, null);
 	}
 
-	public MockApnsServer(final int port, final NioEventLoopGroup workerGroup) {
+	public MockApnsServer(final int port, final NioEventLoopGroup eventLoopGroup) {
 		this.port = port;
 
-		if (workerGroup == null) {
-			this.workerGroup = new NioEventLoopGroup();
-			this.shouldShutDownWorkerGroup = true;
+		if (eventLoopGroup == null) {
+			this.eventLoopGroup = new NioEventLoopGroup();
+			this.shouldShutDownEventLoopGroup = true;
 		} else {
-			this.workerGroup = workerGroup;
-			this.shouldShutDownWorkerGroup = false;
+			this.eventLoopGroup = eventLoopGroup;
+			this.shouldShutDownEventLoopGroup = false;
 		}
 
 		this.receivedNotifications = new Vector<SimpleApnsPushNotification>();
@@ -238,7 +238,7 @@ public class MockApnsServer {
 	public void start() throws InterruptedException {
 		final ServerBootstrap bootstrap = new ServerBootstrap();
 
-		bootstrap.group(this.workerGroup);
+		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioServerSocketChannel.class);
 
 		final MockApnsServer server = this;
@@ -261,8 +261,8 @@ public class MockApnsServer {
 	}
 
 	public void shutdown() throws InterruptedException {
-		if (this.shouldShutDownWorkerGroup) {
-			this.workerGroup.shutdownGracefully().await();
+		if (this.shouldShutDownEventLoopGroup) {
+			this.eventLoopGroup.shutdownGracefully().await();
 		}
 	}
 
