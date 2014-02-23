@@ -236,7 +236,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @return {@code true} if this push manager has been started and has not yet been shut down or {@code false}
 	 * otherwise
 	 */
-	public synchronized boolean isStarted() {
+	public boolean isStarted() {
 		if (this.isShutDown()) {
 			return false;
 		} else {
@@ -251,7 +251,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @return {@code true} if this push manager has been shut down or is in the process of shutting down or
 	 * {@code false} otherwise
 	 */
-	public synchronized boolean isShutDown() {
+	public boolean isShutDown() {
 		return this.drainingRetryQueue || this.drainingFinished;
 	}
 
