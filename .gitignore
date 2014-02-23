@@ -1,2 +1,6 @@
 target
 .DS_Store
+doc
+.classpath
+.project
+.settings
