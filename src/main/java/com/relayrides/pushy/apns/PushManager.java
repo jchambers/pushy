@@ -80,9 +80,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final ExecutorService listenerExecutorService;
 	private final boolean shouldShutDownListenerExecutorService;
 
-	private boolean started = false;
-	private boolean shutDown = false;
-	private boolean shutDownFinished = false;
+	private volatile boolean drainingRetryQueue = false;
+	private volatile boolean drainingFinished = false;
 
 	private final Logger log = LoggerFactory.getLogger(PushManager.class);
 
@@ -184,10 +183,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		this.createAndStartDispatchThread();
-		this.started = true;
 	}
 
-	private void createAndStartDispatchThread() {
+	private synchronized void createAndStartDispatchThread() {
 		this.dispatchThread = createDispatchThread();
 		this.dispatchThread.setUncaughtExceptionHandler(new DispatchThreadExceptionHandler<T>(this));
 		this.dispatchThread.start();
@@ -195,21 +193,37 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	protected Thread createDispatchThread() {
 		return new Thread(new Runnable() {
-
 			public void run() {
-				while (!shutDown) {
+				while (!drainingFinished) {
 					try {
 						final ApnsConnection<T> connection = connectionPool.getNextConnection();
 
-						T notification = retryQueue.poll();
+						final T notificationToRetry = retryQueue.poll();
 
-						if (notification == null) {
-							// We'll park here either until a new notification is available from the outside or until
-							// something shows up in the retry queue, at which point we'll be interrupted.
-							notification = queue.take();
+						if (notificationToRetry == null) {
+							if (drainingRetryQueue) {
+								// We're trying to drain the retry queue, which is now empty. Attempt to close all
+								// open connections gracefully and see if the retry queue stays empty.
+
+								// TODO Synchronize this somehow to avoid the case where notifications can be added
+								// after we get the list and we fail to shut them down
+								for (final ApnsConnection<T> connectionToClose : connectionPool.getAll()) {
+									connectionToClose.shutdownGracefully();
+								}
+
+								synchronized (this) {
+									// Park here until interrupted (we'll never be notified)
+									this.wait();
+								}
+							} else {
+								// We'll park here either until a new notification is available from the outside or until
+								// something shows up in the retry queue, at which point we'll be interrupted.
+								connection.sendNotification(queue.take());
+							}
+						} else {
+							connection.sendNotification(notificationToRetry);
 						}
 
-						connection.sendNotification(notification);
 					} catch (InterruptedException e) {
 						continue;
 					}
@@ -225,11 +239,11 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @return {@code true} if this push manager has been started and has not yet been shut down or {@code false}
 	 * otherwise
 	 */
-	public boolean isStarted() {
-		if (this.shutDown) {
+	public synchronized boolean isStarted() {
+		if (this.isShutDown()) {
 			return false;
 		} else {
-			return this.started;
+			return this.dispatchThread != null;
 		}
 	}
 
@@ -240,8 +254,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @return {@code true} if this push manager has been shut down or is in the process of shutting down or
 	 * {@code false} otherwise
 	 */
-	public boolean isShutDown() {
-		return this.shutDown;
+	public synchronized boolean isShutDown() {
+		return this.drainingRetryQueue || this.drainingFinished;
 	}
 
 	/**
@@ -271,12 +285,12 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @throws IllegalStateException if this method is called before the push manager has been started
 	 */
 	public synchronized List<T> shutdown(long timeout) throws InterruptedException {
-		if (this.shutDown) {
+		if (this.isShutDown()) {
 			log.warn("Push manager has already been shut down; shutting down multiple times is harmless, but may "
 					+ "indicate a problem elsewhere.");
 		}
 
-		if (this.shutDownFinished) {
+		if (this.drainingFinished) {
 			// We COULD throw an IllegalStateException here, but it seems unnecessary when we could just silently return
 			// the same result without harm.
 			final ArrayList<T> unsentNotifications = new ArrayList<T>();
@@ -291,18 +305,25 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			throw new IllegalStateException("Push manager has not yet been started and cannot be shut down.");
 		}
 
-		this.shutDown = true;
+		this.drainingRetryQueue = true;
 
-		for (final ApnsConnection<T> connection : this.connectionPool.getAll()) {
-			connection.shutdownGracefully();
+		if (this.dispatchThread != null) {
+			this.dispatchThread.interrupt();
 		}
 
 		final Date deadline = timeout > 0 ? new Date(System.currentTimeMillis() + timeout) : null;
 
-		this.waitForAllOperationsToFinish(deadline);
+		while (!this.retryQueue.isEmpty() && (deadline == null || System.currentTimeMillis() < deadline.getTime())) {
+			this.waitForAllOperationsToFinish(deadline);
+		}
 
-		this.dispatchThread.interrupt();
-		this.dispatchThread.join();
+		this.drainingRetryQueue = true;
+		this.drainingFinished = true;
+
+		if (this.dispatchThread != null) {
+			this.dispatchThread.interrupt();
+			this.dispatchThread.join();
+		}
 
 		this.rejectedNotificationListeners.clear();
 		this.failedConnectionListeners.clear();
@@ -317,8 +338,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 				workerShutdownFuture.await();
 			}
 		}
-
-		this.shutDownFinished = true;
 
 		final ArrayList<T> unsentNotifications = new ArrayList<T>();
 
@@ -338,7 +357,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @see PushManager#unregisterRejectedNotificationListener(RejectedNotificationListener)
 	 */
 	public void registerRejectedNotificationListener(final RejectedNotificationListener<? super T> listener) {
-		if (this.shutDown) {
+		if (this.isShutDown()) {
 			throw new IllegalStateException("Rejected notification listeners may not be registered after a push manager has been shut down.");
 		}
 
@@ -367,7 +386,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @see PushManager#unregisterFailedConnectionListener(FailedConnectionListener)
 	 */
 	public void registerFailedConnectionListener(final FailedConnectionListener<? super T> listener) {
-		if (this.shutDown) {
+		if (this.isShutDown()) {
 			throw new IllegalStateException("Failed connection listeners may not be registered after a push manager has been shut down.");
 		}
 
@@ -465,7 +484,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionSuccess(com.relayrides.pushy.apns.ApnsConnection)
 	 */
 	public void handleConnectionSuccess(final ApnsConnection<T> connection) {
-		if (this.isShutDown()) {
+		if (this.drainingFinished) {
 			connection.shutdownImmediately();
 		} else {
 			this.connectionLock.lock();
@@ -497,8 +516,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			});
 		}
 
-		// As long as we're not shut down, keep trying to open a replacement connection.
-		if (!this.isShutDown()) {
+		// As long as we're not completely shut down, keep trying to open a replacement connection.
+		if (!this.drainingFinished) {
 			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this).connect();
 		}
 	}
@@ -510,19 +529,20 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	public void handleConnectionClosure(final ApnsConnection<T> connection) {
 		this.connectionPool.removeConnection(connection);
 
-		if (this.dispatchThread != null && this.dispatchThread.isAlive()) {
+		if (this.dispatchThread != null) {
 			this.dispatchThread.interrupt();
 		}
 
-		if (!this.isShutDown()) {
-			new ApnsConnection<T>(this.environment, this.sslContext, this.workerGroup, this).connect();
-		}
+		final PushManager<T> pushManager = this;
 
 		this.listenerExecutorService.submit(new Runnable() {
-
 			public void run() {
 				try {
 					connection.waitForPendingOperationsToFinish();
+
+					if (!pushManager.drainingFinished) {
+						new ApnsConnection<T>(pushManager.environment, pushManager.sslContext, pushManager.workerGroup, pushManager).connect();
+					}
 
 					connectionLock.lock();
 
