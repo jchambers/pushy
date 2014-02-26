@@ -225,7 +225,11 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 		@Override
 		public void channelInactive(final ChannelHandlerContext context) {
-			this.apnsConnection.listener.handleConnectionClosure(apnsConnection);
+			// The channel will only be non-null if the TLS handshake completed successfully, and we want to treat
+			// handshake problems as connection failures rather than a connection success/closure pair.
+			if (this.apnsConnection.channel != null) {
+				this.apnsConnection.listener.handleConnectionClosure(apnsConnection);
+			}
 		}
 	}
 
