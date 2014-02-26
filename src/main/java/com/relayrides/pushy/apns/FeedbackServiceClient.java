@@ -77,7 +77,7 @@ class FeedbackServiceClient {
 
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
-	private final NioEventLoopGroup workerGroup;
+	private final NioEventLoopGroup eventLoopGroup;
 
 	private final Vector<ExpiredToken> expiredTokens;
 
@@ -160,12 +160,12 @@ class FeedbackServiceClient {
 	 * @param environment the environment in which this feedback client will operate
 	 * @param sslContext an SSL context with the keys/certificates and trust managers this client should use when
 	 * communicating with the APNs feedback service
-	 * @param workerGroup the event loop group this client should use for asynchronous network operations
+	 * @param eventLoopGroup the event loop group this client should use for asynchronous network operations
 	 */
-	public FeedbackServiceClient(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup workerGroup) {
+	public FeedbackServiceClient(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup) {
 		this.environment = environment;
 		this.sslContext = sslContext;
-		this.workerGroup = workerGroup;
+		this.eventLoopGroup = eventLoopGroup;
 
 		this.expiredTokens = new Vector<ExpiredToken>();
 	}
@@ -192,7 +192,7 @@ class FeedbackServiceClient {
 		this.expiredTokens.clear();
 
 		final Bootstrap bootstrap = new Bootstrap();
-		bootstrap.group(this.workerGroup);
+		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioSocketChannel.class);
 
 		final FeedbackServiceClient feedbackClient = this;
