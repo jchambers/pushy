@@ -52,7 +52,8 @@ interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	/**
 	 * Indicates that the given connection has disconnected from the previously-connected APNs gateway and can no
 	 * longer send push notifications. This may happen either when the connection is closed locally or when the APNs
-	 * gateway closes the connection remotely.
+	 * gateway closes the connection remotely. This method will only be called if the connection had previously
+	 * succeeded and completed a TLS handshake.
 	 *
 	 * @param connection the connection that has been disconnected and is no longer active
 	 */

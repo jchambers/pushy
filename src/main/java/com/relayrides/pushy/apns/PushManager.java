@@ -473,6 +473,11 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public void handleConnectionFailure(final ApnsConnection<T> connection, final Throwable cause) {
 
+		// We DO want to decrement the counter here because a failed connection will never trigger the connection
+		// closure handler
+		this.decrementConnectionCounter();
+
+		// We tried to open a connection, but failed. As long as we're not shut down, try to open a new one.
 		final PushManager<T> pushManager = this;
 
 		for (final FailedConnectionListener<? super T> listener : this.failedConnectionListeners) {

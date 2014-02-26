@@ -140,6 +140,12 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		assertTrue(listener.connectionFailed);
 		assertTrue(listener.connectionFailureCause instanceof SSLHandshakeException);
+
+		synchronized (mutex) {
+			mutex.wait(1000);
+		}
+
+		assertFalse(listener.connectionClosed);
 	}
 
 	@Test
@@ -161,6 +167,41 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		assertTrue(listener.connectionFailed);
 		assertTrue(listener.connectionFailureCause instanceof SSLHandshakeException);
+
+		synchronized (mutex) {
+			mutex.wait(1000);
+		}
+
+		assertFalse(listener.connectionClosed);
+	}
+
+	@Test(timeout = 5000)
+	public void testConnectionRefusal() throws Exception {
+		final Object mutex = new Object();
+
+		final TestListener listener = new TestListener(mutex);
+		final ApnsEnvironment connectionRefusedEnvironment = new ApnsEnvironment("localhost", 7876, "localhost", 7877);
+
+		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
+				new ApnsConnection<SimpleApnsPushNotification>(
+						connectionRefusedEnvironment, SSLTestUtil.createSSLContextForTestClient("/pushy-test-client.jks"),
+						this.getEventLoopGroup(), listener);
+
+		synchronized (mutex) {
+			apnsConnection.connect();
+
+			while (!listener.connectionFailed && !listener.connectionClosed) {
+				mutex.wait();
+			}
+		}
+
+		assertTrue(listener.connectionFailed);
+
+		synchronized (mutex) {
+			mutex.wait(1000);
+		}
+
+		assertFalse(listener.connectionClosed);
 	}
 
 	@Test
