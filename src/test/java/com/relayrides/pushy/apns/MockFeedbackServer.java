@@ -44,8 +44,8 @@ public class MockFeedbackServer {
 
 	private final int port;
 
-	private final NioEventLoopGroup workerGroup;
-	private final boolean shouldShutDownWorkerGroup;
+	private final NioEventLoopGroup eventLoopGroup;
+	private final boolean shouldShutDownEventLoopGroup;
 
 	private final ArrayList<ExpiredToken> expiredTokens;
 
@@ -103,15 +103,15 @@ public class MockFeedbackServer {
 		this(port, null);
 	}
 
-	public MockFeedbackServer(final int port, final NioEventLoopGroup workerGroup) {
+	public MockFeedbackServer(final int port, final NioEventLoopGroup eventLoopGroup) {
 		this.port = port;
 
-		if (workerGroup == null) {
-			this.workerGroup = new NioEventLoopGroup();
-			this.shouldShutDownWorkerGroup = true;
+		if (eventLoopGroup == null) {
+			this.eventLoopGroup = new NioEventLoopGroup();
+			this.shouldShutDownEventLoopGroup = true;
 		} else {
-			this.workerGroup = workerGroup;
-			this.shouldShutDownWorkerGroup = false;
+			this.eventLoopGroup = eventLoopGroup;
+			this.shouldShutDownEventLoopGroup = false;
 		}
 
 		this.expiredTokens = new ArrayList<ExpiredToken>();
@@ -120,7 +120,7 @@ public class MockFeedbackServer {
 	public void start() throws InterruptedException {
 		final ServerBootstrap bootstrap = new ServerBootstrap();
 
-		bootstrap.group(this.workerGroup);
+		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioServerSocketChannel.class);
 
 		final MockFeedbackServer server = this;
@@ -138,8 +138,8 @@ public class MockFeedbackServer {
 	}
 
 	public void shutdown() throws InterruptedException {
-		if (this.shouldShutDownWorkerGroup) {
-			this.workerGroup.shutdownGracefully().await();
+		if (this.shouldShutDownEventLoopGroup) {
+			this.eventLoopGroup.shutdownGracefully().await();
 		}
 	}
 

@@ -69,7 +69,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
-	private final NioEventLoopGroup workerGroup;
+	private final NioEventLoopGroup eventLoopGroup;
 	private final ApnsConnectionListener<T> listener;
 
 	private static final AtomicInteger connectionCounter = new AtomicInteger(0);
@@ -236,10 +236,10 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	 * @param environment the environment in which this connection will operate
 	 * @param sslContext an SSL context with the keys/certificates and trust managers this connection should use when
 	 * communicating with the APNs gateway
-	 * @param workerGroup the event loop group this connection should use for asynchronous network operations
+	 * @param eventLoopGroup the event loop group this connection should use for asynchronous network operations
 	 * @param listener the listener to which this connection will report lifecycle events; must not be {@code null}
 	 */
-	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup workerGroup, final ApnsConnectionListener<T> listener) {
+	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup, final ApnsConnectionListener<T> listener) {
 
 		if (listener == null) {
 			throw new NullPointerException("Listener must not be null.");
@@ -247,7 +247,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 		this.environment = environment;
 		this.sslContext = sslContext;
-		this.workerGroup = workerGroup;
+		this.eventLoopGroup = eventLoopGroup;
 		this.listener = listener;
 
 		this.name = String.format("ApnsConnection-%d", ApnsConnection.connectionCounter.getAndIncrement());
@@ -272,7 +272,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		this.startedConnectionAttempt = true;
 
 		final Bootstrap bootstrap = new Bootstrap();
-		bootstrap.group(this.workerGroup);
+		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioSocketChannel.class);
 		bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
 
@@ -406,6 +406,24 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		}
 	}
 
+	/**
+	 * <p>Waits for all pending read and write operations to finish. When this method exits normally (i.e. when it does
+	 * not throw an {@code InterruptedException}), the following guarantees are made:</p>
+	 *
+	 * <ol>
+	 * 	<li>All pending writes will have either finished successfully or been dispatched to this connection's listener
+	 * 	via the {@link ApnsConnectionListener#handleWriteFailure(ApnsConnection, ApnsPushNotification, Throwable)}
+	 * 	method.</li>
+	 * 	<li>All pending reads will have completed, and rejected/unprocessed notifications will be dispatched to this
+	 * 	connection's listener via the {@link ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason)}
+	 * 	and {@link ApnsConnectionListener#handleUnprocessedNotifications(ApnsConnection, Collection)} methods.</li>
+	 * </ol>
+	 *
+	 * <p>It is advisable for listeners to call this method when a connection is closed (though they must do so in a
+	 * separate thread.</p>
+	 *
+	 * @throws InterruptedException if interrupted while waiting for pending read/write operations to finish
+	 */
 	public void waitForPendingOperationsToFinish() throws InterruptedException {
 		this.pendingOperationLock.lock();
 
