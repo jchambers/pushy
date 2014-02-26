@@ -525,10 +525,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		// We'll remove this connection immediately, but decrement the counter after its IO operations have finished
 		this.connectionPool.removeConnection(connection);
 
-		if (!this.drainingFinished) {
-			this.startNewConnection();
-		}
-
 		if (this.dispatchThread != null) {
 			this.dispatchThread.interrupt();
 		}
@@ -539,7 +535,13 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			public void run() {
 				try {
 					connection.waitForPendingOperationsToFinish();
+
+					if (!pushManager.drainingFinished && !pushManager.retryQueue.isEmpty()) {
+						pushManager.startNewConnection();
+					}
+
 					decrementConnectionCounter();
+
 				} catch (InterruptedException e) {
 					log.warn("Interrupted while waiting for closed connection's pending operations to finish.");
 				}
