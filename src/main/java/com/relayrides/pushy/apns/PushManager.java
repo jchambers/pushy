@@ -314,7 +314,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.waitForAllOperationsToFinish(deadline);
 		}
 
-		this.drainingRetryQueue = true;
 		this.drainingFinished = true;
 
 		if (this.dispatchThread != null) {
@@ -536,7 +535,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 				try {
 					connection.waitForPendingOperationsToFinish();
 
-					if (!pushManager.drainingFinished && !pushManager.retryQueue.isEmpty()) {
+					// We should open a replacement connection if we're (a) running normally or (b) attempting to drain
+					// the retry queue before shutting down
+					if (!pushManager.drainingRetryQueue || (pushManager.drainingRetryQueue && !pushManager.retryQueue.isEmpty())) {
 						pushManager.startNewConnection();
 					}
 
