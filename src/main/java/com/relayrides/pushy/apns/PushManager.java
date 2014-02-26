@@ -308,11 +308,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.dispatchThread.interrupt();
 		}
 
-		final Date deadline = timeout > 0 ? new Date(System.currentTimeMillis() + timeout) : null;
-
-		while (!this.retryQueue.isEmpty() && (deadline == null || System.currentTimeMillis() < deadline.getTime())) {
-			this.waitForAllOperationsToFinish(deadline);
-		}
+		this.waitForAllOperationsToFinish(timeout > 0 ? new Date(System.currentTimeMillis() + timeout) : null);
 
 		this.drainingFinished = true;
 

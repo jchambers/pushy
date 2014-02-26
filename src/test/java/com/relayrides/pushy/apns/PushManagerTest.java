@@ -419,6 +419,9 @@ public class PushManagerTest extends BasePushyTest {
 
 		testManager.start();
 		this.waitForLatch(latch);
-		testManager.shutdown();
+
+		// We want a really fast timeout here because our self-destructing thread won't actually close the connections
+		// we create at startup.
+		testManager.shutdown(1);
 	}
 }
