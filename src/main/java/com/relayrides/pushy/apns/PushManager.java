@@ -164,7 +164,14 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		for (int i = 0; i < this.concurrentConnectionCount; i++) {
-			new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this).connect();
+			this.connectionLock.lock();
+
+			try {
+				new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this).connect();
+				this.unfinishedConnectionCount += 1;
+			} finally {
+				this.connectionLock.unlock();
+			}
 		}
 
 		this.createAndStartDispatchThread();
@@ -456,11 +463,12 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionClosure(com.relayrides.pushy.apns.ApnsConnection)
 	 */
 	public void handleConnectionClosure(final ApnsConnection<T> connection) {
+		// We'll remove this connection immediately, but decrement the counter after its IO operations have finished
+		this.connectionPool.removeConnection(connection);
+
 		this.connectionLock.lock();
 
 		try {
-			this.connectionPool.removeConnection(connection);
-			this.unfinishedConnectionCount -= 1;
 
 			if (!this.isShutDown()) {
 				new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this).connect();
