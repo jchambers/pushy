@@ -72,7 +72,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private ReentrantLock connectionLock = new ReentrantLock();
 	private Condition connectionsFinished = this.connectionLock.newCondition();
-	private int unfinishedConnectionCount = 0;
+	private volatile int unfinishedConnectionCount = 0;
 
 	private final ExecutorService rejectedNotificationExecutorService;
 
@@ -164,14 +164,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		for (int i = 0; i < this.concurrentConnectionCount; i++) {
-			this.connectionLock.lock();
-
-			try {
-				new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this).connect();
-				this.unfinishedConnectionCount += 1;
-			} finally {
-				this.connectionLock.unlock();
-			}
+			this.startNewConnection();
 		}
 
 		this.createAndStartDispatchThread();
@@ -421,18 +414,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public void handleConnectionSuccess(final ApnsConnection<T> connection) {
 		if (this.isShutDown()) {
-			this.connectionLock.lock();
-
-			try {
-				connection.shutdownImmediately();
-				this.unfinishedConnectionCount -= 1;
-
-				if (this.unfinishedConnectionCount == 0) {
-					this.connectionsFinished.signalAll();
-				}
-			} finally {
-				this.connectionLock.unlock();
-			}
+			// We DON'T want to decrement the counter here; we'll do so when handleConnectionClosure fires later
+			connection.shutdownImmediately();
 		} else {
 			this.connectionPool.addConnection(connection);
 		}
@@ -447,14 +430,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		// We tried to open a connection, but failed. As long as we're not shut down, try to open a new one.
 		if (!this.isShutDown()) {
-			this.connectionLock.lock();
-
-			try {
-				new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this).connect();
-				this.unfinishedConnectionCount += 1;
-			} finally {
-				this.connectionLock.unlock();
-			}
+			this.startNewConnection();
 		}
 	}
 
@@ -466,20 +442,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		// We'll remove this connection immediately, but decrement the counter after its IO operations have finished
 		this.connectionPool.removeConnection(connection);
 
-		this.connectionLock.lock();
-
-		try {
-
-			if (!this.isShutDown()) {
-				new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this).connect();
-				this.unfinishedConnectionCount += 1;
-			}
-
-			if (this.unfinishedConnectionCount == 0) {
-				this.connectionsFinished.signalAll();
-			}
-		} finally {
-			this.connectionLock.unlock();
+		if (!this.isShutDown()) {
+			this.startNewConnection();
 		}
 
 		if (this.dispatchThread != null && this.dispatchThread.isAlive()) {
@@ -492,18 +456,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			public void run() {
 				try {
 					connection.waitForPendingOperationsToFinish();
-
-					connectionLock.lock();
-
-					try {
-						unfinishedConnectionCount -= 1;
-
-						if (unfinishedConnectionCount == 0) {
-							connectionsFinished.signalAll();
-						}
-					} finally {
-						connectionLock.unlock();
-					}
+					decrementConnectionCounter();
 				} catch (InterruptedException e) {
 					log.warn("Interrupted while waiting for closed connection's pending operations to finish.");
 				}
@@ -550,6 +503,32 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		if (this.dispatchThread != null) {
 			this.dispatchThread.interrupt();
+		}
+	}
+
+	private void startNewConnection() {
+		this.connectionLock.lock();
+
+		try {
+			new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this).connect();
+			this.unfinishedConnectionCount += 1;
+		} finally {
+			this.connectionLock.unlock();
+		}
+	}
+
+	private void decrementConnectionCounter() {
+		this.connectionLock.lock();
+
+		try {
+			this.unfinishedConnectionCount -= 1;
+			assert this.unfinishedConnectionCount >= 0;
+
+			if (this.unfinishedConnectionCount == 0) {
+				this.connectionsFinished.signalAll();
+			}
+		} finally {
+			this.connectionLock.unlock();
 		}
 	}
 
