@@ -414,16 +414,20 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public void handleConnectionSuccess(final ApnsConnection<T> connection) {
 		if (this.isShutDown()) {
-			connection.shutdownImmediately();
-		} else {
 			this.connectionLock.lock();
 
 			try {
-				this.unfinishedConnectionCount += 1;
-				this.connectionPool.addConnection(connection);
+				connection.shutdownImmediately();
+				this.unfinishedConnectionCount -= 1;
+
+				if (this.unfinishedConnectionCount == 0) {
+					this.connectionsFinished.signalAll();
+				}
 			} finally {
 				this.connectionLock.unlock();
 			}
+		} else {
+			this.connectionPool.addConnection(connection);
 		}
 	}
 
@@ -436,7 +440,14 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		// We tried to open a connection, but failed. As long as we're not shut down, try to open a new one.
 		if (!this.isShutDown()) {
-			new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this).connect();
+			this.connectionLock.lock();
+
+			try {
+				new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this).connect();
+				this.unfinishedConnectionCount += 1;
+			} finally {
+				this.connectionLock.unlock();
+			}
 		}
 	}
 
@@ -445,14 +456,26 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionClosure(com.relayrides.pushy.apns.ApnsConnection)
 	 */
 	public void handleConnectionClosure(final ApnsConnection<T> connection) {
-		this.connectionPool.removeConnection(connection);
+		this.connectionLock.lock();
+
+		try {
+			this.connectionPool.removeConnection(connection);
+			this.unfinishedConnectionCount -= 1;
+
+			if (!this.isShutDown()) {
+				new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this).connect();
+				this.unfinishedConnectionCount += 1;
+			}
+
+			if (this.unfinishedConnectionCount == 0) {
+				this.connectionsFinished.signalAll();
+			}
+		} finally {
+			this.connectionLock.unlock();
+		}
 
 		if (this.dispatchThread != null && this.dispatchThread.isAlive()) {
 			this.dispatchThread.interrupt();
-		}
-
-		if (!this.isShutDown()) {
-			new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this).connect();
 		}
 
 		// TODO Do this in an executor service instead of spawning a new thread
