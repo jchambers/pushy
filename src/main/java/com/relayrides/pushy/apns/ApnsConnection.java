@@ -283,7 +283,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
 			@Override
-			protected void initChannel(final SocketChannel channel) throws Exception {
+			protected void initChannel(final SocketChannel channel) {
 				final ChannelPipeline pipeline = channel.pipeline();
 
 				final SSLEngine sslEngine = apnsConnection.sslContext.createSSLEngine();
