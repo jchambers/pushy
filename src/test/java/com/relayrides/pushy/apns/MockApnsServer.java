@@ -41,7 +41,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
@@ -53,11 +52,6 @@ public class MockApnsServer {
 	private final int port;
 
 	private final Vector<CountDownLatch> countdownLatches;
-
-	private final AtomicInteger notificationsReceived = new AtomicInteger(0);
-
-	private int failWithErrorCount = -1;
-	private RejectedNotificationReason errorCode;
 
 	public static final int EXPECTED_TOKEN_SIZE = 32;
 	public static final int MAX_PAYLOAD_SIZE = 256;
@@ -198,7 +192,7 @@ public class MockApnsServer {
 
 		private final MockApnsServer server;
 
-		private boolean rejectFutureMessages = false;
+		private boolean rejectFutureNotifications = false;
 
 		public MockApnsServerHandler(final MockApnsServer server) {
 			this.server = server;
@@ -206,14 +200,14 @@ public class MockApnsServer {
 
 		@Override
 		protected void channelRead0(final ChannelHandlerContext context, final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
-			if (!this.rejectFutureMessages) {
-				this.server.handleReceivedNotification(receivedNotification);
+			if (!this.rejectFutureNotifications) {
+				this.server.acceptNotification(receivedNotification);
 			}
 		}
 
 		@Override
 		public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
-			this.rejectFutureMessages = true;
+			this.rejectFutureNotifications = true;
 
 			if (cause instanceof DecoderException) {
 				final DecoderException decoderException = (DecoderException)cause;
@@ -267,7 +261,6 @@ public class MockApnsServer {
 				channel.pipeline().addLast("decoder", new ApnsPushNotificationDecoder());
 				channel.pipeline().addLast("handler", new MockApnsServerHandler(server));
 			}
-
 		});
 
 		bootstrap.childOption(ChannelOption.SO_KEEPALIVE, true);
@@ -281,12 +274,7 @@ public class MockApnsServer {
 		}
 	}
 
-	public void failWithErrorAfterNotifications(final RejectedNotificationReason errorCode, final int notificationCount) {
-		this.failWithErrorCount = notificationCount;
-		this.errorCode = errorCode;
-	}
-
-	protected void handleReceivedNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
+	protected void acceptNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
 		for (final CountDownLatch latch : this.countdownLatches) {
 			latch.countDown();
 		}

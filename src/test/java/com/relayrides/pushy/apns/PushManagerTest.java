@@ -215,13 +215,17 @@ public class PushManagerTest extends BasePushyTest {
 	public void testSendNotificationsWithError() throws InterruptedException {
 		final int iterations = 1000;
 
-		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations);
+		// We expect one less because one notification should be rejected
+		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations - 1);
 
 		for (int i = 0; i < iterations; i++) {
-			this.getPushManager().getQueue().add(this.createTestNotification());
+			if (i == iterations / 2) {
+				this.getPushManager().getQueue().put(
+						new SimpleApnsPushNotification(new byte[] {}, "This is a deliberately malformed notification."));
+			} else {
+				this.getPushManager().getQueue().add(this.createTestNotification());
+			}
 		}
-
-		this.getApnsServer().failWithErrorAfterNotifications(RejectedNotificationReason.PROCESSING_ERROR, iterations / 2);
 
 		this.getPushManager().start();
 		this.waitForLatch(latch);
@@ -263,13 +267,17 @@ public class PushManagerTest extends BasePushyTest {
 
 		final int iterations = 1000;
 
-		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations);
+		// We expect one less because one notification should be rejected
+		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations - 1);
 
 		for (int i = 0; i < iterations; i++) {
-			parallelPushManager.getQueue().add(this.createTestNotification());
+			if (i == iterations / 2) {
+				parallelPushManager.getQueue().put(
+						new SimpleApnsPushNotification(new byte[] {}, "This is a deliberately malformed notification."));
+			} else {
+				parallelPushManager.getQueue().add(this.createTestNotification());
+			}
 		}
-
-		this.getApnsServer().failWithErrorAfterNotifications(RejectedNotificationReason.PROCESSING_ERROR, iterations / 2);
 
 		parallelPushManager.start();
 		this.waitForLatch(latch);
