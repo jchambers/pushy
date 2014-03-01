@@ -280,8 +280,8 @@ public class MockApnsServer {
 		}
 	}
 
-	public CountDownLatch getCountDownLatch(final int notificationCount) {
-		final CountDownLatch latch = new CountDownLatch(notificationCount);
+	public CountDownLatch getAcceptedNotificationCountDownLatch(final int acceptedNotificationCount) {
+		final CountDownLatch latch = new CountDownLatch(acceptedNotificationCount);
 		this.countdownLatches.add(latch);
 
 		return latch;

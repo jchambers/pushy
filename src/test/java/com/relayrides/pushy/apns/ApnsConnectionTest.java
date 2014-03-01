@@ -216,7 +216,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 				new ApnsConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(), listener);
 
-		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(1);
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(1);
 
 		synchronized (mutex) {
 			apnsConnection.connect();

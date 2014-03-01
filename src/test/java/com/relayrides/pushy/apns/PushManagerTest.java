@@ -70,7 +70,7 @@ public class PushManagerTest extends BasePushyTest {
 		final int iterations = 100;
 
 		// We expect one less because one notification should be rejected
-		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations - 1);
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(iterations - 1);
 
 		for (int i = 0; i < iterations; i++) {
 			if (i == iterations / 2) {
@@ -200,7 +200,7 @@ public class PushManagerTest extends BasePushyTest {
 	public void testSendNotifications() throws InterruptedException {
 		final int iterations = 1000;
 
-		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations);
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(iterations);
 
 		for (int i = 0; i < iterations; i++) {
 			this.getPushManager().getQueue().add(this.createTestNotification());
@@ -216,7 +216,7 @@ public class PushManagerTest extends BasePushyTest {
 		final int iterations = 1000;
 
 		// We expect one less because one notification should be rejected
-		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations - 1);
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(iterations - 1);
 
 		for (int i = 0; i < iterations; i++) {
 			if (i == iterations / 2) {
@@ -244,7 +244,7 @@ public class PushManagerTest extends BasePushyTest {
 
 		final int iterations = 1000;
 
-		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations);
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(iterations);
 
 		for (int i = 0; i < iterations; i++) {
 			parallelPushManager.getQueue().add(this.createTestNotification());
@@ -268,7 +268,7 @@ public class PushManagerTest extends BasePushyTest {
 		final int iterations = 1000;
 
 		// We expect one less because one notification should be rejected
-		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations - 1);
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(iterations - 1);
 
 		for (int i = 0; i < iterations; i++) {
 			if (i == iterations / 2) {
