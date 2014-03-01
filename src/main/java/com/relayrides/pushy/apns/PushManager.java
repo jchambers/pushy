@@ -64,7 +64,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final int concurrentConnectionCount;
 	private final ApnsConnectionPool<T> connectionPool;
 	private final FeedbackServiceClient feedbackServiceClient;
+
 	private final Vector<RejectedNotificationListener<? super T>> rejectedNotificationListeners;
+	private final Vector<FailedConnectionListener<? super T>> failedConnectionListeners;
 
 	private Thread dispatchThread;
 	private final NioEventLoopGroup eventLoopGroup;
@@ -74,7 +76,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private Condition connectionsFinished = this.connectionLock.newCondition();
 	private volatile int unfinishedConnectionCount = 0;
 
-	private final ExecutorService rejectedNotificationExecutorService;
+	private final ExecutorService listenerExecutorService;
+	private final boolean shouldShutDownListenerExecutorService;
 
 	private boolean started = false;
 	private boolean shutDown = false;
@@ -116,16 +119,22 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @param eventLoopGroup the event loop group this push manager should use for its connections to the APNs gateway and
 	 * feedback service; if {@code null}, a new event loop group will be created and will be shut down automatically
 	 * when the push manager is shut down. If not {@code null}, the caller <strong>must</strong> shut down the event
-	 * loop group after shutting down the push manager
+	 * loop group after shutting down the push manager.
+	 * @param listenerExecutorService the executor service this push manager should use to dispatch notifications to
+	 * registered listeners. If {@code null}, a new single-thread executor service will be created and will be shut
+	 * down automatically with the push manager is shut down. If not {@code null}, the caller <strong>must</strong>
+	 * shut down the executor service after shutting down the push manager.
 	 * @param queue the queue to be used to pass new notifications to this push manager
 	 */
 	protected PushManager(final ApnsEnvironment environment, final SSLContext sslContext,
-			final int concurrentConnectionCount, final NioEventLoopGroup eventLoopGroup, final BlockingQueue<T> queue) {
+			final int concurrentConnectionCount, final NioEventLoopGroup eventLoopGroup,
+			final ExecutorService listenerExecutorService, final BlockingQueue<T> queue) {
 
 		this.queue = queue != null ? queue : new LinkedBlockingQueue<T>();
 		this.retryQueue = new LinkedBlockingQueue<T>();
 
 		this.rejectedNotificationListeners = new Vector<RejectedNotificationListener<? super T>>();
+		this.failedConnectionListeners = new Vector<FailedConnectionListener<? super T>>();
 
 		this.environment = environment;
 		this.sslContext = sslContext;
@@ -135,14 +144,20 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		this.feedbackServiceClient = new FeedbackServiceClient(environment, sslContext, eventLoopGroup);
 
-		this.rejectedNotificationExecutorService = Executors.newSingleThreadExecutor();
-
 		if (eventLoopGroup != null) {
 			this.eventLoopGroup = eventLoopGroup;
 			this.shouldShutDownEventLoopGroup = false;
 		} else {
 			this.eventLoopGroup = new NioEventLoopGroup();
 			this.shouldShutDownEventLoopGroup = true;
+		}
+
+		if (listenerExecutorService != null) {
+			this.listenerExecutorService = listenerExecutorService;
+			this.shouldShutDownListenerExecutorService = false;
+		} else {
+			this.listenerExecutorService = Executors.newSingleThreadExecutor();
+			this.shouldShutDownListenerExecutorService = true;
 		}
 	}
 
@@ -289,7 +304,11 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		this.dispatchThread.join();
 
 		this.rejectedNotificationListeners.clear();
-		this.rejectedNotificationExecutorService.shutdown();
+		this.failedConnectionListeners.clear();
+
+		if (this.shouldShutDownListenerExecutorService) {
+			this.listenerExecutorService.shutdown();
+		}
 
 		if (this.shouldShutDownEventLoopGroup) {
 			if (!this.eventLoopGroup.isShutdown()) {
@@ -308,9 +327,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	/**
-	 * <p>Registers a listener for notifications rejected by APNs for specific reasons. Note that listeners are stored
-	 * as strong references; all listeners are automatically un-registered when the push manager is shut down, but
-	 * failing to unregister a listener manually or to shut down the push manager may cause a memory leak.</p>
+	 * <p>Registers a listener for notifications rejected by APNs for specific reasons.</p>
 	 *
 	 * @param listener the listener to register
 	 *
@@ -336,6 +353,35 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public boolean unregisterRejectedNotificationListener(final RejectedNotificationListener<? super T> listener) {
 		return this.rejectedNotificationListeners.remove(listener);
+	}
+
+	/**
+	 * <p>Registers a listener for failed attempts to connect to the APNs gateway.</p>
+	 * 
+	 * @param listener the listener to register
+	 * 
+	 * @throws IllegalStateException if this push manager has already been shut down
+	 * 
+	 * @see PushManager#unregisterFailedConnectionListener(FailedConnectionListener)
+	 */
+	public void registerFailedConnectionListener(final FailedConnectionListener<? super T> listener) {
+		if (this.shutDown) {
+			throw new IllegalStateException("Failed connection listeners may not be registered after a push manager has been shut down.");
+		}
+
+		this.failedConnectionListeners.add(listener);
+	}
+
+	/**
+	 * <p>Un-registers a connection failure listener.</p>
+	 * 
+	 * @param listener the listener to un-register
+	 * 
+	 * @return {@code true} if the given listener was registered with this push manager and removed or {@code false} if
+	 * the listener was not already registered with this push manager
+	 */
+	public boolean unregisterFailedConnectionListener(final FailedConnectionListener<? super T> listener) {
+		return this.failedConnectionListeners.remove(listener);
 	}
 
 	/**
@@ -426,13 +472,25 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionFailure(com.relayrides.pushy.apns.ApnsConnection, java.lang.Throwable)
 	 */
 	public void handleConnectionFailure(final ApnsConnection<T> connection, final Throwable cause) {
-		// TODO Do more to react to specific causes
 
 		// We DO want to decrement the counter here because a failed connection will never trigger the connection
 		// closure handler
 		this.decrementConnectionCounter();
 
 		// We tried to open a connection, but failed. As long as we're not shut down, try to open a new one.
+		final PushManager<T> pushManager = this;
+
+		for (final FailedConnectionListener<? super T> listener : this.failedConnectionListeners) {
+
+			// Handle connection failures in a separate thread in case a handler takes a long time to run
+			this.listenerExecutorService.submit(new Runnable() {
+				public void run() {
+					listener.handleFailedConnection(pushManager, cause);
+				}
+			});
+		}
+
+		// As long as we're not shut down, keep trying to open a replacement connection.
 		if (!this.isShutDown()) {
 			this.startNewConnection();
 		}
@@ -454,8 +512,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.dispatchThread.interrupt();
 		}
 
-		// TODO Do this in an executor service instead of spawning a new thread
-		new Thread(new Runnable() {
+		this.listenerExecutorService.submit(new Runnable() {
 
 			public void run() {
 				try {
@@ -465,7 +522,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 					log.warn("Interrupted while waiting for closed connection's pending operations to finish.");
 				}
 			}
-		}).start();
+		});
 	}
 
 	/*
@@ -487,12 +544,14 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	public void handleRejectedNotification(final ApnsConnection<T> connection, final T rejectedNotification,
 			final RejectedNotificationReason reason) {
 
+		final PushManager<T> pushManager = this;
+
 		for (final RejectedNotificationListener<? super T> listener : this.rejectedNotificationListeners) {
 
 			// Handle the notifications in a separate thread in case a listener takes a long time to run
-			this.rejectedNotificationExecutorService.submit(new Runnable() {
+			this.listenerExecutorService.submit(new Runnable() {
 				public void run() {
-					listener.handleRejectedNotification(rejectedNotification, reason);
+					listener.handleRejectedNotification(pushManager, rejectedNotification, reason);
 				}
 			});
 		}

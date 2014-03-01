@@ -34,10 +34,13 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLHandshakeException;
 
 import org.junit.Test;
 
@@ -45,11 +48,11 @@ import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class PushManagerTest extends BasePushyTest {
 
-	private class TestListener implements RejectedNotificationListener<SimpleApnsPushNotification> {
+	private class TestRejectedNotificationListener implements RejectedNotificationListener<SimpleApnsPushNotification> {
 
 		private final AtomicInteger rejectedNotificationCount = new AtomicInteger(0);
 
-		public void handleRejectedNotification(final SimpleApnsPushNotification notification, final RejectedNotificationReason reason) {
+		public void handleRejectedNotification(final PushManager<? extends SimpleApnsPushNotification> pushManager, final SimpleApnsPushNotification notification, final RejectedNotificationReason reason) {
 			this.rejectedNotificationCount.incrementAndGet();
 		}
 
@@ -58,11 +61,32 @@ public class PushManagerTest extends BasePushyTest {
 		}
 	}
 
+	private class TestFailedConnectionListener implements FailedConnectionListener<SimpleApnsPushNotification> {
+
+		private final Object mutex;
+
+		private PushManager<? extends SimpleApnsPushNotification> pushManager;
+		private Throwable cause;
+
+		public TestFailedConnectionListener(final Object mutex) {
+			this.mutex = mutex;
+		}
+
+		public void handleFailedConnection(final PushManager<? extends SimpleApnsPushNotification> pushManager, final Throwable cause) {
+			this.pushManager = pushManager;
+			this.cause = cause;
+
+			synchronized (this.mutex) {
+				this.mutex.notifyAll();
+			}
+		}
+	}
+
 	@Test
 	public void testRegisterRejectedNotificationListener() throws InterruptedException {
 		final SimpleApnsPushNotification notification = this.createTestNotification();
 
-		final TestListener listener = new TestListener();
+		final TestRejectedNotificationListener listener = new TestRejectedNotificationListener();
 		this.getPushManager().registerRejectedNotificationListener(listener);
 
 		assertEquals(0, listener.getRejectedNotificationCount());
@@ -91,7 +115,7 @@ public class PushManagerTest extends BasePushyTest {
 
 	@Test
 	public void testUnregisterRejectedNotificationListener() {
-		final TestListener listener = new TestListener();
+		final TestRejectedNotificationListener listener = new TestRejectedNotificationListener();
 
 		this.getPushManager().registerRejectedNotificationListener(listener);
 
@@ -100,10 +124,45 @@ public class PushManagerTest extends BasePushyTest {
 	}
 
 	@Test
+	public void testRegisterFailedNotificationListener() throws Exception {
+
+		final PushManagerFactory<SimpleApnsPushNotification> factory =
+				new PushManagerFactory<SimpleApnsPushNotification>(
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient("/pushy-test-client-untrusted.jks"));
+
+		final PushManager<SimpleApnsPushNotification> badCredentialManager = factory.buildPushManager();
+
+		final Object mutex = new Object();
+		final TestFailedConnectionListener listener = new TestFailedConnectionListener(mutex);
+
+		badCredentialManager.registerFailedConnectionListener(listener);
+
+		synchronized (mutex) {
+			badCredentialManager.start();
+			mutex.wait();
+		}
+
+		badCredentialManager.shutdown();
+
+		assertEquals(badCredentialManager, listener.pushManager);
+		assertTrue(listener.cause instanceof SSLHandshakeException);
+	}
+
+	@Test
+	public void testUnregisterFailedNotificationListener() {
+		final TestFailedConnectionListener listener = new TestFailedConnectionListener(null);
+
+		this.getPushManager().registerFailedConnectionListener(listener);
+
+		assertTrue(this.getPushManager().unregisterFailedConnectionListener(listener));
+		assertFalse(this.getPushManager().unregisterFailedConnectionListener(listener));
+	}
+
+	@Test
 	public void testShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		{
 			final PushManager<ApnsPushNotification> defaultGroupPushManager =
-					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null, null);
 
 			defaultGroupPushManager.start();
 			defaultGroupPushManager.shutdown();
@@ -115,7 +174,7 @@ public class PushManagerTest extends BasePushyTest {
 			final NioEventLoopGroup group = new NioEventLoopGroup(1);
 
 			final PushManager<ApnsPushNotification> providedGroupPushManager =
-					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, group, null);
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, group, null, null);
 
 			providedGroupPushManager.start();
 			providedGroupPushManager.shutdown();
@@ -125,12 +184,27 @@ public class PushManagerTest extends BasePushyTest {
 
 			group.shutdownGracefully();
 		}
+
+		{
+			final ExecutorService listenerExecutorService = Executors.newSingleThreadExecutor();
+
+			final PushManager<ApnsPushNotification> providedExecutorServicePushManager =
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, listenerExecutorService, null);
+
+			providedExecutorServicePushManager.start();
+			providedExecutorServicePushManager.shutdown();
+
+			assertTrue(providedExecutorServicePushManager.isShutDown());
+			assertFalse(listenerExecutorService.isShutdown());
+
+			listenerExecutorService.shutdown();
+		}
 	}
 
 	@Test(expected = IllegalStateException.class)
 	public void testDoubleStart() throws KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		final PushManager<ApnsPushNotification> doubleStartPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null, null);
 
 		doubleStartPushManager.start();
 		doubleStartPushManager.start();
@@ -139,7 +213,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test(expected = IllegalStateException.class)
 	public void testPrematureShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		final PushManager<ApnsPushNotification> prematureShutdownPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null, null);
 
 		prematureShutdownPushManager.shutdown();
 	}
@@ -147,7 +221,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test
 	public void testRepeatedShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		final PushManager<ApnsPushNotification> repeatedShutdownPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null, null);
 
 		repeatedShutdownPushManager.start();
 		repeatedShutdownPushManager.shutdown();
@@ -298,7 +372,7 @@ public class PushManagerTest extends BasePushyTest {
 					BlockingQueue<SimpleApnsPushNotification> queue,
 					CountDownLatch latch) {
 
-				super(environment, sslContext, concurrentConnectionCount, eventLoopGroup, queue);
+				super(environment, sslContext, concurrentConnectionCount, eventLoopGroup, null, queue);
 
 				this.latch = latch;
 			}
