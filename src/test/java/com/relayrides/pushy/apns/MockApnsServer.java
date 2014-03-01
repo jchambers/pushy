@@ -38,11 +38,11 @@ import io.netty.handler.ssl.SslHandler;
 import io.netty.util.concurrent.GenericFutureListener;
 
 import java.nio.charset.Charset;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
@@ -53,8 +53,9 @@ public class MockApnsServer {
 
 	private final int port;
 
-	private final Vector<SimpleApnsPushNotification> receivedNotifications;
 	private final Vector<CountDownLatch> countdownLatches;
+
+	private final AtomicInteger notificationsReceived = new AtomicInteger(0);
 
 	private int failWithErrorCount = -1;
 	private RejectedNotificationReason errorCode;
@@ -230,7 +231,6 @@ public class MockApnsServer {
 			this.shouldShutDownEventLoopGroup = false;
 		}
 
-		this.receivedNotifications = new Vector<SimpleApnsPushNotification>();
 		this.countdownLatches = new Vector<CountDownLatch>();
 
 	}
@@ -273,22 +273,15 @@ public class MockApnsServer {
 
 	protected RejectedNotification handleReceivedNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
 
-		this.receivedNotifications.add(receivedNotification.getPushNotification());
-		final int notificationCount = this.receivedNotifications.size();
-
 		for (final CountDownLatch latch : this.countdownLatches) {
 			latch.countDown();
 		}
 
-		if (notificationCount == this.failWithErrorCount) {
+		if (this.notificationsReceived.incrementAndGet() == this.failWithErrorCount) {
 			return new RejectedNotification(receivedNotification.getSequenceNumber(), this.errorCode);
 		} else {
 			return null;
 		}
-	}
-
-	public List<SimpleApnsPushNotification> getReceivedNotifications() {
-		return new ArrayList<SimpleApnsPushNotification>(this.receivedNotifications);
 	}
 
 	public CountDownLatch getCountDownLatch(final int notificationCount) {

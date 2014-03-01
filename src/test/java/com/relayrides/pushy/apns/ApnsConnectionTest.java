@@ -224,8 +224,6 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		apnsConnection.sendNotification(this.createTestNotification());
 		this.waitForLatch(latch);
-
-		assertEquals(1, this.getApnsServer().getReceivedNotifications().size());
 	}
 
 	@Test

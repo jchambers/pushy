@@ -203,8 +203,6 @@ public class PushManagerTest extends BasePushyTest {
 		this.getPushManager().start();
 		this.waitForLatch(latch);
 		this.getPushManager().shutdown();
-
-		assertEquals(iterations, this.getApnsServer().getReceivedNotifications().size());
 	}
 
 	@Test
@@ -222,8 +220,6 @@ public class PushManagerTest extends BasePushyTest {
 		this.getPushManager().start();
 		this.waitForLatch(latch);
 		this.getPushManager().shutdown();
-
-		assertEquals(iterations, this.getApnsServer().getReceivedNotifications().size());
 	}
 
 	@Test
@@ -247,8 +243,6 @@ public class PushManagerTest extends BasePushyTest {
 		parallelPushManager.start();
 		this.waitForLatch(latch);
 		parallelPushManager.shutdown();
-
-		assertEquals(iterations, this.getApnsServer().getReceivedNotifications().size());
 	}
 
 	@Test
@@ -274,8 +268,6 @@ public class PushManagerTest extends BasePushyTest {
 		parallelPushManager.start();
 		this.waitForLatch(latch);
 		parallelPushManager.shutdown();
-
-		assertEquals(iterations, this.getApnsServer().getReceivedNotifications().size());
 	}
 
 	@Test
