@@ -43,11 +43,9 @@ import java.util.List;
 public class MockFeedbackServer {
 
 	private final int port;
-
 	private final NioEventLoopGroup eventLoopGroup;
-	private final boolean shouldShutDownEventLoopGroup;
 
-	private final ArrayList<ExpiredToken> expiredTokens;
+	private final ArrayList<ExpiredToken> expiredTokens = new ArrayList<ExpiredToken>();
 
 	private volatile boolean closeWhenDone = false;
 
@@ -105,16 +103,7 @@ public class MockFeedbackServer {
 
 	public MockFeedbackServer(final int port, final NioEventLoopGroup eventLoopGroup) {
 		this.port = port;
-
-		if (eventLoopGroup == null) {
-			this.eventLoopGroup = new NioEventLoopGroup();
-			this.shouldShutDownEventLoopGroup = true;
-		} else {
-			this.eventLoopGroup = eventLoopGroup;
-			this.shouldShutDownEventLoopGroup = false;
-		}
-
-		this.expiredTokens = new ArrayList<ExpiredToken>();
+		this.eventLoopGroup = eventLoopGroup;
 	}
 
 	public void start() throws InterruptedException {
@@ -135,12 +124,6 @@ public class MockFeedbackServer {
 		});
 
 		bootstrap.bind(this.port).await();
-	}
-
-	public void shutdown() throws InterruptedException {
-		if (this.shouldShutDownEventLoopGroup) {
-			this.eventLoopGroup.shutdownGracefully().await();
-		}
 	}
 
 	public synchronized void addExpiredToken(final ExpiredToken expiredToken) {

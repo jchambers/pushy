@@ -46,12 +46,10 @@ import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class MockApnsServer {
 
-	private final NioEventLoopGroup eventLoopGroup;
-	private final boolean shouldShutDownEventLoopGroup;
-
 	private final int port;
+	private final NioEventLoopGroup eventLoopGroup;
 
-	private final Vector<CountDownLatch> countdownLatches;
+	private final Vector<CountDownLatch> countdownLatches = new Vector<CountDownLatch>();
 
 	public static final int EXPECTED_TOKEN_SIZE = 32;
 	public static final int MAX_PAYLOAD_SIZE = 256;
@@ -225,22 +223,9 @@ public class MockApnsServer {
 		}
 	}
 
-	public MockApnsServer(final int port) {
-		this(port, null);
-	}
-
 	public MockApnsServer(final int port, final NioEventLoopGroup eventLoopGroup) {
 		this.port = port;
-
-		if (eventLoopGroup == null) {
-			this.eventLoopGroup = new NioEventLoopGroup();
-			this.shouldShutDownEventLoopGroup = true;
-		} else {
-			this.eventLoopGroup = eventLoopGroup;
-			this.shouldShutDownEventLoopGroup = false;
-		}
-
-		this.countdownLatches = new Vector<CountDownLatch>();
+		this.eventLoopGroup = eventLoopGroup;
 
 	}
 
@@ -266,12 +251,6 @@ public class MockApnsServer {
 		bootstrap.childOption(ChannelOption.SO_KEEPALIVE, true);
 
 		bootstrap.bind(this.port).sync();
-	}
-
-	public void shutdown() throws InterruptedException {
-		if (this.shouldShutDownEventLoopGroup) {
-			this.eventLoopGroup.shutdownGracefully().await();
-		}
 	}
 
 	protected void acceptNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {

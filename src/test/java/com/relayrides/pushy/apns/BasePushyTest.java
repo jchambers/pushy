@@ -73,9 +73,6 @@ public abstract class BasePushyTest {
 
 	@After
 	public void tearDown() throws InterruptedException {
-		this.apnsServer.shutdown();
-		this.feedbackServer.shutdown();
-
 		this.eventLoopGroup.shutdownGracefully().await();
 	}
 

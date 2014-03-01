@@ -89,7 +89,6 @@ public class FeedbackServiceClientTest {
 
 	@After
 	public void tearDown() throws InterruptedException {
-		this.feedbackServer.shutdown();
 		this.eventLoopGroup.shutdownGracefully().await();
 	}
 }
