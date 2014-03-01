@@ -81,7 +81,7 @@ public class MockFeedbackServer {
 						ChannelFuture lastWriteFuture = null;
 
 						for (final ExpiredToken expiredToken : expiredTokens) {
-							lastWriteFuture = context.writeAndFlush(expiredToken);
+							lastWriteFuture = context.write(expiredToken);
 						}
 
 						if (feedbackServer.closeWhenDone) {
@@ -91,6 +91,8 @@ public class MockFeedbackServer {
 								context.close();
 							}
 						}
+
+						context.flush();
 					} else {
 						throw new RuntimeException("Failed to complete TLS handshake.", future.cause());
 					}
