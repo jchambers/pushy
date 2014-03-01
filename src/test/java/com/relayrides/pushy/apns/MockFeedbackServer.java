@@ -132,6 +132,10 @@ public class MockFeedbackServer {
 		if (this.channel != null) {
 			this.channel.close().await();
 		}
+
+		this.closeWhenDone = true;
+		this.expiredTokens.clear();
+		this.channel = null;
 	}
 
 	public synchronized void addExpiredToken(final ExpiredToken expiredToken) {

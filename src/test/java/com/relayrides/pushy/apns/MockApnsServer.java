@@ -259,6 +259,8 @@ public class MockApnsServer {
 		if (this.channel != null) {
 			this.channel.close().await();
 		}
+
+		this.channel = null;
 	}
 
 	protected void acceptNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
