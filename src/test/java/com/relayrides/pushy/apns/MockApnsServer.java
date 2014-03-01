@@ -23,6 +23,7 @@ package com.relayrides.pushy.apns;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
@@ -50,6 +51,8 @@ public class MockApnsServer {
 	private final NioEventLoopGroup eventLoopGroup;
 
 	private final Vector<CountDownLatch> countdownLatches = new Vector<CountDownLatch>();
+
+	private Channel channel;
 
 	public static final int EXPECTED_TOKEN_SIZE = 32;
 	public static final int MAX_PAYLOAD_SIZE = 256;
@@ -229,11 +232,12 @@ public class MockApnsServer {
 
 	}
 
-	public void start() throws InterruptedException {
+	public synchronized void start() throws InterruptedException {
 		final ServerBootstrap bootstrap = new ServerBootstrap();
 
 		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioServerSocketChannel.class);
+		bootstrap.childOption(ChannelOption.SO_KEEPALIVE, true);
 
 		final MockApnsServer server = this;
 
@@ -248,9 +252,13 @@ public class MockApnsServer {
 			}
 		});
 
-		bootstrap.childOption(ChannelOption.SO_KEEPALIVE, true);
+		this.channel = bootstrap.bind(this.port).await().channel();
+	}
 
-		bootstrap.bind(this.port).sync();
+	public synchronized void shutdown() throws InterruptedException {
+		if (this.channel != null) {
+			this.channel.close().await();
+		}
 	}
 
 	protected void acceptNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {

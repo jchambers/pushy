@@ -49,6 +49,8 @@ public class MockFeedbackServer {
 
 	private volatile boolean closeWhenDone = false;
 
+	private Channel channel;
+
 	private class ExpiredTokenEncoder extends MessageToByteEncoder<ExpiredToken> {
 
 		@Override
@@ -106,7 +108,7 @@ public class MockFeedbackServer {
 		this.eventLoopGroup = eventLoopGroup;
 	}
 
-	public void start() throws InterruptedException {
+	public synchronized void start() throws InterruptedException {
 		final ServerBootstrap bootstrap = new ServerBootstrap();
 
 		bootstrap.group(this.eventLoopGroup);
@@ -123,7 +125,13 @@ public class MockFeedbackServer {
 			}
 		});
 
-		bootstrap.bind(this.port).await();
+		this.channel = bootstrap.bind(this.port).await().channel();
+	}
+
+	public synchronized void shutdown() throws InterruptedException {
+		if (this.channel != null) {
+			this.channel.close().await();
+		}
 	}
 
 	public synchronized void addExpiredToken(final ExpiredToken expiredToken) {

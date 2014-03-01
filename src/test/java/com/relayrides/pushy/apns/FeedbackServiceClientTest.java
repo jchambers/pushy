@@ -23,55 +23,31 @@ package com.relayrides.pushy.apns;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import io.netty.channel.nio.NioEventLoopGroup;
 
-import java.io.IOException;
-import java.security.KeyManagementException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.UnrecoverableKeyException;
-import java.security.cert.CertificateException;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
-public class FeedbackServiceClientTest {
-
-	private static final ApnsEnvironment TEST_ENVIRONMENT =
-			new ApnsEnvironment("localhost", 2195, "localhost", 2196);
-
-	private NioEventLoopGroup eventLoopGroup;
-
-	private MockFeedbackServer feedbackServer;
-	private FeedbackServiceClient feedbackClient;
-
-	@Before
-	public void setUp() throws InterruptedException, NoSuchAlgorithmException, KeyManagementException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
-		this.eventLoopGroup = new NioEventLoopGroup();
-
-		this.feedbackServer = new MockFeedbackServer(TEST_ENVIRONMENT.getFeedbackPort(), this.eventLoopGroup);
-		this.feedbackServer.start();
-
-		this.feedbackClient = new FeedbackServiceClient(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.eventLoopGroup);
-	}
+public class FeedbackServiceClientTest extends BasePushyTest {
 
 	@Test
-	public void testGetExpiredTokens() throws InterruptedException, FeedbackConnectionException {
-		assertTrue(this.feedbackClient.getExpiredTokens(1, TimeUnit.SECONDS).isEmpty());
+	public void testGetExpiredTokens() throws Exception {
+		final FeedbackServiceClient feedbackClient =
+				new FeedbackServiceClient(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup());
+
+		assertTrue(feedbackClient.getExpiredTokens(1, TimeUnit.SECONDS).isEmpty());
 
 		// Dates will have some loss of precision since APNS only deals with SECONDS since the epoch; we choose
 		// timestamps that just happen to be on full seconds.
 		final ExpiredToken firstToken = new ExpiredToken(new byte[] { 97, 44, 32, 16, 16 }, new Date(1375760188000L));
 		final ExpiredToken secondToken = new ExpiredToken(new byte[] { 77, 62, 40, 30, 8 }, new Date(1375760188000L));
 
-		this.feedbackServer.addExpiredToken(firstToken);
-		this.feedbackServer.addExpiredToken(secondToken);
+		this.getFeedbackServer().addExpiredToken(firstToken);
+		this.getFeedbackServer().addExpiredToken(secondToken);
 
-		final List<ExpiredToken> expiredTokens = this.feedbackClient.getExpiredTokens(1, TimeUnit.SECONDS);
+		final List<ExpiredToken> expiredTokens = feedbackClient.getExpiredTokens(1, TimeUnit.SECONDS);
 
 		assertEquals(2, expiredTokens.size());
 		assertTrue(expiredTokens.contains(firstToken));
@@ -81,14 +57,8 @@ public class FeedbackServiceClientTest {
 	}
 
 	@Test
-	public void testGetExpiredTokensCloseWhenDone() throws InterruptedException, FeedbackConnectionException {
-		this.feedbackServer.setCloseWhenDone(true);
+	public void testGetExpiredTokensCloseWhenDone() throws Exception {
+		this.getFeedbackServer().setCloseWhenDone(true);
 		this.testGetExpiredTokens();
-	}
-
-
-	@After
-	public void tearDown() throws InterruptedException {
-		this.eventLoopGroup.shutdownGracefully().await();
 	}
 }
