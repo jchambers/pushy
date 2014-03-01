@@ -23,7 +23,6 @@ package com.relayrides.pushy.apns;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
@@ -32,10 +31,10 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.MessageToByteEncoder;
 import io.netty.handler.codec.ReplayingDecoder;
 import io.netty.handler.ssl.SslHandler;
-import io.netty.util.concurrent.GenericFutureListener;
 
 import java.nio.charset.Charset;
 import java.util.Date;
@@ -60,7 +59,20 @@ public class MockApnsServer {
 	private int failWithErrorCount = -1;
 	private RejectedNotificationReason errorCode;
 
+	public static final int EXPECTED_TOKEN_SIZE = 32;
 	public static final int MAX_PAYLOAD_SIZE = 256;
+
+	private class ApnsDecoderException extends Exception {
+		private static final long serialVersionUID = 1L;
+
+		final int sequenceNumber;
+		final RejectedNotificationReason reason;
+
+		public ApnsDecoderException(final int sequenceNumber, final RejectedNotificationReason reason) {
+			this.sequenceNumber = sequenceNumber;
+			this.reason = reason;
+		}
+	};
 
 	private enum ApnsPushNotificationDecoderState {
 		OPCODE,
@@ -86,16 +98,16 @@ public class MockApnsServer {
 		}
 
 		@Override
-		protected void decode(final ChannelHandlerContext context, final ByteBuf in, final List<Object> out) {
+		protected void decode(final ChannelHandlerContext context, final ByteBuf in, final List<Object> out) throws ApnsDecoderException {
 			switch (this.state()) {
 				case OPCODE: {
 					final byte opcode = in.readByte();
 
 					if (opcode != EXPECTED_OPCODE) {
-						reportErrorAndCloseConnection(context, 0, RejectedNotificationReason.UNKNOWN);
-					} else {
-						this.checkpoint(ApnsPushNotificationDecoderState.SEQUENCE_NUMBER);
+						throw new ApnsDecoderException(0, RejectedNotificationReason.UNKNOWN);
 					}
+
+					this.checkpoint(ApnsPushNotificationDecoderState.SEQUENCE_NUMBER);
 
 					break;
 				}
@@ -121,7 +133,9 @@ public class MockApnsServer {
 					this.token = new byte[in.readShort() & 0x0000FFFF];
 
 					if (this.token.length == 0) {
-						this.reportErrorAndCloseConnection(context, this.sequenceNumber, RejectedNotificationReason.MISSING_TOKEN);
+						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.MISSING_TOKEN);
+					} else if (this.token.length != EXPECTED_TOKEN_SIZE) {
+						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.INVALID_TOKEN_SIZE);
 					}
 
 					this.checkpoint(ApnsPushNotificationDecoderState.TOKEN);
@@ -139,12 +153,14 @@ public class MockApnsServer {
 				case PAYLOAD_LENGTH: {
 					final int payloadSize = in.readShort() & 0x0000FFFF;
 
-					if (payloadSize > MAX_PAYLOAD_SIZE || payloadSize == 0) {
-						this.reportErrorAndCloseConnection(context, this.sequenceNumber, RejectedNotificationReason.INVALID_PAYLOAD_SIZE);
-					} else {
-						this.payloadBytes = new byte[payloadSize];
-						this.checkpoint(ApnsPushNotificationDecoderState.PAYLOAD);
+					if (payloadSize == 0) {
+						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.MISSING_PAYLOAD);
+					} else if (payloadSize > MAX_PAYLOAD_SIZE) {
+						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.INVALID_PAYLOAD_SIZE);
 					}
+
+					this.payloadBytes = new byte[payloadSize];
+					this.checkpoint(ApnsPushNotificationDecoderState.PAYLOAD);
 
 					break;
 				}
@@ -154,24 +170,15 @@ public class MockApnsServer {
 
 					final String payloadString = new String(this.payloadBytes, Charset.forName("UTF-8"));
 
-					final SimpleApnsPushNotification pushNotification =
-							new SimpleApnsPushNotification(this.token, payloadString, this.expiration);
+					out.add(new SendableApnsPushNotification<SimpleApnsPushNotification>(
+							new SimpleApnsPushNotification(this.token, payloadString, this.expiration),
+							this.sequenceNumber));
 
-					out.add(new SendableApnsPushNotification<SimpleApnsPushNotification>(pushNotification, this.sequenceNumber));
 					this.checkpoint(ApnsPushNotificationDecoderState.OPCODE);
 
 					break;
 				}
 			}
-		}
-
-		private void reportErrorAndCloseConnection(final ChannelHandlerContext context, final int notificationId, final RejectedNotificationReason errorCode) {
-			context.writeAndFlush(new RejectedNotification(notificationId, errorCode)).addListener(new GenericFutureListener<ChannelFuture>() {
-
-				public void operationComplete(ChannelFuture future) {
-					context.close();
-				}
-			});
 		}
 	}
 
@@ -198,21 +205,29 @@ public class MockApnsServer {
 		}
 
 		@Override
-		protected void channelRead0(final ChannelHandlerContext context, SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) throws Exception {
-
+		protected void channelRead0(final ChannelHandlerContext context, final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
 			if (!this.rejectFutureMessages) {
-				final RejectedNotification rejection = this.server.handleReceivedNotification(receivedNotification);
-
-				if (rejection != null) {
-					this.rejectFutureMessages = true;
-					context.writeAndFlush(rejection).addListener(ChannelFutureListener.CLOSE);
-				}
+				this.server.handleReceivedNotification(receivedNotification);
 			}
 		}
 
 		@Override
 		public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
-			context.close();
+			this.rejectFutureMessages = true;
+
+			if (cause instanceof DecoderException) {
+				final DecoderException decoderException = (DecoderException)cause;
+
+				if (decoderException.getCause() instanceof ApnsDecoderException) {
+					final ApnsDecoderException apnsDecoderException = (ApnsDecoderException)decoderException.getCause();
+					final RejectedNotification rejectedNotification =
+							new RejectedNotification(apnsDecoderException.sequenceNumber, apnsDecoderException.reason);
+
+					context.writeAndFlush(rejectedNotification).addListener(ChannelFutureListener.CLOSE);
+				}
+			} else {
+				context.close();
+			}
 		}
 	}
 
@@ -271,16 +286,9 @@ public class MockApnsServer {
 		this.errorCode = errorCode;
 	}
 
-	protected RejectedNotification handleReceivedNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
-
+	protected void handleReceivedNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
 		for (final CountDownLatch latch : this.countdownLatches) {
 			latch.countDown();
-		}
-
-		if (this.notificationsReceived.incrementAndGet() == this.failWithErrorCount) {
-			return new RejectedNotification(receivedNotification.getSequenceNumber(), this.errorCode);
-		} else {
-			return null;
 		}
 	}
 

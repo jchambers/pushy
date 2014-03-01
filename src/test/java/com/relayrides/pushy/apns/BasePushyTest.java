@@ -30,6 +30,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -95,7 +96,10 @@ public abstract class BasePushyTest {
 	}
 
 	public SimpleApnsPushNotification createTestNotification() {
-		return new SimpleApnsPushNotification(new byte[] { 0x12, 0x34, 0x56 }, "{\"aps\":{\"alert\":\"Hello\"}}");
+		final byte[] token = new byte[MockApnsServer.EXPECTED_TOKEN_SIZE];
+		new Random().nextBytes(token);
+
+		return new SimpleApnsPushNotification(token, "{\"aps\":{\"alert\":\"Hello\"}}");
 	}
 
 	public void waitForLatch(final CountDownLatch latch) throws InterruptedException {

@@ -68,11 +68,17 @@ public class PushManagerTest extends BasePushyTest {
 		assertEquals(0, listener.getRejectedNotificationCount());
 
 		final int iterations = 100;
-		this.getApnsServer().failWithErrorAfterNotifications(RejectedNotificationReason.INVALID_TOKEN, 10);
-		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations);
+
+		// We expect one less because one notification should be rejected
+		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations - 1);
 
 		for (int i = 0; i < iterations; i++) {
-			this.getPushManager().getQueue().put(notification);
+			if (i == iterations / 2) {
+				this.getPushManager().getQueue().put(
+						new SimpleApnsPushNotification(new byte[] {}, "This is a deliberately malformed notification."));
+			} else {
+				this.getPushManager().getQueue().put(notification);
+			}
 		}
 
 		this.getPushManager().start();
