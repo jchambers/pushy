@@ -74,28 +74,28 @@ public class MockFeedbackServer {
 
 			context.pipeline().get(SslHandler.class).handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
 
-				public void operationComplete(final Future<Channel> future) throws Exception {
+				public void operationComplete(final Future<Channel> future) {
 					if (future.isSuccess()) {
 						final List<ExpiredToken> expiredTokens = feedbackServer.getAndClearAllExpiredTokens();
 
 						ChannelFuture lastWriteFuture = null;
 
 						for (final ExpiredToken expiredToken : expiredTokens) {
-							lastWriteFuture = context.write(expiredToken);
+							lastWriteFuture = context.writeAndFlush(expiredToken);
 						}
 
-						context.flush();
-
-						if (feedbackServer.closeWhenDone && lastWriteFuture != null) {
-							lastWriteFuture.addListener(ChannelFutureListener.CLOSE);
+						if (feedbackServer.closeWhenDone) {
+							if (lastWriteFuture != null) {
+								lastWriteFuture.addListener(ChannelFutureListener.CLOSE);
+							} else {
+								context.close();
+							}
 						}
 					} else {
 						throw new RuntimeException("Failed to complete TLS handshake.", future.cause());
 					}
 				}
-
 			});
-
 		}
 	}
 
@@ -134,7 +134,7 @@ public class MockFeedbackServer {
 			}
 		});
 
-		bootstrap.bind(this.port).sync();
+		bootstrap.bind(this.port).await();
 	}
 
 	public void shutdown() throws InterruptedException {
@@ -147,7 +147,7 @@ public class MockFeedbackServer {
 		this.expiredTokens.add(expiredToken);
 	}
 
-	protected synchronized List<ExpiredToken> getAndClearAllExpiredTokens() {
+	private synchronized List<ExpiredToken> getAndClearAllExpiredTokens() {
 		final ArrayList<ExpiredToken> tokensToReturn = new ArrayList<ExpiredToken>(this.expiredTokens);
 		this.expiredTokens.clear();
 
