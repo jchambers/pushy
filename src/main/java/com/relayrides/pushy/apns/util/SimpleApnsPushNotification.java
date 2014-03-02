@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.Date;
 
 import com.relayrides.pushy.apns.ApnsPushNotification;
+import com.relayrides.pushy.apns.DeliveryPriority;
 
 /**
  * A simple and immutable implementation of the {@link com.relayrides.pushy.apns.ApnsPushNotification} interface.
@@ -39,30 +40,67 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 	private final byte[] token;
 	private final String payload;
 	private final Date invalidationTime;
+	private final DeliveryPriority priority;
 
 	/**
 	 * Constructs a new push notification with the given token and payload. No expiration time is set for the
 	 * notification, so APNs will not attempt to store the notification for later delivery if the initial attempt fails.
+	 * An "immediate" delivery priority is used for the notification, and as such the payload should contain an alert,
+	 * sound, or badge component.
 	 * 
 	 * @param token the device token to which this push notification should be delivered
 	 * @param payload the payload to include in this push notification
+	 * 
+	 * @see DeliveryPriority#IMMEDIATE
 	 */
 	public SimpleApnsPushNotification(final byte[] token, final String payload) {
-		this(token, payload, null);
+		this(token, payload, null, DeliveryPriority.IMMEDIATE);
 	}
 
 	/**
-	 * Constructs a new push notification with the given token, payload, and delivery expiration time.
+	 * Constructs a new push notification with the given token, payload, and expiration time. An "immediate" delivery
+	 * priority is used for the notification, and as such the payload should contain an alert, sound, or badge
+	 * component.
 	 * 
 	 * @param token the device token to which this push notification should be delivered
 	 * @param payload the payload to include in this push notification
 	 * @param invalidationTime the time at which Apple's servers should stop trying to deliver this message; if
 	 * {@code null}, no delivery attempts beyond the first will be made
+	 * 
+	 * @see DeliveryPriority#IMMEDIATE
 	 */
 	public SimpleApnsPushNotification(final byte[] token, final String payload, final Date invalidationTime) {
+		this(token, payload, invalidationTime, DeliveryPriority.IMMEDIATE);
+	}
+
+	/**
+	 * Constructs a new push notification with the given token, payload, and delivery priority. No expiration time is
+	 * set for the notification, so APNs will not attempt to store the notification for later delivery if the initial
+	 * attempt fails.
+	 * 
+	 * @param token the device token to which this push notification should be delivered
+	 * @param payload the payload to include in this push notification
+	 * @param the priority with which this notification should be delivered to the receiving device
+	 */
+	public SimpleApnsPushNotification(final byte[] token, final String payload, final DeliveryPriority priority) {
+		this(token, payload, null, priority);
+	}
+
+	/**
+	 * Constructs a new push notification with the given token, payload, delivery expiration time, and delivery
+	 * priority.
+	 * 
+	 * @param token the device token to which this push notification should be delivered
+	 * @param payload the payload to include in this push notification
+	 * @param invalidationTime the time at which Apple's servers should stop trying to deliver this message; if
+	 * {@code null}, no delivery attempts beyond the first will be made
+	 * @param the priority with which this notification should be delivered to the receiving device
+	 */
+	public SimpleApnsPushNotification(final byte[] token, final String payload, final Date invalidationTime, final DeliveryPriority priority) {
 		this.token = token;
 		this.payload = payload;
 		this.invalidationTime = invalidationTime;
+		this.priority = priority;
 	}
 
 	/**
@@ -92,6 +130,15 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 		return this.invalidationTime;
 	}
 
+	/**
+	 * Returns the priority with which this push notification should be delivered to the receiving device.
+	 * 
+	 * @return the priority with which this push notification should be delivered to the receiving device
+	 */
+	public DeliveryPriority getPriority() {
+		return this.priority;
+	}
+
 	/*
 	 * (non-Javadoc)
 	 * @see java.lang.Object#hashCode()
@@ -100,9 +147,9 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result
-				+ ((invalidationTime == null) ? 0 : invalidationTime.hashCode());
+		result = prime * result + ((invalidationTime == null) ? 0 : invalidationTime.hashCode());
 		result = prime * result + ((payload == null) ? 0 : payload.hashCode());
+		result = prime * result + ((priority == null) ? 0 : priority.hashCode());
 		result = prime * result + Arrays.hashCode(token);
 		return result;
 	}
@@ -130,6 +177,8 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 				return false;
 		} else if (!payload.equals(other.payload))
 			return false;
+		if (priority != other.priority)
+			return false;
 		if (!Arrays.equals(token, other.token))
 			return false;
 		return true;
@@ -141,7 +190,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 	 */
 	@Override
 	public String toString() {
-		return "SimpleApnsPushNotification [token=" + TokenUtil.tokenBytesToString(token)
-				+ ", payload=" + payload + ", expiration=" + invalidationTime + "]";
+		return "SimpleApnsPushNotification [token=" + Arrays.toString(token) + ", payload=" + payload
+				+ ", invalidationTime=" + invalidationTime + ", priority=" + priority + "]";
 	}
 }

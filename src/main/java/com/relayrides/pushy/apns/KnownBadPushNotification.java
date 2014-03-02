@@ -48,4 +48,8 @@ class KnownBadPushNotification implements ApnsPushNotification {
 	public Date getDeliveryInvalidationTime() {
 		return null;
 	}
+
+	public DeliveryPriority getPriority() {
+		return DeliveryPriority.IMMEDIATE;
+	}
 }
