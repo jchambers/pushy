@@ -62,7 +62,7 @@ public class BenchmarkApp {
 	}
 
 	public void runAllBenchmarks() throws InterruptedException {
-		this.serverEventLoopGroup = new NioEventLoopGroup(4);
+		this.serverEventLoopGroup = new NioEventLoopGroup(2);
 		this.server = new MockApnsServer(GATEWAY_PORT, serverEventLoopGroup);
 
 		// We want to do a dummy run first to let the JVM warm up
