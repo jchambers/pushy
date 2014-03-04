@@ -116,24 +116,6 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		}
 	}
 
-	private enum FrameItem {
-		DEVICE_TOKEN((byte)1),
-		PAYLOAD((byte)2),
-		SEQUENCE_NUMBER((byte)3),
-		EXPIRATION((byte)4),
-		PRIORITY((byte)5);
-
-		private final byte code;
-
-		private FrameItem(final byte code) {
-			this.code = code;
-		}
-
-		public byte getCode() {
-			return this.code;
-		}
-	}
-
 	private class ApnsPushNotificationEncoder extends MessageToByteEncoder<SendableApnsPushNotification<T>> {
 
 		private static final byte BINARY_PUSH_NOTIFICATION_COMMAND = 2;
@@ -153,21 +135,21 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			out.writeByte(BINARY_PUSH_NOTIFICATION_COMMAND);
 			out.writeInt(this.getFrameLength(sendablePushNotification));
 
-			out.writeByte(FrameItem.DEVICE_TOKEN.getCode());
+			out.writeByte(ApnsFrameItem.DEVICE_TOKEN.getCode());
 			out.writeShort(sendablePushNotification.getPushNotification().getToken().length);
 			out.writeBytes(sendablePushNotification.getPushNotification().getToken());
 
 			final byte[] payloadBytes = sendablePushNotification.getPushNotification().getPayload().getBytes(utf8);
 
-			out.writeByte(FrameItem.PAYLOAD.getCode());
+			out.writeByte(ApnsFrameItem.PAYLOAD.getCode());
 			out.writeShort(payloadBytes.length);
 			out.writeBytes(payloadBytes);
 
-			out.writeByte(FrameItem.SEQUENCE_NUMBER.getCode());
+			out.writeByte(ApnsFrameItem.SEQUENCE_NUMBER.getCode());
 			out.writeShort(SEQUENCE_NUMBER_SIZE);
 			out.writeInt(sendablePushNotification.getSequenceNumber());
 
-			out.writeByte(FrameItem.EXPIRATION.getCode());
+			out.writeByte(ApnsFrameItem.EXPIRATION.getCode());
 			out.writeShort(EXPIRATION_SIZE);
 
 			final int expiration;
@@ -181,7 +163,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 			out.writeInt(expiration);
 
-			out.writeByte(FrameItem.PRIORITY.getCode());
+			out.writeByte(ApnsFrameItem.PRIORITY.getCode());
 			out.writeShort(PRIORITY_SIZE);
 			out.writeByte(sendablePushNotification.getPushNotification().getPriority().getCode());
 		}
@@ -191,7 +173,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		}
 
 		private int getFrameLength(final SendableApnsPushNotification<T> sendableApnsPushNotification) {
-			return	FrameItem.values().length * (FRAME_ITEM_ID_SIZE + FRAME_ITEM_LENGTH_SIZE) +
+			return	ApnsFrameItem.values().length * (FRAME_ITEM_ID_SIZE + FRAME_ITEM_LENGTH_SIZE) +
 					sendableApnsPushNotification.getPushNotification().getToken().length +
 					sendableApnsPushNotification.getPushNotification().getPayload().getBytes(utf8).length +
 					SEQUENCE_NUMBER_SIZE +

@@ -38,7 +38,17 @@ public enum DeliveryPriority {
 		this.code = code;
 	}
 
-	public byte getCode() {
+	protected byte getCode() {
 		return this.code;
+	}
+
+	protected static DeliveryPriority getFromCode(final byte code) {
+		for (final DeliveryPriority priority : DeliveryPriority.values()) {
+			if (priority.getCode() == code) {
+				return priority;
+			}
+		}
+
+		throw new IllegalArgumentException(String.format("No delivery priority found with code %d", code));
 	}
 }
