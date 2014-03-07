@@ -80,7 +80,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private boolean shutDown = false;
 	private boolean shutDownFinished = false;
 
-	private final Logger log = LoggerFactory.getLogger(PushManager.class);
+	private static final Logger log = LoggerFactory.getLogger(PushManager.class);
 
 	private static class DispatchThreadExceptionHandler<T extends ApnsPushNotification> implements UncaughtExceptionHandler {
 		private final Logger log = LoggerFactory.getLogger(DispatchThreadExceptionHandler.class);

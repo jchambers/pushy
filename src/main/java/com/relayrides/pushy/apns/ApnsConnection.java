@@ -89,7 +89,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 	private final SentNotificationBuffer<T> sentNotificationBuffer = new SentNotificationBuffer<T>(4096);
 
-	private final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
+	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
 
 	private class RejectedNotificationDecoder extends ByteToMessageDecoder {
 
