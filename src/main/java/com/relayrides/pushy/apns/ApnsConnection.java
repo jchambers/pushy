@@ -106,7 +106,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 				final int notificationId = in.readInt();
 
 				if (command != EXPECTED_COMMAND) {
-					log.error("Unexpected command: %d", command);
+					log.error("Unexpected command: {}", command);
 				}
 
 				final RejectedNotificationReason errorCode = RejectedNotificationReason.getByErrorCode(code);
@@ -158,7 +158,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 		@Override
 		protected void channelRead0(final ChannelHandlerContext context, final RejectedNotification rejectedNotification) {
-			log.debug("APNs gateway rejected notification with sequence number %d from %s (%s).",
+			log.debug("APNs gateway rejected notification with sequence number {} from {} ({}).",
 					rejectedNotification.getSequenceNumber(), this.apnsConnection.name, rejectedNotification.getReason());
 
 			this.apnsConnection.pendingOperationLock.lock();
@@ -186,7 +186,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 					this.apnsConnection.listener.handleRejectedNotification(
 							this.apnsConnection, notification, rejectedNotification.getReason());
 				} else {
-					log.error("%s failed to find rejected notification with sequence number %d; this may mean the " +
+					log.error("{} failed to find rejected notification with sequence number %d; this may mean the " +
 							"sent notification buffer is too small. Please report this as a bug.",
 							this.apnsConnection.name, rejectedNotification.getSequenceNumber());
 				}
@@ -220,7 +220,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			// Since this is happening on the inbound side, the most likely case is that a read timed out or the remote
 			// host closed the connection. We should log the problem, but generally assume that channel closure will be
 			// handled by channelInactive.
-			log.debug(String.format("%s caught an exception.", this.apnsConnection.name), cause);
+			log.debug(String.format("{} caught an exception.", this.apnsConnection.name), cause);
 		}
 
 		@Override
@@ -296,13 +296,13 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			}
 		});
 
-		log.debug("%s beginning connection process.", apnsConnection.name);
+		log.debug("{} beginning connection process.", apnsConnection.name);
 		bootstrap.connect(this.environment.getApnsGatewayHost(), this.environment.getApnsGatewayPort()).addListener(
 				new GenericFutureListener<ChannelFuture>() {
 
 					public void operationComplete(final ChannelFuture connectFuture) {
 						if (connectFuture.isSuccess()) {
-							log.debug("%s connected; waiting for TLS handshake.", apnsConnection.name);
+							log.debug("{} connected; waiting for TLS handshake.", apnsConnection.name);
 
 							final SslHandler sslHandler = connectFuture.channel().pipeline().get(SslHandler.class);
 
@@ -311,7 +311,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 									public void operationComplete(final Future<Channel> handshakeFuture) {
 										if (handshakeFuture.isSuccess()) {
-											log.debug("%s successfully completed TLS handshake.", apnsConnection.name);
+											log.debug("{} successfully completed TLS handshake.", apnsConnection.name);
 
 											// TODO Remove call to setAutoClose when Netty 5.0 is available
 											apnsConnection.channel = connectFuture.channel();
@@ -327,7 +327,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 										}
 									}});
 							} else {
-								log.warn("%s failed to get SSL handler and could not wait for a TLS handshake.", apnsConnection.name);
+								log.warn("{} failed to get SSL handler and could not wait for a TLS handshake.", apnsConnection.name);
 
 								connectFuture.channel().close();
 								apnsConnection.listener.handleConnectionFailure(apnsConnection, null);
@@ -362,7 +362,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			throw new IllegalStateException(String.format("%s has not connected.", this.name));
 		}
 
-		log.trace("%s sending %s", apnsConnection.name, sendableNotification);
+		log.trace("{} sending {}", apnsConnection.name, sendableNotification);
 
 		this.pendingOperationLock.lock();
 
@@ -373,7 +373,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 				public void operationComplete(final ChannelFuture writeFuture) {
 					if (writeFuture.isSuccess()) {
-						log.trace("%s successfully wrote notification %d", apnsConnection.name,
+						log.trace("{} successfully wrote notification {}", apnsConnection.name,
 								sendableNotification.getSequenceNumber());
 
 						apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
@@ -464,13 +464,13 @@ class ApnsConnection<T extends ApnsPushNotification> {
 				this.shutdownNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
 						new KnownBadPushNotification(), this.sequenceNumber.getAndIncrement());
 
-				log.debug("%s sending known-bad notification to shut down.", apnsConnection.name);
+				log.debug("{} sending known-bad notification to shut down.", apnsConnection.name);
 
 				this.channel.writeAndFlush(this.shutdownNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
 					public void operationComplete(final ChannelFuture future) {
 						if (future.isSuccess()) {
-							log.trace("%s successfully wrote known-bad notification %d",
+							log.trace("{} successfully wrote known-bad notification %d",
 									apnsConnection.name, apnsConnection.shutdownNotification.getSequenceNumber());
 						} else {
 							if (log.isTraceEnabled()) {
