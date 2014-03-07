@@ -319,7 +319,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 											apnsConnection.listener.handleConnectionSuccess(apnsConnection);
 										} else {
-											log.warn(String.format("%s failed to complete TLS handshake with APNs gateway.", apnsConnection.name),
+											log.debug(String.format("%s failed to complete TLS handshake with APNs gateway.", apnsConnection.name),
 													handshakeFuture.cause());
 
 											connectFuture.channel().close();
@@ -333,7 +333,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 								apnsConnection.listener.handleConnectionFailure(apnsConnection, null);
 							}
 						} else {
-							log.error(String.format("%s failed to connect to APNs gateway.", apnsConnection.name),
+							log.debug(String.format("%s failed to connect to APNs gateway.", apnsConnection.name),
 									connectFuture.cause());
 
 							apnsConnection.listener.handleConnectionFailure(apnsConnection, connectFuture.cause());

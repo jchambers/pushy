@@ -127,7 +127,7 @@ Pushy uses logging levels as follows:
 | Log level | Events logged                                                                         |
 |-----------|---------------------------------------------------------------------------------------|
 | `error`   | Serious, unrecoverable errors; recoverable errors that likely indicate a bug in Pushy |
-| `warn`    | Serious, but recoverable errors                                                       |
+| `warn`    | Serious, but recoverable errors; errors that may indicate an error in caller's code   |
 | `info`    | Important lifecycle events                                                            |
 | `debug`   | Minor lifecycle events; expected exceptions                                           |
 | `trace`   | Individual IO operations                                                              |

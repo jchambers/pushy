@@ -163,6 +163,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			throw new IllegalStateException("Push manager has already been shut down and may not be restarted.");
 		}
 
+		log.info("Push manager starting.");
+
 		for (int i = 0; i < this.concurrentConnectionCount; i++) {
 			this.startNewConnection();
 		}
@@ -258,6 +260,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		if (this.shutDown) {
 			log.warn("Push manager has already been shut down; shutting down multiple times is harmless, but may "
 					+ "indicate a problem elsewhere.");
+		} else {
+			log.info("Push manager shutting down.");
 		}
 
 		if (this.shutDownFinished) {
