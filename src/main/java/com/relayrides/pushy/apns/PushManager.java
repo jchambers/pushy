@@ -46,7 +46,7 @@ import org.slf4j.LoggerFactory;
  * <p>A {@code PushManager} is the main public-facing point of interaction with APNs. Push managers manage the queue of
  * outbound push notifications and manage connections to the various APNs servers. Push managers should always be
  * created using the {@link PushManagerFactory} class.</p>
- * 
+ *
  * <p>Callers send push notifications by adding them to the push manager's queue. The push manager will send
  * notifications from the queue as quickly as it is able to do so, and will never put notifications back in the queue
  * (push managers maintain a separate, internal queue for notifications that should be re-sent).</p>
@@ -72,8 +72,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final NioEventLoopGroup eventLoopGroup;
 	private final boolean shouldShutDownEventLoopGroup;
 
-	private ReentrantLock connectionLock = new ReentrantLock();
-	private Condition connectionsFinished = this.connectionLock.newCondition();
+	private final ReentrantLock connectionLock = new ReentrantLock();
+	private final Condition connectionsFinished = this.connectionLock.newCondition();
 	private volatile int unfinishedConnectionCount = 0;
 
 	private final ExecutorService listenerExecutorService;
@@ -142,8 +142,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		this.concurrentConnectionCount = concurrentConnectionCount;
 		this.connectionPool = new ApnsConnectionPool<T>();
 
-		this.feedbackServiceClient = new FeedbackServiceClient(environment, sslContext, eventLoopGroup);
-
 		if (eventLoopGroup != null) {
 			this.eventLoopGroup = eventLoopGroup;
 			this.shouldShutDownEventLoopGroup = false;
@@ -159,6 +157,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.listenerExecutorService = Executors.newSingleThreadExecutor();
 			this.shouldShutDownListenerExecutorService = true;
 		}
+
+		this.feedbackServiceClient = new FeedbackServiceClient(this.environment, this.sslContext, this.eventLoopGroup);
 	}
 
 	/**
