@@ -220,7 +220,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			// Since this is happening on the inbound side, the most likely case is that a read timed out or the remote
 			// host closed the connection. We should log the problem, but generally assume that channel closure will be
 			// handled by channelInactive.
-			log.debug(String.format("{} caught an exception.", this.apnsConnection.name), cause);
+			log.debug("{} caught an exception.", this.apnsConnection.name, cause);
 		}
 
 		@Override
@@ -319,8 +319,8 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 											apnsConnection.listener.handleConnectionSuccess(apnsConnection);
 										} else {
-											log.debug(String.format("%s failed to complete TLS handshake with APNs gateway.", apnsConnection.name),
-													handshakeFuture.cause());
+											log.debug("{} failed to complete TLS handshake with APNs gateway.",
+													apnsConnection.name, handshakeFuture.cause());
 
 											connectFuture.channel().close();
 											apnsConnection.listener.handleConnectionFailure(apnsConnection, handshakeFuture.cause());
@@ -333,8 +333,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 								apnsConnection.listener.handleConnectionFailure(apnsConnection, null);
 							}
 						} else {
-							log.debug(String.format("%s failed to connect to APNs gateway.", apnsConnection.name),
-									connectFuture.cause());
+							log.debug("{} failed to connect to APNs gateway.", apnsConnection.name, connectFuture.cause());
 
 							apnsConnection.listener.handleConnectionFailure(apnsConnection, connectFuture.cause());
 						}
@@ -378,10 +377,8 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 						apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
 					} else {
-						if (log.isTraceEnabled()) {
-							log.trace(String.format("%s failed to write notification %s",
-									apnsConnection.name, sendableNotification), writeFuture.cause());
-						}
+						log.trace("{} failed to write notification {}",
+								apnsConnection.name, sendableNotification, writeFuture.cause());
 
 						// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
 						// even manage to write the notification to the wire) and re-enqueue for another send attempt.
@@ -470,13 +467,11 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 					public void operationComplete(final ChannelFuture future) {
 						if (future.isSuccess()) {
-							log.trace("{} successfully wrote known-bad notification %d",
+							log.trace("{} successfully wrote known-bad notification {}",
 									apnsConnection.name, apnsConnection.shutdownNotification.getSequenceNumber());
 						} else {
-							if (log.isTraceEnabled()) {
-								log.trace(String.format("%s failed to write known-bad notification %s",
-										apnsConnection.name, apnsConnection.shutdownNotification), future.cause());
-							}
+							log.trace("{} failed to write known-bad notification {}",
+									apnsConnection.name, apnsConnection.shutdownNotification, future.cause());
 
 							// Try again!
 							apnsConnection.shutdownNotification = null;
