@@ -256,32 +256,42 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	/**
 	 * Disconnects from APNs and gracefully shuts down all connections. This method will block until the internal retry
-	 * queue has been emptied and until all connections have shut down gracefully.
-	 *
-	 * @return a list of notifications not sent before the {@code PushManager} shut down
+	 * queue has been emptied and until all connections have shut down gracefully. Calling this method is identical to
+	 * calling {@link PushManager#shutdown(long)} with a timeout of {@code 0}.
 	 *
 	 * @throws InterruptedException if interrupted while waiting for connections to close cleanly
 	 * @throws IllegalStateException if this method is called before the push manager has been started
 	 */
-	public synchronized List<T> shutdown() throws InterruptedException {
-		return this.shutdown(0);
+	public synchronized void shutdown() throws InterruptedException {
+		this.shutdown(0);
 	}
 
 	/**
-	 * Disconnects from the APNs and gracefully shuts down all connections. This method will wait until the given
+	 * <p>Disconnects from the APNs and gracefully shuts down all connections. This method will wait until the given
 	 * timeout expires for the internal retry queue to empty and for connections to close gracefully, and will then
-	 * instruct them to shut down as soon as possible (and will block until shutdown is complete). Note that the
-	 * returned list of undelivered push notifications may not be accurate in cases where the timeout elapsed before
-	 * the client threads shut down.
+	 * instruct them to shut down as soon as possible (and will block until shutdown is complete).</p>
+	 * 
+	 * <p>This method returns a collection of notifications that have not been sent by the time this push manager has
+	 * shut down. If this method is called with a non-zero timeout, the list will contain all of the notifications in
+	 * the push manager's internal retry queue. It will <em>not</em> contain notifications in the public queue (since
+	 * the public queue can be checked directly). When shutting down with a non-zero timeout, no guarantees are made
+	 * that notifications that were sent (i.e. are in neither the public queue nor the retry queue) would not have been
+	 * rejected by the APNs gateway.</p>
+	 * 
+	 * <p>If called with a timeout of {@code 0}, the returned collection of unsent notifications will be empty. By the
+	 * time this method exits, all notifications taken from the public queue are guaranteed to have been sent and
+	 * possibly rejected by the APNs gateway. It is guaranteed that no sent notifications might still be rejected in
+	 * the future (although there is also no guarantee that they ever arrived at the APNs gateway).</p>
 	 *
-	 * @param timeout the timeout, in milliseconds, after which client threads should be shut down as quickly as possible
+	 * @param timeout the timeout, in milliseconds, after which client threads should be shut down as quickly as
+	 * possible; if {@code 0}, this method will wait indefinitely
 	 *
 	 * @return a list of notifications not sent before the {@code PushManager} shut down
 	 *
 	 * @throws InterruptedException if interrupted while waiting for connections to close cleanly
 	 * @throws IllegalStateException if this method is called before the push manager has been started
 	 */
-	public synchronized List<T> shutdown(long timeout) throws InterruptedException {
+	public synchronized Collection<T> shutdown(long timeout) throws InterruptedException {
 		if (this.isShutDown()) {
 			log.warn("Push manager has already been shut down; shutting down multiple times is harmless, but may "
 					+ "indicate a problem elsewhere.");
@@ -290,12 +300,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		if (this.drainingFinished) {
 			// We COULD throw an IllegalStateException here, but it seems unnecessary when we could just silently return
 			// the same result without harm.
-			final ArrayList<T> unsentNotifications = new ArrayList<T>();
-
-			unsentNotifications.addAll(this.retryQueue);
-			unsentNotifications.addAll(this.getQueue());
-
-			return unsentNotifications;
+			return new ArrayList<T>(this.retryQueue);
 		}
 
 		if (!this.isStarted()) {
@@ -330,12 +335,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			}
 		}
 
-		final ArrayList<T> unsentNotifications = new ArrayList<T>();
-
-		unsentNotifications.addAll(this.retryQueue);
-		unsentNotifications.addAll(this.getQueue());
-
-		return unsentNotifications;
+		return new ArrayList<T>(this.retryQueue);
 	}
 
 	/**
