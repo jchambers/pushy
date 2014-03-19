@@ -260,7 +260,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * identical to calling {@link PushManager#shutdown(long)} with a timeout of {@code 0}.</p>
 	 * 
 	 * <p>By the time this method return normally, all notifications removed from the public queue are guaranteed to
-	 * have been either sent to and accepted by the APNs gateway or sent to and rejected by the APNs gateway.</p>
+	 * have been delivered to the APNs gateway and either accepted or rejected (i.e. the state of all sent
+	 * notifications is known).</p>
 	 *
 	 * @throws InterruptedException if interrupted while waiting for connections to close cleanly
 	 * @throws IllegalStateException if this method is called before the push manager has been started
@@ -282,8 +283,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * received or processed by the APNs gateway.</p>
 	 * 
 	 * <p>If called with a timeout of {@code 0}, the returned collection of unsent notifications will be empty. By the
-	 * time this method exits, all notifications taken from the public queue are guaranteed to have been either sent to
-	 * and accepted by the APNs gateway or sent to and rejected by the APNs gateway.</p>
+	 * time this method exits, all notifications taken from the public queue are guaranteed to have been delivered to
+	 * the APNs gateway and either accepted or rejected (i.e. the state of all sent notifications is known).</p>
 	 *
 	 * @param timeout the timeout, in milliseconds, after which client threads should be shut down as quickly as
 	 * possible; if {@code 0}, this method will wait indefinitely
@@ -402,12 +403,12 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * <p>Returns the queue of messages to be sent to the APNs gateway. Callers should add notifications to this queue
 	 * directly to send notifications. Notifications will be removed from this queue by Pushy when a send attempt is
 	 * started, but no guarantees are made as to when the notification will actually be sent. Successful delivery is
-	 * neither guaranteed nor acknowledged by the APNs gateway. Notifications rejected by APNs for specific reasons
-	 * will be passed to registered {@link RejectedNotificationListener}s, and notifications that could not be sent due
-	 * to temporary I/O problems will be scheduled for re-transmission in a separate, internal queue.</p>
+	 * not acknowledged by the APNs gateway. Notifications rejected by APNs for specific reasons will be passed to
+	 * registered {@link RejectedNotificationListener}s, and notifications that could not be sent due to temporary I/O
+	 * problems will be scheduled for re-transmission in a separate, internal queue.</p>
 	 *
-	 * <p>Notifications in this queue will only be consumed when the {@code PushManager} is running and has active
-	 * connections and when the internal &quot;retry queue&quot; is empty.</p>
+	 * <p>Notifications in this queue will only be consumed when the {@code PushManager} is running, has active
+	 * connections, and the internal &quot;retry queue&quot; is empty.</p>
 	 *
 	 * @return the queue of new notifications to send to the APNs gateway
 	 *
