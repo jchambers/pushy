@@ -255,9 +255,12 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	/**
-	 * Disconnects from APNs and gracefully shuts down all connections. This method will block until the internal retry
-	 * queue has been emptied and until all connections have shut down gracefully. Calling this method is identical to
-	 * calling {@link PushManager#shutdown(long)} with a timeout of {@code 0}.
+	 * <p>Disconnects from APNs and gracefully shuts down all connections. This method will block until the internal
+	 * retry queue has been emptied and until all connections have shut down gracefully. Calling this method is
+	 * identical to calling {@link PushManager#shutdown(long)} with a timeout of {@code 0}.</p>
+	 * 
+	 * <p>By the time this method return normally, all notifications removed from the public queue are guaranteed to
+	 * have been either sent to and accepted by the APNs gateway or sent to and rejected by the APNs gateway.</p>
 	 *
 	 * @throws InterruptedException if interrupted while waiting for connections to close cleanly
 	 * @throws IllegalStateException if this method is called before the push manager has been started
@@ -275,13 +278,12 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * shut down. If this method is called with a non-zero timeout, the list will contain all of the notifications in
 	 * the push manager's internal retry queue. It will <em>not</em> contain notifications in the public queue (since
 	 * the public queue can be checked directly). When shutting down with a non-zero timeout, no guarantees are made
-	 * that notifications that were sent (i.e. are in neither the public queue nor the retry queue) would not have been
-	 * rejected by the APNs gateway.</p>
+	 * that notifications that were sent (i.e. are in neither the public queue nor the retry queue) were actually
+	 * received or processed by the APNs gateway.</p>
 	 * 
 	 * <p>If called with a timeout of {@code 0}, the returned collection of unsent notifications will be empty. By the
-	 * time this method exits, all notifications taken from the public queue are guaranteed to have been sent and
-	 * possibly rejected by the APNs gateway. It is guaranteed that no sent notifications might still be rejected in
-	 * the future (although there is also no guarantee that they ever arrived at the APNs gateway).</p>
+	 * time this method exits, all notifications taken from the public queue are guaranteed to have been either sent to
+	 * and accepted by the APNs gateway or sent to and rejected by the APNs gateway.</p>
 	 *
 	 * @param timeout the timeout, in milliseconds, after which client threads should be shut down as quickly as
 	 * possible; if {@code 0}, this method will wait indefinitely
