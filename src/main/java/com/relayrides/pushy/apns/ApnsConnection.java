@@ -135,6 +135,10 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			out.writeByte(BINARY_PUSH_NOTIFICATION_COMMAND);
 			out.writeInt(this.getFrameLength(sendablePushNotification));
 
+			out.writeByte(ApnsFrameItem.SEQUENCE_NUMBER.getCode());
+			out.writeShort(SEQUENCE_NUMBER_SIZE);
+			out.writeInt(sendablePushNotification.getSequenceNumber());
+
 			out.writeByte(ApnsFrameItem.DEVICE_TOKEN.getCode());
 			out.writeShort(sendablePushNotification.getPushNotification().getToken().length);
 			out.writeBytes(sendablePushNotification.getPushNotification().getToken());
@@ -144,10 +148,6 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			out.writeByte(ApnsFrameItem.PAYLOAD.getCode());
 			out.writeShort(payloadBytes.length);
 			out.writeBytes(payloadBytes);
-
-			out.writeByte(ApnsFrameItem.SEQUENCE_NUMBER.getCode());
-			out.writeShort(SEQUENCE_NUMBER_SIZE);
-			out.writeInt(sendablePushNotification.getSequenceNumber());
 
 			out.writeByte(ApnsFrameItem.EXPIRATION.getCode());
 			out.writeShort(EXPIRATION_SIZE);
