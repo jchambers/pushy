@@ -195,14 +195,6 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			log.debug(String.format("APNs gateway rejected notification with sequence number %d from %s (%s).",
 					rejectedNotification.getSequenceNumber(), this.apnsConnection.name, rejectedNotification.getReason()));
 
-			this.apnsConnection.pendingOperationLock.lock();
-
-			try {
-				this.apnsConnection.pendingOperationCount += 1;
-			} finally {
-				this.apnsConnection.pendingOperationLock.unlock();
-			}
-
 			this.apnsConnection.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
 
 			final boolean isKnownBadRejection = this.apnsConnection.shutdownNotification != null &&
@@ -234,18 +226,6 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 			if (!unprocessedNotifications.isEmpty()) {
 				this.apnsConnection.listener.handleUnprocessedNotifications(this.apnsConnection, unprocessedNotifications);
-			}
-
-			this.apnsConnection.pendingOperationLock.lock();
-
-			try {
-				this.apnsConnection.pendingOperationCount -= 1;
-
-				if (this.apnsConnection.pendingOperationCount == 0) {
-					this.apnsConnection.pendingOperationsFinished.signalAll();
-				}
-			} finally {
-				this.apnsConnection.pendingOperationLock.unlock();
 			}
 		}
 
