@@ -77,7 +77,11 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 	private Channel channel;
 
-	private final AtomicInteger sequenceNumber = new AtomicInteger(0);
+	// We want to start the count at 1 here because the gateway will send back a sequence number of 0 if it doesn't know
+	// which notification failed. This isn't 100% bulletproof (we'll legitimately get back to 0 after 2^32
+	// notifications), but the probability of collision (or even sending 4 billion notifications without some recipient
+	// having an expired token) is vanishingly small.
+	private final AtomicInteger sequenceNumber = new AtomicInteger(1);
 
 	private boolean startedConnectionAttempt = false;
 
