@@ -161,6 +161,21 @@ public class PushManagerTest extends BasePushyTest {
 		this.getPushManager().shutdown();
 	}
 
+	@Test
+	public void testGetExpiredTokensWithDefaultEventLoopGroup() throws Exception {
+		final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
+				new PushManagerFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient());
+
+		final PushManager<SimpleApnsPushNotification> defaultPushManager = pushManagerFactory.buildPushManager();
+		defaultPushManager.start();
+
+		try {
+			assertTrue(defaultPushManager.getExpiredTokens().isEmpty());
+		} finally {
+			defaultPushManager.shutdown();
+		}
+	}
+
 	@Test(expected = IllegalStateException.class)
 	public void testGetExpiredTokensBeforeStart() throws InterruptedException, FeedbackConnectionException {
 		this.getPushManager().getExpiredTokens();
