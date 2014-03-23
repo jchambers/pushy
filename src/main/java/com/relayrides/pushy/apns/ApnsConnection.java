@@ -23,6 +23,7 @@ package com.relayrides.pushy.apns;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
@@ -279,6 +280,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioSocketChannel.class);
 		bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+		bootstrap.option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
 
 		// TODO Remove this when Netty 5 is available
 		bootstrap.option(ChannelOption.AUTO_CLOSE, false);
