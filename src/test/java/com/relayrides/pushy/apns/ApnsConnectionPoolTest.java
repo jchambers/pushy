@@ -36,7 +36,7 @@ public class ApnsConnectionPoolTest {
 		assertEquals(0, pool.getAll().size());
 	}
 
-	@Test(timeout = 1000)
+	@Test
 	public void testGetNextConnection() throws InterruptedException {
 
 		{

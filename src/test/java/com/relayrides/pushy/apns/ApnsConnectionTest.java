@@ -175,7 +175,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		assertFalse(listener.connectionClosed);
 	}
 
-	@Test(timeout = 5000)
+	@Test
 	public void testConnectionRefusal() throws Exception {
 		final Object mutex = new Object();
 
@@ -360,7 +360,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		apnsConnection.shutdownImmediately();
 	}
 
-	@Test(timeout = 5000)
+	@Test
 	public void testWaitForPendingOperationsToFinish() throws Exception {
 		// For the purposes of this test, we're happy just as long as we don't time out waiting for writes to finish.
 
