@@ -63,7 +63,8 @@ interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	 * Indicates that the given connection failed to send a push notification to an APNs gateway. This indicates a
 	 * local failure; notifications passed to this method were never transmitted to the APNs gateway, and failures of
 	 * this kind generally represent temporary I/O problems (rather than permanent rejection by the gateway), and it
-	 * is generally safe to try to send the failed notifications again later.
+	 * is generally safe to try to send the failed notifications again later. The cause of the write failure may be
+	 * {@code null}, which indicates that the connection was not ready to send the notification.
 	 *
 	 * @param connection the connection that attempted to deliver the notification
 	 * @param notification the notification that could not be written
