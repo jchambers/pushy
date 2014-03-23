@@ -280,6 +280,9 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		bootstrap.channel(NioSocketChannel.class);
 		bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
 
+		// TODO Remove this when Netty 5 is available
+		bootstrap.option(ChannelOption.AUTO_CLOSE, false);
+
 		bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
 			@Override
@@ -313,10 +316,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 										if (handshakeFuture.isSuccess()) {
 											log.debug(String.format("%s successfully completed TLS handshake.", apnsConnection.name));
 
-											// TODO Remove call to setAutoClose when Netty 5.0 is available
 											apnsConnection.channel = connectFuture.channel();
-											apnsConnection.channel.config().setAutoClose(false);
-
 											apnsConnection.listener.handleConnectionSuccess(apnsConnection);
 										} else {
 											log.error(String.format("%s failed to complete TLS handshake with APNs gateway.", apnsConnection.name),
