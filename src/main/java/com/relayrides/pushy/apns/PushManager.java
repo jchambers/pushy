@@ -35,8 +35,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
 
 import javax.net.ssl.SSLContext;
 
@@ -63,6 +61,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
 	private final int concurrentConnectionCount;
+	private final HashSet<ApnsConnection<T>> activeConnections;
 	private final ApnsConnectionPool<T> writableConnectionPool;
 	private final FeedbackServiceClient feedbackServiceClient;
 	private final Vector<RejectedNotificationListener<? super T>> rejectedNotificationListeners;
@@ -70,10 +69,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private Thread dispatchThread;
 	private final NioEventLoopGroup eventLoopGroup;
 	private final boolean shouldShutDownEventLoopGroup;
-
-	private final ReentrantLock connectionLock = new ReentrantLock();
-	private final HashSet<ApnsConnection<T>> activeConnections;
-	private final Condition connectionsFinished = this.connectionLock.newCondition();
 
 	private final ExecutorService rejectedNotificationExecutorService;
 
@@ -520,45 +515,35 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	private void startNewConnection() {
-		this.connectionLock.lock();
-
-		try {
+		synchronized (this.activeConnections) {
 			final ApnsConnection<T> connection = new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this);
 			connection.connect();
 
 			this.activeConnections.add(connection);
-		} finally {
-			this.connectionLock.unlock();
 		}
 	}
 
 	private void removeActiveConnection(final ApnsConnection<T> connection) {
-		this.connectionLock.lock();
-
-		try {
+		synchronized (this.activeConnections) {
 			assert this.activeConnections.remove(connection);
 
 			if (this.activeConnections.isEmpty()) {
-				this.connectionsFinished.signalAll();
+				this.activeConnections.notifyAll();
 			}
-		} finally {
-			this.connectionLock.unlock();
 		}
 	}
 
 	private void waitForAllOperationsToFinish(final Date deadline) throws InterruptedException {
-		this.connectionLock.lock();
+		synchronized (this.activeConnections) {
+			final long now = System.currentTimeMillis();
 
-		try {
-			while (!this.activeConnections.isEmpty() && (deadline == null || deadline.getTime() > System.currentTimeMillis())) {
+			while (!this.activeConnections.isEmpty() && (deadline == null || deadline.getTime() > now)) {
 				if (deadline != null) {
-					this.connectionsFinished.awaitUntil(deadline);
+					this.activeConnections.wait(deadline.getTime() - now);
 				} else {
-					this.connectionsFinished.await();
+					this.activeConnections.wait();
 				}
 			}
-		} finally {
-			this.connectionLock.unlock();
 		}
 	}
 }
