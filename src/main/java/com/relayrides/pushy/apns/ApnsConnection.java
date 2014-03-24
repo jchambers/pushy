@@ -360,56 +360,55 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 		final ApnsConnection<T> apnsConnection = this;
 
+		if (this.channel == null) {
+			throw new IllegalStateException(String.format("%s has not connected.", this.name));
+		}
+
 		if (log.isTraceEnabled()) {
 			log.trace(String.format("%s sending %s", apnsConnection.name, sendableNotification));
 		}
 
-		if (this.channel != null && this.channel.isWritable()) {
-			this.pendingOperationLock.lock();
+		this.pendingOperationLock.lock();
 
-			try {
-				this.pendingOperationCount += 1;
+		try {
+			this.pendingOperationCount += 1;
 
-				this.channel.writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+			this.channel.writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
-					public void operationComplete(final ChannelFuture writeFuture) {
-						if (writeFuture.isSuccess()) {
-							if (log.isTraceEnabled()) {
-								log.trace(String.format("%s successfully wrote notification %d",
-										apnsConnection.name, sendableNotification.getSequenceNumber()));
-							}
-
-							apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
-						} else {
-							if (log.isTraceEnabled()) {
-								log.trace(String.format("%s failed to write notification %s",
-										apnsConnection.name, sendableNotification), writeFuture.cause());
-							}
-
-							// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
-							// even manage to write the notification to the wire) and re-enqueue for another send attempt.
-							apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
+				public void operationComplete(final ChannelFuture writeFuture) {
+					if (writeFuture.isSuccess()) {
+						if (log.isTraceEnabled()) {
+							log.trace(String.format("%s successfully wrote notification %d",
+									apnsConnection.name, sendableNotification.getSequenceNumber()));
 						}
 
-						apnsConnection.pendingOperationLock.lock();
-
-						try {
-							apnsConnection.pendingOperationCount -= 1;
-
-							if (apnsConnection.pendingOperationCount == 0) {
-								apnsConnection.pendingOperationsFinished.signalAll();
-							}
-						} finally {
-							apnsConnection.pendingOperationLock.unlock();
+						apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
+					} else {
+						if (log.isTraceEnabled()) {
+							log.trace(String.format("%s failed to write notification %s",
+									apnsConnection.name, sendableNotification), writeFuture.cause());
 						}
+
+						// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
+						// even manage to write the notification to the wire) and re-enqueue for another send attempt.
+						apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
 					}
-				});
-			} finally {
-				this.pendingOperationLock.unlock();
-			}
-		} else {
-			log.trace("{} was not ready to write {}.", this.name, notification);
-			this.listener.handleWriteFailure(this, notification, null);
+
+					apnsConnection.pendingOperationLock.lock();
+
+					try {
+						apnsConnection.pendingOperationCount -= 1;
+
+						if (apnsConnection.pendingOperationCount == 0) {
+							apnsConnection.pendingOperationsFinished.signalAll();
+						}
+					} finally {
+						apnsConnection.pendingOperationLock.unlock();
+					}
+				}
+			});
+		} finally {
+			this.pendingOperationLock.unlock();
 		}
 	}
 
