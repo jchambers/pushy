@@ -45,8 +45,6 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
@@ -80,13 +78,12 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 	private final AtomicInteger sequenceNumber = new AtomicInteger(0);
 
+	private final Object pendingOperationMonitor = new Object();
+	private int pendingOperationCount = 0;
+
 	private boolean startedConnectionAttempt = false;
 
 	private volatile SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
-
-	private final ReentrantLock pendingOperationLock = new ReentrantLock();
-	private final Condition pendingOperationsFinished = this.pendingOperationLock.newCondition();
-	private int pendingOperationCount = 0;
 
 	private final SentNotificationBuffer<T> sentNotificationBuffer = new SentNotificationBuffer<T>(4096);
 
@@ -162,12 +159,8 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			log.debug(String.format("APNs gateway rejected notification with sequence number %d from %s (%s).",
 					rejectedNotification.getSequenceNumber(), this.apnsConnection.name, rejectedNotification.getReason()));
 
-			this.apnsConnection.pendingOperationLock.lock();
-
-			try {
+			synchronized (this.apnsConnection.pendingOperationMonitor) {
 				this.apnsConnection.pendingOperationCount += 1;
-			} finally {
-				this.apnsConnection.pendingOperationLock.unlock();
 			}
 
 			this.apnsConnection.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
@@ -203,16 +196,13 @@ class ApnsConnection<T extends ApnsPushNotification> {
 				this.apnsConnection.listener.handleUnprocessedNotifications(this.apnsConnection, unprocessedNotifications);
 			}
 
-			this.apnsConnection.pendingOperationLock.lock();
-
-			try {
+			synchronized (this.apnsConnection.pendingOperationMonitor) {
 				this.apnsConnection.pendingOperationCount -= 1;
+				assert this.apnsConnection.pendingOperationCount >= 0;
 
 				if (this.apnsConnection.pendingOperationCount == 0) {
-					this.apnsConnection.pendingOperationsFinished.signalAll();
+					this.apnsConnection.pendingOperationMonitor.notifyAll();
 				}
-			} finally {
-				this.apnsConnection.pendingOperationLock.unlock();
 			}
 		}
 
@@ -374,9 +364,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			log.trace(String.format("%s sending %s", apnsConnection.name, sendableNotification));
 		}
 
-		this.pendingOperationLock.lock();
-
-		try {
+		synchronized (this.pendingOperationMonitor) {
 			this.pendingOperationCount += 1;
 
 			this.channel.writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
@@ -400,21 +388,16 @@ class ApnsConnection<T extends ApnsPushNotification> {
 						apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
 					}
 
-					apnsConnection.pendingOperationLock.lock();
-
-					try {
+					synchronized (apnsConnection.pendingOperationMonitor) {
 						apnsConnection.pendingOperationCount -= 1;
+						assert apnsConnection.pendingOperationCount >= 0;
 
 						if (apnsConnection.pendingOperationCount == 0) {
-							apnsConnection.pendingOperationsFinished.signalAll();
+							apnsConnection.pendingOperationMonitor.notifyAll();
 						}
-					} finally {
-						apnsConnection.pendingOperationLock.unlock();
 					}
 				}
 			});
-		} finally {
-			this.pendingOperationLock.unlock();
 		}
 	}
 
@@ -437,14 +420,10 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	 * @throws InterruptedException if interrupted while waiting for pending read/write operations to finish
 	 */
 	public void waitForPendingOperationsToFinish() throws InterruptedException {
-		this.pendingOperationLock.lock();
-
-		try {
+		synchronized (this.pendingOperationMonitor) {
 			while (this.pendingOperationCount > 0) {
-				this.pendingOperationsFinished.await();
+				this.pendingOperationMonitor.wait();
 			}
-		} finally {
-			this.pendingOperationLock.unlock();
 		}
 	}
 
