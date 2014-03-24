@@ -90,6 +90,9 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 			this.unprocessedNotifications.addAll(unprocessedNotifications);
 		}
+
+		public void handleConnectionWritabilityChange(ApnsConnection<SimpleApnsPushNotification> connection, boolean writable) {
+		}
 	}
 
 	@Test

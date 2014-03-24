@@ -118,7 +118,7 @@ class ApnsConnectionPool<T extends ApnsPushNotification> {
 	 *
 	 * @return a collection of all connections in this pool
 	 */
-	public Collection<ApnsConnection<T>> getAll() {
+	protected Collection<ApnsConnection<T>> getAll() {
 		this.lock.lock();
 
 		try {

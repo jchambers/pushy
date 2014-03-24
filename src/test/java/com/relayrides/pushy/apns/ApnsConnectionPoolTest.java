@@ -118,6 +118,7 @@ public class ApnsConnectionPoolTest {
 		return new ApnsConnection<SimpleApnsPushNotification>(ApnsEnvironment.getSandboxEnvironment(), null, null, new ApnsConnectionListener<SimpleApnsPushNotification>() {
 			public void handleConnectionSuccess(ApnsConnection<SimpleApnsPushNotification> connection) {}
 			public void handleConnectionFailure(ApnsConnection<SimpleApnsPushNotification> connection, Throwable cause) {}
+			public void handleConnectionWritabilityChange(ApnsConnection<SimpleApnsPushNotification> connection, boolean writable) {}
 			public void handleConnectionClosure(ApnsConnection<SimpleApnsPushNotification> connection) {}
 			public void handleWriteFailure(ApnsConnection<SimpleApnsPushNotification> connection, SimpleApnsPushNotification notification, Throwable cause) {}
 			public void handleRejectedNotification(ApnsConnection<SimpleApnsPushNotification> connection, SimpleApnsPushNotification rejectedNotification, RejectedNotificationReason reason) {}

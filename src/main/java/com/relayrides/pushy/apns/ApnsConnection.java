@@ -232,6 +232,12 @@ class ApnsConnection<T extends ApnsPushNotification> {
 				this.apnsConnection.listener.handleConnectionClosure(apnsConnection);
 			}
 		}
+
+		@Override
+		public void channelWritabilityChanged(final ChannelHandlerContext context) {
+			this.apnsConnection.listener.handleConnectionWritabilityChange(
+					this.apnsConnection, context.channel().isWritable());
+		}
 	}
 
 	/**
