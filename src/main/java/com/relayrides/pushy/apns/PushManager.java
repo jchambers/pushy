@@ -442,6 +442,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.writableConnectionPool.addConnection(connection);
 		} else {
 			this.writableConnectionPool.removeConnection(connection);
+
+			if (this.dispatchThread != null) {
+				this.dispatchThread.interrupt();
+			}
 		}
 	}
 
@@ -454,7 +458,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.startNewConnection();
 		}
 
-		if (this.dispatchThread != null && this.dispatchThread.isAlive()) {
+		this.writableConnectionPool.removeConnection(connection);
+
+		if (this.dispatchThread != null) {
 			this.dispatchThread.interrupt();
 		}
 
