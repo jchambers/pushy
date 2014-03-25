@@ -119,6 +119,13 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 	}
 
 	/**
+	 * Removes all notifications from the buffer.
+	 */
+	public void clearAllNotifications() {
+		this.sentNotifications.clear();
+	}
+
+	/**
 	 * Returns the number of notifications currently stored in this buffer.
 	 * 
 	 * @return the number of notifications currently stored in this buffer
