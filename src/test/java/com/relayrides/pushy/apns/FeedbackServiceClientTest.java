@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
+import org.junit.rules.Timeout;
 
 public class FeedbackServiceClientTest extends BasePushyTest {
 

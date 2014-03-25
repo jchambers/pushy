@@ -93,6 +93,9 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 			this.unprocessedNotifications.addAll(unprocessedNotifications);
 		}
+
+		public void handleConnectionWritabilityChange(ApnsConnection<SimpleApnsPushNotification> connection, boolean writable) {
+		}
 	}
 
 	@Test
@@ -107,7 +110,10 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		synchronized (mutex) {
 			apnsConnection.connect();
-			mutex.wait(1000);
+
+			while (!listener.connectionSucceeded) {
+				mutex.wait();
+			}
 		}
 
 		assertTrue(listener.connectionSucceeded);
@@ -138,17 +144,14 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		synchronized (mutex) {
 			apnsConnection.connect();
-			mutex.wait(1000);
+
+			while (!listener.connectionFailed) {
+				mutex.wait();
+			}
 		}
 
 		assertTrue(listener.connectionFailed);
 		assertTrue(listener.connectionFailureCause instanceof SSLHandshakeException);
-
-		synchronized (mutex) {
-			mutex.wait(1000);
-		}
-
-		assertFalse(listener.connectionClosed);
 	}
 
 	@Test
@@ -165,20 +168,17 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		synchronized (mutex) {
 			apnsConnection.connect();
-			mutex.wait(1000);
+
+			while (!listener.connectionFailed) {
+				mutex.wait();
+			}
 		}
 
 		assertTrue(listener.connectionFailed);
 		assertTrue(listener.connectionFailureCause instanceof SSLHandshakeException);
-
-		synchronized (mutex) {
-			mutex.wait(1000);
-		}
-
-		assertFalse(listener.connectionClosed);
 	}
 
-	@Test(timeout = 5000)
+	@Test
 	public void testConnectionRefusal() throws Exception {
 		final Object mutex = new Object();
 
@@ -193,18 +193,12 @@ public class ApnsConnectionTest extends BasePushyTest {
 		synchronized (mutex) {
 			apnsConnection.connect();
 
-			while (!listener.connectionFailed && !listener.connectionClosed) {
+			while (!listener.connectionFailed) {
 				mutex.wait();
 			}
 		}
 
 		assertTrue(listener.connectionFailed);
-
-		synchronized (mutex) {
-			mutex.wait(1000);
-		}
-
-		assertFalse(listener.connectionClosed);
 	}
 
 	@Test
@@ -220,7 +214,10 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		synchronized (mutex) {
 			apnsConnection.connect();
-			mutex.wait(1000);
+
+			while (!listener.connectionSucceeded) {
+				mutex.wait();
+			}
 		}
 
 		assertTrue(listener.connectionSucceeded);
@@ -240,7 +237,10 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		synchronized (mutex) {
 			apnsConnection.connect();
-			mutex.wait(1000);
+
+			while (!listener.connectionSucceeded) {
+				mutex.wait();
+			}
 		}
 
 		assertTrue(listener.connectionSucceeded);
@@ -250,7 +250,10 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		synchronized (mutex) {
 			apnsConnection.sendNotification(bogusNotification);
-			mutex.wait(1000);
+
+			while (!listener.connectionClosed) {
+				mutex.wait();
+			}
 		}
 
 		assertTrue(listener.connectionClosed);
@@ -269,14 +272,20 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		synchronized (mutex) {
 			apnsConnection.connect();
-			mutex.wait(1000);
+
+			while (!listener.connectionSucceeded) {
+				mutex.wait();
+			}
 		}
 
 		assertTrue(listener.connectionSucceeded);
 
 		synchronized (mutex) {
 			apnsConnection.shutdownGracefully();
-			mutex.wait();
+
+			while (!listener.connectionClosed) {
+				mutex.wait();
+			}
 		}
 
 		assertTrue(listener.connectionClosed);
@@ -296,7 +305,10 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		synchronized (mutex) {
 			apnsConnection.connect();
-			mutex.wait(1000);
+
+			while (!listener.connectionSucceeded) {
+				mutex.wait();
+			}
 		}
 
 		assertTrue(listener.connectionSucceeded);
@@ -304,7 +316,10 @@ public class ApnsConnectionTest extends BasePushyTest {
 		synchronized (mutex) {
 			apnsConnection.shutdownGracefully();
 			apnsConnection.shutdownGracefully();
-			mutex.wait();
+
+			while (!listener.connectionClosed) {
+				mutex.wait();
+			}
 		}
 
 		assertTrue(listener.connectionClosed);
@@ -336,14 +351,20 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		synchronized (mutex) {
 			apnsConnection.connect();
-			mutex.wait(1000);
+
+			while (!listener.connectionSucceeded) {
+				mutex.wait();
+			}
 		}
 
 		assertTrue(listener.connectionSucceeded);
 
 		synchronized (mutex) {
-			apnsConnection.shutdownImmediately();;
-			mutex.wait();
+			apnsConnection.shutdownImmediately();
+
+			while (!listener.connectionClosed) {
+				mutex.wait();
+			}
 		}
 
 		assertTrue(listener.connectionClosed);
@@ -361,7 +382,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		apnsConnection.shutdownImmediately();
 	}
 
-	@Test(timeout = 5000)
+	@Test
 	public void testWaitForPendingOperationsToFinish() throws Exception {
 		// For the purposes of this test, we're happy just as long as we don't time out waiting for writes to finish.
 
@@ -387,7 +408,10 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 			synchronized (mutex) {
 				apnsConnection.connect();
-				mutex.wait(1000);
+
+				while (!listener.connectionSucceeded) {
+					mutex.wait();
+				}
 			}
 
 			assertTrue(listener.connectionSucceeded);
