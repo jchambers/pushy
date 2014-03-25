@@ -193,6 +193,8 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			if (!unprocessedNotifications.isEmpty()) {
 				this.apnsConnection.listener.handleUnprocessedNotifications(this.apnsConnection, unprocessedNotifications);
 			}
+
+			this.apnsConnection.sentNotificationBuffer.clearAllNotifications();
 		}
 
 		@Override
