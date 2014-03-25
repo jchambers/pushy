@@ -500,6 +500,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.writableConnectionPool.addConnection(connection);
 		} else {
 			this.writableConnectionPool.removeConnection(connection);
+
+			if (this.dispatchThread != null) {
+				this.dispatchThread.interrupt();
+			}
 		}
 	}
 
@@ -512,11 +516,13 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.startNewConnection();
 		}
 
-		if (this.dispatchThread != null && this.dispatchThread.isAlive()) {
+		this.writableConnectionPool.removeConnection(connection);
+
+		if (this.dispatchThread != null) {
 			this.dispatchThread.interrupt();
 		}
 
-		this.listenerExecutorService.submit(new Runnable() {
+		this.listenerExecutorService.execute(new Runnable() {
 
 			public void run() {
 				try {
@@ -553,7 +559,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		for (final RejectedNotificationListener<? super T> listener : this.rejectedNotificationListeners) {
 
 			// Handle the notifications in a separate thread in case a listener takes a long time to run
-			this.listenerExecutorService.submit(new Runnable() {
+			this.listenerExecutorService.execute(new Runnable() {
 				public void run() {
 					listener.handleRejectedNotification(pushManager, rejectedNotification, reason);
 				}
