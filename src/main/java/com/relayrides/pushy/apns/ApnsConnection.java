@@ -78,8 +78,8 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 	private final AtomicInteger sequenceNumber = new AtomicInteger(0);
 
-	private final Object pendingOperationMonitor = new Object();
-	private int pendingOperationCount = 0;
+	private final Object pendingWriteMonitor = new Object();
+	private int pendingWriteCount = 0;
 
 	private boolean startedConnectionAttempt = false;
 
@@ -159,10 +159,6 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			log.debug(String.format("APNs gateway rejected notification with sequence number %d from %s (%s).",
 					rejectedNotification.getSequenceNumber(), this.apnsConnection.name, rejectedNotification.getReason()));
 
-			synchronized (this.apnsConnection.pendingOperationMonitor) {
-				this.apnsConnection.pendingOperationCount += 1;
-			}
-
 			this.apnsConnection.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
 
 			final boolean isKnownBadRejection = this.apnsConnection.shutdownNotification != null &&
@@ -194,15 +190,6 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 			if (!unprocessedNotifications.isEmpty()) {
 				this.apnsConnection.listener.handleUnprocessedNotifications(this.apnsConnection, unprocessedNotifications);
-			}
-
-			synchronized (this.apnsConnection.pendingOperationMonitor) {
-				this.apnsConnection.pendingOperationCount -= 1;
-				assert this.apnsConnection.pendingOperationCount >= 0;
-
-				if (this.apnsConnection.pendingOperationCount == 0) {
-					this.apnsConnection.pendingOperationMonitor.notifyAll();
-				}
 			}
 		}
 
@@ -350,7 +337,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	 * @see ApnsConnectionListener#handleWriteFailure(ApnsConnection, ApnsPushNotification, Throwable)
 	 * @see ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason, java.util.Collection)
 	 */
-	public synchronized void sendNotification(final T notification) {
+	public void sendNotification(final T notification) {
 		final SendableApnsPushNotification<T> sendableNotification =
 				new SendableApnsPushNotification<T>(notification, this.sequenceNumber.getAndIncrement());
 
@@ -364,41 +351,44 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			log.trace(String.format("%s sending %s", apnsConnection.name, sendableNotification));
 		}
 
-		synchronized (this.pendingOperationMonitor) {
-			this.pendingOperationCount += 1;
+		this.channel.eventLoop().execute(new Runnable() {
 
-			this.channel.writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+			public void run() {
+				apnsConnection.pendingWriteCount += 1;
 
-				public void operationComplete(final ChannelFuture writeFuture) {
-					if (writeFuture.isSuccess()) {
-						if (log.isTraceEnabled()) {
-							log.trace(String.format("%s successfully wrote notification %d",
-									apnsConnection.name, sendableNotification.getSequenceNumber()));
+				apnsConnection.channel.writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+
+					public void operationComplete(final ChannelFuture writeFuture) {
+						if (writeFuture.isSuccess()) {
+							if (log.isTraceEnabled()) {
+								log.trace(String.format("%s successfully wrote notification %d",
+										apnsConnection.name, sendableNotification.getSequenceNumber()));
+							}
+
+							apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
+						} else {
+							if (log.isTraceEnabled()) {
+								log.trace(String.format("%s failed to write notification %s",
+										apnsConnection.name, sendableNotification), writeFuture.cause());
+							}
+
+							// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
+							// even manage to write the notification to the wire) and re-enqueue for another send attempt.
+							apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
 						}
 
-						apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
-					} else {
-						if (log.isTraceEnabled()) {
-							log.trace(String.format("%s failed to write notification %s",
-									apnsConnection.name, sendableNotification), writeFuture.cause());
-						}
+						apnsConnection.pendingWriteCount -= 1;
+						assert apnsConnection.pendingWriteCount >= 0;
 
-						// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
-						// even manage to write the notification to the wire) and re-enqueue for another send attempt.
-						apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
+						if (apnsConnection.pendingWriteCount == 0) {
+							synchronized (apnsConnection.pendingWriteMonitor) {
+								apnsConnection.pendingWriteMonitor.notifyAll();
+							}
+						}
 					}
-
-					synchronized (apnsConnection.pendingOperationMonitor) {
-						apnsConnection.pendingOperationCount -= 1;
-						assert apnsConnection.pendingOperationCount >= 0;
-
-						if (apnsConnection.pendingOperationCount == 0) {
-							apnsConnection.pendingOperationMonitor.notifyAll();
-						}
-					}
-				}
-			});
-		}
+				});
+			}
+		});
 	}
 
 	/**
@@ -420,9 +410,9 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	 * @throws InterruptedException if interrupted while waiting for pending read/write operations to finish
 	 */
 	public void waitForPendingOperationsToFinish() throws InterruptedException {
-		synchronized (this.pendingOperationMonitor) {
-			while (this.pendingOperationCount > 0) {
-				this.pendingOperationMonitor.wait();
+		synchronized (this.pendingWriteMonitor) {
+			while (this.pendingWriteCount > 0) {
+				this.pendingWriteMonitor.wait();
 			}
 		}
 	}
@@ -455,28 +445,44 @@ class ApnsConnection<T extends ApnsPushNotification> {
 				this.shutdownNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
 						new KnownBadPushNotification(), this.sequenceNumber.getAndIncrement());
 
-				if (log.isTraceEnabled()) {
-					log.trace(String.format("%s sending known-bad notification to shut down.", apnsConnection.name));
-				}
+				this.channel.eventLoop().execute(new Runnable() {
 
-				this.channel.writeAndFlush(this.shutdownNotification).addListener(new GenericFutureListener<ChannelFuture>() {
-
-					public void operationComplete(final ChannelFuture future) {
-						if (future.isSuccess()) {
-							if (log.isTraceEnabled()) {
-								log.trace(String.format("%s successfully wrote known-bad notification %d",
-										apnsConnection.name, apnsConnection.shutdownNotification.getSequenceNumber()));
-							}
-						} else {
-							if (log.isTraceEnabled()) {
-								log.trace(String.format("%s failed to write known-bad notification %s",
-										apnsConnection.name, apnsConnection.shutdownNotification), future.cause());
-							}
-
-							// Try again!
-							apnsConnection.shutdownNotification = null;
-							apnsConnection.shutdownGracefully();
+					public void run() {
+						if (log.isTraceEnabled()) {
+							log.trace(String.format("%s sending known-bad notification to shut down.", apnsConnection.name));
 						}
+
+						apnsConnection.pendingWriteCount += 1;
+
+						apnsConnection.channel.writeAndFlush(apnsConnection.shutdownNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+
+							public void operationComplete(final ChannelFuture future) {
+								if (future.isSuccess()) {
+									if (log.isTraceEnabled()) {
+										log.trace(String.format("%s successfully wrote known-bad notification %d",
+												apnsConnection.name, apnsConnection.shutdownNotification.getSequenceNumber()));
+									}
+								} else {
+									if (log.isTraceEnabled()) {
+										log.trace(String.format("%s failed to write known-bad notification %s",
+												apnsConnection.name, apnsConnection.shutdownNotification), future.cause());
+									}
+
+									// Try again!
+									apnsConnection.shutdownNotification = null;
+									apnsConnection.shutdownGracefully();
+								}
+
+								apnsConnection.pendingWriteCount -= 1;
+								assert apnsConnection.pendingWriteCount >= 0;
+
+								if (apnsConnection.pendingWriteCount == 0) {
+									synchronized (apnsConnection.pendingWriteMonitor) {
+										apnsConnection.pendingWriteMonitor.notifyAll();
+									}
+								}
+							}
+						});
 					}
 				});
 			}
