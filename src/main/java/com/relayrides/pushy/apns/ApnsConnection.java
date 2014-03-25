@@ -23,6 +23,7 @@ package com.relayrides.pushy.apns;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
@@ -44,8 +45,6 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
@@ -79,13 +78,12 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 	private final AtomicInteger sequenceNumber = new AtomicInteger(0);
 
+	private final Object pendingWriteMonitor = new Object();
+	private int pendingWriteCount = 0;
+
 	private boolean startedConnectionAttempt = false;
 
 	private volatile SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
-
-	private final ReentrantLock pendingOperationLock = new ReentrantLock();
-	private final Condition pendingOperationsFinished = this.pendingOperationLock.newCondition();
-	private int pendingOperationCount = 0;
 
 	private final SentNotificationBuffer<T> sentNotificationBuffer = new SentNotificationBuffer<T>(4096);
 
@@ -161,14 +159,6 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			log.debug(String.format("APNs gateway rejected notification with sequence number %d from %s (%s).",
 					rejectedNotification.getSequenceNumber(), this.apnsConnection.name, rejectedNotification.getReason()));
 
-			this.apnsConnection.pendingOperationLock.lock();
-
-			try {
-				this.apnsConnection.pendingOperationCount += 1;
-			} finally {
-				this.apnsConnection.pendingOperationLock.unlock();
-			}
-
 			this.apnsConnection.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
 
 			final boolean isKnownBadRejection = this.apnsConnection.shutdownNotification != null &&
@@ -201,18 +191,6 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			if (!unprocessedNotifications.isEmpty()) {
 				this.apnsConnection.listener.handleUnprocessedNotifications(this.apnsConnection, unprocessedNotifications);
 			}
-
-			this.apnsConnection.pendingOperationLock.lock();
-
-			try {
-				this.apnsConnection.pendingOperationCount -= 1;
-
-				if (this.apnsConnection.pendingOperationCount == 0) {
-					this.apnsConnection.pendingOperationsFinished.signalAll();
-				}
-			} finally {
-				this.apnsConnection.pendingOperationLock.unlock();
-			}
 		}
 
 		@Override
@@ -230,6 +208,12 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			if (this.apnsConnection.channel != null) {
 				this.apnsConnection.listener.handleConnectionClosure(apnsConnection);
 			}
+		}
+
+		@Override
+		public void channelWritabilityChanged(final ChannelHandlerContext context) {
+			this.apnsConnection.listener.handleConnectionWritabilityChange(
+					this.apnsConnection, context.channel().isWritable());
 		}
 	}
 
@@ -279,6 +263,10 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioSocketChannel.class);
 		bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+		bootstrap.option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
+
+		// TODO Remove this when Netty 5 is available
+		bootstrap.option(ChannelOption.AUTO_CLOSE, false);
 
 		bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
@@ -313,10 +301,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 										if (handshakeFuture.isSuccess()) {
 											log.debug(String.format("%s successfully completed TLS handshake.", apnsConnection.name));
 
-											// TODO Remove call to setAutoClose when Netty 5.0 is available
 											apnsConnection.channel = connectFuture.channel();
-											apnsConnection.channel.config().setAutoClose(false);
-
 											apnsConnection.listener.handleConnectionSuccess(apnsConnection);
 										} else {
 											log.error(String.format("%s failed to complete TLS handshake with APNs gateway.", apnsConnection.name),
@@ -352,23 +337,26 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	 * @see ApnsConnectionListener#handleWriteFailure(ApnsConnection, ApnsPushNotification, Throwable)
 	 * @see ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason, java.util.Collection)
 	 */
-	public synchronized void sendNotification(final T notification) {
+	public void sendNotification(final T notification) {
 		final SendableApnsPushNotification<T> sendableNotification =
 				new SendableApnsPushNotification<T>(notification, this.sequenceNumber.getAndIncrement());
 
 		final ApnsConnection<T> apnsConnection = this;
 
+		if (this.channel == null) {
+			throw new IllegalStateException(String.format("%s has not connected.", this.name));
+		}
+
 		if (log.isTraceEnabled()) {
 			log.trace(String.format("%s sending %s", apnsConnection.name, sendableNotification));
 		}
 
-		if (this.channel != null && this.channel.isWritable()) {
-			this.pendingOperationLock.lock();
+		this.channel.eventLoop().execute(new Runnable() {
 
-			try {
-				this.pendingOperationCount += 1;
+			public void run() {
+				apnsConnection.pendingWriteCount += 1;
 
-				this.channel.writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+				apnsConnection.channel.writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
 					public void operationComplete(final ChannelFuture writeFuture) {
 						if (writeFuture.isSuccess()) {
@@ -389,26 +377,18 @@ class ApnsConnection<T extends ApnsPushNotification> {
 							apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
 						}
 
-						apnsConnection.pendingOperationLock.lock();
+						apnsConnection.pendingWriteCount -= 1;
+						assert apnsConnection.pendingWriteCount >= 0;
 
-						try {
-							apnsConnection.pendingOperationCount -= 1;
-
-							if (apnsConnection.pendingOperationCount == 0) {
-								apnsConnection.pendingOperationsFinished.signalAll();
+						if (apnsConnection.pendingWriteCount == 0) {
+							synchronized (apnsConnection.pendingWriteMonitor) {
+								apnsConnection.pendingWriteMonitor.notifyAll();
 							}
-						} finally {
-							apnsConnection.pendingOperationLock.unlock();
 						}
 					}
 				});
-			} finally {
-				this.pendingOperationLock.unlock();
 			}
-		} else {
-			log.trace("{} was not ready to write {}.", this.name, notification);
-			this.listener.handleWriteFailure(this, notification, null);
-		}
+		});
 	}
 
 	/**
@@ -430,14 +410,10 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	 * @throws InterruptedException if interrupted while waiting for pending read/write operations to finish
 	 */
 	public void waitForPendingOperationsToFinish() throws InterruptedException {
-		this.pendingOperationLock.lock();
-
-		try {
-			while (this.pendingOperationCount > 0) {
-				this.pendingOperationsFinished.await();
+		synchronized (this.pendingWriteMonitor) {
+			while (this.pendingWriteCount > 0) {
+				this.pendingWriteMonitor.wait();
 			}
-		} finally {
-			this.pendingOperationLock.unlock();
 		}
 	}
 
@@ -469,28 +445,44 @@ class ApnsConnection<T extends ApnsPushNotification> {
 				this.shutdownNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
 						new KnownBadPushNotification(), this.sequenceNumber.getAndIncrement());
 
-				if (log.isTraceEnabled()) {
-					log.trace(String.format("%s sending known-bad notification to shut down.", apnsConnection.name));
-				}
+				this.channel.eventLoop().execute(new Runnable() {
 
-				this.channel.writeAndFlush(this.shutdownNotification).addListener(new GenericFutureListener<ChannelFuture>() {
-
-					public void operationComplete(final ChannelFuture future) {
-						if (future.isSuccess()) {
-							if (log.isTraceEnabled()) {
-								log.trace(String.format("%s successfully wrote known-bad notification %d",
-										apnsConnection.name, apnsConnection.shutdownNotification.getSequenceNumber()));
-							}
-						} else {
-							if (log.isTraceEnabled()) {
-								log.trace(String.format("%s failed to write known-bad notification %s",
-										apnsConnection.name, apnsConnection.shutdownNotification), future.cause());
-							}
-
-							// Try again!
-							apnsConnection.shutdownNotification = null;
-							apnsConnection.shutdownGracefully();
+					public void run() {
+						if (log.isTraceEnabled()) {
+							log.trace(String.format("%s sending known-bad notification to shut down.", apnsConnection.name));
 						}
+
+						apnsConnection.pendingWriteCount += 1;
+
+						apnsConnection.channel.writeAndFlush(apnsConnection.shutdownNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+
+							public void operationComplete(final ChannelFuture future) {
+								if (future.isSuccess()) {
+									if (log.isTraceEnabled()) {
+										log.trace(String.format("%s successfully wrote known-bad notification %d",
+												apnsConnection.name, apnsConnection.shutdownNotification.getSequenceNumber()));
+									}
+								} else {
+									if (log.isTraceEnabled()) {
+										log.trace(String.format("%s failed to write known-bad notification %s",
+												apnsConnection.name, apnsConnection.shutdownNotification), future.cause());
+									}
+
+									// Try again!
+									apnsConnection.shutdownNotification = null;
+									apnsConnection.shutdownGracefully();
+								}
+
+								apnsConnection.pendingWriteCount -= 1;
+								assert apnsConnection.pendingWriteCount >= 0;
+
+								if (apnsConnection.pendingWriteCount == 0) {
+									synchronized (apnsConnection.pendingWriteMonitor) {
+										apnsConnection.pendingWriteMonitor.notifyAll();
+									}
+								}
+							}
+						});
 					}
 				});
 			}

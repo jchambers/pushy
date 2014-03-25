@@ -35,6 +35,8 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
+import org.junit.rules.Timeout;
 
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
@@ -50,6 +52,9 @@ public abstract class BasePushyTest {
 	private PushManager<SimpleApnsPushNotification> pushManager;
 	private MockApnsServer apnsServer;
 	private MockFeedbackServer feedbackServer;
+
+	@Rule
+	public Timeout globalTimeout = new Timeout(10000);
 
 	@Before
 	public void setUp() throws InterruptedException, UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException {

@@ -50,6 +50,15 @@ interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	void handleConnectionFailure(ApnsConnection<T> connection, Throwable cause);
 
 	/**
+	 * Indicates that the given connection has changed its writability state. Attempts to write to an unwritable
+	 * connection are guaranteed to fail and should be avoided. Successful connections begin in a writable state.
+	 * 
+	 * @param connection the connection whose writability has changed
+	 * @param writable {@code true} if the connection has become writable or {@code false} if it has become unwritable
+	 */
+	void handleConnectionWritabilityChange(ApnsConnection<T> connection, boolean writable);
+
+	/**
 	 * Indicates that the given connection has disconnected from the previously-connected APNs gateway and can no
 	 * longer send push notifications. This may happen either when the connection is closed locally or when the APNs
 	 * gateway closes the connection remotely. This method will only be called if the connection had previously
@@ -63,8 +72,7 @@ interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	 * Indicates that the given connection failed to send a push notification to an APNs gateway. This indicates a
 	 * local failure; notifications passed to this method were never transmitted to the APNs gateway, and failures of
 	 * this kind generally represent temporary I/O problems (rather than permanent rejection by the gateway), and it
-	 * is generally safe to try to send the failed notifications again later. The cause of the write failure may be
-	 * {@code null}, which indicates that the connection was not ready to send the notification.
+	 * is generally safe to try to send the failed notifications again later.
 	 *
 	 * @param connection the connection that attempted to deliver the notification
 	 * @param notification the notification that could not be written
