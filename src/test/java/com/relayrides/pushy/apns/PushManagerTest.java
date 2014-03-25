@@ -196,7 +196,7 @@ public class PushManagerTest extends BasePushyTest {
 		}
 	}
 
-	@Test(timeout = 10000)
+	@Test
 	public void testDrainBeforeShutdown() throws InterruptedException {
 		final int iterations = 1000;
 		final ArrayList<SimpleApnsPushNotification> notificationsToSend = new ArrayList<SimpleApnsPushNotification>(iterations);
@@ -209,13 +209,15 @@ public class PushManagerTest extends BasePushyTest {
 
 		this.getPushManager().start();
 
-		// Hacky: wait for a non-empty connection pool
-		Thread.sleep(1000);
+		final CountDownLatch firstNotificationLatch = this.getApnsServer().getCountDownLatch(1);
+		this.getPushManager().getQueue().add(this.createTestNotification());
+		this.waitForLatch(firstNotificationLatch);
 
+		final CountDownLatch retryNotificationLatch = this.getApnsServer().getCountDownLatch(notificationsToSend.size());
 		this.getPushManager().getRetryQueue().addAll(notificationsToSend);
 		this.getPushManager().shutdown();
 
-		assertEquals(iterations, this.getApnsServer().getReceivedNotifications().size());
+		assertEquals(0, retryNotificationLatch.getCount());
 		assertTrue(this.getPushManager().getRetryQueue().isEmpty());
 	}
 
