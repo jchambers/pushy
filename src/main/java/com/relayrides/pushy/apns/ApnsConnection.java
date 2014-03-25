@@ -298,7 +298,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 							final SslHandler sslHandler = connectFuture.channel().pipeline().get(SslHandler.class);
 
-							if (sslHandler != null) {
+							try {
 								sslHandler.handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
 
 									public void operationComplete(final Future<Channel> handshakeFuture) {
@@ -315,11 +315,11 @@ class ApnsConnection<T extends ApnsPushNotification> {
 											apnsConnection.listener.handleConnectionFailure(apnsConnection, handshakeFuture.cause());
 										}
 									}});
-							} else {
+							} catch (NullPointerException e) {
 								log.error(String.format("%s failed to get SSL handler and could not wait for a TLS handshake.", apnsConnection.name));
 
 								connectFuture.channel().close();
-								apnsConnection.listener.handleConnectionFailure(apnsConnection, null);
+								apnsConnection.listener.handleConnectionFailure(apnsConnection, e);
 							}
 						} else {
 							log.error(String.format("%s failed to connect to APNs gateway.", apnsConnection.name),
