@@ -541,11 +541,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private void waitForAllOperationsToFinish(final Date deadline) throws InterruptedException {
 		synchronized (this.activeConnections) {
-			final long now = System.currentTimeMillis();
-
-			while (!this.activeConnections.isEmpty() && (deadline == null || deadline.getTime() > now)) {
+			while (!this.activeConnections.isEmpty() && (deadline == null || deadline.getTime() > System.currentTimeMillis())) {
 				if (deadline != null) {
-					this.activeConnections.wait(deadline.getTime() - now);
+					this.activeConnections.wait(Math.min(deadline.getTime() - System.currentTimeMillis(), 1));
 				} else {
 					this.activeConnections.wait();
 				}
