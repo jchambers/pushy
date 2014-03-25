@@ -590,7 +590,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private void removeActiveConnection(final ApnsConnection<T> connection) {
 		synchronized (this.activeConnections) {
-			assert this.activeConnections.remove(connection);
+			final boolean removedConnection = this.activeConnections.remove(connection);
+			assert removedConnection;
 
 			if (this.activeConnections.isEmpty()) {
 				this.activeConnections.notifyAll();
