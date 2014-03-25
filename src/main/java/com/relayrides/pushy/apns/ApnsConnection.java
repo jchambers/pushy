@@ -85,6 +85,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 	private SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
 
+	private boolean rejectionReceived = false;
 	private final SentNotificationBuffer<T> sentNotificationBuffer = new SentNotificationBuffer<T>(4096);
 
 	private final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
@@ -159,6 +160,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			log.debug(String.format("APNs gateway rejected notification with sequence number %d from %s (%s).",
 					rejectedNotification.getSequenceNumber(), this.apnsConnection.name, rejectedNotification.getReason()));
 
+			this.apnsConnection.rejectionReceived = true;
 			this.apnsConnection.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
 
 			final boolean isKnownBadRejection = this.apnsConnection.shutdownNotification != null &&
@@ -365,7 +367,14 @@ class ApnsConnection<T extends ApnsPushNotification> {
 										apnsConnection.name, sendableNotification.getSequenceNumber()));
 							}
 
-							apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
+							if (apnsConnection.rejectionReceived) {
+								// Even though the write succeeded, we know for sure that this notification was never
+								// processed by the gateway because it had already rejected another notification from
+								// this connection.
+								apnsConnection.listener.handleUnprocessedNotifications(apnsConnection, java.util.Collections.singletonList(notification));
+							} else {
+								apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
+							}
 						} else {
 							if (log.isTraceEnabled()) {
 								log.trace(String.format("%s failed to write notification %s",
