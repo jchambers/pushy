@@ -37,7 +37,9 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.Timeout;
 
 public class FeedbackServiceClientTest {
 
@@ -48,6 +50,9 @@ public class FeedbackServiceClientTest {
 
 	private MockFeedbackServer feedbackServer;
 	private FeedbackServiceClient feedbackClient;
+
+	@Rule
+	public Timeout globalTimeout = new Timeout(10000);
 
 	@Before
 	public void setUp() throws InterruptedException, NoSuchAlgorithmException, KeyManagementException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
