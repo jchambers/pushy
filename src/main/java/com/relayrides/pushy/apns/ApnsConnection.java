@@ -76,14 +76,14 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 	private Channel channel;
 
-	private final AtomicInteger sequenceNumber = new AtomicInteger(0);
+	private int sequenceNumber = 0;
 
 	private final Object pendingWriteMonitor = new Object();
 	private int pendingWriteCount = 0;
 
 	private boolean startedConnectionAttempt = false;
 
-	private volatile SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
+	private SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
 
 	private final SentNotificationBuffer<T> sentNotificationBuffer = new SentNotificationBuffer<T>(4096);
 
@@ -338,22 +338,22 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	 * @see ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason, java.util.Collection)
 	 */
 	public void sendNotification(final T notification) {
-		final SendableApnsPushNotification<T> sendableNotification =
-				new SendableApnsPushNotification<T>(notification, this.sequenceNumber.getAndIncrement());
-
 		final ApnsConnection<T> apnsConnection = this;
 
 		if (this.channel == null) {
 			throw new IllegalStateException(String.format("%s has not connected.", this.name));
 		}
 
-		if (log.isTraceEnabled()) {
-			log.trace(String.format("%s sending %s", apnsConnection.name, sendableNotification));
-		}
-
 		this.channel.eventLoop().execute(new Runnable() {
 
 			public void run() {
+				final SendableApnsPushNotification<T> sendableNotification =
+						new SendableApnsPushNotification<T>(notification, apnsConnection.sequenceNumber++);
+
+				if (log.isTraceEnabled()) {
+					log.trace(String.format("%s sending %s", apnsConnection.name, sendableNotification));
+				}
+
 				apnsConnection.pendingWriteCount += 1;
 
 				apnsConnection.channel.writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
@@ -442,15 +442,15 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			// It's conceivable that the channel has become inactive already; if so, our work here is already done.
 			if (this.channel != null && this.channel.isActive()) {
 
-				this.shutdownNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
-						new KnownBadPushNotification(), this.sequenceNumber.getAndIncrement());
-
 				this.channel.eventLoop().execute(new Runnable() {
 
 					public void run() {
 						if (log.isTraceEnabled()) {
 							log.trace(String.format("%s sending known-bad notification to shut down.", apnsConnection.name));
 						}
+
+						apnsConnection.shutdownNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
+								new KnownBadPushNotification(), apnsConnection.sequenceNumber++);
 
 						apnsConnection.pendingWriteCount += 1;
 
