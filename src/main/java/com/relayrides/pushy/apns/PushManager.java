@@ -500,7 +500,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		for (final RejectedNotificationListener<? super T> listener : this.rejectedNotificationListeners) {
 
 			// Handle the notifications in a separate thread in case a listener takes a long time to run
-			this.rejectedNotificationExecutorService.submit(new Runnable() {
+			this.rejectedNotificationExecutorService.execute(new Runnable() {
 				public void run() {
 					listener.handleRejectedNotification(rejectedNotification, reason);
 				}
