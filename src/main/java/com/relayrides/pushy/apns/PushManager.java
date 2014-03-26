@@ -79,7 +79,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private boolean shutDown = false;
 	private boolean shutDownFinished = false;
 
-	private final Logger log = LoggerFactory.getLogger(PushManager.class);
+	private static final Logger log = LoggerFactory.getLogger(PushManager.class);
 
 	private static class DispatchThreadExceptionHandler<T extends ApnsPushNotification> implements UncaughtExceptionHandler {
 		private final Logger log = LoggerFactory.getLogger(DispatchThreadExceptionHandler.class);
@@ -174,6 +174,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		if (this.isShutDown()) {
 			throw new IllegalStateException("Push manager has already been shut down and may not be restarted.");
 		}
+
+		log.info("Push manager starting.");
 
 		for (int i = 0; i < this.concurrentConnectionCount; i++) {
 			this.startNewConnection();
@@ -270,6 +272,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		if (this.shutDown) {
 			log.warn("Push manager has already been shut down; shutting down multiple times is harmless, but may "
 					+ "indicate a problem elsewhere.");
+		} else {
+			log.info("Push manager shutting down.");
 		}
 
 		if (this.shutDownFinished) {

@@ -81,7 +81,7 @@ class FeedbackServiceClient {
 
 	private final Vector<ExpiredToken> expiredTokens;
 
-	private final Logger log = LoggerFactory.getLogger(FeedbackServiceClient.class);
+	private static final Logger log = LoggerFactory.getLogger(FeedbackServiceClient.class);
 
 	private enum ExpiredTokenDecoderState {
 		EXPIRATION,
@@ -146,7 +146,7 @@ class FeedbackServiceClient {
 		public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
 
 			if (!(cause instanceof ReadTimeoutException)) {
-				log.warn("Caught an unexpected exception while waiting for feedback.", cause);
+				log.debug("Caught an unexpected exception while waiting for feedback.", cause);
 			}
 
 			context.close();
@@ -233,20 +233,19 @@ class FeedbackServiceClient {
 					// receiving messages from the feedback service from another thread.
 					connectFuture.channel().closeFuture().await();
 				} else {
-					log.warn("Failed to complete TLS handshake with feedback service.", handshakeFuture.cause());
+					log.debug("Failed to complete TLS handshake with feedback service.", handshakeFuture.cause());
 
 					connectFuture.channel().close().await();
 					throw new FeedbackConnectionException(handshakeFuture.cause());
 				}
 			} else {
-				log.error("Feedback client failed to get SSL handler and could not wait for TLS handshake.");
+				log.warn("Feedback client failed to get SSL handler and could not wait for TLS handshake.");
 
 				connectFuture.channel().close().await();
 				throw new FeedbackConnectionException(null);
 			}
 		} else {
-			log.warn("Failed to connect to feedback service.", connectFuture.cause());
-
+			log.debug("Failed to connect to feedback service.", connectFuture.cause());
 			throw new FeedbackConnectionException(connectFuture.cause());
 		}
 
