@@ -446,6 +446,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.writableConnectionPool.addConnection(connection);
 		} else {
 			this.writableConnectionPool.removeConnection(connection);
+
+			if (this.dispatchThread != null) {
+				this.dispatchThread.interrupt();
+			}
 		}
 	}
 
@@ -458,7 +462,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.startNewConnection();
 		}
 
-		if (this.dispatchThread != null && this.dispatchThread.isAlive()) {
+		this.writableConnectionPool.removeConnection(connection);
+
+		if (this.dispatchThread != null) {
 			this.dispatchThread.interrupt();
 		}
 
@@ -498,7 +504,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		for (final RejectedNotificationListener<? super T> listener : this.rejectedNotificationListeners) {
 
 			// Handle the notifications in a separate thread in case a listener takes a long time to run
-			this.rejectedNotificationExecutorService.submit(new Runnable() {
+			this.rejectedNotificationExecutorService.execute(new Runnable() {
 				public void run() {
 					listener.handleRejectedNotification(rejectedNotification, reason);
 				}
@@ -529,7 +535,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private void removeActiveConnection(final ApnsConnection<T> connection) {
 		synchronized (this.activeConnections) {
-			assert this.activeConnections.remove(connection);
+			final boolean removedConnection = this.activeConnections.remove(connection);
+			assert removedConnection;
 
 			if (this.activeConnections.isEmpty()) {
 				this.activeConnections.notifyAll();
@@ -539,11 +546,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private void waitForAllOperationsToFinish(final Date deadline) throws InterruptedException {
 		synchronized (this.activeConnections) {
-			final long now = System.currentTimeMillis();
-
-			while (!this.activeConnections.isEmpty() && (deadline == null || deadline.getTime() > now)) {
+			while (!this.activeConnections.isEmpty() && (deadline == null || deadline.getTime() > System.currentTimeMillis())) {
 				if (deadline != null) {
-					this.activeConnections.wait(deadline.getTime() - now);
+					this.activeConnections.wait(Math.min(deadline.getTime() - System.currentTimeMillis(), 1));
 				} else {
 					this.activeConnections.wait();
 				}
