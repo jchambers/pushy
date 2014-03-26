@@ -66,7 +66,7 @@ class SSLTestUtil {
 		final InputStream keyStoreInputStream = SSLTestUtil.class.getResourceAsStream(keystoreFileName);
 
 		if (keyStoreInputStream == null) {
-			throw new RuntimeException("Server keystore file not found.");
+			throw new RuntimeException("Client keystore file not found.");
 		}
 
 		final KeyStore keyStore = KeyStore.getInstance("JKS");
