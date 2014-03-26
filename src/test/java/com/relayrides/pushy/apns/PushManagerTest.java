@@ -217,8 +217,8 @@ public class PushManagerTest extends BasePushyTest {
 		this.getPushManager().getRetryQueue().addAll(notificationsToSend);
 		this.getPushManager().shutdown();
 
-		assertEquals(0, retryNotificationLatch.getCount());
 		assertTrue(this.getPushManager().getRetryQueue().isEmpty());
+		this.waitForLatch(retryNotificationLatch);
 	}
 
 	@Test(expected = IllegalStateException.class)
