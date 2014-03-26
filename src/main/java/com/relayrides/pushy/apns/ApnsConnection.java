@@ -88,7 +88,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	private boolean rejectionReceived = false;
 	private final SentNotificationBuffer<T> sentNotificationBuffer = new SentNotificationBuffer<T>(4096);
 
-	private final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
+	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
 
 	private class RejectedNotificationDecoder extends ByteToMessageDecoder {
 
@@ -105,7 +105,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 				final int notificationId = in.readInt();
 
 				if (command != EXPECTED_COMMAND) {
-					log.error(String.format("Unexpected command: %d", command));
+					log.error("Unexpected command: {}", command);
 				}
 
 				final RejectedNotificationReason errorCode = RejectedNotificationReason.getByErrorCode(code);
@@ -157,8 +157,8 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 		@Override
 		protected void channelRead0(final ChannelHandlerContext context, final RejectedNotification rejectedNotification) {
-			log.debug(String.format("APNs gateway rejected notification with sequence number %d from %s (%s).",
-					rejectedNotification.getSequenceNumber(), this.apnsConnection.name, rejectedNotification.getReason()));
+			log.debug("APNs gateway rejected notification with sequence number {} from {} ({}).",
+					rejectedNotification.getSequenceNumber(), this.apnsConnection.name, rejectedNotification.getReason());
 
 			this.apnsConnection.rejectionReceived = true;
 			this.apnsConnection.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
@@ -178,9 +178,9 @@ class ApnsConnection<T extends ApnsPushNotification> {
 					this.apnsConnection.listener.handleRejectedNotification(
 							this.apnsConnection, notification, rejectedNotification.getReason());
 				} else {
-					log.error(String.format("%s failed to find rejected notification with sequence number %d; this " +
-							"most likely means the sent notification buffer is too small. Please report this as a bug.",
-							this.apnsConnection.name, rejectedNotification.getSequenceNumber()));
+					log.error("{} failed to find rejected notification with sequence number {}; this may mean the " +
+							"sent notification buffer is too small. Please report this as a bug.",
+							this.apnsConnection.name, rejectedNotification.getSequenceNumber());
 				}
 			}
 
@@ -202,7 +202,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			// Since this is happening on the inbound side, the most likely case is that a read timed out or the remote
 			// host closed the connection. We should log the problem, but generally assume that channel closure will be
 			// handled by channelInactive.
-			log.debug(String.format("%s caught an exception.", this.apnsConnection.name), cause);
+			log.debug("{} caught an exception.", this.apnsConnection.name, cause);
 		}
 
 		@Override
@@ -288,13 +288,13 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			}
 		});
 
-		log.debug(String.format("%s beginning connection process.", apnsConnection.name));
+		log.debug("{} beginning connection process.", apnsConnection.name);
 		bootstrap.connect(this.environment.getApnsGatewayHost(), this.environment.getApnsGatewayPort()).addListener(
 				new GenericFutureListener<ChannelFuture>() {
 
 					public void operationComplete(final ChannelFuture connectFuture) {
 						if (connectFuture.isSuccess()) {
-							log.debug(String.format("%s connected; waiting for TLS handshake.", apnsConnection.name));
+							log.debug("{} connected; waiting for TLS handshake.", apnsConnection.name);
 
 							final SslHandler sslHandler = connectFuture.channel().pipeline().get(SslHandler.class);
 
@@ -303,27 +303,26 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 									public void operationComplete(final Future<Channel> handshakeFuture) {
 										if (handshakeFuture.isSuccess()) {
-											log.debug(String.format("%s successfully completed TLS handshake.", apnsConnection.name));
+											log.debug("{} successfully completed TLS handshake.", apnsConnection.name);
 
 											apnsConnection.channel = connectFuture.channel();
 											apnsConnection.listener.handleConnectionSuccess(apnsConnection);
 										} else {
-											log.error(String.format("%s failed to complete TLS handshake with APNs gateway.", apnsConnection.name),
-													handshakeFuture.cause());
+											log.debug("{} failed to complete TLS handshake with APNs gateway.",
+													apnsConnection.name, handshakeFuture.cause());
 
 											connectFuture.channel().close();
 											apnsConnection.listener.handleConnectionFailure(apnsConnection, handshakeFuture.cause());
 										}
 									}});
 							} catch (NullPointerException e) {
-								log.error(String.format("%s failed to get SSL handler and could not wait for a TLS handshake.", apnsConnection.name));
+								log.warn("{} failed to get SSL handler and could not wait for a TLS handshake.", apnsConnection.name);
 
 								connectFuture.channel().close();
 								apnsConnection.listener.handleConnectionFailure(apnsConnection, e);
 							}
 						} else {
-							log.error(String.format("%s failed to connect to APNs gateway.", apnsConnection.name),
-									connectFuture.cause());
+							log.debug("{} failed to connect to APNs gateway.", apnsConnection.name, connectFuture.cause());
 
 							apnsConnection.listener.handleConnectionFailure(apnsConnection, connectFuture.cause());
 						}
@@ -354,9 +353,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 				final SendableApnsPushNotification<T> sendableNotification =
 						new SendableApnsPushNotification<T>(notification, apnsConnection.sequenceNumber++);
 
-				if (log.isTraceEnabled()) {
-					log.trace(String.format("%s sending %s", apnsConnection.name, sendableNotification));
-				}
+				log.trace("{} sending {}", apnsConnection.name, sendableNotification);
 
 				apnsConnection.pendingWriteCount += 1;
 
@@ -364,10 +361,8 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 					public void operationComplete(final ChannelFuture writeFuture) {
 						if (writeFuture.isSuccess()) {
-							if (log.isTraceEnabled()) {
-								log.trace(String.format("%s successfully wrote notification %d",
-										apnsConnection.name, sendableNotification.getSequenceNumber()));
-							}
+							log.trace("{} successfully wrote notification {}", apnsConnection.name,
+								sendableNotification.getSequenceNumber());
 
 							if (apnsConnection.rejectionReceived) {
 								// Even though the write succeeded, we know for sure that this notification was never
@@ -378,10 +373,8 @@ class ApnsConnection<T extends ApnsPushNotification> {
 								apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
 							}
 						} else {
-							if (log.isTraceEnabled()) {
-								log.trace(String.format("%s failed to write notification %s",
-										apnsConnection.name, sendableNotification), writeFuture.cause());
-							}
+							log.trace("{} failed to write notification {}",
+								apnsConnection.name, sendableNotification, writeFuture.cause());
 
 							// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
 							// even manage to write the notification to the wire) and re-enqueue for another send attempt.
@@ -457,9 +450,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 					// Don't send a second shutdown notification if we've already started the graceful shutdown process.
 					if (apnsConnection.shutdownNotification == null) {
 
-						if (log.isTraceEnabled()) {
-							log.trace(String.format("%s sending known-bad notification to shut down.", apnsConnection.name));
-						}
+						log.debug("{} sending known-bad notification to shut down.", apnsConnection.name);
 
 						apnsConnection.shutdownNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
 								new KnownBadPushNotification(), apnsConnection.sequenceNumber++);
@@ -470,15 +461,11 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 							public void operationComplete(final ChannelFuture future) {
 								if (future.isSuccess()) {
-									if (log.isTraceEnabled()) {
-										log.trace(String.format("%s successfully wrote known-bad notification %d",
-												apnsConnection.name, apnsConnection.shutdownNotification.getSequenceNumber()));
-									}
+									log.trace("{} successfully wrote known-bad notification {}",
+										apnsConnection.name, apnsConnection.shutdownNotification.getSequenceNumber());
 								} else {
-									if (log.isTraceEnabled()) {
-										log.trace(String.format("%s failed to write known-bad notification %s",
-												apnsConnection.name, apnsConnection.shutdownNotification), future.cause());
-									}
+									log.trace("{} failed to write known-bad notification {}",
+										apnsConnection.name, apnsConnection.shutdownNotification, future.cause());
 
 									// Try again!
 									apnsConnection.shutdownNotification = null;

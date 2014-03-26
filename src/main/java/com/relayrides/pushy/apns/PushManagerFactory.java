@@ -18,6 +18,7 @@ import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
 
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -39,6 +40,8 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	private ExecutorService listenerExecutorService;
 
 	private BlockingQueue<T> queue;
+
+	private static final Logger log = LoggerFactory.getLogger(PushManagerFactory.class);
 
 	/**
 	 * Constructs a new factory that will construct {@link PushManager}s that operate in the given environment with the
@@ -161,7 +164,7 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 			try {
 				keystoreInputStream.close();
 			} catch (IOException e) {
-				LoggerFactory.getLogger(PushManagerFactory.class).error("Failed to close keystore input stream.", e);
+				log.error("Failed to close keystore input stream.", e);
 			}
 		}
 	}
