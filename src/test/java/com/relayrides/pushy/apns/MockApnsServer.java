@@ -23,7 +23,7 @@ package com.relayrides.pushy.apns;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.ChannelFuture;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
@@ -32,13 +32,12 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.MessageToByteEncoder;
 import io.netty.handler.codec.ReplayingDecoder;
 import io.netty.handler.ssl.SslHandler;
-import io.netty.util.concurrent.GenericFutureListener;
 
 import java.nio.charset.Charset;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Vector;
@@ -48,18 +47,27 @@ import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class MockApnsServer {
 
-	private final NioEventLoopGroup eventLoopGroup;
-	private final boolean shouldShutDownEventLoopGroup;
-
 	private final int port;
+	private final NioEventLoopGroup eventLoopGroup;
 
-	private final Vector<SimpleApnsPushNotification> receivedNotifications;
-	private final Vector<CountDownLatch> countdownLatches;
+	private final Vector<CountDownLatch> countdownLatches = new Vector<CountDownLatch>();
 
-	private int failWithErrorCount = -1;
-	private RejectedNotificationReason errorCode;
+	private Channel channel;
 
+	public static final int EXPECTED_TOKEN_SIZE = 32;
 	public static final int MAX_PAYLOAD_SIZE = 256;
+
+	private class ApnsDecoderException extends Exception {
+		private static final long serialVersionUID = 1L;
+
+		final int sequenceNumber;
+		final RejectedNotificationReason reason;
+
+		public ApnsDecoderException(final int sequenceNumber, final RejectedNotificationReason reason) {
+			this.sequenceNumber = sequenceNumber;
+			this.reason = reason;
+		}
+	};
 
 	private enum ApnsPushNotificationDecoderState {
 		OPCODE,
@@ -85,16 +93,16 @@ public class MockApnsServer {
 		}
 
 		@Override
-		protected void decode(final ChannelHandlerContext context, final ByteBuf in, final List<Object> out) {
+		protected void decode(final ChannelHandlerContext context, final ByteBuf in, final List<Object> out) throws ApnsDecoderException {
 			switch (this.state()) {
 				case OPCODE: {
 					final byte opcode = in.readByte();
 
 					if (opcode != EXPECTED_OPCODE) {
-						reportErrorAndCloseConnection(context, 0, RejectedNotificationReason.UNKNOWN);
-					} else {
-						this.checkpoint(ApnsPushNotificationDecoderState.SEQUENCE_NUMBER);
+						throw new ApnsDecoderException(0, RejectedNotificationReason.UNKNOWN);
 					}
+
+					this.checkpoint(ApnsPushNotificationDecoderState.SEQUENCE_NUMBER);
 
 					break;
 				}
@@ -120,7 +128,9 @@ public class MockApnsServer {
 					this.token = new byte[in.readShort() & 0x0000FFFF];
 
 					if (this.token.length == 0) {
-						this.reportErrorAndCloseConnection(context, this.sequenceNumber, RejectedNotificationReason.MISSING_TOKEN);
+						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.MISSING_TOKEN);
+					} else if (this.token.length != EXPECTED_TOKEN_SIZE) {
+						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.INVALID_TOKEN_SIZE);
 					}
 
 					this.checkpoint(ApnsPushNotificationDecoderState.TOKEN);
@@ -138,12 +148,14 @@ public class MockApnsServer {
 				case PAYLOAD_LENGTH: {
 					final int payloadSize = in.readShort() & 0x0000FFFF;
 
-					if (payloadSize > MAX_PAYLOAD_SIZE || payloadSize == 0) {
-						this.reportErrorAndCloseConnection(context, this.sequenceNumber, RejectedNotificationReason.INVALID_PAYLOAD_SIZE);
-					} else {
-						this.payloadBytes = new byte[payloadSize];
-						this.checkpoint(ApnsPushNotificationDecoderState.PAYLOAD);
+					if (payloadSize == 0) {
+						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.MISSING_PAYLOAD);
+					} else if (payloadSize > MAX_PAYLOAD_SIZE) {
+						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.INVALID_PAYLOAD_SIZE);
 					}
+
+					this.payloadBytes = new byte[payloadSize];
+					this.checkpoint(ApnsPushNotificationDecoderState.PAYLOAD);
 
 					break;
 				}
@@ -153,24 +165,15 @@ public class MockApnsServer {
 
 					final String payloadString = new String(this.payloadBytes, Charset.forName("UTF-8"));
 
-					final SimpleApnsPushNotification pushNotification =
-							new SimpleApnsPushNotification(this.token, payloadString, this.expiration);
+					out.add(new SendableApnsPushNotification<SimpleApnsPushNotification>(
+							new SimpleApnsPushNotification(this.token, payloadString, this.expiration),
+							this.sequenceNumber));
 
-					out.add(new SendableApnsPushNotification<SimpleApnsPushNotification>(pushNotification, this.sequenceNumber));
 					this.checkpoint(ApnsPushNotificationDecoderState.OPCODE);
 
 					break;
 				}
 			}
-		}
-
-		private void reportErrorAndCloseConnection(final ChannelHandlerContext context, final int notificationId, final RejectedNotificationReason errorCode) {
-			context.writeAndFlush(new RejectedNotification(notificationId, errorCode)).addListener(new GenericFutureListener<ChannelFuture>() {
-
-				public void operationComplete(ChannelFuture future) {
-					context.close();
-				}
-			});
 		}
 	}
 
@@ -190,56 +193,51 @@ public class MockApnsServer {
 
 		private final MockApnsServer server;
 
-		private boolean rejectFutureMessages = false;
+		private boolean rejectFutureNotifications = false;
 
 		public MockApnsServerHandler(final MockApnsServer server) {
 			this.server = server;
 		}
 
 		@Override
-		protected void channelRead0(final ChannelHandlerContext context, SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) throws Exception {
-
-			if (!this.rejectFutureMessages) {
-				final RejectedNotification rejection = this.server.handleReceivedNotification(receivedNotification);
-
-				if (rejection != null) {
-					this.rejectFutureMessages = true;
-					context.writeAndFlush(rejection).addListener(ChannelFutureListener.CLOSE);
-				}
+		protected void channelRead0(final ChannelHandlerContext context, final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
+			if (!this.rejectFutureNotifications) {
+				this.server.acceptNotification(receivedNotification);
 			}
 		}
 
 		@Override
 		public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
-			context.close();
-		}
-	}
+			this.rejectFutureNotifications = true;
 
-	public MockApnsServer(final int port) {
-		this(port, null);
+			if (cause instanceof DecoderException) {
+				final DecoderException decoderException = (DecoderException)cause;
+
+				if (decoderException.getCause() instanceof ApnsDecoderException) {
+					final ApnsDecoderException apnsDecoderException = (ApnsDecoderException)decoderException.getCause();
+					final RejectedNotification rejectedNotification =
+							new RejectedNotification(apnsDecoderException.sequenceNumber, apnsDecoderException.reason);
+
+					context.writeAndFlush(rejectedNotification).addListener(ChannelFutureListener.CLOSE);
+				}
+			} else {
+				context.close();
+			}
+		}
 	}
 
 	public MockApnsServer(final int port, final NioEventLoopGroup eventLoopGroup) {
 		this.port = port;
-
-		if (eventLoopGroup == null) {
-			this.eventLoopGroup = new NioEventLoopGroup();
-			this.shouldShutDownEventLoopGroup = true;
-		} else {
-			this.eventLoopGroup = eventLoopGroup;
-			this.shouldShutDownEventLoopGroup = false;
-		}
-
-		this.receivedNotifications = new Vector<SimpleApnsPushNotification>();
-		this.countdownLatches = new Vector<CountDownLatch>();
+		this.eventLoopGroup = eventLoopGroup;
 
 	}
 
-	public void start() throws InterruptedException {
+	public synchronized void start() throws InterruptedException {
 		final ServerBootstrap bootstrap = new ServerBootstrap();
 
 		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioServerSocketChannel.class);
+		bootstrap.childOption(ChannelOption.SO_KEEPALIVE, true);
 
 		final MockApnsServer server = this;
 
@@ -252,47 +250,27 @@ public class MockApnsServer {
 				channel.pipeline().addLast("decoder", new ApnsPushNotificationDecoder());
 				channel.pipeline().addLast("handler", new MockApnsServerHandler(server));
 			}
-
 		});
 
-		bootstrap.childOption(ChannelOption.SO_KEEPALIVE, true);
-
-		bootstrap.bind(this.port).sync();
+		this.channel = bootstrap.bind(this.port).await().channel();
 	}
 
-	public void shutdown() throws InterruptedException {
-		if (this.shouldShutDownEventLoopGroup) {
-			this.eventLoopGroup.shutdownGracefully().await();
+	public synchronized void shutdown() throws InterruptedException {
+		if (this.channel != null) {
+			this.channel.close().await();
 		}
+
+		this.channel = null;
 	}
 
-	public void failWithErrorAfterNotifications(final RejectedNotificationReason errorCode, final int notificationCount) {
-		this.failWithErrorCount = notificationCount;
-		this.errorCode = errorCode;
-	}
-
-	protected RejectedNotification handleReceivedNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
-
-		this.receivedNotifications.add(receivedNotification.getPushNotification());
-		final int notificationCount = this.receivedNotifications.size();
-
+	protected void acceptNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
 		for (final CountDownLatch latch : this.countdownLatches) {
 			latch.countDown();
 		}
-
-		if (notificationCount == this.failWithErrorCount) {
-			return new RejectedNotification(receivedNotification.getSequenceNumber(), this.errorCode);
-		} else {
-			return null;
-		}
 	}
 
-	public List<SimpleApnsPushNotification> getReceivedNotifications() {
-		return new ArrayList<SimpleApnsPushNotification>(this.receivedNotifications);
-	}
-
-	public CountDownLatch getCountDownLatch(final int notificationCount) {
-		final CountDownLatch latch = new CountDownLatch(notificationCount);
+	public CountDownLatch getAcceptedNotificationCountDownLatch(final int acceptedNotificationCount) {
+		final CountDownLatch latch = new CountDownLatch(acceptedNotificationCount);
 		this.countdownLatches.add(latch);
 
 		return latch;

@@ -1,6 +1,9 @@
 package com.relayrides.pushy.apns;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.security.KeyManagementException;
@@ -207,7 +210,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 				new ApnsConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(), listener);
 
-		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(1);
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(1);
 
 		synchronized (mutex) {
 			apnsConnection.connect();
@@ -221,8 +224,6 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		apnsConnection.sendNotification(this.createTestNotification());
 		this.waitForLatch(latch);
-
-		assertEquals(1, this.getApnsServer().getReceivedNotifications().size());
 	}
 
 	@Test

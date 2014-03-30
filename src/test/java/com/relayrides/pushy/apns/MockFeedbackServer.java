@@ -43,13 +43,13 @@ import java.util.List;
 public class MockFeedbackServer {
 
 	private final int port;
-
 	private final NioEventLoopGroup eventLoopGroup;
-	private final boolean shouldShutDownEventLoopGroup;
 
-	private final ArrayList<ExpiredToken> expiredTokens;
+	private final ArrayList<ExpiredToken> expiredTokens = new ArrayList<ExpiredToken>();
 
 	private volatile boolean closeWhenDone = false;
+
+	private Channel channel;
 
 	private class ExpiredTokenEncoder extends MessageToByteEncoder<ExpiredToken> {
 
@@ -74,7 +74,7 @@ public class MockFeedbackServer {
 
 			context.pipeline().get(SslHandler.class).handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
 
-				public void operationComplete(final Future<Channel> future) throws Exception {
+				public void operationComplete(final Future<Channel> future) {
 					if (future.isSuccess()) {
 						final List<ExpiredToken> expiredTokens = feedbackServer.getAndClearAllExpiredTokens();
 
@@ -84,18 +84,20 @@ public class MockFeedbackServer {
 							lastWriteFuture = context.write(expiredToken);
 						}
 
-						context.flush();
-
-						if (feedbackServer.closeWhenDone && lastWriteFuture != null) {
-							lastWriteFuture.addListener(ChannelFutureListener.CLOSE);
+						if (feedbackServer.closeWhenDone) {
+							if (lastWriteFuture != null) {
+								lastWriteFuture.addListener(ChannelFutureListener.CLOSE);
+							} else {
+								context.close();
+							}
 						}
+
+						context.flush();
 					} else {
 						throw new RuntimeException("Failed to complete TLS handshake.", future.cause());
 					}
 				}
-
 			});
-
 		}
 	}
 
@@ -105,19 +107,10 @@ public class MockFeedbackServer {
 
 	public MockFeedbackServer(final int port, final NioEventLoopGroup eventLoopGroup) {
 		this.port = port;
-
-		if (eventLoopGroup == null) {
-			this.eventLoopGroup = new NioEventLoopGroup();
-			this.shouldShutDownEventLoopGroup = true;
-		} else {
-			this.eventLoopGroup = eventLoopGroup;
-			this.shouldShutDownEventLoopGroup = false;
-		}
-
-		this.expiredTokens = new ArrayList<ExpiredToken>();
+		this.eventLoopGroup = eventLoopGroup;
 	}
 
-	public void start() throws InterruptedException {
+	public synchronized void start() throws InterruptedException {
 		final ServerBootstrap bootstrap = new ServerBootstrap();
 
 		bootstrap.group(this.eventLoopGroup);
@@ -134,20 +127,24 @@ public class MockFeedbackServer {
 			}
 		});
 
-		bootstrap.bind(this.port).sync();
+		this.channel = bootstrap.bind(this.port).await().channel();
 	}
 
-	public void shutdown() throws InterruptedException {
-		if (this.shouldShutDownEventLoopGroup) {
-			this.eventLoopGroup.shutdownGracefully().await();
+	public synchronized void shutdown() throws InterruptedException {
+		if (this.channel != null) {
+			this.channel.close().await();
 		}
+
+		this.closeWhenDone = true;
+		this.expiredTokens.clear();
+		this.channel = null;
 	}
 
 	public synchronized void addExpiredToken(final ExpiredToken expiredToken) {
 		this.expiredTokens.add(expiredToken);
 	}
 
-	protected synchronized List<ExpiredToken> getAndClearAllExpiredTokens() {
+	private synchronized List<ExpiredToken> getAndClearAllExpiredTokens() {
 		final ArrayList<ExpiredToken> tokensToReturn = new ArrayList<ExpiredToken>(this.expiredTokens);
 		this.expiredTokens.clear();
 

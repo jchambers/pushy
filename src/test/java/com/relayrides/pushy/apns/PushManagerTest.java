@@ -92,11 +92,17 @@ public class PushManagerTest extends BasePushyTest {
 		assertEquals(0, listener.getRejectedNotificationCount());
 
 		final int iterations = 100;
-		this.getApnsServer().failWithErrorAfterNotifications(RejectedNotificationReason.INVALID_TOKEN, 10);
-		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations);
+
+		// We expect one less because one notification should be rejected
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(iterations - 1);
 
 		for (int i = 0; i < iterations; i++) {
-			this.getPushManager().getQueue().put(notification);
+			if (i == iterations / 2) {
+				this.getPushManager().getQueue().put(
+						new SimpleApnsPushNotification(new byte[] {}, "This is a deliberately malformed notification."));
+			} else {
+				this.getPushManager().getQueue().put(notification);
+			}
 		}
 
 		this.getPushManager().start();
@@ -283,7 +289,7 @@ public class PushManagerTest extends BasePushyTest {
 	public void testSendNotifications() throws InterruptedException {
 		final int iterations = 1000;
 
-		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations);
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(iterations);
 
 		for (int i = 0; i < iterations; i++) {
 			this.getPushManager().getQueue().add(this.createTestNotification());
@@ -292,27 +298,27 @@ public class PushManagerTest extends BasePushyTest {
 		this.getPushManager().start();
 		this.waitForLatch(latch);
 		this.getPushManager().shutdown();
-
-		assertEquals(iterations, this.getApnsServer().getReceivedNotifications().size());
 	}
 
 	@Test
 	public void testSendNotificationsWithError() throws InterruptedException {
 		final int iterations = 1000;
 
-		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations);
+		// We expect one less because one notification should be rejected
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(iterations - 1);
 
 		for (int i = 0; i < iterations; i++) {
-			this.getPushManager().getQueue().add(this.createTestNotification());
+			if (i == iterations / 2) {
+				this.getPushManager().getQueue().put(
+						new SimpleApnsPushNotification(new byte[] {}, "This is a deliberately malformed notification."));
+			} else {
+				this.getPushManager().getQueue().add(this.createTestNotification());
+			}
 		}
-
-		this.getApnsServer().failWithErrorAfterNotifications(RejectedNotificationReason.PROCESSING_ERROR, iterations / 2);
 
 		this.getPushManager().start();
 		this.waitForLatch(latch);
 		this.getPushManager().shutdown();
-
-		assertEquals(iterations, this.getApnsServer().getReceivedNotifications().size());
 	}
 
 	@Test
@@ -327,7 +333,7 @@ public class PushManagerTest extends BasePushyTest {
 
 		final int iterations = 1000;
 
-		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations);
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(iterations);
 
 		for (int i = 0; i < iterations; i++) {
 			parallelPushManager.getQueue().add(this.createTestNotification());
@@ -336,8 +342,6 @@ public class PushManagerTest extends BasePushyTest {
 		parallelPushManager.start();
 		this.waitForLatch(latch);
 		parallelPushManager.shutdown();
-
-		assertEquals(iterations, this.getApnsServer().getReceivedNotifications().size());
 	}
 
 	@Test
@@ -352,19 +356,21 @@ public class PushManagerTest extends BasePushyTest {
 
 		final int iterations = 1000;
 
-		final CountDownLatch latch = this.getApnsServer().getCountDownLatch(iterations);
+		// We expect one less because one notification should be rejected
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(iterations - 1);
 
 		for (int i = 0; i < iterations; i++) {
-			parallelPushManager.getQueue().add(this.createTestNotification());
+			if (i == iterations / 2) {
+				parallelPushManager.getQueue().put(
+						new SimpleApnsPushNotification(new byte[] {}, "This is a deliberately malformed notification."));
+			} else {
+				parallelPushManager.getQueue().add(this.createTestNotification());
+			}
 		}
-
-		this.getApnsServer().failWithErrorAfterNotifications(RejectedNotificationReason.PROCESSING_ERROR, iterations / 2);
 
 		parallelPushManager.start();
 		this.waitForLatch(latch);
 		parallelPushManager.shutdown();
-
-		assertEquals(iterations, this.getApnsServer().getReceivedNotifications().size());
 	}
 
 	@Test
