@@ -607,7 +607,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		synchronized (this.activeConnections) {
 			while (!this.activeConnections.isEmpty() && (deadline == null || deadline.getTime() > System.currentTimeMillis())) {
 				if (deadline != null) {
-					this.activeConnections.wait(Math.min(deadline.getTime() - System.currentTimeMillis(), 1));
+					this.activeConnections.wait(Math.max(deadline.getTime() - System.currentTimeMillis(), 1));
 				} else {
 					this.activeConnections.wait();
 				}
