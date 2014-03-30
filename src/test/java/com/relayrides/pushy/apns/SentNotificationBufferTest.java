@@ -22,11 +22,11 @@
 package com.relayrides.pushy.apns;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -36,9 +36,6 @@ import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 public class SentNotificationBufferTest {
 
 	private SimpleApnsPushNotification testNotification;
-	private SentNotificationBuffer<SimpleApnsPushNotification> buffer;
-
-	private static final int CAPACITY = 2048;
 
 	@Before
 	public void setUp() throws Exception {
@@ -46,37 +43,132 @@ public class SentNotificationBufferTest {
 				new byte[] { 0x12, 0x34, 0x56, 0x78 },
 				"This is an invalid payload, but that's okay.",
 				new Date());
-
-		this.buffer = new SentNotificationBuffer<SimpleApnsPushNotification>(CAPACITY);
 	}
 
 	@Test(expected = IllegalArgumentException.class)
 	public void testSentNotificationBufferBadCapacity() {
-		new SentNotificationBuffer<SimpleApnsPushNotification>(37);
+		new SentNotificationBuffer<SimpleApnsPushNotification>(0);
 	}
 
 	@Test
-	public void testGetAndRemoveNotificationWithId() {
-		final SendableApnsPushNotification<SimpleApnsPushNotification> sendableNotification =
-				new SendableApnsPushNotification<SimpleApnsPushNotification>(this.testNotification, 0);
+	public void testAddSentNotification() {
+		final int capacity = 8;
 
-		this.buffer.addSentNotification(sendableNotification);
+		final SentNotificationBuffer<SimpleApnsPushNotification> buffer =
+				new SentNotificationBuffer<SimpleApnsPushNotification>(capacity);
 
-		assertNotNull(this.buffer.getAndRemoveNotificationWithSequenceNumber(0));
-		assertNull(this.buffer.getAndRemoveNotificationWithSequenceNumber(0));
-	}
+		assertEquals(0, buffer.size());
 
-	@Test
-	public void testGetAndRemoveAllNotificationsAfterId() {
-		for (int i = 0; i < CAPACITY + 100; i++) {
-			final SendableApnsPushNotification<SimpleApnsPushNotification> sendableNotification =
-					new SendableApnsPushNotification<SimpleApnsPushNotification>(this.testNotification, i);
-
-			this.buffer.addSentNotification(sendableNotification);
+		for (int i = 0; i < 2 * capacity; i++) {
+			buffer.addSentNotification(new SendableApnsPushNotification<SimpleApnsPushNotification>(this.testNotification, i));
 		}
 
-		assertEquals(199, this.buffer.getAndRemoveAllNotificationsAfterSequenceNumber(CAPACITY - 100).size());
-		assertTrue(this.buffer.getAndRemoveAllNotificationsAfterSequenceNumber(CAPACITY - 100).isEmpty());
+		assertEquals(capacity, buffer.size());
 	}
 
+	@Test
+	public void testClearNotificationsBeforeSequenceNumber() {
+		final int capacity = 10;
+
+		{
+			final SentNotificationBuffer<SimpleApnsPushNotification> buffer =
+					new SentNotificationBuffer<SimpleApnsPushNotification>(capacity);
+
+			final int startingIndex = 0;
+
+			for (final SendableApnsPushNotification<SimpleApnsPushNotification> notification : this.generateSequentialNotifications(capacity, startingIndex)) {
+				buffer.addSentNotification(notification);
+			}
+
+			buffer.clearNotificationsBeforeSequenceNumber(startingIndex + 5);
+			assertEquals(5, buffer.size());
+		}
+
+		{
+			final SentNotificationBuffer<SimpleApnsPushNotification> buffer =
+					new SentNotificationBuffer<SimpleApnsPushNotification>(capacity);
+
+			final int startingIndex = Integer.MAX_VALUE - 2;
+
+			for (final SendableApnsPushNotification<SimpleApnsPushNotification> notification : this.generateSequentialNotifications(capacity, startingIndex)) {
+				buffer.addSentNotification(notification);
+			}
+
+			buffer.clearNotificationsBeforeSequenceNumber(startingIndex + 5);
+			assertEquals(5, buffer.size());
+		}
+	}
+
+	@Test
+	public void testGetNotificationWithSequenceNumber() {
+		final int capacity = 21;
+
+		final SentNotificationBuffer<SimpleApnsPushNotification> buffer =
+				new SentNotificationBuffer<SimpleApnsPushNotification>(capacity);
+
+		assertNull(buffer.getNotificationWithSequenceNumber(10));
+
+		for (final SendableApnsPushNotification<SimpleApnsPushNotification> notification : this.generateSequentialNotifications(10, 0)) {
+			buffer.addSentNotification(notification);
+		}
+
+		final SendableApnsPushNotification<SimpleApnsPushNotification> needle =
+				new SendableApnsPushNotification<SimpleApnsPushNotification>(new SimpleApnsPushNotification(
+						new byte[] { 0x17 }, "This is the notification we're looking for."), 10);
+
+		buffer.addSentNotification(needle);
+
+		for (final SendableApnsPushNotification<SimpleApnsPushNotification> notification : this.generateSequentialNotifications(10, 11)) {
+			buffer.addSentNotification(notification);
+		}
+
+		assertEquals(needle.getPushNotification(), buffer.getNotificationWithSequenceNumber(10));
+	}
+
+	@Test
+	public void testGetAllNotificationsAfterSequenceNumber() {
+		final int capacity = 10;
+
+		final SentNotificationBuffer<SimpleApnsPushNotification> buffer =
+				new SentNotificationBuffer<SimpleApnsPushNotification>(capacity);
+
+		for (final SendableApnsPushNotification<SimpleApnsPushNotification> notification : this.generateSequentialNotifications(capacity, 0)) {
+			buffer.addSentNotification(notification);
+		}
+
+		assertEquals(2, buffer.getAllNotificationsAfterSequenceNumber(7).size());
+	}
+
+	@Test
+	public void testClearAllNotifications() {
+		final int capacity = 10;
+
+		final SentNotificationBuffer<SimpleApnsPushNotification> buffer =
+				new SentNotificationBuffer<SimpleApnsPushNotification>(capacity);
+
+		for (final SendableApnsPushNotification<SimpleApnsPushNotification> notification : this.generateSequentialNotifications(capacity, 0)) {
+			buffer.addSentNotification(notification);
+		}
+
+		assertEquals(capacity, buffer.size());
+
+		buffer.clearAllNotifications();
+		assertEquals(0, buffer.size());
+	}
+
+	private List<SendableApnsPushNotification<SimpleApnsPushNotification>> generateSequentialNotifications(final int count, final int startingSequenceNumber) {
+
+		final ArrayList<SendableApnsPushNotification<SimpleApnsPushNotification>> sendableNotifications =
+				new ArrayList<SendableApnsPushNotification<SimpleApnsPushNotification>>(count);
+
+		int currentSequenceNumber = startingSequenceNumber;
+
+		// We don't want to use the sequence number as the loop index to work around integer wrapping issues
+		for (int i = 0; i < count; i++) {
+			sendableNotifications.add(new SendableApnsPushNotification<SimpleApnsPushNotification>(
+					this.testNotification, currentSequenceNumber++));
+		}
+
+		return sendableNotifications;
+	}
 }

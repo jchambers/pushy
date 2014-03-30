@@ -1,15 +1,15 @@
 /* Copyright (c) 2013 RelayRides
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -34,9 +34,13 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLHandshakeException;
 
 import org.junit.Test;
 
@@ -44,11 +48,11 @@ import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class PushManagerTest extends BasePushyTest {
 
-	private class TestListener implements RejectedNotificationListener<SimpleApnsPushNotification> {
+	private class TestRejectedNotificationListener implements RejectedNotificationListener<SimpleApnsPushNotification> {
 
 		private final AtomicInteger rejectedNotificationCount = new AtomicInteger(0);
 
-		public void handleRejectedNotification(final SimpleApnsPushNotification notification, final RejectedNotificationReason reason) {
+		public void handleRejectedNotification(final PushManager<? extends SimpleApnsPushNotification> pushManager, final SimpleApnsPushNotification notification, final RejectedNotificationReason reason) {
 			this.rejectedNotificationCount.incrementAndGet();
 		}
 
@@ -57,31 +61,61 @@ public class PushManagerTest extends BasePushyTest {
 		}
 	}
 
+	private class TestFailedConnectionListener implements FailedConnectionListener<SimpleApnsPushNotification> {
+
+		private final Object mutex;
+
+		private PushManager<? extends SimpleApnsPushNotification> pushManager;
+		private Throwable cause;
+
+		public TestFailedConnectionListener(final Object mutex) {
+			this.mutex = mutex;
+		}
+
+		public void handleFailedConnection(final PushManager<? extends SimpleApnsPushNotification> pushManager, final Throwable cause) {
+			this.pushManager = pushManager;
+			this.cause = cause;
+
+			synchronized (this.mutex) {
+				this.mutex.notifyAll();
+			}
+		}
+	}
+
 	@Test
 	public void testRegisterRejectedNotificationListener() throws InterruptedException {
 		final SimpleApnsPushNotification notification = this.createTestNotification();
 
-		final TestListener listener = new TestListener();
+		final TestRejectedNotificationListener listener = new TestRejectedNotificationListener();
 		this.getPushManager().registerRejectedNotificationListener(listener);
 
 		assertEquals(0, listener.getRejectedNotificationCount());
 
 		final int iterations = 100;
-		this.getServer().failWithErrorAfterNotifications(RejectedNotificationReason.INVALID_TOKEN, 10);
-		final CountDownLatch latch = this.getServer().getCountDownLatch(iterations);
+
+		// We expect one less because one notification should be rejected
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(iterations - 1);
 
 		for (int i = 0; i < iterations; i++) {
-			this.getPushManager().getQueue().put(notification);
+			if (i == iterations / 2) {
+				this.getPushManager().getQueue().put(
+						new SimpleApnsPushNotification(new byte[] {}, "This is a deliberately malformed notification."));
+			} else {
+				this.getPushManager().getQueue().put(notification);
+			}
 		}
 
-		this.waitForLatch(latch);
+		this.getPushManager().start();
 
+		this.waitForLatch(latch);
 		assertEquals(1, listener.getRejectedNotificationCount());
+
+		this.getPushManager().shutdown();
 	}
 
 	@Test
 	public void testUnregisterRejectedNotificationListener() {
-		final TestListener listener = new TestListener();
+		final TestRejectedNotificationListener listener = new TestRejectedNotificationListener();
 
 		this.getPushManager().registerRejectedNotificationListener(listener);
 
@@ -90,37 +124,87 @@ public class PushManagerTest extends BasePushyTest {
 	}
 
 	@Test
+	public void testRegisterFailedNotificationListener() throws Exception {
+
+		final PushManagerFactory<SimpleApnsPushNotification> factory =
+				new PushManagerFactory<SimpleApnsPushNotification>(
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient("/pushy-test-client-untrusted.jks"));
+
+		final PushManager<SimpleApnsPushNotification> badCredentialManager = factory.buildPushManager();
+
+		final Object mutex = new Object();
+		final TestFailedConnectionListener listener = new TestFailedConnectionListener(mutex);
+
+		badCredentialManager.registerFailedConnectionListener(listener);
+
+		synchronized (mutex) {
+			badCredentialManager.start();
+			mutex.wait();
+		}
+
+		badCredentialManager.shutdown();
+
+		assertEquals(badCredentialManager, listener.pushManager);
+		assertTrue(listener.cause instanceof SSLHandshakeException);
+	}
+
+	@Test
+	public void testUnregisterFailedNotificationListener() {
+		final TestFailedConnectionListener listener = new TestFailedConnectionListener(null);
+
+		this.getPushManager().registerFailedConnectionListener(listener);
+
+		assertTrue(this.getPushManager().unregisterFailedConnectionListener(listener));
+		assertFalse(this.getPushManager().unregisterFailedConnectionListener(listener));
+	}
+
+	@Test
 	public void testShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		{
 			final PushManager<ApnsPushNotification> defaultGroupPushManager =
-					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null, null);
 
 			defaultGroupPushManager.start();
 			defaultGroupPushManager.shutdown();
 
-			assertTrue(defaultGroupPushManager.getWorkerGroup().isShutdown());
+			assertTrue(defaultGroupPushManager.isShutDown());
 		}
 
 		{
 			final NioEventLoopGroup group = new NioEventLoopGroup(1);
 
 			final PushManager<ApnsPushNotification> providedGroupPushManager =
-					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, group, null);
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, group, null, null);
 
 			providedGroupPushManager.start();
 			providedGroupPushManager.shutdown();
 
-			assertEquals(group, providedGroupPushManager.getWorkerGroup());
+			assertTrue(providedGroupPushManager.isShutDown());
 			assertFalse(group.isShutdown());
 
 			group.shutdownGracefully();
+		}
+
+		{
+			final ExecutorService listenerExecutorService = Executors.newSingleThreadExecutor();
+
+			final PushManager<ApnsPushNotification> providedExecutorServicePushManager =
+					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, listenerExecutorService, null);
+
+			providedExecutorServicePushManager.start();
+			providedExecutorServicePushManager.shutdown();
+
+			assertTrue(providedExecutorServicePushManager.isShutDown());
+			assertFalse(listenerExecutorService.isShutdown());
+
+			listenerExecutorService.shutdown();
 		}
 	}
 
 	@Test(expected = IllegalStateException.class)
 	public void testDoubleStart() throws KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		final PushManager<ApnsPushNotification> doubleStartPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null, null);
 
 		doubleStartPushManager.start();
 		doubleStartPushManager.start();
@@ -129,7 +213,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test(expected = IllegalStateException.class)
 	public void testPrematureShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		final PushManager<ApnsPushNotification> prematureShutdownPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null, null);
 
 		prematureShutdownPushManager.shutdown();
 	}
@@ -137,7 +221,7 @@ public class PushManagerTest extends BasePushyTest {
 	@Test
 	public void testRepeatedShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
 		final PushManager<ApnsPushNotification> repeatedShutdownPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
+				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null, null);
 
 		repeatedShutdownPushManager.start();
 		repeatedShutdownPushManager.shutdown();
@@ -145,116 +229,193 @@ public class PushManagerTest extends BasePushyTest {
 	}
 
 	@Test
-	public void testGetExpiredTokens() throws InterruptedException {
+	public void testGetExpiredTokens() throws InterruptedException, FeedbackConnectionException {
+		this.getPushManager().start();
 		assertTrue(this.getPushManager().getExpiredTokens().isEmpty());
+		this.getPushManager().shutdown();
+	}
+
+	@Test
+	public void testGetExpiredTokensWithDefaultEventLoopGroup() throws Exception {
+		final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
+				new PushManagerFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient());
+
+		final PushManager<SimpleApnsPushNotification> defaultPushManager = pushManagerFactory.buildPushManager();
+		defaultPushManager.start();
+
+		try {
+			assertTrue(defaultPushManager.getExpiredTokens().isEmpty());
+		} finally {
+			defaultPushManager.shutdown();
+		}
 	}
 
 	@Test(expected = IllegalStateException.class)
-	public void testGetExpiredTokensBeforeStart() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
-		final PushManager<ApnsPushNotification> unstartedPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
-
-		unstartedPushManager.getExpiredTokens();
+	public void testGetExpiredTokensBeforeStart() throws InterruptedException, FeedbackConnectionException {
+		this.getPushManager().getExpiredTokens();
 	}
 
 	@Test(expected = IllegalStateException.class)
-	public void testGetExpiredTokensAfterShutdown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
-		final PushManager<ApnsPushNotification> shutDownPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
+	public void testGetExpiredTokensAfterShutdown() throws InterruptedException, FeedbackConnectionException {
+		this.getPushManager().start();
+		this.getPushManager().shutdown();
 
-		shutDownPushManager.start();
-		shutDownPushManager.shutdown();
-
-		shutDownPushManager.getExpiredTokens();
+		this.getPushManager().getExpiredTokens();
 	}
 
 	@Test
 	public void testIsStarted() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
-		final PushManager<ApnsPushNotification> testPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
+		assertFalse(this.getPushManager().isStarted());
 
-		assertFalse(testPushManager.isStarted());
+		this.getPushManager().start();
+		assertTrue(this.getPushManager().isStarted());
 
-		testPushManager.start();
-		assertTrue(testPushManager.isStarted());
-
-		testPushManager.shutdown();
-		assertFalse(testPushManager.isStarted());
+		this.getPushManager().shutdown();
+		assertFalse(this.getPushManager().isStarted());
 	}
 
 	@Test
 	public void testIsShutDown() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
-		final PushManager<ApnsPushNotification> testPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null);
+		assertFalse(this.getPushManager().isShutDown());
 
-		assertFalse(testPushManager.isShutDown());
+		this.getPushManager().start();
+		assertFalse(this.getPushManager().isShutDown());
 
-		testPushManager.start();
-		assertFalse(testPushManager.isShutDown());
-
-		testPushManager.shutdown();
-		assertTrue(testPushManager.isShutDown());
+		this.getPushManager().shutdown();
+		assertTrue(this.getPushManager().isShutDown());
 	}
 
 	@Test
-	public void testHandleThreadDeath() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
+	public void testSendNotifications() throws InterruptedException {
+		final int iterations = 1000;
 
-		final class SelfDestructingApnsClientThread<T extends ApnsPushNotification> extends ApnsClientThread<T> {
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(iterations);
 
-			public SelfDestructingApnsClientThread(final PushManager<T> pushManager) {
-				super(pushManager);
-			}
+		for (int i = 0; i < iterations; i++) {
+			this.getPushManager().getQueue().add(this.createTestNotification());
+		}
 
-			@Override
-			public void run() {
-				throw new RuntimeException("Self-destructing.");
+		this.getPushManager().start();
+		this.waitForLatch(latch);
+		this.getPushManager().shutdown();
+	}
+
+	@Test
+	public void testSendNotificationsWithError() throws InterruptedException {
+		final int iterations = 1000;
+
+		// We expect one less because one notification should be rejected
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(iterations - 1);
+
+		for (int i = 0; i < iterations; i++) {
+			if (i == iterations / 2) {
+				this.getPushManager().getQueue().put(
+						new SimpleApnsPushNotification(new byte[] {}, "This is a deliberately malformed notification."));
+			} else {
+				this.getPushManager().getQueue().add(this.createTestNotification());
 			}
 		}
 
-		final class NotifyOnReplacementPushManager<T extends ApnsPushNotification> extends PushManager<T> {
+		this.getPushManager().start();
+		this.waitForLatch(latch);
+		this.getPushManager().shutdown();
+	}
 
-			private final Object mutex;
-			private volatile boolean replacedThread = false;
+	@Test
+	public void testSendNotificationsWithParallelConnections() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, InterruptedException {
+		final PushManagerFactory<SimpleApnsPushNotification> factory =
+				new PushManagerFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient());
 
-			protected NotifyOnReplacementPushManager(final ApnsEnvironment environment, final SSLContext sslContext,
-					final int concurrentConnectionCount, final NioEventLoopGroup workerGroup,
-					final BlockingQueue<T> queue, final Object mutex) {
+		factory.setEventLoopGroup(this.getEventLoopGroup());
+		factory.setConcurrentConnectionCount(4);
 
-				super(environment, sslContext, concurrentConnectionCount, workerGroup, queue);
+		final PushManager<SimpleApnsPushNotification> parallelPushManager = factory.buildPushManager();
 
-				this.mutex = mutex;
-			}
+		final int iterations = 1000;
 
-			@Override
-			protected SelfDestructingApnsClientThread<T> createClientThread() {
-				return new SelfDestructingApnsClientThread<T>(this);
-			}
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(iterations);
 
-			@Override
-			protected synchronized void replaceThread(final Thread t) {
-				this.replacedThread = true;
+		for (int i = 0; i < iterations; i++) {
+			parallelPushManager.getQueue().add(this.createTestNotification());
+		}
 
-				synchronized (this.mutex) {
-					this.mutex.notifyAll();
-				}
-			}
+		parallelPushManager.start();
+		this.waitForLatch(latch);
+		parallelPushManager.shutdown();
+	}
 
-			public boolean didReplaceThread() {
-				return this.replacedThread;
+	@Test
+	public void testSendNotificationsWithParallelConnectionsAndError() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, InterruptedException {
+		final PushManagerFactory<SimpleApnsPushNotification> factory =
+				new PushManagerFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient());
+
+		factory.setEventLoopGroup(this.getEventLoopGroup());
+		factory.setConcurrentConnectionCount(4);
+
+		final PushManager<SimpleApnsPushNotification> parallelPushManager = factory.buildPushManager();
+
+		final int iterations = 1000;
+
+		// We expect one less because one notification should be rejected
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(iterations - 1);
+
+		for (int i = 0; i < iterations; i++) {
+			if (i == iterations / 2) {
+				parallelPushManager.getQueue().put(
+						new SimpleApnsPushNotification(new byte[] {}, "This is a deliberately malformed notification."));
+			} else {
+				parallelPushManager.getQueue().add(this.createTestNotification());
 			}
 		}
 
-		final Object mutex = new Object();
-		final NotifyOnReplacementPushManager<ApnsPushNotification> testManager =
-				new NotifyOnReplacementPushManager<ApnsPushNotification>(
-						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, null, null, mutex);
+		parallelPushManager.start();
+		this.waitForLatch(latch);
+		parallelPushManager.shutdown();
+	}
 
-		synchronized (mutex) {
-			testManager.start();
-			mutex.wait(1000);
+	@Test
+	public void testHandleDispatchThreadException() throws InterruptedException, KeyManagementException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, CertificateException, IOException {
+
+		class PushManagerWithSelfDestructingDispatchThread extends PushManager<SimpleApnsPushNotification> {
+
+			private final CountDownLatch latch;
+
+			protected PushManagerWithSelfDestructingDispatchThread(
+					ApnsEnvironment environment, SSLContext sslContext,
+					int concurrentConnectionCount,
+					NioEventLoopGroup eventLoopGroup,
+					BlockingQueue<SimpleApnsPushNotification> queue,
+					CountDownLatch latch) {
+
+				super(environment, sslContext, concurrentConnectionCount, eventLoopGroup, null, queue);
+
+				this.latch = latch;
+			}
+
+			@Override
+			protected Thread createDispatchThread() {
+				this.latch.countDown();
+
+				return new Thread(new Runnable() {
+
+					public void run() {
+						throw new RuntimeException("This is a test of thread replacement; please DO NOT report this as a bug.");
+					}
+
+				});
+			}
 		}
 
+		// We want to make sure at least two threads get created: one for the initial start, and then one replacement
+		final CountDownLatch latch = new CountDownLatch(2);
+
+		final PushManagerWithSelfDestructingDispatchThread testManager =
+				new PushManagerWithSelfDestructingDispatchThread(
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1, this.getEventLoopGroup(),
+						new LinkedBlockingQueue<SimpleApnsPushNotification>(), latch);
+
+		testManager.start();
+		this.waitForLatch(latch);
 		testManager.shutdown();
-		assertTrue(testManager.didReplaceThread());
 	}
 }

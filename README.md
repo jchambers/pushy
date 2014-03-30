@@ -122,6 +122,16 @@ SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further detail
 
 For more information, see the [SLF4J user manual](http://www.slf4j.org/manual.html).
 
+Pushy uses logging levels as follows:
+
+| Log level | Events logged                                                                         |
+|-----------|---------------------------------------------------------------------------------------|
+| `error`   | Serious, unrecoverable errors; recoverable errors that likely indicate a bug in Pushy |
+| `warn`    | Serious, but recoverable errors; errors that may indicate a bug in caller's code      |
+| `info`    | Important lifecycle events                                                            |
+| `debug`   | Minor lifecycle events; expected exceptions                                           |
+| `trace`   | Individual IO operations                                                              |
+
 ## Limitations and known issues
 
 Although we make every effort to fix bugs and work around issues outside of our control, some problems appear to be unavoidable. The issues we know about at this time are:

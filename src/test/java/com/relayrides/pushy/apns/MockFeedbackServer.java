@@ -1,15 +1,15 @@
 /* Copyright (c) 2013 RelayRides
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -29,7 +29,6 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
-import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -44,12 +43,13 @@ import java.util.List;
 public class MockFeedbackServer {
 
 	private final int port;
+	private final NioEventLoopGroup eventLoopGroup;
 
-	private final ArrayList<ExpiredToken> expiredTokens;
-
-	private EventLoopGroup workerGroup;
+	private final ArrayList<ExpiredToken> expiredTokens = new ArrayList<ExpiredToken>();
 
 	private volatile boolean closeWhenDone = false;
+
+	private Channel channel;
 
 	private class ExpiredTokenEncoder extends MessageToByteEncoder<ExpiredToken> {
 
@@ -74,7 +74,7 @@ public class MockFeedbackServer {
 
 			context.pipeline().get(SslHandler.class).handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
 
-				public void operationComplete(final Future<Channel> future) throws Exception {
+				public void operationComplete(final Future<Channel> future) {
 					if (future.isSuccess()) {
 						final List<ExpiredToken> expiredTokens = feedbackServer.getAndClearAllExpiredTokens();
 
@@ -84,33 +84,36 @@ public class MockFeedbackServer {
 							lastWriteFuture = context.write(expiredToken);
 						}
 
-						context.flush();
-
-						if (feedbackServer.closeWhenDone && lastWriteFuture != null) {
-							lastWriteFuture.addListener(ChannelFutureListener.CLOSE);
+						if (feedbackServer.closeWhenDone) {
+							if (lastWriteFuture != null) {
+								lastWriteFuture.addListener(ChannelFutureListener.CLOSE);
+							} else {
+								context.close();
+							}
 						}
+
+						context.flush();
 					} else {
 						throw new RuntimeException("Failed to complete TLS handshake.", future.cause());
 					}
 				}
-
 			});
-
 		}
 	}
 
 	public MockFeedbackServer(final int port) {
-		this.port = port;
-
-		this.expiredTokens = new ArrayList<ExpiredToken>();
+		this(port, null);
 	}
 
-	public void start() throws InterruptedException {
-		this.workerGroup = new NioEventLoopGroup();
+	public MockFeedbackServer(final int port, final NioEventLoopGroup eventLoopGroup) {
+		this.port = port;
+		this.eventLoopGroup = eventLoopGroup;
+	}
 
+	public synchronized void start() throws InterruptedException {
 		final ServerBootstrap bootstrap = new ServerBootstrap();
 
-		bootstrap.group(this.workerGroup);
+		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioServerSocketChannel.class);
 
 		final MockFeedbackServer server = this;
@@ -124,18 +127,24 @@ public class MockFeedbackServer {
 			}
 		});
 
-		bootstrap.bind(this.port).sync();
+		this.channel = bootstrap.bind(this.port).await().channel();
 	}
 
-	public void shutdown() throws InterruptedException {
-		this.workerGroup.shutdownGracefully();
+	public synchronized void shutdown() throws InterruptedException {
+		if (this.channel != null) {
+			this.channel.close().await();
+		}
+
+		this.closeWhenDone = true;
+		this.expiredTokens.clear();
+		this.channel = null;
 	}
 
 	public synchronized void addExpiredToken(final ExpiredToken expiredToken) {
 		this.expiredTokens.add(expiredToken);
 	}
 
-	protected synchronized List<ExpiredToken> getAndClearAllExpiredTokens() {
+	private synchronized List<ExpiredToken> getAndClearAllExpiredTokens() {
 		final ArrayList<ExpiredToken> tokensToReturn = new ArrayList<ExpiredToken>(this.expiredTokens);
 		this.expiredTokens.clear();
 
