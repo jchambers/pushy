@@ -423,11 +423,11 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 	/**
 	 * <p>Gracefully and asynchronously shuts down this client thread. Graceful disconnection is triggered by sending a
-	 * known-bad notification to the APNs gateway; when the gateway rejects the notification, it can be assumed with a
-	 * reasonable degree of confidence that preceding notifications were processed successfully and known with certainty
-	 * that all following notifications were not processed at all. The gateway will close the connection after rejecting
-	 * the notification, and this connection's listener will be notified when the connection is closed.</p>
-	 *
+	 * known-bad notification to the APNs gateway; when the gateway rejects the notification, it is guaranteed that
+	 * preceding notifications were processed successfully and that all following notifications were not processed at
+	 * all. The gateway will close the connection after rejecting the notification, and this connection's listener will
+	 * be notified when the connection is closed.</p>
+	 * 
 	 * <p>Note that if/when the known-bad notification is rejected by the APNs gateway, this connection's listener will
 	 * <em>not</em> be notified of the rejection.</p>
 	 *
@@ -489,11 +489,10 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	}
 
 	/**
-	 * <p>Immediately closes this connection (assuming it was ever open). The fate of messages sent by this connection
-	 * remains unknown when calling this method; callers should generally prefer
-	 * {@link ApnsConnection#shutdownGracefully} to this method. This connection's listener will be notified when the
-	 * connection has finished closing.</p>
-	 *
+	 * <p>Immediately closes this connection (assuming it was ever open). No guarantees are made with regard to the
+	 * state of sent notifications, and callers should generally prefer {@link ApnsConnection#shutdownGracefully} to
+	 * this method. This connection's listener will be notified when the connection has finished closing.</p>
+	 * 
 	 * <p>Calling this method while not connected has no effect.</p>
 	 *
 	 * @see ApnsConnectionListener#handleConnectionClosure(ApnsConnection)

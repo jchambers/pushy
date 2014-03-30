@@ -32,6 +32,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.util.ArrayList;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -199,6 +200,31 @@ public class PushManagerTest extends BasePushyTest {
 
 			listenerExecutorService.shutdown();
 		}
+	}
+
+	@Test
+	public void testDrainBeforeShutdown() throws InterruptedException {
+		final int iterations = 1000;
+		final ArrayList<SimpleApnsPushNotification> notificationsToSend = new ArrayList<SimpleApnsPushNotification>(iterations);
+
+		for (int i = 0; i < iterations; i++) {
+			notificationsToSend.add(this.createTestNotification());
+		}
+
+		this.getApnsServer().failWithErrorAfterNotifications(RejectedNotificationReason.PROCESSING_ERROR, iterations / 2);
+
+		this.getPushManager().start();
+
+		final CountDownLatch firstNotificationLatch = this.getApnsServer().getCountDownLatch(1);
+		this.getPushManager().getQueue().add(this.createTestNotification());
+		this.waitForLatch(firstNotificationLatch);
+
+		final CountDownLatch retryNotificationLatch = this.getApnsServer().getCountDownLatch(notificationsToSend.size());
+		this.getPushManager().getRetryQueue().addAll(notificationsToSend);
+		this.getPushManager().shutdown();
+
+		assertTrue(this.getPushManager().getRetryQueue().isEmpty());
+		this.waitForLatch(retryNotificationLatch);
 	}
 
 	@Test(expected = IllegalStateException.class)
@@ -416,6 +442,9 @@ public class PushManagerTest extends BasePushyTest {
 
 		testManager.start();
 		this.waitForLatch(latch);
-		testManager.shutdown();
+
+		// We want a really fast timeout here because our self-destructing thread won't actually close the connections
+		// we create at startup.
+		testManager.shutdown(1);
 	}
 }
