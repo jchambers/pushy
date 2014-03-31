@@ -133,7 +133,10 @@ public class PushManagerTest extends BasePushyTest {
 
 		synchronized (mutex) {
 			badCredentialManager.start();
-			mutex.wait();
+
+			while (listener.cause == null) {
+				mutex.wait();
+			}
 		}
 
 		badCredentialManager.shutdown();
