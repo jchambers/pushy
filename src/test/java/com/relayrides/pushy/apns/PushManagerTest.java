@@ -118,7 +118,7 @@ public class PushManagerTest extends BasePushyTest {
 	}
 
 	@Test
-	public void testRegisterFailedNotificationListener() throws Exception {
+	public void testRegisterFailedConnectionListener() throws Exception {
 
 		final PushManagerFactory<SimpleApnsPushNotification> factory =
 				new PushManagerFactory<SimpleApnsPushNotification>(
@@ -143,7 +143,7 @@ public class PushManagerTest extends BasePushyTest {
 	}
 
 	@Test
-	public void testUnregisterFailedNotificationListener() {
+	public void testUnregisterFailedConnectionListener() {
 		final TestFailedConnectionListener listener = new TestFailedConnectionListener(null);
 
 		this.getPushManager().registerFailedConnectionListener(listener);
