@@ -75,6 +75,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	private final String name;
 
 	private ChannelFuture connectFuture;
+	private boolean closeOnRegistration;
 
 	private int sequenceNumber = 0;
 
@@ -154,6 +155,18 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		}
 
 		@Override
+		public void channelRegistered(final ChannelHandlerContext context) throws Exception {
+			super.channelRegistered(context);
+
+			synchronized (this.apnsConnection.connectFuture) {
+				if (this.apnsConnection.closeOnRegistration) {
+					log.debug("Channel registered for {}, but shutting down immediately.", this.apnsConnection.name);
+					context.channel().eventLoop().execute(this.apnsConnection.getImmediateShutdownRunnable());
+				}
+			}
+		}
+
+		@Override
 		protected void channelRead0(final ChannelHandlerContext context, final RejectedNotification rejectedNotification) {
 			log.debug("APNs gateway rejected notification with sequence number {} from {} ({}).",
 					rejectedNotification.getSequenceNumber(), this.apnsConnection.name, rejectedNotification.getReason());
@@ -204,17 +217,21 @@ class ApnsConnection<T extends ApnsPushNotification> {
 		}
 
 		@Override
-		public void channelInactive(final ChannelHandlerContext context) {
+		public void channelInactive(final ChannelHandlerContext context) throws Exception {
+			super.channelInactive(context);
+
 			// Channel closure implies that the connection attempt had fully succeeded, so we only want to notify
 			// listeners if the handshake has completed. Otherwise, we'll notify listeners of a connection failure (as
 			// opposed to closure) elsewhere.
 			if (this.apnsConnection.hasCompletedHandshake()) {
-				this.apnsConnection.listener.handleConnectionClosure(apnsConnection);
+				this.apnsConnection.listener.handleConnectionClosure(this.apnsConnection);
 			}
 		}
 
 		@Override
-		public void channelWritabilityChanged(final ChannelHandlerContext context) {
+		public void channelWritabilityChanged(final ChannelHandlerContext context) throws Exception {
+			super.channelWritabilityChanged(context);
+
 			this.apnsConnection.listener.handleConnectionWritabilityChange(
 					this.apnsConnection, context.channel().isWritable());
 		}
@@ -499,10 +516,33 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	 * @see ApnsConnectionListener#handleConnectionClosure(ApnsConnection)
 	 */
 	public synchronized void shutdownImmediately() {
-		// TODO Make this cancel the connection attempt if it's still in progress
 		if (this.connectFuture != null) {
-			this.connectFuture.channel().close();
+			synchronized (this.connectFuture) {
+				if (this.connectFuture.channel().isRegistered()) {
+					this.connectFuture.channel().eventLoop().execute(this.getImmediateShutdownRunnable());
+				} else {
+					this.closeOnRegistration = true;
+				}
+			}
 		}
+	}
+
+	private Runnable getImmediateShutdownRunnable() {
+		final ApnsConnection<T> apnsConnection = this;
+
+		return new Runnable() {
+			public void run() {
+				final SslHandler sslHandler = apnsConnection.connectFuture.channel().pipeline().get(SslHandler.class);
+
+				if (apnsConnection.connectFuture.isCancellable()) {
+					apnsConnection.connectFuture.cancel(true);
+				} else if (sslHandler != null && sslHandler.handshakeFuture().isCancellable()) {
+					sslHandler.handshakeFuture().cancel(true);
+				} else {
+					apnsConnection.connectFuture.channel().close();
+				}
+			}
+		};
 	}
 
 	private boolean hasCompletedHandshake() {
