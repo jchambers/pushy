@@ -69,6 +69,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final Vector<FailedConnectionListener<? super T>> failedConnectionListeners;
 
 	private Thread dispatchThread;
+
 	private final NioEventLoopGroup eventLoopGroup;
 	private final boolean shouldShutDownEventLoopGroup;
 
@@ -76,7 +77,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final boolean shouldShutDownListenerExecutorService;
 
 	private boolean started = false;
-	private boolean shutDown = false;
+	private boolean shutDownStarted = false;
 	private boolean shutDownFinished = false;
 
 	private static final Logger log = LoggerFactory.getLogger(PushManager.class);
@@ -195,7 +196,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		return new Thread(new Runnable() {
 
 			public void run() {
-				while (!shutDown) {
+				while (!shutDownStarted) {
 					try {
 						final ApnsConnection<T> connection = writableConnectionPool.getNextConnection();
 
@@ -224,7 +225,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * otherwise
 	 */
 	public boolean isStarted() {
-		if (this.shutDown) {
+		if (this.isShutDown()) {
 			return false;
 		} else {
 			return this.started;
@@ -239,7 +240,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * {@code false} otherwise
 	 */
 	public boolean isShutDown() {
-		return this.shutDown;
+		return this.shutDownStarted;
 	}
 
 	/**
@@ -269,7 +270,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @throws IllegalStateException if this method is called before the push manager has been started
 	 */
 	public synchronized List<T> shutdown(long timeout) throws InterruptedException {
-		if (this.shutDown) {
+		if (this.isShutDown()) {
 			log.warn("Push manager has already been shut down; shutting down multiple times is harmless, but may "
 					+ "indicate a problem elsewhere.");
 		} else {
@@ -291,7 +292,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			throw new IllegalStateException("Push manager has not yet been started and cannot be shut down.");
 		}
 
-		this.shutDown = true;
+		this.shutDownStarted = true;
 
 		for (final ApnsConnection<T> connection : this.activeConnections) {
 			connection.shutdownGracefully();
@@ -337,7 +338,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @see PushManager#unregisterRejectedNotificationListener(RejectedNotificationListener)
 	 */
 	public void registerRejectedNotificationListener(final RejectedNotificationListener<? super T> listener) {
-		if (this.shutDown) {
+		if (this.isShutDown()) {
 			throw new IllegalStateException("Rejected notification listeners may not be registered after a push manager has been shut down.");
 		}
 
@@ -358,15 +359,15 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	/**
 	 * <p>Registers a listener for failed attempts to connect to the APNs gateway.</p>
-	 * 
+	 *
 	 * @param listener the listener to register
-	 * 
+	 *
 	 * @throws IllegalStateException if this push manager has already been shut down
-	 * 
+	 *
 	 * @see PushManager#unregisterFailedConnectionListener(FailedConnectionListener)
 	 */
 	public void registerFailedConnectionListener(final FailedConnectionListener<? super T> listener) {
-		if (this.shutDown) {
+		if (this.isShutDown()) {
 			throw new IllegalStateException("Failed connection listeners may not be registered after a push manager has been shut down.");
 		}
 
@@ -375,9 +376,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	/**
 	 * <p>Un-registers a connection failure listener.</p>
-	 * 
+	 *
 	 * @param listener the listener to un-register
-	 * 
+	 *
 	 * @return {@code true} if the given listener was registered with this push manager and removed or {@code false} if
 	 * the listener was not already registered with this push manager
 	 */
