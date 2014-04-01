@@ -75,6 +75,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	private final String name;
 
 	private ChannelFuture connectFuture;
+	private volatile boolean handshakeCompleted = false;
 	private boolean closeOnRegistration;
 
 	private int sequenceNumber = 0;
@@ -223,7 +224,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			// Channel closure implies that the connection attempt had fully succeeded, so we only want to notify
 			// listeners if the handshake has completed. Otherwise, we'll notify listeners of a connection failure (as
 			// opposed to closure) elsewhere.
-			if (this.apnsConnection.hasCompletedHandshake()) {
+			if (this.apnsConnection.handshakeCompleted) {
 				this.apnsConnection.listener.handleConnectionClosure(this.apnsConnection);
 			}
 		}
@@ -318,6 +319,8 @@ class ApnsConnection<T extends ApnsPushNotification> {
 							public void operationComplete(final Future<Channel> handshakeFuture) {
 								if (handshakeFuture.isSuccess()) {
 									log.debug("{} successfully completed TLS handshake.", apnsConnection.name);
+
+									apnsConnection.handshakeCompleted = true;
 									apnsConnection.listener.handleConnectionSuccess(apnsConnection);
 								} else {
 									log.debug("{} failed to complete TLS handshake with APNs gateway.",
@@ -355,7 +358,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	public synchronized void sendNotification(final T notification) {
 		final ApnsConnection<T> apnsConnection = this;
 
-		if (!this.hasCompletedHandshake()) {
+		if (!this.handshakeCompleted) {
 			throw new IllegalStateException(String.format("%s has not completed handshake.", this.name));
 		}
 
@@ -455,7 +458,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 		// We only need to send a known-bad notification if we were ever connected in the first place and if we're
 		// still connected.
-		if (this.hasCompletedHandshake() && this.connectFuture.channel().isActive()) {
+		if (this.handshakeCompleted && this.connectFuture.channel().isActive()) {
 
 			this.connectFuture.channel().eventLoop().execute(new Runnable() {
 
@@ -543,14 +546,5 @@ class ApnsConnection<T extends ApnsPushNotification> {
 				}
 			}
 		};
-	}
-
-	private boolean hasCompletedHandshake() {
-		if (this.connectFuture != null) {
-			final SslHandler sslHandler = this.connectFuture.channel().pipeline().get(SslHandler.class);
-			return sslHandler != null && sslHandler.handshakeFuture().isSuccess();
-		} else {
-			return false;
-		}
 	}
 }
