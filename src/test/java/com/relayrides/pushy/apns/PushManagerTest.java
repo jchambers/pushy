@@ -443,6 +443,9 @@ public class PushManagerTest extends BasePushyTest {
 
 		testManager.start();
 		this.waitForLatch(latch);
-		testManager.shutdown();
+
+		// Because the dispatch thread won't be doing its normal job of shutting down connections, we'll want to do a
+		// timed shutdown with a very short fuse.
+		testManager.shutdown(1);
 	}
 }
