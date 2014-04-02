@@ -76,7 +76,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final ExecutorService listenerExecutorService;
 	private final boolean shouldShutDownListenerExecutorService;
 
-	private boolean started = false;
 	private boolean shutDownStarted = false;
 	private boolean shutDownFinished = false;
 
@@ -183,7 +182,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		this.createAndStartDispatchThread();
-		this.started = true;
 	}
 
 	private void createAndStartDispatchThread() {
@@ -228,7 +226,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		if (this.isShutDown()) {
 			return false;
 		} else {
-			return this.started;
+			return this.dispatchThread != null;
 		}
 	}
 
@@ -505,10 +503,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.writableConnectionPool.addConnection(connection);
 		} else {
 			this.writableConnectionPool.removeConnection(connection);
-
-			if (this.dispatchThread != null) {
-				this.dispatchThread.interrupt();
-			}
+			this.dispatchThread.interrupt();
 		}
 	}
 
@@ -522,13 +517,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		this.writableConnectionPool.removeConnection(connection);
-
-		if (this.dispatchThread != null) {
-			this.dispatchThread.interrupt();
-		}
+		this.dispatchThread.interrupt();
 
 		this.listenerExecutorService.execute(new Runnable() {
-
 			public void run() {
 				try {
 					connection.waitForPendingOperationsToFinish();
@@ -546,10 +537,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public void handleWriteFailure(ApnsConnection<T> connection, T notification, Throwable cause) {
 		this.retryQueue.add(notification);
-
-		if (this.dispatchThread != null) {
-			this.dispatchThread.interrupt();
-		}
+		this.dispatchThread.interrupt();
 	}
 
 	/*
@@ -579,9 +567,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	public void handleUnprocessedNotifications(ApnsConnection<T> connection, Collection<T> unprocessedNotifications) {
 		this.retryQueue.addAll(unprocessedNotifications);
 
-		if (this.dispatchThread != null) {
-			this.dispatchThread.interrupt();
-		}
+		this.dispatchThread.interrupt();
 	}
 
 	private void startNewConnection() {
