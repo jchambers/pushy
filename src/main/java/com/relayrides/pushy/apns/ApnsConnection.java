@@ -547,4 +547,9 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			}
 		};
 	}
+
+	@Override
+	public String toString() {
+		return "ApnsConnection [name=" + name + "]";
+	}
 }
