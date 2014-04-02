@@ -206,10 +206,10 @@ public class PushManagerTest extends BasePushyTest {
 
 		for (int i = 0; i < iterations; i++) {
 			if (i == iterations / 2) {
-				this.getPushManager().getQueue().add(
+				notificationsToSend.add(
 						new SimpleApnsPushNotification(new byte[] {}, "This is a deliberately malformed notification."));
 			} else {
-				this.getPushManager().getQueue().add(this.createTestNotification());
+				notificationsToSend.add(this.createTestNotification());
 			}
 		}
 
@@ -219,7 +219,8 @@ public class PushManagerTest extends BasePushyTest {
 		this.getPushManager().getQueue().add(this.createTestNotification());
 		this.waitForLatch(firstNotificationLatch);
 
-		final CountDownLatch retryNotificationLatch = this.getApnsServer().getAcceptedNotificationCountDownLatch(notificationsToSend.size());
+		// We expect one less because one notification should be rejected
+		final CountDownLatch retryNotificationLatch = this.getApnsServer().getAcceptedNotificationCountDownLatch(notificationsToSend.size() - 1);
 		this.getPushManager().getRetryQueue().addAll(notificationsToSend);
 		this.getPushManager().shutdown();
 

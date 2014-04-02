@@ -468,11 +468,11 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	public void handleConnectionSuccess(final ApnsConnection<T> connection) {
 		log.trace("Connection succeeded: {}", connection);
 
-		if (this.isShutDown()) {
-			// We DON'T want to decrement the counter here; we'll do so when handleConnectionClosure fires later
-			connection.shutdownImmediately();
-		} else {
+		if (this.dispatchThreadShouldContinue) {
 			this.writableConnectionPool.addConnection(connection);
+		} else {
+			// There's no dispatch thread to use this connection, so shut it down immediately
+			connection.shutdownImmediately();
 		}
 	}
 
