@@ -323,8 +323,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			assert this.activeConnections.isEmpty();
 		}
 
-		for (final ApnsConnection<T> connection : this.activeConnections) {
-			connection.shutdownImmediately();
+		synchronized (this.activeConnections) {
+			for (final ApnsConnection<T> connection : this.activeConnections) {
+				connection.shutdownImmediately();
+			}
 		}
 
 		this.rejectedNotificationListeners.clear();
