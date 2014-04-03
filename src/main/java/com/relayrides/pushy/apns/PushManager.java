@@ -633,9 +633,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private void waitForAllConnectionsToFinish(final Date deadline) throws InterruptedException {
 		synchronized (this.activeConnections) {
-			while (!this.activeConnections.isEmpty() && !this.hasDeadlineExpired(deadline)) {
+			while (!this.activeConnections.isEmpty() && !PushManager.hasDeadlineExpired(deadline)) {
 				if (deadline != null) {
-					this.activeConnections.wait(this.getMillisToWaitForDeadline(deadline));
+					this.activeConnections.wait(PushManager.getMillisToWaitForDeadline(deadline));
 				} else {
 					this.activeConnections.wait();
 				}
@@ -643,11 +643,11 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 	}
 
-	private long getMillisToWaitForDeadline(final Date deadline) {
+	private static long getMillisToWaitForDeadline(final Date deadline) {
 		return Math.max(deadline.getTime() - System.currentTimeMillis(), 1);
 	}
 
-	private boolean hasDeadlineExpired(final Date deadline) {
+	private static boolean hasDeadlineExpired(final Date deadline) {
 		if (deadline != null) {
 			return System.currentTimeMillis() > deadline.getTime();
 		} else {
