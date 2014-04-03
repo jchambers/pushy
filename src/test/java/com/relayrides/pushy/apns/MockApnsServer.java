@@ -38,9 +38,9 @@ import io.netty.handler.codec.ReplayingDecoder;
 import io.netty.handler.ssl.SslHandler;
 
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Vector;
 import java.util.concurrent.CountDownLatch;
 
 import org.slf4j.Logger;
@@ -53,7 +53,7 @@ public class MockApnsServer {
 	private final int port;
 	private final NioEventLoopGroup eventLoopGroup;
 
-	private final Vector<CountDownLatch> countdownLatches = new Vector<CountDownLatch>();
+	private final ArrayList<CountDownLatch> countdownLatches = new ArrayList<CountDownLatch>();
 
 	private Channel channel;
 
@@ -270,15 +270,19 @@ public class MockApnsServer {
 	}
 
 	protected void acceptNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
-		for (final CountDownLatch latch : this.countdownLatches) {
-			latch.countDown();
+		synchronized (this.countdownLatches) {
+			for (final CountDownLatch latch : this.countdownLatches) {
+				latch.countDown();
+			}
 		}
 	}
 
 	public CountDownLatch getAcceptedNotificationCountDownLatch(final int acceptedNotificationCount) {
-		final CountDownLatch latch = new CountDownLatch(acceptedNotificationCount);
-		this.countdownLatches.add(latch);
+		synchronized (this.countdownLatches) {
+			final CountDownLatch latch = new CountDownLatch(acceptedNotificationCount);
+			this.countdownLatches.add(latch);
 
-		return latch;
+			return latch;
+		}
 	}
 }
