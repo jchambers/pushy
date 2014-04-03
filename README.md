@@ -1,5 +1,3 @@
-*Note: this README refers to the current development version of Pushy and may include information and examples that refer to changes that have not yet been released. For notes on the latest release, please visit the [project page](http://relayrides.github.io/pushy/).*
-
 # pushy
 
 Pushy is a Java library for sending [APNs](http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Introduction.html) (iOS and OS X) push notifications. It is written and maintained by the engineers at [RelayRides](https://relayrides.com/) and is built on the [Netty framework](http://netty.io/).
@@ -21,13 +19,13 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 <dependency>
     <groupId>com.relayrides</groupId>
     <artifactId>pushy</artifactId>
-    <version>0.2</version>
+    <version>0.3</version>
 </dependency>
 ```
 
-If you don't use Maven, you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.2/pushy-0.2.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
+If you don't use Maven, you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.3/pushy-0.3.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
-- [netty 4.0.17.Final](http://netty.io/)
+- [netty 4.0.18.Final](http://netty.io/)
 - [slf4j 1.7.6](http://www.slf4j.org/)
 - [json.simple 1.1.1](https://code.google.com/p/json-simple/)
 
@@ -50,7 +48,7 @@ final PushManager<SimpleApnsPushNotification> pushManager =
 pushManager.start();
 ```
 
-Once you have your `PushManager` constructed and started, you're ready to start constructing and sending push notifications. Pushy provides a number of utility classes for working with APNs tokens and payloads. Here's an example:
+Once you have your `PushManager` constructed and started, you're ready to start constructing and sending push notifications. Pushy provides utility classes for working with APNs tokens and payloads. Here's an example:
 
 ```java
 final byte[] token = TokenUtil.tokenStringToByteArray(
@@ -63,31 +61,35 @@ payloadBuilder.setSoundFileName("ring-ring.aiff");
 
 final String payload = payloadBuilder.buildWithDefaultMaximumLength();
 
-pushManager.getQueue().put(
-		new SimpleApnsPushNotification(token, payload));
+pushManager.getQueue().put(new SimpleApnsPushNotification(token, payload));
 ```
 
 When your application shuts down, make sure to shut down the `PushManager`, too:
 
 ```java
-List<SimpleApnsPushNotification> unsentNotifications = pushManager.shutdown();
+pushManager.shutdown();
 ```
 
-Note that there's no guarantee as to when a push notification will be sent after it's enqueued. Shutting down the `PushManager` returns a list of notifications still in the outbound queue so you'll know what hasn't been transmitted to the APNs gateway by the time the `PushManager` has been shut down.
+When the `PushManager` takes a notification from the queue, it will keep trying to send that notification. By the time you shut down the `PushManager` (as long as you don't give the shutdown process a timeout), the notification is guaranteed to have either been accepted or rejected by the APNs gateway.
 
 ## Error handling
+
+Pushy deals with most problems for you, but there are two classes of problems you may want to deal with on your own.
+
+### Rejected notifications
 
 Push notification providers communicate with APNs by opening a long-lived connection to Apple's push notification gateway and streaming push notification through that connection. Apple's gateway won't respond or acknowledge push notifications unless something goes wrong, in which case it will send an error code and close the connection (don't worry -- Pushy deals with all of this for you). To deal with notifications that are rejected by APNs, Pushy provides a notion of a [`RejectedNotificationListener`](http://relayrides.github.io/pushy/apidocs/0.2/com/relayrides/pushy/apns/RejectedNotificationListener.html). Rejected notification listeners are informed whenever APNs rejects a push notification. Here's an example of registering a simple listener:
 
 ```java
-public class MyRejectedNotificationListener implements RejectedNotificationListener<SimpleApnsPushNotification> {
+private class MyRejectedNotificationListener implements RejectedNotificationListener<SimpleApnsPushNotification> {
 
-    public void handleRejectedNotification(
-        SimpleApnsPushNotification notification, RejectedNotificationReason reason) {
+	public void handleRejectedNotification(
+			final PushManager<? extends SimpleApnsPushNotification> pushManager,
+			final SimpleApnsPushNotification notification,
+			final RejectedNotificationReason reason) {
 
-        System.out.format("%s was rejected with rejection reason %s\n", notification, reason);
-    }
-
+		System.out.format("%s was rejected with rejection reason %s\n", notification, reason);
+	}
 }
 
 // ...
@@ -95,7 +97,36 @@ public class MyRejectedNotificationListener implements RejectedNotificationListe
 pushManager.registerRejectedNotificationListener(new MyRejectedNotificationListener());
 ```
 
-Lots of things can go wrong when sending notifications, but rejected notification listeners are only informed when Apple definitively rejects a push notification. All other IO problems are treated as temporary issues, and Pushy will automatically re-transmit notifications affected by IO problems later.
+Lots of things can go wrong when sending notifications, but rejected notification listeners are only informed when Apple definitively rejects a push notification. All other IO problems are treated as temporary issues, and Pushy will automatically re-transmit notifications affected by IO problems later. You may register a rejected notification listener at any time before shutting down the `PushManager`.
+
+### Failed connections
+
+While running, a `PushManager` will attempt to re-open any connection that is closed by the gateway (i.e. if a notification was rejected). Occasionally, connection attempts will fail for benign (or at least temporary) reasons. Sometimes, though, connection failures can indicate a more permanent problem (like an expired certificate) that won't be resolved by retrying the connection, and letting the `PushManager` try to reconnect indefinitely won't help the situation.
+
+You can listen for connection failures with a [`FailedConnectionListener`](http://relayrides.github.io/pushy/apidocs/0.2/com/relayrides/pushy/apns/FailedConnectionListener.html) like this:
+
+```java
+private class MyFailedConnectionListener implements FailedConnectionListener<SimpleApnsPushNotification> {
+
+	public void handleFailedConnection(
+			final PushManager<? extends SimpleApnsPushNotification> pushManager,
+			final Throwable cause) {
+
+		if (cause instanceof SSLHandshakeException) {
+			// This is probably a permanent failure, and we should shut down
+			// the PushManager.
+		}
+	}
+}
+
+// ...
+
+pushManager.registerFailedConnectionListener(new MyFailedConnectionListener());
+```
+
+Generally, it's safe to ignore most failures (though you may want to log them). Failures that result from a `SSLHandshakeException`, though, likely indicate that your certificate is either invalid or expired, and you'll need to remedy the situation before reconnection attempts are likely to succeed.
+
+Like `RejectedNotificationListeners`, `FailedConnectionListeners` can be registered any time before the `PushManager` is shut down.
 
 ## The feedback service
 
@@ -144,4 +175,4 @@ Although we make every effort to fix bugs and work around issues outside of our 
 
 Pushy is available to the public under the [MIT License](http://opensource.org/licenses/MIT).
 
-The current version of Pushy is 0.2. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
+The current version of Pushy is 0.3. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
