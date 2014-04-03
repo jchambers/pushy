@@ -23,9 +23,6 @@ package com.relayrides.pushy.apns;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * <p>A group of connections to an APNs gateway. An `ApnsConnectionPool` rotates through the connections in the pool,
@@ -36,24 +33,9 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 class ApnsConnectionPool<T extends ApnsPushNotification> {
 
-	private final ArrayList<ApnsConnection<T>> connections;
-
-	private final Lock lock;
-	private final Condition connectionAvailable;
-	private final Condition poolEmpty;
+	private final ArrayList<ApnsConnection<T>> connections = new ArrayList<ApnsConnection<T>>();
 
 	private int connectionIndex = 0;
-
-	/**
-	 * Constructs a new, empty connection pool.
-	 */
-	public ApnsConnectionPool() {
-		this.connections = new ArrayList<ApnsConnection<T>>();
-
-		this.lock = new ReentrantLock();
-		this.connectionAvailable = this.lock.newCondition();
-		this.poolEmpty = this.lock.newCondition();
-	}
 
 	/**
 	 * Adds a connection to the pool.
@@ -61,13 +43,9 @@ class ApnsConnectionPool<T extends ApnsPushNotification> {
 	 * @param connection the connection to add to the pool
 	 */
 	public void addConnection(final ApnsConnection<T> connection) {
-		this.lock.lock();
-
-		try {
+		synchronized (this.connections) {
 			this.connections.add(connection);
-			this.connectionAvailable.signalAll();
-		} finally {
-			this.lock.unlock();
+			this.connections.notifyAll();
 		}
 	}
 
@@ -77,16 +55,8 @@ class ApnsConnectionPool<T extends ApnsPushNotification> {
 	 * @param connection the connection to remove from the pool.
 	 */
 	public void removeConnection(final ApnsConnection<T> connection) {
-		this.lock.lock();
-
-		try {
+		synchronized (this.connections) {
 			this.connections.remove(connection);
-
-			if (this.connections.isEmpty()) {
-				this.poolEmpty.signalAll();
-			}
-		} finally {
-			this.lock.unlock();
 		}
 	}
 
@@ -100,16 +70,12 @@ class ApnsConnectionPool<T extends ApnsPushNotification> {
 	 * @throws InterruptedException if interrupted while waiting for a connection to become available
 	 */
 	public ApnsConnection<T> getNextConnection() throws InterruptedException {
-		this.lock.lock();
-
-		try {
+		synchronized (this.connections) {
 			while (this.connections.isEmpty()) {
-				this.connectionAvailable.await();
+				this.connections.wait();
 			}
 
 			return this.connections.get(Math.abs(this.connectionIndex++ % this.connections.size()));
-		} finally {
-			this.lock.unlock();
 		}
 	}
 
@@ -118,13 +84,9 @@ class ApnsConnectionPool<T extends ApnsPushNotification> {
 	 *
 	 * @return a collection of all connections in this pool
 	 */
-	public Collection<ApnsConnection<T>> getAll() {
-		this.lock.lock();
-
-		try {
+	protected Collection<ApnsConnection<T>> getAll() {
+		synchronized (this.connections) {
 			return new ArrayList<ApnsConnection<T>>(this.connections);
-		} finally {
-			this.lock.unlock();
 		}
 	}
 }
