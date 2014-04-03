@@ -23,6 +23,7 @@ package com.relayrides.pushy.apns;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import io.netty.channel.nio.NioEventLoopGroup;
 
@@ -34,7 +35,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLHandshakeException;
 
 import org.junit.Test;
 
@@ -142,7 +142,7 @@ public class PushManagerTest extends BasePushyTest {
 		badCredentialManager.shutdown();
 
 		assertEquals(badCredentialManager, listener.pushManager);
-		assertTrue(listener.cause instanceof SSLHandshakeException);
+		assertNotNull(listener.cause);
 	}
 
 	@Test
