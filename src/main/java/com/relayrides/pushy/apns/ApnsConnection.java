@@ -166,9 +166,12 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 			out.writeInt(expiration);
 
+			final DeliveryPriority priority = sendablePushNotification.getPushNotification().getPriority() != null ?
+					sendablePushNotification.getPushNotification().getPriority() : DeliveryPriority.IMMEDIATE;
+
 			out.writeByte(ApnsFrameItem.PRIORITY.getCode());
 			out.writeShort(PRIORITY_SIZE);
-			out.writeByte(sendablePushNotification.getPushNotification().getPriority().getCode());
+			out.writeByte(priority.getCode());
 		}
 
 		private int getTimestampInSeconds(final Date date) {
@@ -415,7 +418,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 					public void operationComplete(final ChannelFuture writeFuture) {
 						if (writeFuture.isSuccess()) {
 							log.trace("{} successfully wrote notification {}", apnsConnection.name,
-								sendableNotification.getSequenceNumber());
+									sendableNotification.getSequenceNumber());
 
 							if (apnsConnection.rejectionReceived) {
 								// Even though the write succeeded, we know for sure that this notification was never
@@ -427,7 +430,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 							}
 						} else {
 							log.trace("{} failed to write notification {}",
-								apnsConnection.name, sendableNotification, writeFuture.cause());
+									apnsConnection.name, sendableNotification, writeFuture.cause());
 
 							// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
 							// even manage to write the notification to the wire) and re-enqueue for another send attempt.
@@ -516,10 +519,10 @@ class ApnsConnection<T extends ApnsPushNotification> {
 							public void operationComplete(final ChannelFuture future) {
 								if (future.isSuccess()) {
 									log.trace("{} successfully wrote known-bad notification {}",
-										apnsConnection.name, apnsConnection.shutdownNotification.getSequenceNumber());
+											apnsConnection.name, apnsConnection.shutdownNotification.getSequenceNumber());
 								} else {
 									log.trace("{} failed to write known-bad notification {}",
-										apnsConnection.name, apnsConnection.shutdownNotification, future.cause());
+											apnsConnection.name, apnsConnection.shutdownNotification, future.cause());
 
 									// Try again!
 									apnsConnection.shutdownNotification = null;

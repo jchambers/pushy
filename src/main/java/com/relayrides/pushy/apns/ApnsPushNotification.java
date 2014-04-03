@@ -67,7 +67,8 @@ public interface ApnsPushNotification {
 	Date getDeliveryInvalidationTime();
 
 	/**
-	 * Returns the priority with which this push notification should be sent to the receiving device.
+	 * Returns the priority with which this push notification should be sent to the receiving device. If {@code null},
+	 * an immediate delivery priority is assumed.
 	 * 
 	 * @return the priority with which this push notification should be sent to the receiving device
 	 * 
