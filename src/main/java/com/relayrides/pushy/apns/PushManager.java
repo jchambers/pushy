@@ -293,8 +293,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		this.shutDown = true;
 
-		for (final ApnsConnection<T> connection : this.activeConnections) {
-			connection.shutdownGracefully();
+		synchronized (this.activeConnections) {
+			for (final ApnsConnection<T> connection : this.activeConnections) {
+				connection.shutdownGracefully();
+			}
 		}
 
 		final Date deadline = timeout > 0 ? new Date(System.currentTimeMillis() + timeout) : null;
