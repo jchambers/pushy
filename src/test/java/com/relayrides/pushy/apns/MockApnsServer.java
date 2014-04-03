@@ -43,6 +43,9 @@ import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.CountDownLatch;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class MockApnsServer {
@@ -56,6 +59,8 @@ public class MockApnsServer {
 
 	public static final int EXPECTED_TOKEN_SIZE = 32;
 	public static final int MAX_PAYLOAD_SIZE = 256;
+
+	private static final Logger log = LoggerFactory.getLogger(MockApnsServer.class);
 
 	private class ApnsDecoderException extends Exception {
 		private static final long serialVersionUID = 1L;
@@ -221,6 +226,7 @@ public class MockApnsServer {
 					context.writeAndFlush(rejectedNotification).addListener(ChannelFutureListener.CLOSE);
 				}
 			} else {
+				log.warn("Caught an unexpected exception; closing connection.", cause);
 				context.close();
 			}
 		}
