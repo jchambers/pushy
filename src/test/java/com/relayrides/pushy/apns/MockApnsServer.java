@@ -38,10 +38,13 @@ import io.netty.handler.codec.ReplayingDecoder;
 import io.netty.handler.ssl.SslHandler;
 
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Vector;
 import java.util.concurrent.CountDownLatch;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
@@ -50,12 +53,14 @@ public class MockApnsServer {
 	private final int port;
 	private final NioEventLoopGroup eventLoopGroup;
 
-	private final Vector<CountDownLatch> countdownLatches = new Vector<CountDownLatch>();
+	private final ArrayList<CountDownLatch> countdownLatches = new ArrayList<CountDownLatch>();
 
 	private Channel channel;
 
 	public static final int EXPECTED_TOKEN_SIZE = 32;
 	public static final int MAX_PAYLOAD_SIZE = 256;
+
+	private static final Logger log = LoggerFactory.getLogger(MockApnsServer.class);
 
 	private class ApnsDecoderException extends Exception {
 		private static final long serialVersionUID = 1L;
@@ -221,6 +226,7 @@ public class MockApnsServer {
 					context.writeAndFlush(rejectedNotification).addListener(ChannelFutureListener.CLOSE);
 				}
 			} else {
+				log.warn("Caught an unexpected exception; closing connection.", cause);
 				context.close();
 			}
 		}
@@ -264,15 +270,19 @@ public class MockApnsServer {
 	}
 
 	protected void acceptNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
-		for (final CountDownLatch latch : this.countdownLatches) {
-			latch.countDown();
+		synchronized (this.countdownLatches) {
+			for (final CountDownLatch latch : this.countdownLatches) {
+				latch.countDown();
+			}
 		}
 	}
 
 	public CountDownLatch getAcceptedNotificationCountDownLatch(final int acceptedNotificationCount) {
-		final CountDownLatch latch = new CountDownLatch(acceptedNotificationCount);
-		this.countdownLatches.add(latch);
+		synchronized (this.countdownLatches) {
+			final CountDownLatch latch = new CountDownLatch(acceptedNotificationCount);
+			this.countdownLatches.add(latch);
 
-		return latch;
+			return latch;
+		}
 	}
 }

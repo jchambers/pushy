@@ -27,6 +27,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import io.netty.channel.nio.NioEventLoopGroup;
 
+import java.util.ArrayList;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -92,10 +93,10 @@ public class PushManagerTest extends BasePushyTest {
 
 		for (int i = 0; i < iterations; i++) {
 			if (i == iterations / 2) {
-				this.getPushManager().getQueue().put(
+				this.getPushManager().getQueue().add(
 						new SimpleApnsPushNotification(new byte[] {}, "This is a deliberately malformed notification."));
 			} else {
-				this.getPushManager().getQueue().put(notification);
+				this.getPushManager().getQueue().add(notification);
 			}
 		}
 
@@ -196,6 +197,35 @@ public class PushManagerTest extends BasePushyTest {
 
 			listenerExecutorService.shutdown();
 		}
+	}
+
+	@Test
+	public void testDrainBeforeShutdown() throws InterruptedException {
+		final int iterations = 1000;
+		final ArrayList<SimpleApnsPushNotification> notificationsToSend = new ArrayList<SimpleApnsPushNotification>(iterations);
+
+		for (int i = 0; i < iterations; i++) {
+			if (i == iterations / 2) {
+				notificationsToSend.add(
+						new SimpleApnsPushNotification(new byte[] {}, "This is a deliberately malformed notification."));
+			} else {
+				notificationsToSend.add(this.createTestNotification());
+			}
+		}
+
+		this.getPushManager().start();
+
+		final CountDownLatch firstNotificationLatch = this.getApnsServer().getAcceptedNotificationCountDownLatch(1);
+		this.getPushManager().getQueue().add(this.createTestNotification());
+		this.waitForLatch(firstNotificationLatch);
+
+		// We expect one less because one notification should be rejected
+		final CountDownLatch retryNotificationLatch = this.getApnsServer().getAcceptedNotificationCountDownLatch(notificationsToSend.size() - 1);
+		this.getPushManager().getRetryQueue().addAll(notificationsToSend);
+		this.getPushManager().shutdown();
+
+		assertTrue(this.getPushManager().getRetryQueue().isEmpty());
+		this.waitForLatch(retryNotificationLatch);
 	}
 
 	@Test(expected = IllegalStateException.class)
@@ -306,7 +336,7 @@ public class PushManagerTest extends BasePushyTest {
 
 		for (int i = 0; i < iterations; i++) {
 			if (i == iterations / 2) {
-				this.getPushManager().getQueue().put(
+				this.getPushManager().getQueue().add(
 						new SimpleApnsPushNotification(new byte[] {}, "This is a deliberately malformed notification."));
 			} else {
 				this.getPushManager().getQueue().add(this.createTestNotification());
@@ -358,7 +388,7 @@ public class PushManagerTest extends BasePushyTest {
 
 		for (int i = 0; i < iterations; i++) {
 			if (i == iterations / 2) {
-				parallelPushManager.getQueue().put(
+				parallelPushManager.getQueue().add(
 						new SimpleApnsPushNotification(new byte[] {}, "This is a deliberately malformed notification."));
 			} else {
 				parallelPushManager.getQueue().add(this.createTestNotification());
@@ -413,6 +443,9 @@ public class PushManagerTest extends BasePushyTest {
 
 		testManager.start();
 		this.waitForLatch(latch);
-		testManager.shutdown();
+
+		// Because the dispatch thread won't be doing its normal job of shutting down connections, we'll want to do a
+		// timed shutdown with a very short fuse.
+		testManager.shutdown(1);
 	}
 }

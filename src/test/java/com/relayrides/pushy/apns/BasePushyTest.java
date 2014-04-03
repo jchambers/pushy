@@ -24,12 +24,6 @@ package com.relayrides.pushy.apns;
 import static org.junit.Assert.fail;
 import io.netty.channel.nio.NioEventLoopGroup;
 
-import java.io.IOException;
-import java.security.KeyManagementException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.UnrecoverableKeyException;
-import java.security.cert.CertificateException;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -65,7 +59,7 @@ public abstract class BasePushyTest {
 	}
 
 	@Before
-	public void setUp() throws InterruptedException, UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException {
+	public void setUp() throws Exception {
 
 		this.apnsServer = new MockApnsServer(TEST_ENVIRONMENT.getApnsGatewayPort(), BasePushyTest.eventLoopGroup);
 		this.apnsServer.start();
