@@ -142,7 +142,8 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	 * default), constructed push managers will construct their own queues.</p>
 	 *
 	 * @param queue the queue to be used to pass new notifications to constructed push managers
-	 * @return
+	 * 
+	 * @return a reference to this factory for ease of chaining configuration calls
 	 */
 	public PushManagerFactory<T> setQueue(final BlockingQueue<T> queue) {
 		this.queue = queue;

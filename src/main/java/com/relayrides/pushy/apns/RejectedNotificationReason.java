@@ -42,12 +42,10 @@ public enum RejectedNotificationReason {
 	 * <p>Indicates that the notification was accepted, but the connection is being shut down for maintenance.
 	 * According to Apple's documentation:</p>
 	 * 
-	 * <blockquote>A status code of 10 indicates that the APNs server closed the
-	 * connection (for example, to perform maintenance). The notification
-	 * identifier in the error response indicates the last notification that was
-	 * successfully sent. Any notifications you sent after it have been
-	 * discarded and must be resent. When you receive this status code, stop
-	 * using this connection and open a new connection.</blockquote>
+	 * <blockquote>A status code of 10 indicates that the APNs server closed the connection (for example, to perform
+	 * maintenance). The notification identifier in the error response indicates the last notification that was
+	 * successfully sent. Any notifications you sent after it have been discarded and must be resent. When you receive
+	 * this status code, stop using this connection and open a new connection.</blockquote>
 	 */
 	SHUTDOWN((byte)10),
 

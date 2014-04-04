@@ -54,14 +54,14 @@ import org.slf4j.LoggerFactory;
  * <p>A client that communicates with the APNs feedback to retrieve expired device tokens. According to Apple's
  * documentation:</p>
  *
- * <blockquote>The Apple Push Notification Service includes a feedback service to give you information about failed
+ * <blockquote><p>The Apple Push Notification Service includes a feedback service to give you information about failed
  * push notifications. When a push notification cannot be delivered because the intended app does not exist on the
  * device, the feedback service adds that device's token to its list. Push notifications that expire before being
- * delivered are not considered a failed delivery and don't impact the feedback service...</blockquote>
+ * delivered are not considered a failed delivery and don't impact the feedback service...</p>
  *
- * <blockquote>Query the feedback service daily to get the list of device tokens. Use the timestamp to verify that the
- * device tokens haven't been reregistered since the feedback entry was generated. For each device that has not been
- * reregistered, stop sending notifications.</blockquote>
+ * <p>Query the feedback service daily to get the list of device tokens. Use the timestamp to verify that the device
+ * tokens haven't been reregistered since the feedback entry was generated. For each device that has not been
+ * reregistered, stop sending notifications.</p></blockquote>
  *
  * <p>Generally, users of Pushy should <em>not</em> instantiate a {@code FeedbackServiceClient} directly, but should
  * instead call {@link com.relayrides.pushy.apns.PushManager#getExpiredTokens()}, which will manage the creation
