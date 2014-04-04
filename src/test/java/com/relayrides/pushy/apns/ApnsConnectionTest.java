@@ -33,18 +33,15 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		private Throwable connectionFailureCause;
 
-		private final ArrayList<SimpleApnsPushNotification> writeFailures;
+		private final ArrayList<SimpleApnsPushNotification> writeFailures = new ArrayList<SimpleApnsPushNotification>();
 
 		private SimpleApnsPushNotification rejectedNotification;
 		private RejectedNotificationReason rejectionReason;
 
-		private ArrayList<SimpleApnsPushNotification> unprocessedNotifications;
+		private final ArrayList<SimpleApnsPushNotification> unprocessedNotifications = new ArrayList<SimpleApnsPushNotification>();
 
 		public TestListener(final Object mutex) {
 			this.mutex = mutex;
-
-			this.writeFailures = new ArrayList<SimpleApnsPushNotification>();
-			this.unprocessedNotifications = new ArrayList<SimpleApnsPushNotification>();
 		}
 
 		public void handleConnectionSuccess(final ApnsConnection<SimpleApnsPushNotification> connection) {
