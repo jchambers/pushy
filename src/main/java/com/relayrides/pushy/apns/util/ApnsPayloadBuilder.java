@@ -1,15 +1,15 @@
 /* Copyright (c) 2013 RelayRides
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -29,10 +29,11 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 /**
- * <p>A utility class for constructing JSON payloads suitable for inclusion in APNs push notifications.</p>
- * 
+ * <p>A utility class for constructing JSON payloads suitable for inclusion in APNs push notifications. Payload builders
+ * are reusable, but are <em>not</em> thread-safe.</p>
+ *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
- * 
+ *
  * @see <a href="http://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html#//apple_ref/doc/uid/TP40008194-CH100-SW1">
  * Local and Push Notification Programming Guide - Apple Push Notification Service - The Notification Payload</a>
  */
@@ -66,7 +67,7 @@ public class ApnsPayloadBuilder {
 
 	/**
 	 * The name of the iOS default push notification sound ({@value DEFAULT_SOUND_FILENAME}).
-	 * 
+	 *
 	 * @see com.relayrides.pushy.apns.util.ApnsPayloadBuilder#setSoundFileName(String)
 	 */
 	public static final String DEFAULT_SOUND_FILENAME = "default";
@@ -80,11 +81,11 @@ public class ApnsPayloadBuilder {
 	/**
 	 * <p>Sets the literal text of the alert message to be shown for the push notification. A literal alert message may
 	 * not be set if a localized alert message key is already specified.</p>
-	 * 
+	 *
 	 * <p>By default, no message is shown.</p>
-	 * 
+	 *
 	 * @param alertBody the literal message to be shown for this push notification
-	 * 
+	 *
 	 * @see ApnsPayloadBuilder#setLocalizedAlertMessage(String, String[])
 	 */
 	public ApnsPayloadBuilder setAlertBody(final String alertBody) {
@@ -101,9 +102,9 @@ public class ApnsPayloadBuilder {
 	 * <p>Sets the key of a message in the receiving app's localized string list to be shown for the push notification.
 	 * The message in the app's string list may optionally have placeholders, which will be populated by values from the
 	 * given {@code alertArguments}.</p>
-	 * 
+	 *
 	 * <p>By default, no message is shown.</p>
-	 * 
+	 *
 	 * @param localizedAlertKey a key to a string in the receiving app's localized string list
 	 * @param alertArguments arguments to populate placeholders in the localized alert string; may be {@code null}
 	 */
@@ -125,13 +126,13 @@ public class ApnsPayloadBuilder {
 	/**
 	 * <p>Sets the image to be shown when the receiving app launches in response to this push notification. According
 	 * to Apple's documentation, this should be:</p>
-	 * 
+	 *
 	 * <blockquote>The filename of an image file in the application bundle; it may include the extension or omit it.
 	 * The image is used as the launch image when users tap the action button or move the action slider. If this
 	 * property is not specified, the system either uses the previous snapshot, uses the image identified by the
 	 * {@code UILaunchImageFile} key in the application’s {@code Info.plist} file, or falls back to
 	 * {@code Default.png}.</blockquote>
-	 * 
+	 *
 	 * @param launchImageFilename the filename of an image file in the receiving app's bundle to be shown when launching
 	 * the app from the push notification
 	 */
@@ -145,9 +146,9 @@ public class ApnsPayloadBuilder {
 	 * If {@code true} and no localized action button key is set, the default label (defined by the receiving operating
 	 * system) is used. If @{code true} and a localized action button key is set, the string for that key is used as
 	 * the label of the action button. If {@code false}, no action button is shown under any circumstances</p>
-	 * 
+	 *
 	 * <p>By default, an action button will be shown.</p>
-	 * 
+	 *
 	 * @param showActionButton {@code true} to show an action button when the push notification is presented as an
 	 * alert or {@code false} to show an alert with no action button
 	 */
@@ -160,7 +161,7 @@ public class ApnsPayloadBuilder {
 	 * <p>Sets the key of a string in the receiving app's localized string list to be used as the label of the
 	 * &quot;action&quot; button if the push notification is displayed as an alert. By default, the OS-default label
 	 * will be used for the action button.</p>
-	 * 
+	 *
 	 * @param localizedActionButtonKey a key to a string in the receiving app's localized string list
 	 */
 	public ApnsPayloadBuilder setLocalizedActionButtonKey(final String localizedActionButtonKey) {
@@ -172,7 +173,7 @@ public class ApnsPayloadBuilder {
 	 * <p>Sets the number to display as the badge of the icon of the application that receives the push notification.
 	 * If the badge number is 0, the badge is removed from the application icon. If {@code null}, the badge is left in
 	 * its current state. By default, no change is made to the badge.</p>
-	 * 
+	 *
 	 * @param badgeNumber the number to display as the badge of application or {@code null} to leave the badge unchanged
 	 */
 	public ApnsPayloadBuilder setBadgeNumber(final Integer badgeNumber) {
@@ -183,15 +184,15 @@ public class ApnsPayloadBuilder {
 	/**
 	 * <p>Sets the name of the sound file to play when the push notification is received. According to Apple's
 	 * documentation, the value here should be:</p>
-	 * 
+	 *
 	 * <blockquote>...the name of a sound file in the application bundle. The sound in this file is played as an alert.
 	 * If the sound file doesn't exist or {@code default} is specified as the value, the default alert sound is
 	 * played.</blockquote>
-	 * 
+	 *
 	 * <p>By default, no sound is included in the push notification.</p>
-	 * 
+	 *
 	 * @param soundFileName the name of the sound file to play, or {@code null} to send no sound
-	 * 
+	 *
 	 * @see com.relayrides.pushy.apns.util.ApnsPayloadBuilder#DEFAULT_SOUND_FILENAME
 	 */
 	public ApnsPayloadBuilder setSoundFileName(final String soundFileName) {
@@ -219,9 +220,9 @@ public class ApnsPayloadBuilder {
 	/**
 	 * <p>Adds a custom property to the payload. Values are mapped to JSON types according to the mapping table at
 	 * <a href="https://code.google.com/p/json-simple/">https://code.google.com/p/json-simple/</a>.</p>
-	 * 
+	 *
 	 * <p>According to Apple's documentation:</p>
-	 * 
+	 *
 	 * <blockquote>Providers can specify custom payload values outside the Apple-reserved {@code aps} namespace. Custom
 	 * values must use the JSON structured and primitive types: dictionary (object), array, string, number, and Boolean.
 	 * You should not include customer information (or any sensitive data) as custom payload data. Instead, use it for
@@ -229,7 +230,7 @@ public class ApnsPayloadBuilder {
 	 * value might be a conversation identifier for use by an instant-message client application or a timestamp
 	 * identifying when the provider sent the notification. Any action associated with an alert message should not be
 	 * destructive—for example, it should not delete data on the device.</blockquote>
-	 * 
+	 *
 	 * @param key the key of the custom property in the payload object
 	 * @param value the value of the custom property
 	 */
@@ -242,7 +243,7 @@ public class ApnsPayloadBuilder {
 	 * <p>Returns a JSON representation of the push notification payload under construction. If the payload length is
 	 * longer than the default maximum (256 bytes), the literal alert body will be shortened if possible. If the alert
 	 * body cannot be shortened or is not present, an {@code IllegalArgumentException} is thrown.</p>
-	 * 
+	 *
 	 * @return a JSON representation of the payload under construction (possibly with an abbreviated alert body)
 	 */
 	public String buildWithDefaultMaximumLength() {
@@ -253,9 +254,9 @@ public class ApnsPayloadBuilder {
 	 * <p>Returns a JSON representation of the push notification payload under construction. If the payload length is
 	 * longer than the given maximum, the literal alert body will be shortened if possible. If the alert body cannot be
 	 * shortened or is not present, an {@code IllegalArgumentException} is thrown.</p>
-	 * 
+	 *
 	 * @param maximumPayloadLength the maximum length of the payload in bytes
-	 * 
+	 *
 	 * @return a JSON representation of the payload under construction (possibly with an abbreviated alert body)
 	 */
 	@SuppressWarnings("unchecked")
@@ -407,7 +408,7 @@ public class ApnsPayloadBuilder {
 
 	/**
 	 * Checks whether the notification under construction has content that warrants an {@code alert} section.
-	 * 
+	 *
 	 * @return {@code true} if this notification should have an {@code alert} section or {@code false} otherwise
 	 */
 	private boolean hasAlertContent() {
@@ -421,11 +422,11 @@ public class ApnsPayloadBuilder {
 	/**
 	 * <p>Checks whether the alert message for the push notification should be represented as a string or a
 	 * dictionary. According to Apple's documentation:</p>
-	 * 
+	 *
 	 * <blockquote>If you want the device to display the message text as-is in an alert that has both the Close and
 	 * View buttons, then specify a string as the direct value of {@code alert}. Don't specify a dictionary as the
 	 * value of {@code alert} if the dictionary only has the {@code body} property.</blockquote>
-	 * 
+	 *
 	 * @return {@code true} if the alert message (if present) should be represented as a string or {@code false} if it
 	 * should be represented as a dictionary
 	 */

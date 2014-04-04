@@ -43,16 +43,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * <p>A {@code PushManager} is the main public-facing point of interaction with APNs. Push managers manage connections
- * to the APNs gateway and send notifications from their queue as quickly as possible. Push managers should always be
- * created using the {@link PushManagerFactory} class.</p>
+ * <p>Push managers manage connections to the APNs gateway and send notifications from their queue. Push managers
+ * should always be created using the {@link PushManagerFactory} class. Push managers are the main public-facing point
+ * of interaction with Pushy.</p>
  *
- * <h2>Queues<h2>
+ * <h2>Queues</h2>
  *
  * <p>A push manager has two queues: the public queue through which callers add notifications to be sent, and a private,
- * internal "retry queue." Callers send push notifications by adding them to the push manager's public queue (see
- * {@link PushManager#getQueue()}). The push manager will take and notifications from the public queue as quickly as it
- * is able to do so, and will never put notifications back in the public queue. Callers are free to manipulate the
+ * internal &quot;retry queue.&quot; Callers send push notifications by adding them to the push manager's public queue
+ * (see {@link PushManager#getQueue()}). The push manager will take and notifications from the public queue as quickly
+ * as it is able to do so, and will never put notifications back in the public queue. Callers are free to manipulate the
  * public queue however they see fit.</p>
  *
  * <p>If, for any reason other than a permanent rejection, a notification could not be delivered, it will be returned to
