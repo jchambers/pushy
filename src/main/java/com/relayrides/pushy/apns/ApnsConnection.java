@@ -94,6 +94,34 @@ class ApnsConnection<T extends ApnsPushNotification> {
 
 	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
 
+	protected enum ApnsFrameItem {
+		DEVICE_TOKEN((byte)1),
+		PAYLOAD((byte)2),
+		SEQUENCE_NUMBER((byte)3),
+		EXPIRATION((byte)4),
+		PRIORITY((byte)5);
+
+		private final byte code;
+
+		private ApnsFrameItem(final byte code) {
+			this.code = code;
+		}
+
+		protected byte getCode() {
+			return this.code;
+		}
+
+		protected static ApnsFrameItem getFrameItemFromCode(final byte code) {
+			for (final ApnsFrameItem item : ApnsFrameItem.values()) {
+				if (item.getCode() == code) {
+					return item;
+				}
+			}
+
+			throw new IllegalArgumentException(String.format("No frame item found with code %d", code));
+		}
+	}
+
 	private class RejectedNotificationDecoder extends ByteToMessageDecoder {
 
 		// Per Apple's docs, APNS errors will have a one-byte "command", a one-byte status, and a 4-byte notification ID
@@ -169,9 +197,9 @@ class ApnsConnection<T extends ApnsPushNotification> {
 			final DeliveryPriority priority = sendablePushNotification.getPushNotification().getPriority() != null ?
 					sendablePushNotification.getPushNotification().getPriority() : DeliveryPriority.IMMEDIATE;
 
-			out.writeByte(ApnsFrameItem.PRIORITY.getCode());
-			out.writeShort(PRIORITY_SIZE);
-			out.writeByte(priority.getCode());
+					out.writeByte(ApnsFrameItem.PRIORITY.getCode());
+					out.writeShort(PRIORITY_SIZE);
+					out.writeByte(priority.getCode());
 		}
 
 		private int getTimestampInSeconds(final Date date) {
