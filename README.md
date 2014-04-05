@@ -124,7 +124,7 @@ For more information, see the [SLF4J user manual](http://www.slf4j.org/manual.ht
 
 Pushy uses logging levels as follows:
 
-| Log level | Events logged                                                                         |
+| Level     | Events logged                                                                         |
 |-----------|---------------------------------------------------------------------------------------|
 | `error`   | Serious, unrecoverable errors; recoverable errors that likely indicate a bug in Pushy |
 | `warn`    | Serious, but recoverable errors; errors that may indicate a bug in caller's code      |
