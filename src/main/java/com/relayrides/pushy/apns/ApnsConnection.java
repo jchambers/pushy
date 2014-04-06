@@ -377,7 +377,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 					public void operationComplete(final ChannelFuture writeFuture) {
 						if (writeFuture.isSuccess()) {
 							log.trace("{} successfully wrote notification {}", apnsConnection.name,
-								sendableNotification.getSequenceNumber());
+									sendableNotification.getSequenceNumber());
 
 							if (apnsConnection.rejectionReceived) {
 								// Even though the write succeeded, we know for sure that this notification was never
@@ -389,7 +389,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 							}
 						} else {
 							log.trace("{} failed to write notification {}",
-								apnsConnection.name, sendableNotification, writeFuture.cause());
+									apnsConnection.name, sendableNotification, writeFuture.cause());
 
 							// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
 							// even manage to write the notification to the wire) and re-enqueue for another send attempt.
@@ -411,24 +411,18 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	}
 
 	/**
-	 * <p>Waits for all pending read and write operations to finish. When this method exits normally (i.e. when it does
-	 * not throw an {@code InterruptedException}), the following guarantees are made:</p>
+	 * <p>Waits for all pending write operations to finish. When this method exits normally (i.e. when it does not throw
+	 * an {@code InterruptedException}), all pending writes will have either finished successfully or been dispatched to
+	 * this connection's listener via the
+	 * {@link ApnsConnectionListener#handleWriteFailure(ApnsConnection, ApnsPushNotification, Throwable)} method.</p>
 	 *
-	 * <ol>
-	 * 	<li>All pending writes will have either finished successfully or been dispatched to this connection's listener
-	 * 	via the {@link ApnsConnectionListener#handleWriteFailure(ApnsConnection, ApnsPushNotification, Throwable)}
-	 * 	method.</li>
-	 * 	<li>All pending reads will have completed, and rejected/unprocessed notifications will be dispatched to this
-	 * 	connection's listener via the {@link ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason)}
-	 * 	and {@link ApnsConnectionListener#handleUnprocessedNotifications(ApnsConnection, Collection)} methods.</li>
-	 * </ol>
-	 *
-	 * <p>It is advisable for listeners to call this method when a connection is closed (though they must do so in a
-	 * separate thread.</p>
+	 * <p>Pending write operations are <em>not</em> guaranteed to have finished by the time a connection closes. Callers
+	 * that need to know that all writes have completed should call this method after the channel has closed (but they
+	 * must do so in a separate thread).</p>
 	 *
 	 * @throws InterruptedException if interrupted while waiting for pending read/write operations to finish
 	 */
-	public void waitForPendingOperationsToFinish() throws InterruptedException {
+	protected void waitForPendingWritesToFinish() throws InterruptedException {
 		synchronized (this.pendingWriteMonitor) {
 			while (this.pendingWriteCount > 0) {
 				this.pendingWriteMonitor.wait();
@@ -478,10 +472,10 @@ class ApnsConnection<T extends ApnsPushNotification> {
 							public void operationComplete(final ChannelFuture future) {
 								if (future.isSuccess()) {
 									log.trace("{} successfully wrote known-bad notification {}",
-										apnsConnection.name, apnsConnection.shutdownNotification.getSequenceNumber());
+											apnsConnection.name, apnsConnection.shutdownNotification.getSequenceNumber());
 								} else {
 									log.trace("{} failed to write known-bad notification {}",
-										apnsConnection.name, apnsConnection.shutdownNotification, future.cause());
+											apnsConnection.name, apnsConnection.shutdownNotification, future.cause());
 
 									// Try again!
 									apnsConnection.shutdownNotification = null;

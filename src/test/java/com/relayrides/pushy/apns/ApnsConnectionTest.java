@@ -82,7 +82,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		public void handleConnectionClosure(ApnsConnection<SimpleApnsPushNotification> connection) {
 			try {
-				connection.waitForPendingOperationsToFinish();
+				connection.waitForPendingWritesToFinish();
 			} catch (InterruptedException ignored) {
 			}
 
@@ -411,7 +411,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 					new ApnsConnection<SimpleApnsPushNotification>(
 							TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(), listener);
 
-			apnsConnection.waitForPendingOperationsToFinish();
+			apnsConnection.waitForPendingWritesToFinish();
 			apnsConnection.shutdownImmediately();
 		}
 
@@ -437,7 +437,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 				apnsConnection.sendNotification(this.createTestNotification());
 			}
 
-			apnsConnection.waitForPendingOperationsToFinish();
+			apnsConnection.waitForPendingWritesToFinish();
 			apnsConnection.shutdownGracefully();
 		}
 	}
