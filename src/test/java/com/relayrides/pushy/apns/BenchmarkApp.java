@@ -18,7 +18,7 @@ import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class BenchmarkApp {
 
-	private static final int NOTIFICATIONS_PER_TEST = 20000;
+	private static final int NOTIFICATIONS_PER_TEST = 100000;
 
 	private static final int GATEWAY_PORT = 2195;
 	private static final int FEEDPACK_PORT = 2196;
