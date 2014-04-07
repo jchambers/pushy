@@ -4,7 +4,7 @@ Pushy is a Java library for sending [APNs](http://developer.apple.com/library/ma
 
 Pushy was created because we found that the other APNs libraries for Java simply didn't meet our needs in terms of performance or (especially) reliability. Pushy distinguishes itself from other libraries with several important features:
 
-- Asynchronous network IO (via Netty) for [maximum performance]("https://github.com/relayrides/pushy/wiki/Performance")
+- Asynchronous network IO (via Netty) for [maximum performance](https://github.com/relayrides/pushy/wiki/Performance)
 - Efficient connection management
 - Graceful handling and reporting of permanent notification rejections and connection failures
 - Thorough [documentation](http://relayrides.github.io/pushy/apidocs/0.3/)
