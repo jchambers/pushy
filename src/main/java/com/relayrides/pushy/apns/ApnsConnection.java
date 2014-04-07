@@ -64,7 +64,7 @@ import org.slf4j.LoggerFactory;
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-class ApnsConnection<T extends ApnsPushNotification> {
+public class ApnsConnection<T extends ApnsPushNotification> {
 
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
@@ -353,7 +353,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	 * @param notification the notification to send
 	 *
 	 * @see ApnsConnectionListener#handleWriteFailure(ApnsConnection, ApnsPushNotification, Throwable)
-	 * @see ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason, java.util.Collection)
+	 * @see ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason)
 	 */
 	public synchronized void sendNotification(final T notification) {
 		final ApnsConnection<T> apnsConnection = this;
@@ -377,7 +377,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 					public void operationComplete(final ChannelFuture writeFuture) {
 						if (writeFuture.isSuccess()) {
 							log.trace("{} successfully wrote notification {}", apnsConnection.name,
-								sendableNotification.getSequenceNumber());
+									sendableNotification.getSequenceNumber());
 
 							if (apnsConnection.rejectionReceived) {
 								// Even though the write succeeded, we know for sure that this notification was never
@@ -389,7 +389,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 							}
 						} else {
 							log.trace("{} failed to write notification {}",
-								apnsConnection.name, sendableNotification, writeFuture.cause());
+									apnsConnection.name, sendableNotification, writeFuture.cause());
 
 							// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
 							// even manage to write the notification to the wire) and re-enqueue for another send attempt.
@@ -411,24 +411,19 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	}
 
 	/**
-	 * <p>Waits for all pending read and write operations to finish. When this method exits normally (i.e. when it does
-	 * not throw an {@code InterruptedException}), the following guarantees are made:</p>
+	 * <p>Waits for all pending write operations to finish. When this method exits normally (i.e. when it does
+	 * not throw an {@code InterruptedException}), All pending writes will have either finished successfully or failed
+	 * and passed to this connection's listener via the
+	 * {@link ApnsConnectionListener#handleWriteFailure(ApnsConnection, ApnsPushNotification, Throwable)} method.</p>
 	 *
-	 * <ol>
-	 * 	<li>All pending writes will have either finished successfully or been dispatched to this connection's listener
-	 * 	via the {@link ApnsConnectionListener#handleWriteFailure(ApnsConnection, ApnsPushNotification, Throwable)}
-	 * 	method.</li>
-	 * 	<li>All pending reads will have completed, and rejected/unprocessed notifications will be dispatched to this
-	 * 	connection's listener via the {@link ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason)}
-	 * 	and {@link ApnsConnectionListener#handleUnprocessedNotifications(ApnsConnection, Collection)} methods.</li>
-	 * </ol>
-	 *
-	 * <p>It is advisable for listeners to call this method when a connection is closed (though they must do so in a
-	 * separate thread.</p>
+	 * <p>It is <em>not</em> guaranteed that all write operations will have finished by the time a connection has
+	 * closed. Applications that need to know when all writes have finished should call this method after a connection
+	 * closes, but must not do so in an IO thread (i.e. the thread that called the
+	 * {@link ApnsConnectionListener#handleConnectionClosure(ApnsConnection)} method.</p>
 	 *
 	 * @throws InterruptedException if interrupted while waiting for pending read/write operations to finish
 	 */
-	public void waitForPendingOperationsToFinish() throws InterruptedException {
+	public void waitForPendingWritesToFinish() throws InterruptedException {
 		synchronized (this.pendingWriteMonitor) {
 			while (this.pendingWriteCount > 0) {
 				this.pendingWriteMonitor.wait();
@@ -449,7 +444,7 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	 * <p>Calling this method before establishing a connection with the APNs gateway or while a graceful shutdown
 	 * attempt is already in progress has no effect.</p>
 	 *
-	 * @see ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason, java.util.Collection)
+	 * @see ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason)
 	 * @see ApnsConnectionListener#handleConnectionClosure(ApnsConnection)
 	 */
 	public synchronized void shutdownGracefully() {
@@ -478,10 +473,10 @@ class ApnsConnection<T extends ApnsPushNotification> {
 							public void operationComplete(final ChannelFuture future) {
 								if (future.isSuccess()) {
 									log.trace("{} successfully wrote known-bad notification {}",
-										apnsConnection.name, apnsConnection.shutdownNotification.getSequenceNumber());
+											apnsConnection.name, apnsConnection.shutdownNotification.getSequenceNumber());
 								} else {
 									log.trace("{} failed to write known-bad notification {}",
-										apnsConnection.name, apnsConnection.shutdownNotification, future.cause());
+											apnsConnection.name, apnsConnection.shutdownNotification, future.cause());
 
 									// Try again!
 									apnsConnection.shutdownNotification = null;
@@ -511,7 +506,9 @@ class ApnsConnection<T extends ApnsPushNotification> {
 	/**
 	 * <p>Immediately closes this connection (assuming it was ever open). No guarantees are made with regard to the
 	 * state of sent notifications, and callers should generally prefer {@link ApnsConnection#shutdownGracefully} to
-	 * this method. This connection's listener will be notified when the connection has finished closing.</p>
+	 * this method. If the connection was previously open, the connection's listener will be notified of the
+	 * connection's closure. If a connection attempt was in progress, the listener will be notified of a connection
+	 * failure. If the connection was never open, this method has no effect.</p>
 	 *
 	 * <p>Calling this method while not connected has no effect.</p>
 	 *

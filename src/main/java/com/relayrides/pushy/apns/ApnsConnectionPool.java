@@ -25,8 +25,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 /**
- * <p>A group of connections to an APNs gateway. An `ApnsConnectionPool` rotates through the connections in the pool,
- * acting as a kind of load balancer. Additionally, the {@link ApnsConnectionPool#getNextConnection} method blocks
+ * <p>A group of connections to an APNs gateway. An {@code ApnsConnectionPool} rotates through the connections in the
+ * pool, acting as a simple load balancer. Additionally, the {@link ApnsConnectionPool#getNextConnection} method blocks
  * until connections are available before returning a result.</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>

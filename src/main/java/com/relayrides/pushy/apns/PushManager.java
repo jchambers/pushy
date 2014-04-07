@@ -36,21 +36,57 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLHandshakeException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * <p>A {@code PushManager} is the main public-facing point of interaction with APNs. Push managers manage the queue of
- * outbound push notifications and manage connections to the various APNs servers. Push managers should always be
- * created using the {@link PushManagerFactory} class.</p>
+ * <p>Push managers manage connections to the APNs gateway and send notifications from their queue. Push managers
+ * should always be created using the {@link PushManagerFactory} class. Push managers are the main public-facing point
+ * of interaction with Pushy.</p>
  *
- * <p>Callers send push notifications by adding them to the push manager's queue. The push manager will send
- * notifications from the queue as quickly as it is able to do so, and will never put notifications back in the queue
- * (push managers maintain a separate, internal queue for notifications that should be re-sent).</p>
+ * <h2>Queues</h2>
+ *
+ * <p>A push manager has two queues: the public queue through which callers add notifications to be sent, and a private,
+ * internal &quot;retry queue.&quot; Callers send push notifications by adding them to the push manager's public queue
+ * (see {@link PushManager#getQueue()}). The push manager will take and notifications from the public queue as quickly
+ * as it is able to do so, and will never put notifications back in the public queue. Callers are free to manipulate the
+ * public queue however they see fit.</p>
+ *
+ * <p>If, for any reason other than a permanent rejection, a notification could not be delivered, it will be returned to
+ * the push manager's internal retry queue. The push manager will always try to drain its retry queue before taking new
+ * notifications from the public queue.</p>
+ *
+ * <h2>Shutting down</h2>
+ *
+ * <p>A push manager can be shut down with or without a timeout, though shutting down without a timeout provides
+ * stronger guarantees with regard to the state of sent notifications. Regardless of whether a timeout is specified,
+ * push managers will stop taking notifications from the public queue as soon the shutdown process has started. Push
+ * managers shut down by asking all of their connections to shut down gracefully by sending a known-bad notification to
+ * the APNs gateway. The push manager will restore closed connections and keep trying to send notifications from its
+ * internal retry queue until either the queue is empty or the timeout expires. If the timeout expires while there are
+ * still open connections, all remaining connections are closed immediately.</p>
+ *
+ * <p>When shutting down without a timeout, it is guaranteed that the push manager's internal retry queue will be empty
+ * and all sent notifications will have reached and been processed by the APNs gateway. Any notifications not rejected
+ * by the gateway by the time the shutdown process completes will have been accepted by the gateway (though no
+ * guarantees are made that they will ever be delivered to the destination device).</p>
+ *
+ * <h2>Error handling</h2>
+ *
+ * <p>Callers may register listeners to handle notifications permanently rejected by the APNs gateway and to handle
+ * failed attempts to connect to the gateway.</p>
+ *
+ * <p>When a notification is rejected by the APNs gateway, the rejection should be considered permanent and callers
+ * should not try to resend the notification. When a connection fails, the push manager will report the failure to
+ * registered listeners, but will continue trying to connect until shut down. Callers should shut down the push manager
+ * in the event of a failure unlikely to be resolved by retrying the connection (the most common case is an
+ * {@link SSLHandshakeException}, which usually indicates a certificate problem of some kind).</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  *
+ * @see PushManager#getQueue()
  * @see PushManagerFactory
  */
 public class PushManager<T extends ApnsPushNotification> implements ApnsConnectionListener<T> {
@@ -264,23 +300,23 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	/**
-	 * <p>Disconnects from the APNs and gracefully shuts down all connections. This method will wait until the given
-	 * timeout expires for the internal retry queue to empty and for connections to close gracefully, and will then
-	 * instruct them to shut down as soon as possible (and will block until shutdown is complete).</p>
+	 * <p>Disconnects from the APNs and gracefully shuts down all connections. This method will wait until either the
+	 * given timeout expires or until the internal retry queue has been emptied and connections have closed gracefully.
+	 * If the timeout expires, the push manager will close all connections immediately.</p>
 	 *
-	 * <p>This method returns a collection of notifications that have not been sent by the time this push manager has
-	 * shut down. If this method is called with a non-zero timeout, the list will contain all of the notifications in
-	 * the push manager's internal retry queue. It will <em>not</em> contain notifications in the public queue (since
-	 * the public queue can be checked directly). When shutting down with a non-zero timeout, no guarantees are made
-	 * that notifications that were sent (i.e. are in neither the public queue nor the retry queue) were actually
-	 * received or processed by the APNs gateway.</p>
+	 * <p>This method returns the notifications that are still in the internal retry queue by the time this push manager
+	 * has shut down. If this method is called with a non-zero timeout, a collection of notifications still in the push
+	 * manager's internal retry queue will be returned. The returned collection will <em>not</em> contain notifications
+	 * in the public queue (since callers can work with the public queue directly). When shutting down with a non-zero
+	 * timeout, no guarantees are made that notifications that were sent (i.e. are in neither the public queue nor the
+	 * retry queue) were actually received or processed by the APNs gateway.</p>
 	 *
 	 * <p>If called with a timeout of {@code 0}, the returned collection of unsent notifications will be empty. By the
 	 * time this method exits, all notifications taken from the public queue are guaranteed to have been delivered to
 	 * the APNs gateway and either accepted or rejected (i.e. the state of all sent notifications is known).</p>
 	 *
 	 * @param timeout the timeout, in milliseconds, after which client threads should be shut down as quickly as
-	 * possible; if {@code 0}, this method will wait indefinitely
+	 * possible; if {@code 0}, this method will wait indefinitely for the retry queue to empty and connections to close
 	 *
 	 * @return a list of notifications not sent before the {@code PushManager} shut down
 	 *
@@ -418,10 +454,11 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	/**
 	 * <p>Returns the queue of messages to be sent to the APNs gateway. Callers should add notifications to this queue
 	 * directly to send notifications. Notifications will be removed from this queue by Pushy when a send attempt is
-	 * started, but no guarantees are made as to when the notification will actually be sent. Successful delivery is
-	 * not acknowledged by the APNs gateway. Notifications rejected by APNs for specific reasons will be passed to
-	 * registered {@link RejectedNotificationListener}s, and notifications that could not be sent due to temporary I/O
-	 * problems will be scheduled for re-transmission in a separate, internal queue.</p>
+	 * started, but are not guaranteed to have reached the APNs gateway until the push manager has been shut down
+	 * without a timeout (see {@link PushManager#shutdown(long)}). Successful delivery is not acknowledged by the APNs
+	 * gateway. Notifications rejected by APNs for specific reasons will be passed to registered
+	 * {@link RejectedNotificationListener}s, and notifications that could not be sent due to temporary I/O problems
+	 * will be scheduled for re-transmission in a separate, internal queue.</p>
 	 *
 	 * <p>Notifications in this queue will only be consumed when the {@code PushManager} is running, has active
 	 * connections, and the internal &quot;retry queue&quot; is empty.</p>
@@ -567,7 +604,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		this.listenerExecutorService.execute(new Runnable() {
 			public void run() {
 				try {
-					connection.waitForPendingOperationsToFinish();
+					connection.waitForPendingWritesToFinish();
 
 					if (pushManager.shouldReplaceClosedConnection()) {
 						pushManager.startNewConnection();
