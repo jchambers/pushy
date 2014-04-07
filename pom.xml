@@ -66,6 +66,9 @@
         <configuration>
           <overview>${basedir}/src/main/java/overview.html</overview>
           <show>public</show>
+          <links>
+              <link>http://netty.io/4.0/api/</link>
+          </links>
         </configuration>
         <executions>
           <execution>

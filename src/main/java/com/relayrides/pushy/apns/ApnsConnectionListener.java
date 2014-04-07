@@ -30,7 +30,7 @@ import java.util.Collection;
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-interface ApnsConnectionListener<T extends ApnsPushNotification> {
+public interface ApnsConnectionListener<T extends ApnsPushNotification> {
 
 	/**
 	 * Indicates that the given connection successfully connected to an APNs gateway and is ready to send push
@@ -51,7 +51,7 @@ interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	/**
 	 * Indicates that the given connection has changed its writability state. Attempts to write to an unwritable
 	 * connection are guaranteed to fail and should be avoided. Successful connections begin in a writable state.
-	 * 
+	 *
 	 * @param connection the connection whose writability has changed
 	 * @param writable {@code true} if the connection has become writable or {@code false} if it has become unwritable
 	 */
@@ -85,7 +85,7 @@ interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	 * notification should not be sent again. The APNs gateway will close the connection after rejecting a notification,
 	 * and all notifications sent after the rejected notification were not processed by the gateway and should be
 	 * re-sent later.
-	 * 
+	 *
 	 * @param connection the connection that sent the notification that was rejected
 	 * @param rejectedNotification the notification that was rejected
 	 * @param reason the reason for the rejection
@@ -100,7 +100,7 @@ interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	 * processed by the gateway and should be sent again later. This generally happens after a notification has been
 	 * rejected by the gateway, but may also happen when a connection is closed gracefully by Pushy or closed remotely
 	 * by the APNs gateway without a rejected notification.
-	 * 
+	 *
 	 * @param connection the connection that sent the notifications that were not processed
 	 * @param unprocessedNotifications the notifications known to have not been processed by the APNs gateway
 	 */

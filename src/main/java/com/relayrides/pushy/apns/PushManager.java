@@ -590,7 +590,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		this.listenerExecutorService.execute(new Runnable() {
 			public void run() {
 				try {
-					connection.waitForPendingOperationsToFinish();
+					connection.waitForPendingWritesToFinish();
 
 					if (pushManager.shouldReplaceClosedConnection()) {
 						pushManager.startNewConnection();
