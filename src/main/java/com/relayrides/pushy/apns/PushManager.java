@@ -181,9 +181,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		} else {
 			// Never use more threads than concurrent connections (Netty binds a channel to a single thread, so the
 			// excess threads would always go unused)
-			final int threadCounts = Math.min(concurrentConnectionCount, Runtime.getRuntime().availableProcessors() * 2);
+			final int threadCount = Math.min(concurrentConnectionCount, Runtime.getRuntime().availableProcessors() * 2);
 
-			this.eventLoopGroup = new NioEventLoopGroup(threadCounts);
+			this.eventLoopGroup = new NioEventLoopGroup(threadCount);
 			this.shouldShutDownEventLoopGroup = true;
 		}
 
