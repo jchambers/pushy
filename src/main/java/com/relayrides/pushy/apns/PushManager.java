@@ -495,7 +495,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @throws FeedbackConnectionException if the attempt to connect to the feedback service failed for any reason
 	 */
 	public List<ExpiredToken> getExpiredTokens() throws InterruptedException, FeedbackConnectionException {
-		return this.getExpiredTokens(1, TimeUnit.SECONDS);
+		return this.getExpiredTokens(5, TimeUnit.SECONDS);
 	}
 
 	/**
