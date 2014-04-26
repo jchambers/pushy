@@ -190,9 +190,11 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 					this.apnsConnection.listener.handleRejectedNotification(
 							this.apnsConnection, notification, rejectedNotification.getReason());
 				} else {
-					log.error("{} failed to find rejected notification with sequence number {}; this may mean the " +
-							"sent notification buffer is too small. Please report this as a bug.",
-							this.apnsConnection.name, rejectedNotification.getSequenceNumber());
+					log.error("{} failed to find rejected notification with sequence number {} (buffer has range {} to " +
+							"{}); this may mean the sent notification buffer is too small. Please report this as a bug.",
+							this.apnsConnection.name, rejectedNotification.getSequenceNumber(),
+							this.apnsConnection.sentNotificationBuffer.getLowestSequenceNumber(),
+							this.apnsConnection.sentNotificationBuffer.getHighestSequenceNumber());
 				}
 			}
 
