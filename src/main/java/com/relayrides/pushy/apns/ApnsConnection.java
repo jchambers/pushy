@@ -90,7 +90,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
 
-	public static final int DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY = 4096;
+	public static final int DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY = 8192;
 
 	private class RejectedNotificationDecoder extends ByteToMessageDecoder {
 
