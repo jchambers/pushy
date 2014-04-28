@@ -1,3 +1,24 @@
+/* Copyright (c) 2014 RelayRides
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 package com.relayrides.pushy.apns;
 
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -35,6 +56,7 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	private final SSLContext sslContext;
 
 	private int concurrentConnectionCount = 1;
+	private int sentNotificationBufferCapacity = ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY;
 
 	private NioEventLoopGroup eventLoopGroup;
 	private ExecutorService listenerExecutorService;
@@ -121,10 +143,27 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	 * default), constructed push managers will construct their own queues.</p>
 	 *
 	 * @param queue the queue to be used to pass new notifications to constructed push managers
-	 * @return
+	 * 
+	 * @return a reference to this factory for ease of chaining configuration calls
 	 */
 	public PushManagerFactory<T> setQueue(final BlockingQueue<T> queue) {
 		this.queue = queue;
+		return this;
+	}
+
+	/**
+	 * Sets the capacity of the notification buffers for connections created by constructed {@code PushManagers}. By
+	 * default, the capacity of sent notification buffers is
+	 * {@value ApnsConnection#DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY}; while sent notification buffers may have any
+	 * positive capacity, it is not recommended that they be given a capacity less than the default.
+	 * 
+	 * @param sentNotificationBufferCapacity the capacity of sent notification buffers for connections created by
+	 * constructed push managers
+	 * 
+	 * @return a reference to this factory for ease of chaining configuration calls
+	 */
+	public PushManagerFactory<T> setSentNotificationBufferCapacity(final int sentNotificationBufferCapacity) {
+		this.sentNotificationBufferCapacity = sentNotificationBufferCapacity;
 		return this;
 	}
 
@@ -141,7 +180,8 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 				this.concurrentConnectionCount,
 				this.eventLoopGroup,
 				this.listenerExecutorService,
-				this.queue);
+				this.queue,
+				this.sentNotificationBufferCapacity);
 	}
 
 	/**
