@@ -156,6 +156,49 @@ public class SentNotificationBufferTest {
 		assertEquals(0, buffer.size());
 	}
 
+	@Test
+	public void testGetSequenceNumbersEmpty() {
+		final SentNotificationBuffer<SimpleApnsPushNotification> buffer =
+				new SentNotificationBuffer<SimpleApnsPushNotification>(1);
+
+		assertNull(buffer.getLowestSequenceNumber());
+		assertNull(buffer.getHighestSequenceNumber());
+		assertEquals(0, buffer.size());
+	}
+
+	@Test
+	public void testGetSequenceNumbersSingleItem() {
+		final int sequenceNumber = 17;
+
+		final SentNotificationBuffer<SimpleApnsPushNotification> buffer =
+				new SentNotificationBuffer<SimpleApnsPushNotification>(1);
+
+		final SendableApnsPushNotification<SimpleApnsPushNotification> sendableNotification =
+				new SendableApnsPushNotification<SimpleApnsPushNotification>(this.testNotification, sequenceNumber);
+
+		buffer.addSentNotification(sendableNotification);
+
+		assertEquals((Integer)sequenceNumber, buffer.getLowestSequenceNumber());
+		assertEquals((Integer)sequenceNumber, buffer.getHighestSequenceNumber());
+		assertEquals(1, buffer.size());
+	}
+
+	@Test
+	public void testGetSequenceNumbersMultipleItems() {
+		final int capacity = 10;
+
+		final SentNotificationBuffer<SimpleApnsPushNotification> buffer =
+				new SentNotificationBuffer<SimpleApnsPushNotification>(capacity);
+
+		for (final SendableApnsPushNotification<SimpleApnsPushNotification> notification : this.generateSequentialNotifications(capacity, 0)) {
+			buffer.addSentNotification(notification);
+		}
+
+		assertEquals((Integer)0, buffer.getLowestSequenceNumber());
+		assertEquals((Integer)(capacity - 1), buffer.getHighestSequenceNumber());
+		assertEquals(capacity, buffer.size());
+	}
+
 	private List<SendableApnsPushNotification<SimpleApnsPushNotification>> generateSequentialNotifications(final int count, final int startingSequenceNumber) {
 
 		final ArrayList<SendableApnsPushNotification<SimpleApnsPushNotification>> sendableNotifications =

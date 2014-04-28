@@ -24,6 +24,7 @@ package com.relayrides.pushy.apns;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 /**
  * <p>A bounded-length buffer meant to store sent APNs notifications. This is necessary because the APNs protocol is
@@ -132,5 +133,31 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 	 */
 	protected int size() {
 		return this.sentNotifications.size();
+	}
+
+	/**
+	 * Returns the sequence number of the oldest item in this buffer.
+	 * 
+	 * @return the sequence number of the oldest item in this buffer or {@code null} if this buffer is empty
+	 */
+	protected Integer getLowestSequenceNumber() {
+		try {
+			return this.sentNotifications.getFirst().getSequenceNumber();
+		} catch (NoSuchElementException e) {
+			return null;
+		}
+	}
+
+	/**
+	 * Returns the sequence number of the newest item in this buffer.
+	 * 
+	 * @return the sequence number of the newest item in this buffer or {@code null} if this buffer is empty
+	 */
+	protected Integer getHighestSequenceNumber() {
+		try {
+			return this.sentNotifications.getLast().getSequenceNumber();
+		} catch (NoSuchElementException e) {
+			return null;
+		}
 	}
 }

@@ -86,9 +86,11 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
 
 	private boolean rejectionReceived = false;
-	private final SentNotificationBuffer<T> sentNotificationBuffer = new SentNotificationBuffer<T>(4096);
+	private final SentNotificationBuffer<T> sentNotificationBuffer;
 
 	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
+
+	public static final int DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY = 8192;
 
 	private class RejectedNotificationDecoder extends ByteToMessageDecoder {
 
@@ -190,9 +192,11 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 					this.apnsConnection.listener.handleRejectedNotification(
 							this.apnsConnection, notification, rejectedNotification.getReason());
 				} else {
-					log.error("{} failed to find rejected notification with sequence number {}; this may mean the " +
-							"sent notification buffer is too small. Please report this as a bug.",
-							this.apnsConnection.name, rejectedNotification.getSequenceNumber());
+					log.error("{} failed to find rejected notification with sequence number {} (buffer has range {} to " +
+							"{}); this may mean the sent notification buffer is too small. Please report this as a bug.",
+							this.apnsConnection.name, rejectedNotification.getSequenceNumber(),
+							this.apnsConnection.sentNotificationBuffer.getLowestSequenceNumber(),
+							this.apnsConnection.sentNotificationBuffer.getHighestSequenceNumber());
 				}
 			}
 
@@ -246,9 +250,10 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * @param sslContext an SSL context with the keys/certificates and trust managers this connection should use when
 	 * communicating with the APNs gateway
 	 * @param eventLoopGroup the event loop group this connection should use for asynchronous network operations
+	 * @param sentNotificationBufferCapacity the capacity of this connection's sent notification buffer
 	 * @param listener the listener to which this connection will report lifecycle events; must not be {@code null}
 	 */
-	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup, final ApnsConnectionListener<T> listener) {
+	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup, final int sentNotificationBufferCapacity, final ApnsConnectionListener<T> listener) {
 
 		if (listener == null) {
 			throw new NullPointerException("Listener must not be null.");
@@ -258,6 +263,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		this.sslContext = sslContext;
 		this.eventLoopGroup = eventLoopGroup;
 		this.listener = listener;
+
+		this.sentNotificationBuffer = new SentNotificationBuffer<T>(sentNotificationBufferCapacity);
 
 		this.name = String.format("ApnsConnection-%d", ApnsConnection.connectionCounter.getAndIncrement());
 	}
