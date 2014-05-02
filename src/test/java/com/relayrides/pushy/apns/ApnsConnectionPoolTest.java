@@ -136,7 +136,7 @@ public class ApnsConnectionPoolTest {
 	}
 
 	private ApnsConnection<SimpleApnsPushNotification> createTestConnection() {
-		return new ApnsConnection<SimpleApnsPushNotification>(ApnsEnvironment.getSandboxEnvironment(), null, null, new ApnsConnectionListener<SimpleApnsPushNotification>() {
+		return new ApnsConnection<SimpleApnsPushNotification>(ApnsEnvironment.getSandboxEnvironment(), null, null, ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY, new ApnsConnectionListener<SimpleApnsPushNotification>() {
 			public void handleConnectionSuccess(ApnsConnection<SimpleApnsPushNotification> connection) {}
 			public void handleConnectionFailure(ApnsConnection<SimpleApnsPushNotification> connection, Throwable cause) {}
 			public void handleConnectionWritabilityChange(ApnsConnection<SimpleApnsPushNotification> connection, boolean writable) {}

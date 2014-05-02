@@ -65,6 +65,8 @@ public class ApnsPayloadBuilder {
 
 	private static final int DEFAULT_PAYLOAD_SIZE = 256;
 
+	private static final Charset UTF8 = Charset.forName("UTF-8");
+
 	/**
 	 * The name of the iOS default push notification sound ({@value DEFAULT_SOUND_FILENAME}).
 	 *
@@ -292,7 +294,7 @@ public class ApnsPayloadBuilder {
 		}
 
 		final String payloadString = payload.toJSONString();
-		final int initialPayloadLength = payloadString.getBytes(Charset.forName("UTF-8")).length;
+		final int initialPayloadLength = payloadString.getBytes(UTF8).length;
 
 		if (initialPayloadLength <= maximumPayloadLength) {
 			return payloadString;
@@ -300,7 +302,7 @@ public class ApnsPayloadBuilder {
 			// TODO This could probably be more efficient
 			if (this.alertBody != null) {
 				this.replaceMessageBody(payload, "");
-				final int payloadLengthWithEmptyMessage = payload.toJSONString().getBytes(Charset.forName("UTF-8")).length;
+				final int payloadLengthWithEmptyMessage = payload.toJSONString().getBytes(UTF8).length;
 
 				if (payloadLengthWithEmptyMessage > maximumPayloadLength) {
 					throw new IllegalArgumentException("Payload exceeds maximum length even with an empty message body.");
@@ -310,7 +312,7 @@ public class ApnsPayloadBuilder {
 
 				this.replaceMessageBody(payload, this.abbreviateString(this.alertBody, maximumMessageBodyLength--));
 
-				while (payload.toJSONString().getBytes(Charset.forName("UTF-8")).length > maximumPayloadLength) {
+				while (payload.toJSONString().getBytes(UTF8).length > maximumPayloadLength) {
 					this.replaceMessageBody(payload, this.abbreviateString(this.alertBody, maximumMessageBodyLength--));
 				}
 

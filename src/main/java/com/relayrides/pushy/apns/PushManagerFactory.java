@@ -56,6 +56,7 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	private final SSLContext sslContext;
 
 	private int concurrentConnectionCount = 1;
+	private int sentNotificationBufferCapacity = ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY;
 
 	private NioEventLoopGroup eventLoopGroup;
 	private ExecutorService listenerExecutorService;
@@ -151,6 +152,22 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	}
 
 	/**
+	 * Sets the capacity of the notification buffers for connections created by constructed {@code PushManagers}. By
+	 * default, the capacity of sent notification buffers is
+	 * {@value ApnsConnection#DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY}; while sent notification buffers may have any
+	 * positive capacity, it is not recommended that they be given a capacity less than the default.
+	 * 
+	 * @param sentNotificationBufferCapacity the capacity of sent notification buffers for connections created by
+	 * constructed push managers
+	 * 
+	 * @return a reference to this factory for ease of chaining configuration calls
+	 */
+	public PushManagerFactory<T> setSentNotificationBufferCapacity(final int sentNotificationBufferCapacity) {
+		this.sentNotificationBufferCapacity = sentNotificationBufferCapacity;
+		return this;
+	}
+
+	/**
 	 * <p>Constructs a new {@link PushManager} with the settings provided to this factory. The returned push manager
 	 * will not be started automatically.</p>
 	 *
@@ -163,7 +180,8 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 				this.concurrentConnectionCount,
 				this.eventLoopGroup,
 				this.listenerExecutorService,
-				this.queue);
+				this.queue,
+				this.sentNotificationBufferCapacity);
 	}
 
 	/**
