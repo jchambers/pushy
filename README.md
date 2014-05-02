@@ -83,6 +83,7 @@ Push notification providers communicate with APNs by opening a long-lived connec
 ```java
 private class MyRejectedNotificationListener implements RejectedNotificationListener<SimpleApnsPushNotification> {
 
+	@Override
 	public void handleRejectedNotification(
 			final PushManager<? extends SimpleApnsPushNotification> pushManager,
 			final SimpleApnsPushNotification notification,
@@ -108,6 +109,7 @@ You can listen for connection failures with a [`FailedConnectionListener`](http:
 ```java
 private class MyFailedConnectionListener implements FailedConnectionListener<SimpleApnsPushNotification> {
 
+	@Override
 	public void handleFailedConnection(
 			final PushManager<? extends SimpleApnsPushNotification> pushManager,
 			final Throwable cause) {
