@@ -25,7 +25,7 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 
 If you don't use Maven, you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.3/pushy-0.3.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
-- [netty 4.0.18.Final](http://netty.io/)
+- [netty 4.0.19.Final](http://netty.io/)
 - [slf4j 1.7.6](http://www.slf4j.org/)
 - [json.simple 1.1.1](https://code.google.com/p/json-simple/)
 
