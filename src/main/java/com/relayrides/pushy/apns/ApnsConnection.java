@@ -44,6 +44,8 @@ import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
@@ -71,7 +73,9 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private final NioEventLoopGroup eventLoopGroup;
 	private final ApnsConnectionListener<T> listener;
 
-	private static final AtomicInteger connectionCounter = new AtomicInteger(0);
+//	private static final AtomicInteger connectionCounter = new AtomicInteger(0);
+	private static final Map<String, AtomicInteger> connNums = new ConcurrentHashMap<String, AtomicInteger>();
+
 	private final String name;
 
 	private ChannelFuture connectFuture;
@@ -161,7 +165,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 			synchronized (this.apnsConnection.connectFuture) {
 				if (this.apnsConnection.closeOnRegistration) {
-					log.debug("Channel registered for {}, but shutting down immediately.", this.apnsConnection.name);
+					log.debug("Channel registered for {}, but shutting down immediately.", this.apnsConnection.getName());
 					context.channel().eventLoop().execute(this.apnsConnection.getImmediateShutdownRunnable());
 				}
 			}
@@ -170,7 +174,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		@Override
 		protected void channelRead0(final ChannelHandlerContext context, final RejectedNotification rejectedNotification) {
 			log.debug("APNs gateway rejected notification with sequence number {} from {} ({}).",
-					rejectedNotification.getSequenceNumber(), this.apnsConnection.name, rejectedNotification.getReason());
+					rejectedNotification.getSequenceNumber(), this.apnsConnection.getName(), rejectedNotification.getReason());
 
 			this.apnsConnection.rejectionReceived = true;
 			this.apnsConnection.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
@@ -192,7 +196,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 				} else {
 					log.error("{} failed to find rejected notification with sequence number {}; this may mean the " +
 							"sent notification buffer is too small. Please report this as a bug.",
-							this.apnsConnection.name, rejectedNotification.getSequenceNumber());
+							this.apnsConnection.getName(), rejectedNotification.getSequenceNumber());
 				}
 			}
 
@@ -214,7 +218,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			// Since this is happening on the inbound side, the most likely case is that a read timed out or the remote
 			// host closed the connection. We should log the problem, but generally assume that channel closure will be
 			// handled by channelInactive.
-			log.debug("{} caught an exception.", this.apnsConnection.name, cause);
+			log.debug("{} caught an exception.", this.apnsConnection.getName(), cause);
 		}
 
 		@Override
@@ -259,7 +263,77 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		this.eventLoopGroup = eventLoopGroup;
 		this.listener = listener;
 
-		this.name = String.format("ApnsConnection-%d", ApnsConnection.connectionCounter.getAndIncrement());
+		String lname = listener.getName();
+		int connNum = incConnectionNum(lname);
+		this.name = String.format("%s connection-%d", lname, connNum);
+	}
+
+	/**
+	 * Returns connection counter for specified {@link PushManager}/{@link ApnsConnectionListener} name.
+	 * @param name {@link PushManager}/{@link ApnsConnectionListener} name
+	 * @return atomic integer instance (if it does not exist, it is created)
+	 */
+	private static AtomicInteger getConnectionCounter (String name) {
+	    if (name == null) {
+		return null;
+	    }
+	    name = name.trim();
+	    if (name.isEmpty()) {
+		return null;
+	    }
+
+	    AtomicInteger counter = connNums.get(name);
+	    if (counter == null) {
+		synchronized (connNums) {
+		    counter = connNums.get(name);
+		    if (counter == null) {
+			counter = new AtomicInteger(0);
+			connNums.put(name, counter);
+		    }
+		}
+	    }
+
+	    return counter;
+	}
+
+	/**
+	 * Increments connection counter for specified {@link PushManager}/{@link ApnsConnectionListener} name.
+	 * @param name {@link PushManager}/{@link ApnsConnectionListener} name
+	 * @return incremented counter as interger
+	 */
+	protected static int incConnectionNum (String name) {
+	    AtomicInteger counter = getConnectionCounter(name);
+	    if (counter == null) {
+		return 0;
+	    }
+	    return counter.incrementAndGet();
+	}
+
+	/**
+	 * Decrements connection counter for specified {@link PushManager}/{@link ApnsConnectionListener} name.
+	 * @param name {@link PushManager}/{@link ApnsConnectionListener} name
+	 * @return decremented counter as interger
+	 */
+	protected static int decConnectionNum (String name) {
+	    AtomicInteger counter = getConnectionCounter(name);
+	    if (counter == null) {
+		return 0;
+	    }
+	    synchronized (counter) {
+		int val = counter.get();
+		if (val > 0) {
+		    return counter.decrementAndGet();
+		}
+		return val;
+	    }
+	}
+
+	/**
+	 * Returns connection name
+	 * @return connection name as string
+	 */
+	public String getName() {
+	    return name;
 	}
 
 	/**
@@ -275,7 +349,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		final ApnsConnection<T> apnsConnection = this;
 
 		if (this.connectFuture != null) {
-			throw new IllegalStateException(String.format("%s already started a connection attempt.", this.name));
+			throw new IllegalStateException(String.format("%s already started a connection attempt.", this.getName()));
 		}
 
 		final Bootstrap bootstrap = new Bootstrap();
@@ -303,13 +377,13 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			}
 		});
 
-		log.debug("{} beginning connection process.", apnsConnection.name);
+		log.debug("{} beginning connection process.", apnsConnection.getName());
 		this.connectFuture = bootstrap.connect(this.environment.getApnsGatewayHost(), this.environment.getApnsGatewayPort());
 		this.connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
 
 			public void operationComplete(final ChannelFuture connectFuture) {
 				if (connectFuture.isSuccess()) {
-					log.debug("{} connected; waiting for TLS handshake.", apnsConnection.name);
+					log.debug("{} connected; waiting for TLS handshake.", apnsConnection.getName());
 
 					final SslHandler sslHandler = connectFuture.channel().pipeline().get(SslHandler.class);
 
@@ -318,26 +392,26 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 							public void operationComplete(final Future<Channel> handshakeFuture) {
 								if (handshakeFuture.isSuccess()) {
-									log.debug("{} successfully completed TLS handshake.", apnsConnection.name);
+									log.debug("{} successfully completed TLS handshake.", apnsConnection.getName());
 
 									apnsConnection.handshakeCompleted = true;
 									apnsConnection.listener.handleConnectionSuccess(apnsConnection);
 								} else {
 									log.debug("{} failed to complete TLS handshake with APNs gateway.",
-											apnsConnection.name, handshakeFuture.cause());
+											apnsConnection.getName(), handshakeFuture.cause());
 
 									connectFuture.channel().close();
 									apnsConnection.listener.handleConnectionFailure(apnsConnection, handshakeFuture.cause());
 								}
 							}});
 					} catch (NullPointerException e) {
-						log.warn("{} failed to get SSL handler and could not wait for a TLS handshake.", apnsConnection.name);
+						log.warn("{} failed to get SSL handler and could not wait for a TLS handshake.", apnsConnection.getName());
 
 						connectFuture.channel().close();
 						apnsConnection.listener.handleConnectionFailure(apnsConnection, e);
 					}
 				} else {
-					log.debug("{} failed to connect to APNs gateway.", apnsConnection.name, connectFuture.cause());
+					log.debug("{} failed to connect to APNs gateway.", apnsConnection.getName(), connectFuture.cause());
 
 					apnsConnection.listener.handleConnectionFailure(apnsConnection, connectFuture.cause());
 				}
@@ -359,7 +433,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		final ApnsConnection<T> apnsConnection = this;
 
 		if (!this.handshakeCompleted) {
-			throw new IllegalStateException(String.format("%s has not completed handshake.", this.name));
+			throw new IllegalStateException(String.format("%s has not completed handshake.", this.getName()));
 		}
 
 		this.connectFuture.channel().eventLoop().execute(new Runnable() {
@@ -368,7 +442,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 				final SendableApnsPushNotification<T> sendableNotification =
 						new SendableApnsPushNotification<T>(notification, apnsConnection.sequenceNumber++);
 
-				log.trace("{} sending {}", apnsConnection.name, sendableNotification);
+				log.trace("{} sending {}", apnsConnection.getName(), sendableNotification);
 
 				apnsConnection.pendingWriteCount += 1;
 
@@ -376,7 +450,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 					public void operationComplete(final ChannelFuture writeFuture) {
 						if (writeFuture.isSuccess()) {
-							log.trace("{} successfully wrote notification {}", apnsConnection.name,
+							log.trace("{} successfully wrote notification {}", apnsConnection.getName(),
 									sendableNotification.getSequenceNumber());
 
 							if (apnsConnection.rejectionReceived) {
@@ -389,7 +463,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 							}
 						} else {
 							log.trace("{} failed to write notification {}",
-									apnsConnection.name, sendableNotification, writeFuture.cause());
+									apnsConnection.getName(), sendableNotification, writeFuture.cause());
 
 							// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
 							// even manage to write the notification to the wire) and re-enqueue for another send attempt.
@@ -461,7 +535,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 					// Don't send a second shutdown notification if we've already started the graceful shutdown process.
 					if (apnsConnection.shutdownNotification == null) {
 
-						log.debug("{} sending known-bad notification to shut down.", apnsConnection.name);
+						log.debug("{} sending known-bad notification to shut down.", apnsConnection.getName());
 
 						apnsConnection.shutdownNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
 								new KnownBadPushNotification(), apnsConnection.sequenceNumber++);
@@ -473,10 +547,10 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 							public void operationComplete(final ChannelFuture future) {
 								if (future.isSuccess()) {
 									log.trace("{} successfully wrote known-bad notification {}",
-											apnsConnection.name, apnsConnection.shutdownNotification.getSequenceNumber());
+											apnsConnection.getName(), apnsConnection.shutdownNotification.getSequenceNumber());
 								} else {
 									log.trace("{} failed to write known-bad notification {}",
-											apnsConnection.name, apnsConnection.shutdownNotification, future.cause());
+											apnsConnection.getName(), apnsConnection.shutdownNotification, future.cause());
 
 									// Try again!
 									apnsConnection.shutdownNotification = null;
@@ -494,6 +568,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 							}
 						});
 					}
+					ApnsConnection.decConnectionNum(getName());
 				}
 			});
 		} else {
@@ -523,6 +598,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 					this.closeOnRegistration = true;
 				}
 			}
+			ApnsConnection.decConnectionNum(getName());
 		}
 	}
 
@@ -546,6 +622,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 	@Override
 	public String toString() {
-		return "ApnsConnection [name=" + name + "]";
+		return getClass().getSimpleName() + " [name=" + getName() + "]";
 	}
 }

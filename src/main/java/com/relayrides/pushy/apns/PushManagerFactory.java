@@ -56,6 +56,7 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	private final SSLContext sslContext;
 
 	private int concurrentConnectionCount = 1;
+	private String name = null;
 
 	private NioEventLoopGroup eventLoopGroup;
 	private ExecutorService listenerExecutorService;
@@ -100,6 +101,18 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	}
 
 	/**
+	 * <p>Sets {@code PushManager} name.</p>
+	 *
+	 * @param name PushManager name
+	 *
+	 * @return a reference to this factory for ease of chaining configuration calls
+	 */
+	public PushManagerFactory<T> setName(String name) {
+		this.name = name;
+		return this;
+	}
+
+	/**
 	 * <p>Sets a custom event loop group to be used by constructed {@code PushMangers}. If {@code null}, constructed
 	 * {@code PushManagers} will be create and maintain their own event loop groups. If a non-{@code null} event loop
 	 * group is provided, callers <strong>must</strong> shut down the event loop group after shutting down all
@@ -123,13 +136,13 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	 * registered listeners. If {@code null}, constructed {@code PushManager} instances will create and maintain their
 	 * own executor services. If a non-{@code null} executor service is provided, callers <strong>must</strong> shut
 	 * down the executor service after shutting down all {@code PushManager} instances that use that executor service.</p>
-	 * 
+	 *
 	 * <p>By default, constructed {@code PushManagers} will construct and maintain their own executor services.</p>
-	 * 
+	 *
 	 * @param listenerExecutorService the executor service to be used by constructed {@code PushManager} instances to
 	 * dispatch notifications to registered listeners; if not {@code null}, the caller <strong>must</strong> shut down
 	 * the executor service after shutting down all push managers that use the executor service
-	 * 
+	 *
 	 * @return a reference to this factory for ease of chaining configuration calls
 	 */
 	public PushManagerFactory<T> setListenerExecutorService(final ExecutorService listenerExecutorService) {
@@ -142,7 +155,7 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	 * default), constructed push managers will construct their own queues.</p>
 	 *
 	 * @param queue the queue to be used to pass new notifications to constructed push managers
-	 * 
+	 *
 	 * @return a reference to this factory for ease of chaining configuration calls
 	 */
 	public PushManagerFactory<T> setQueue(final BlockingQueue<T> queue) {
@@ -163,7 +176,8 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 				this.concurrentConnectionCount,
 				this.eventLoopGroup,
 				this.listenerExecutorService,
-				this.queue);
+				this.queue,
+				name);
 	}
 
 	/**

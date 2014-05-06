@@ -113,6 +113,10 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		public void handleConnectionWritabilityChange(ApnsConnection<SimpleApnsPushNotification> connection, boolean writable) {
 		}
+
+		public String getName() {
+		    return "SomeName";
+		}
 	}
 
 	@Test
