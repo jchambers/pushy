@@ -130,7 +130,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		public void uncaughtException(final Thread t, final Throwable e) {
-			log.error("[{}] Dispatch thread died unexpectedly. Please file a bug with the exception details.", manager.getName(), e);
+			log.error("{} Dispatch thread died unexpectedly. Please file a bug with the exception details.", manager.getName(), e);
 
 			if (this.manager.isStarted()) {
 				this.manager.createAndStartDispatchThread();
@@ -223,7 +223,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			throw new IllegalStateException("Push manager has already been shut down and may not be restarted.");
 		}
 
-		log.info("[{}] Push manager starting.", getName());
+		log.info("{} Push manager starting.", getName());
 
 		for (int i = 0; i < this.concurrentConnectionCount; i++) {
 			this.startNewConnection();
@@ -338,10 +338,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public synchronized List<T> shutdown(long timeout) throws InterruptedException {
 		if (this.isShutDown()) {
-			log.warn("[{}] Push manager has already been shut down; shutting down multiple times is harmless, but may "
+			log.warn("{} Push manager has already been shut down; shutting down multiple times is harmless, but may "
 					+ "indicate a problem elsewhere.", getName());
 		} else {
-			log.info("[{}] Push manager shutting down.", getName());
+			log.info("{} Push manager shutting down.", getName());
 		}
 
 		if (this.shutDownFinished) {
@@ -544,7 +544,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionSuccess(com.relayrides.pushy.apns.ApnsConnection)
 	 */
 	public void handleConnectionSuccess(final ApnsConnection<T> connection) {
-		log.trace("[{}] Connection succeeded: {}", getName(), connection);
+		log.trace("{} Connection succeeded: {}", getName(), connection);
 
 		if (this.dispatchThreadShouldContinue) {
 			this.writableConnectionPool.addConnection(connection);
@@ -560,7 +560,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public void handleConnectionFailure(final ApnsConnection<T> connection, final Throwable cause) {
 
-		log.trace("[{}] Connection failed: {}", getName(), connection, cause);
+		log.trace("{} Connection failed: {}", getName(), connection, cause);
 
 		this.removeActiveConnection(connection);
 
@@ -591,7 +591,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public void handleConnectionWritabilityChange(final ApnsConnection<T> connection, final boolean writable) {
 
-		log.trace("[{}] Writability for {} changed to {}", getName(), connection, writable);
+		log.trace("{} Writability for {} changed to {}", getName(), connection, writable);
 
 		if (writable) {
 			this.writableConnectionPool.addConnection(connection);
@@ -607,7 +607,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public void handleConnectionClosure(final ApnsConnection<T> connection) {
 
-		log.trace("[{}] Connection closed: {}", getName(), connection);
+		log.trace("{} Connection closed: {}", getName(), connection);
 
 		this.writableConnectionPool.removeConnection(connection);
 		this.dispatchThread.interrupt();
@@ -625,7 +625,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 					removeActiveConnection(connection);
 				} catch (InterruptedException e) {
-					log.warn("[{}] Interrupted while waiting for closed connection's pending operations to finish.", getName());
+					log.warn("{} Interrupted while waiting for closed connection's pending operations to finish.", getName());
 				}
 			}
 		});
@@ -647,7 +647,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	public void handleRejectedNotification(final ApnsConnection<T> connection, final T rejectedNotification,
 			final RejectedNotificationReason reason) {
 
-		log.trace("[{}] {} rejected {}: {}", getName(), connection, rejectedNotification, reason);
+		log.trace("{} {} rejected {}: {}", getName(), connection, rejectedNotification, reason);
 
 		final PushManager<T> pushManager = this;
 
@@ -670,7 +670,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public void handleUnprocessedNotifications(ApnsConnection<T> connection, Collection<T> unprocessedNotifications) {
 
-		log.trace("[{}] {} returned {} unprocessed notifications", getName(), connection, unprocessedNotifications.size());
+		log.trace("{} {} returned {} unprocessed notifications", getName(), connection, unprocessedNotifications.size());
 
 		this.retryQueue.addAll(unprocessedNotifications);
 
