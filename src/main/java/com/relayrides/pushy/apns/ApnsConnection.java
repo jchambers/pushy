@@ -73,7 +73,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private final NioEventLoopGroup eventLoopGroup;
 	private final ApnsConnectionListener<T> listener;
 
-//	private static final AtomicInteger connectionCounter = new AtomicInteger(0);
 	private static final Map<String, AtomicInteger> connNums = new ConcurrentHashMap<String, AtomicInteger>();
 
 	private final String name;
@@ -397,8 +396,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 									apnsConnection.handshakeCompleted = true;
 									apnsConnection.listener.handleConnectionSuccess(apnsConnection);
 								} else {
-									log.debug("{} failed to complete TLS handshake with APNs gateway.",
-											apnsConnection.getName(), handshakeFuture.cause());
+									log.error("{} failed to complete TLS handshake with APNs gateway: {}",
+											apnsConnection.getName(), handshakeFuture.cause().getMessage(), handshakeFuture.cause());
 
 									connectFuture.channel().close();
 									apnsConnection.listener.handleConnectionFailure(apnsConnection, handshakeFuture.cause());
@@ -411,7 +410,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 						apnsConnection.listener.handleConnectionFailure(apnsConnection, e);
 					}
 				} else {
-					log.debug("{} failed to connect to APNs gateway.", apnsConnection.getName(), connectFuture.cause());
+					log.error("{} failed to connect to APNs gateway: {}", apnsConnection.getName(), connectFuture.cause().getMessage(), connectFuture.cause());
 
 					apnsConnection.listener.handleConnectionFailure(apnsConnection, connectFuture.cause());
 				}
