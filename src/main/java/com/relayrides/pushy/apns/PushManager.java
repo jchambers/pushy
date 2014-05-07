@@ -560,7 +560,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public void handleConnectionFailure(final ApnsConnection<T> connection, final Throwable cause) {
 
-		log.trace("{} Connection failed: {}", getName(), connection, cause);
+		log.error("{} Connection failed: {}: {}", getName(), connection, cause.getMessage(), cause);
 
 		this.removeActiveConnection(connection);
 
@@ -596,6 +596,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		if (writable) {
 			this.writableConnectionPool.addConnection(connection);
 		} else {
+		        log.warn("{} Writability for {} changed to read-only, removing connection", getName(), connection);
 			this.writableConnectionPool.removeConnection(connection);
 			this.dispatchThread.interrupt();
 		}
@@ -607,7 +608,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public void handleConnectionClosure(final ApnsConnection<T> connection) {
 
-		log.trace("{} Connection closed: {}", getName(), connection);
+		log.debug("{} Connection closed: {}", getName(), connection);
 
 		this.writableConnectionPool.removeConnection(connection);
 		this.dispatchThread.interrupt();
@@ -690,6 +691,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		synchronized (this.activeConnections) {
 			final boolean removedConnection = this.activeConnections.remove(connection);
 			assert removedConnection;
+
+			ApnsConnection.decConnectionNum(getName());
 
 			if (this.activeConnections.isEmpty()) {
 				this.activeConnections.notifyAll();
