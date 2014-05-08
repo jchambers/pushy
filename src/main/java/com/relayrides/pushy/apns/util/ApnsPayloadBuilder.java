@@ -61,7 +61,7 @@ public class ApnsPayloadBuilder {
 	private static final String ALERT_ARGS_KEY = "loc-args";
 	private static final String LAUNCH_IMAGE_KEY = "launch-image";
 
-	private final HashMap<String, Object> customProperties = new HashMap<String, Object>();
+	private final Map<String, Object> customProperties = new HashMap<String, Object>();
 
 	private static final int DEFAULT_PAYLOAD_SIZE = 256;
 
@@ -240,6 +240,27 @@ public class ApnsPayloadBuilder {
 		this.customProperties.put(key, value);
 		return this;
 	}
+
+    /**
+     * <p>Adds a map of custom properties to the payload. Values are mapped to JSON types according to the mapping table at
+     * <a href="https://code.google.com/p/json-simple/">https://code.google.com/p/json-simple/</a>.</p>
+     *
+     * <p>According to Apple's documentation:</p>
+     *
+     * <blockquote>Providers can specify custom payload values outside the Apple-reserved {@code aps} namespace. Custom
+     * values must use the JSON structured and primitive types: dictionary (object), array, string, number, and Boolean.
+     * You should not include customer information (or any sensitive data) as custom payload data. Instead, use it for
+     * such purposes as setting context (for the user interface) or internal metrics. For example, a custom payload
+     * value might be a conversation identifier for use by an instant-message client application or a timestamp
+     * identifying when the provider sent the notification. Any action associated with an alert message should not be
+     * destructive—for example, it should not delete data on the device.</blockquote>
+     *
+     * @param values the map containing the custom properties in the payload object
+     */
+    public ApnsPayloadBuilder addCustomProperties(final Map<String, ? extends Object> values) {
+        this.customProperties.putAll(values);
+        return this;
+    }
 
 	/**
 	 * <p>Returns a JSON representation of the push notification payload under construction. If the payload length is
