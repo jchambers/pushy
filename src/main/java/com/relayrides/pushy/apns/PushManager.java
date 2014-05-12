@@ -676,8 +676,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	private void startNewConnection() {
+		final SentNotificationBuffer<T> sentNotificationBuffer = this.sentNotificationBufferProvider.get();
 		synchronized (this.activeConnections) {
-			final ApnsConnection<T> connection = new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this.sentNotificationBufferProvider.get(), this);
+			final ApnsConnection<T> connection = new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, sentNotificationBuffer, this);
 			connection.connect();
 
 			this.activeConnections.add(connection);
