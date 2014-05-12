@@ -172,7 +172,13 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 					rejectedNotification.getSequenceNumber(), this.apnsConnection.getName(), rejectedNotification.getReason());
 
 			this.apnsConnection.rejectionReceived = true;
-			this.apnsConnection.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
+
+			// get list of notifications considered as sent
+			Collection<T> sent = this.apnsConnection.sentNotificationBuffer
+					.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
+			if (sent != null && !sent.isEmpty()) {
+				listener.handleSentNotifications(this.apnsConnection, sent);
+			}
 
 			final boolean isKnownBadRejection = this.apnsConnection.shutdownNotification != null &&
 					rejectedNotification.getSequenceNumber() == this.apnsConnection.shutdownNotification.getSequenceNumber();
@@ -205,7 +211,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 				this.apnsConnection.listener.handleUnprocessedNotifications(this.apnsConnection, unprocessedNotifications);
 			}
 
-			this.apnsConnection.sentNotificationBuffer.clearAllNotifications();
+			listener.handleSentNotifications(this.apnsConnection, this.apnsConnection.sentNotificationBuffer.clearAllNotifications());
 		}
 
 		@Override
@@ -406,7 +412,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 								// this connection.
 								apnsConnection.listener.handleUnprocessedNotifications(apnsConnection, java.util.Collections.singletonList(notification));
 							} else {
-								apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
+								Collection<T> sent = apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
+								listener.handleSentNotifications(apnsConnection, sent);
 							}
 						} else {
 							log.trace("{} failed to write notification {}",

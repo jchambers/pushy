@@ -30,6 +30,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -107,6 +108,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private final ArrayList<RejectedNotificationListener<? super T>> rejectedNotificationListeners;
 	private final ArrayList<FailedConnectionListener<? super T>> failedConnectionListeners;
+	private final List<SentNotificationListener<? super T>> sentNotificationListeners;
 
 	private Thread dispatchThread;
 	private boolean dispatchThreadShouldContinue = true;
@@ -173,6 +175,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		this.rejectedNotificationListeners = new ArrayList<RejectedNotificationListener<? super T>>();
 		this.failedConnectionListeners = new ArrayList<FailedConnectionListener<? super T>>();
+		this.sentNotificationListeners = new CopyOnWriteArrayList<SentNotificationListener<? super T>>();
 
 		this.environment = environment;
 		this.sslContext = sslContext;
@@ -472,6 +475,80 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	public boolean unregisterFailedConnectionListener(final FailedConnectionListener<? super T> listener) {
 		synchronized (this.failedConnectionListeners) {
 			return this.failedConnectionListeners.remove(listener);
+		}
+	}
+
+	/**
+	 * Registers sent notification listener.
+	 *
+	 * @param listener listener object
+	 * @throws IllegalArgumentException when <code>listener == null</code>
+	 * @see SentNotificationListener
+	 */
+	public void registerSentNotificationListener(SentNotificationListener<? super T> listener)
+			throws IllegalArgumentException {
+		if (listener == null) {
+			throw new IllegalArgumentException("Sent notification listener cannot be null.");
+		}
+		sentNotificationListeners.add(listener);
+	}
+
+	/**
+	 * Unregisters sent notification listener.
+	 *
+	 * @param listener listener object
+	 * @return true if listener was successfully removed, otherwise false
+	 */
+	public boolean unregisterSentNotificationListener(SentNotificationListener<? super T> listener) {
+		if (listener == null) {
+			return false;
+		}
+		return sentNotificationListeners.remove(listener);
+	}
+
+	/**
+	 * <p>
+	 * Processes notification considered as sent on all registered sent notification listeners.
+	 * </p>
+	 * <b>NOTE</b>: Notification listeners are processed using executor service {@link #listenerExecutorService}.
+	 *
+	 * @param notification sent notification
+	 * @see #PushManager(ApnsEnvironment, SSLContext, int, NioEventLoopGroup, ExecutorService, BlockingQueue, String)
+	 */
+	protected void processSentNotificationListeners(final T notification) {
+		if (notification == null) {
+			return;
+		}
+
+		final PushManager<T> mgr = this;
+		try {
+			listenerExecutorService.submit(new Runnable() {
+				public void run() {
+					for (SentNotificationListener<? super T> listener : sentNotificationListeners) {
+						try {
+							listener.handleSentNotification(mgr, notification);
+						} catch (Throwable t) {
+							log.error("{} exception while handling sent notification listener {} for notification {}: {}",
+									mgr, listener, notification, t.getMessage(), t);
+						}
+					}
+				}
+			});
+		} catch (Throwable t) {
+			log.error("{} exception while submitting sent notification processing task to executor: {}", getName(),
+					t.getMessage(), t);
+		}
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	public void handleSentNotifications(final ApnsConnection<T> connection, final Collection<T> notifications) {
+		if (notifications == null || notifications.isEmpty()) {
+			return;
+		}
+		for (T n : notifications) {
+			processSentNotificationListeners(n);
 		}
 	}
 

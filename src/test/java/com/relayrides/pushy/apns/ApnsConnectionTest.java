@@ -117,6 +117,10 @@ public class ApnsConnectionTest extends BasePushyTest {
 		public String getName() {
 		    return "SomeName";
 		}
+
+		public void handleSentNotifications(ApnsConnection<SimpleApnsPushNotification> connection,
+				Collection<SimpleApnsPushNotification> sentNotifications) {
+		}
 	}
 
 	@Test
