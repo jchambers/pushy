@@ -23,6 +23,8 @@ package com.relayrides.pushy.apns;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -59,12 +61,22 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 	 * 
 	 * @param notification the notification to add to the buffer
 	 */
-	public synchronized void addSentNotification(final SendableApnsPushNotification<E> notification) {
+	public synchronized Collection<E> addSentNotification(final SendableApnsPushNotification<E> notification) {
 		this.sentNotifications.addLast(notification);
 
+		Collection<E> removed = new ArrayList<E>();
+
 		while (this.sentNotifications.size() > this.capacity) {
-			this.sentNotifications.removeFirst();
+			SendableApnsPushNotification<E> sn = this.sentNotifications.removeFirst();
+			if (sn != null) {
+				E n = sn.getPushNotification();
+				if (n != null) {
+					removed.add(n);
+				}
+			}
 		}
+
+		return removed;
 	}
 
 	/**
@@ -73,11 +85,19 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 	 * 
 	 * @param sequenceNumber the sequence number (exclusive) before which to remove sent notifications
 	 */
-	public synchronized void clearNotificationsBeforeSequenceNumber(final int sequenceNumber) {
+	public synchronized Collection<E> clearNotificationsBeforeSequenceNumber(final int sequenceNumber) {
+		List<E> removed = new ArrayList<E>();
 		// We avoid a direct "greater than" comparison here to account for integer wrapping
 		while (!this.sentNotifications.isEmpty() && sequenceNumber - this.sentNotifications.getFirst().getSequenceNumber() > 0) {
-			this.sentNotifications.removeFirst();
+			SendableApnsPushNotification<E> sn = this.sentNotifications.removeFirst();
+			if (sn != null) {
+				E n = sn.getPushNotification();
+				if (n != null) {
+					removed.add(n);
+				}
+			}
 		}
+		return removed;
 	}
 
 	/**
@@ -121,8 +141,26 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 	/**
 	 * Removes all notifications from the buffer.
 	 */
-	public void clearAllNotifications() {
+	public Collection<E> clearAllNotifications() {
+		if (this.sentNotifications.isEmpty()) {
+			return Collections.emptyList();
+		}
+
+		// copy removed stuff
+		Collection<E> removed = new ArrayList<E>();
+		for (SendableApnsPushNotification<E> sn : this.sentNotifications) {
+			if (sn == null) {
+				continue;
+			}
+			E n = sn.getPushNotification();
+			if (n != null) {
+				removed.add(n);
+			}
+		}
+
 		this.sentNotifications.clear();
+
+		return removed;
 	}
 
 	/**

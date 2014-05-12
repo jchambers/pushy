@@ -105,4 +105,18 @@ public interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	 * @param unprocessedNotifications the notifications known to have not been processed by the APNs gateway
 	 */
 	void handleUnprocessedNotifications(ApnsConnection<T> connection, Collection<T> unprocessedNotifications);
+
+	/**
+	 * Indicates that notifications have been sent.
+	 *
+	 * @param connection connection object
+	 * @param sentNotifications list of sent notifications
+	 */
+	void handleSentNotifications(ApnsConnection<T> connection, Collection<T> sentNotifications);
+
+	/**
+	 * Returns listener's name
+	 * @return listener's name as string.
+	 */
+	String getName();
 }
