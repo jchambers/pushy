@@ -29,6 +29,8 @@ If you don't use Maven, you can [download Pushy as a `.jar` file](https://github
 - [slf4j 1.7.6](http://www.slf4j.org/)
 - [json.simple 1.1.1](https://code.google.com/p/json-simple/)
 
+Pushy itself requires Java 1.6 or newer.
+
 ## Using Pushy
 
 The main public-facing part of Pushy is the [`PushManager`](http://relayrides.github.io/pushy/apidocs/0.3/com/relayrides/pushy/apns/PushManager.html) class, which manages connections to APNs and manages the queue of outbound notifications. Before you can create a `PushManager`, though, you'll need appropriate SSL certificates and keys from Apple. They can be obtained by following the steps in Apple's ["Provisioning and Development"](http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ProvisioningDevelopment.html#//apple_ref/doc/uid/TP40008194-CH104-SW1) guide.
