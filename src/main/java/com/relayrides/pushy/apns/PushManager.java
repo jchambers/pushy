@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLHandshakeException;
@@ -102,6 +103,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final ApnsConnectionPool<T> writableConnectionPool;
 	private final FeedbackServiceClient feedbackServiceClient;
 	private final String name;
+	private final AtomicInteger connectionCounter = new AtomicInteger();
 
 	private final ArrayList<RejectedNotificationListener<? super T>> rejectedNotificationListeners;
 	private final ArrayList<FailedConnectionListener<? super T>> failedConnectionListeners;
@@ -204,6 +206,15 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public String getName() {
 	    return name;
+	}
+
+	/**
+	 * Returns connection counter object.
+	 *
+	 * @return connection counter
+	 */
+	protected AtomicInteger getConnectionCounter() {
+		return connectionCounter;
 	}
 
 	/**
@@ -680,7 +691,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private void startNewConnection() {
 		synchronized (this.activeConnections) {
-			final ApnsConnection<T> connection = new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this);
+			final ApnsConnection<T> connection = new ApnsConnection<T>(
+					this.environment, this.sslContext, this.eventLoopGroup,
+					this, getConnectionCounter());
 			connection.connect();
 
 			this.activeConnections.add(connection);
@@ -692,7 +705,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			final boolean removedConnection = this.activeConnections.remove(connection);
 			assert removedConnection;
 
-			ApnsConnection.decConnectionNum(getName());
+			getConnectionCounter().decrementAndGet();
 
 			if (this.activeConnections.isEmpty()) {
 				this.activeConnections.notifyAll();

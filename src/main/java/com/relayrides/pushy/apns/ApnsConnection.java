@@ -44,8 +44,6 @@ import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
@@ -73,9 +71,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private final NioEventLoopGroup eventLoopGroup;
 	private final ApnsConnectionListener<T> listener;
 
-	private static final Map<String, AtomicInteger> connNums = new ConcurrentHashMap<String, AtomicInteger>();
-
 	private final String name;
+	private final AtomicInteger connectionCounter;
 
 	private ChannelFuture connectFuture;
 	private volatile boolean handshakeCompleted = false;
@@ -251,7 +248,11 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * @param eventLoopGroup the event loop group this connection should use for asynchronous network operations
 	 * @param listener the listener to which this connection will report lifecycle events; must not be {@code null}
 	 */
-	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup, final ApnsConnectionListener<T> listener) {
+	public ApnsConnection(final ApnsEnvironment environment,
+			final SSLContext sslContext,
+			final NioEventLoopGroup eventLoopGroup,
+			final ApnsConnectionListener<T> listener,
+			final AtomicInteger connectionCounter) {
 
 		if (listener == null) {
 			throw new NullPointerException("Listener must not be null.");
@@ -261,70 +262,9 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		this.sslContext = sslContext;
 		this.eventLoopGroup = eventLoopGroup;
 		this.listener = listener;
+		this.connectionCounter = (connectionCounter != null) ? connectionCounter : new AtomicInteger();
 
-		String lname = listener.getName();
-		int connNum = incConnectionNum(lname);
-		this.name = String.format("%s connection-%d", lname, connNum);
-	}
-
-	/**
-	 * Returns connection counter for specified {@link PushManager}/{@link ApnsConnectionListener} name.
-	 * @param name {@link PushManager}/{@link ApnsConnectionListener} name
-	 * @return atomic integer instance (if it does not exist, it is created)
-	 */
-	private static AtomicInteger getConnectionCounter (String name) {
-	    if (name == null) {
-		return null;
-	    }
-	    name = name.trim();
-	    if (name.isEmpty()) {
-		return null;
-	    }
-
-	    AtomicInteger counter = connNums.get(name);
-	    if (counter == null) {
-		synchronized (connNums) {
-		    counter = connNums.get(name);
-		    if (counter == null) {
-			counter = new AtomicInteger(0);
-			connNums.put(name, counter);
-		    }
-		}
-	    }
-
-	    return counter;
-	}
-
-	/**
-	 * Increments connection counter for specified {@link PushManager}/{@link ApnsConnectionListener} name.
-	 * @param name {@link PushManager}/{@link ApnsConnectionListener} name
-	 * @return incremented counter as interger
-	 */
-	protected static int incConnectionNum (String name) {
-	    AtomicInteger counter = getConnectionCounter(name);
-	    if (counter == null) {
-		return 0;
-	    }
-	    return counter.incrementAndGet();
-	}
-
-	/**
-	 * Decrements connection counter for specified {@link PushManager}/{@link ApnsConnectionListener} name.
-	 * @param name {@link PushManager}/{@link ApnsConnectionListener} name
-	 * @return decremented counter as interger
-	 */
-	protected static int decConnectionNum (String name) {
-	    AtomicInteger counter = getConnectionCounter(name);
-	    if (counter == null) {
-		return 0;
-	    }
-	    synchronized (counter) {
-		int val = counter.get();
-		if (val > 0) {
-		    return counter.decrementAndGet();
-		}
-		return val;
-	    }
+		this.name = String.format("%s connection-%d", listener.getName(), connectionCounter.incrementAndGet());
 	}
 
 	/**
@@ -333,6 +273,15 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 */
 	public String getName() {
 	    return name;
+	}
+
+	/**
+	 * Returns connection counter associated with this connection
+	 *
+	 * @return connection counter
+	 */
+	protected AtomicInteger getConnectionCounter() {
+		return connectionCounter;
 	}
 
 	/**
@@ -567,7 +516,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 							}
 						});
 					}
-					ApnsConnection.decConnectionNum(getName());
+
+					getConnectionCounter().decrementAndGet();
 				}
 			});
 		} else {
@@ -597,7 +547,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 					this.closeOnRegistration = true;
 				}
 			}
-			ApnsConnection.decConnectionNum(getName());
+
+			getConnectionCounter().decrementAndGet();
 		}
 	}
 
