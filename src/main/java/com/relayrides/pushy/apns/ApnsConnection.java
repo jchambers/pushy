@@ -260,7 +260,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * @param sslContext an SSL context with the keys/certificates and trust managers this connection should use when
 	 * communicating with the APNs gateway
 	 * @param eventLoopGroup the event loop group this connection should use for asynchronous network operations
-	 * @param sentNotificationBuffer2 the capacity of this connection's sent notification buffer
+	 * @param sentNotificationBuffer this connection's sent notification buffer
 	 * @param listener the listener to which this connection will report lifecycle events; must not be {@code null}
 	 */
 	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup, final SentNotificationBuffer<T> sentNotificationBuffer, final ApnsConnectionListener<T> listener) {
