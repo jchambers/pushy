@@ -56,12 +56,12 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	private final SSLContext sslContext;
 
 	private int concurrentConnectionCount = 1;
-	private int sentNotificationBufferCapacity = ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY;
 
 	private NioEventLoopGroup eventLoopGroup;
 	private ExecutorService listenerExecutorService;
 
 	private BlockingQueue<T> queue;
+	private SentNotificationBufferProvider<T> sentNotificationBufferProvider = ApnsConnection.defaultSentNotificationBufferProvider();
 
 	private static final Logger log = LoggerFactory.getLogger(PushManagerFactory.class);
 
@@ -161,9 +161,17 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	 * constructed push managers
 	 * 
 	 * @return a reference to this factory for ease of chaining configuration calls
+	 * 
+	 * @deprecated use setSentNotificationBufferProvider instead.
 	 */
+	@Deprecated
 	public PushManagerFactory<T> setSentNotificationBufferCapacity(final int sentNotificationBufferCapacity) {
-		this.sentNotificationBufferCapacity = sentNotificationBufferCapacity;
+		this.sentNotificationBufferProvider = new MemorySentNotificationBufferProvider<T>(sentNotificationBufferCapacity);
+		return this;
+	}
+	
+	public PushManagerFactory<T> setSentNotificationBufferProvider(final SentNotificationBufferProvider<T> sentNotificationBufferProvider) {
+		this.sentNotificationBufferProvider = sentNotificationBufferProvider;
 		return this;
 	}
 
@@ -181,7 +189,7 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 				this.eventLoopGroup,
 				this.listenerExecutorService,
 				this.queue,
-				this.sentNotificationBufferCapacity);
+				this.sentNotificationBufferProvider);
 	}
 
 	/**

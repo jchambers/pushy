@@ -21,7 +21,10 @@
 
 package com.relayrides.pushy.apns;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import java.util.Collection;
 
@@ -136,7 +139,7 @@ public class ApnsConnectionPoolTest {
 	}
 
 	private ApnsConnection<SimpleApnsPushNotification> createTestConnection() {
-		return new ApnsConnection<SimpleApnsPushNotification>(ApnsEnvironment.getSandboxEnvironment(), null, null, ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY, new ApnsConnectionListener<SimpleApnsPushNotification>() {
+		return new ApnsConnection<SimpleApnsPushNotification>(ApnsEnvironment.getSandboxEnvironment(), null, null, ApnsConnection.<SimpleApnsPushNotification> defaultSentNotificationBuffer(), new ApnsConnectionListener<SimpleApnsPushNotification>() {
 			public void handleConnectionSuccess(ApnsConnection<SimpleApnsPushNotification> connection) {}
 			public void handleConnectionFailure(ApnsConnection<SimpleApnsPushNotification> connection, Throwable cause) {}
 			public void handleConnectionWritabilityChange(ApnsConnection<SimpleApnsPushNotification> connection, boolean writable) {}
