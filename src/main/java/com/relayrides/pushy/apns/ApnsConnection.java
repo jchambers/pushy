@@ -44,7 +44,6 @@ import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
@@ -72,7 +71,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private final ApnsConnectionListener<T> listener;
 
 	private final String name;
-	private final AtomicInteger connectionCounter;
+	private final int connectionNumber;
 
 	private ChannelFuture connectFuture;
 	private volatile boolean handshakeCompleted = false;
@@ -252,7 +251,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			final SSLContext sslContext,
 			final NioEventLoopGroup eventLoopGroup,
 			final ApnsConnectionListener<T> listener,
-			final AtomicInteger connectionCounter) {
+			final int connectionNumber) {
 
 		if (listener == null) {
 			throw new NullPointerException("Listener must not be null.");
@@ -262,9 +261,9 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		this.sslContext = sslContext;
 		this.eventLoopGroup = eventLoopGroup;
 		this.listener = listener;
-		this.connectionCounter = (connectionCounter != null) ? connectionCounter : new AtomicInteger();
+		this.connectionNumber = connectionNumber;
 
-		this.name = String.format("%s connection-%d", listener.getName(), this.connectionCounter.incrementAndGet());
+		this.name = String.format("%s connection %d", listener.getName(), connectionNumber);
 	}
 
 	/**
@@ -276,12 +275,12 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	}
 
 	/**
-	 * Returns connection counter associated with this connection
+	 * Returns connection number associated with this connection
 	 *
-	 * @return connection counter
+	 * @return connection number
 	 */
-	protected AtomicInteger getConnectionCounter() {
-		return connectionCounter;
+	protected int getConnectionNumber() {
+		return connectionNumber;
 	}
 
 	/**
@@ -516,8 +515,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 							}
 						});
 					}
-
-					getConnectionCounter().decrementAndGet();
 				}
 			});
 		} else {
@@ -547,8 +544,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 					this.closeOnRegistration = true;
 				}
 			}
-
-			getConnectionCounter().decrementAndGet();
 		}
 	}
 

@@ -691,9 +691,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private void startNewConnection() {
 		synchronized (this.activeConnections) {
+			int connNum = getConnectionCounter().incrementAndGet();
 			final ApnsConnection<T> connection = new ApnsConnection<T>(
 					this.environment, this.sslContext, this.eventLoopGroup,
-					this, getConnectionCounter());
+					this, connNum);
 			connection.connect();
 
 			this.activeConnections.add(connection);
