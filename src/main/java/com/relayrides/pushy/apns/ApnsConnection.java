@@ -264,7 +264,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		this.listener = listener;
 		this.connectionCounter = (connectionCounter != null) ? connectionCounter : new AtomicInteger();
 
-		this.name = String.format("%s connection-%d", listener.getName(), connectionCounter.incrementAndGet());
+		this.name = String.format("%s connection-%d", listener.getName(), this.connectionCounter.incrementAndGet());
 	}
 
 	/**
