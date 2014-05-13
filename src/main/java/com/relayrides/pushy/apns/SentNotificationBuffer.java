@@ -5,7 +5,7 @@ import java.util.List;
 /**
  * Interface extracted from the MemorySentNotificationBuffer (previous 'SentNotificationBuffer'), to allow easy replacement of the buffer implementation.
  * 
- * @author <a href="mailto:flozano@gmail.com">Francisco A. Lozano</a>
+ * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  *
  * @param <E>
  */
