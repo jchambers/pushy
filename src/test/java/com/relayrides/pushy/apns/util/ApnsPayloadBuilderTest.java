@@ -26,6 +26,8 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.Charset;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -219,6 +221,21 @@ public class ApnsPayloadBuilderTest {
 
 		assertEquals(customValue, payload.get(customKey));
 	}
+
+    @Test
+    public void testAddCustomProperties() throws ParseException {
+        final Map<String, Object> customValues = new HashMap<String, Object>();
+        customValues.put("string", "Hello");
+        customValues.put("second-string", "Howdy!");
+
+        this.builder.addCustomProperties(customValues);
+
+        final JSONObject payload = (JSONObject) this.parser.parse(this.builder.buildWithDefaultMaximumLength());
+
+        assertEquals("Hello", payload.get("string"));
+        assertEquals("Howdy!", payload.get("second-string"));
+    }
+
 
 	@Test
 	public void testBuildWithMaximumLength() {
