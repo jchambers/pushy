@@ -78,14 +78,8 @@ public class MockApnsServer {
 
 	private enum ApnsPushNotificationDecoderState {
 		OPCODE,
-		ENF_SEQUENCE_NUMBER,
-		ENF_EXPIRATION,
-		ENF_TOKEN_LENGTH,
-		ENF_TOKEN,
-		ENF_PAYLOAD_LENGTH,
-		ENF_PAYLOAD,
-		BNF_FRAME_LENGTH,
-		BNF_FRAME;
+		FRAME_LENGTH,
+		FRAME;
 	}
 
 	private class ApnsPushNotificationDecoder extends ReplayingDecoder<ApnsPushNotificationDecoderState> {
@@ -101,7 +95,6 @@ public class MockApnsServer {
 		private boolean hasReceivedExpiration;
 		private boolean hasReceivedSequenceNumber;
 
-		private static final byte ENHANCED_NOTIFICATION_OPCODE = 1;
 		private static final byte BINARY_NOTIFICATION_OPCODE = 2;
 
 		public ApnsPushNotificationDecoder() {
@@ -125,97 +118,16 @@ public class MockApnsServer {
 
 					final byte opcode = in.readByte();
 
-					final ApnsPushNotificationDecoderState nextState;
-
-					switch (opcode) {
-						case ENHANCED_NOTIFICATION_OPCODE: {
-							nextState = ApnsPushNotificationDecoderState.ENF_SEQUENCE_NUMBER;
-							break;
-						}
-
-						case BINARY_NOTIFICATION_OPCODE: {
-							nextState = ApnsPushNotificationDecoderState.BNF_FRAME_LENGTH;
-							break;
-						}
-
-						default: {
-							throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.UNKNOWN);
-						}
+					if (opcode == BINARY_NOTIFICATION_OPCODE) {
+						this.checkpoint(ApnsPushNotificationDecoderState.FRAME_LENGTH);
+					} else {
+						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.UNKNOWN);
 					}
 
-					this.checkpoint(nextState);
-
 					break;
 				}
 
-				case ENF_SEQUENCE_NUMBER: {
-					this.sequenceNumber = in.readInt();
-					this.checkpoint(ApnsPushNotificationDecoderState.ENF_EXPIRATION);
-
-					this.hasReceivedSequenceNumber = true;
-
-					break;
-				}
-
-				case ENF_EXPIRATION: {
-					final long timestamp = (in.readInt() & 0xFFFFFFFFL) * 1000L;
-					this.expiration = timestamp > 0 ? new Date(timestamp) : null;
-
-					this.checkpoint(ApnsPushNotificationDecoderState.ENF_TOKEN_LENGTH);
-
-					this.hasReceivedExpiration = true;
-
-					break;
-				}
-
-				case ENF_TOKEN_LENGTH: {
-
-					this.token = new byte[in.readShort() & 0x0000FFFF];
-
-					if (this.token.length == 0) {
-						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.MISSING_TOKEN);
-					} else if (this.token.length != EXPECTED_TOKEN_SIZE) {
-						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.INVALID_TOKEN_SIZE);
-					}
-
-					this.checkpoint(ApnsPushNotificationDecoderState.ENF_TOKEN);
-
-					break;
-				}
-
-				case ENF_TOKEN: {
-					in.readBytes(this.token);
-					this.checkpoint(ApnsPushNotificationDecoderState.ENF_PAYLOAD_LENGTH);
-
-					break;
-				}
-
-				case ENF_PAYLOAD_LENGTH: {
-					final int payloadSize = in.readShort() & 0x0000FFFF;
-
-					if (payloadSize == 0) {
-						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.MISSING_PAYLOAD);
-					} else if (payloadSize > MAX_PAYLOAD_SIZE) {
-						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.INVALID_PAYLOAD_SIZE);
-					}
-
-					this.payloadBytes = new byte[payloadSize];
-					this.checkpoint(ApnsPushNotificationDecoderState.ENF_PAYLOAD);
-
-					break;
-				}
-
-				case ENF_PAYLOAD: {
-					in.readBytes(this.payloadBytes);
-
-					out.add(this.constructPushNotification());
-
-					this.checkpoint(ApnsPushNotificationDecoderState.OPCODE);
-
-					break;
-				}
-
-				case BNF_FRAME_LENGTH: {
+				case FRAME_LENGTH: {
 					final int frameSize = in.readInt();
 
 					if (frameSize < 1) {
@@ -223,12 +135,12 @@ public class MockApnsServer {
 					}
 
 					this.frame = new byte[frameSize];
-					this.checkpoint(ApnsPushNotificationDecoderState.BNF_FRAME);
+					this.checkpoint(ApnsPushNotificationDecoderState.FRAME);
 
 					break;
 				}
 
-				case BNF_FRAME: {
+				case FRAME: {
 					in.readBytes(this.frame);
 
 					out.add(this.decodeNotificationFromFrame(this.frame));
