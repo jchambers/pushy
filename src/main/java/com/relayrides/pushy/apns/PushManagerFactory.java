@@ -42,7 +42,6 @@ import javax.net.ssl.TrustManagerFactory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.net.www.content.text.plain;
 
 /**
  * A {@code PushManagerFactory} is used to configure and construct a new {@link PushManager}.
