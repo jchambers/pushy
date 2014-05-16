@@ -195,32 +195,30 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	 */
 	public static SSLContext createDefaultSSLContext(final String pathToPKCS12File, final String keystorePassword) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException, KeyManagementException, IOException {
 		final FileInputStream keystoreInputStream = new FileInputStream(pathToPKCS12File);
-        return createDefaultSSLContext(keystoreInputStream, keystorePassword);
+		return createDefaultSSLContext(keystoreInputStream, keystorePassword);
 	}
 
-    /**
-     * Creates a new SSL context using the JVM default trust managers and the certificates in the given PKCS12 InputStream.
-     *
-     * @param keystoreInputStream a PKCS12 file that contains the client certificate
-     * @param keystorePassword the password to read the PKCS12 file; may be {@code null}
-     *
-     * @return an SSL context configured with the given client certificate and the JVM default trust managers
-     */
-    public static SSLContext createDefaultSSLContext(final InputStream keystoreInputStream, final String keystorePassword) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException, KeyManagementException, IOException {
-        try {
-            final KeyStore keyStore = KeyStore.getInstance("PKCS12");
-            keyStore.load(keystoreInputStream, keystorePassword != null ? keystorePassword.toCharArray() : null);
-            return PushManagerFactory.createDefaultSSLContext(keyStore, keystorePassword != null ? keystorePassword.toCharArray() : null);
-        } finally {
-            try {
-                keystoreInputStream.close();
-            } catch (IOException e) {
-                log.error("Failed to close keystore input stream.", e);
-            }
-        }
-    }
-
-
+	/**
+	 * Creates a new SSL context using the JVM default trust managers and the certificates in the given PKCS12 InputStream.
+	 *
+	 * @param keystoreInputStream a PKCS12 file that contains the client certificate
+	 * @param keystorePassword the password to read the PKCS12 file; may be {@code null}
+	 *
+	 * @return an SSL context configured with the given client certificate and the JVM default trust managers
+	 */
+	public static SSLContext createDefaultSSLContext(final InputStream keystoreInputStream, final String keystorePassword) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException, KeyManagementException, IOException {
+		try {
+			final KeyStore keyStore = KeyStore.getInstance("PKCS12");
+			keyStore.load(keystoreInputStream, keystorePassword != null ? keystorePassword.toCharArray() : null);
+			return PushManagerFactory.createDefaultSSLContext(keyStore, keystorePassword != null ? keystorePassword.toCharArray() : null);
+		} finally {
+			try {
+				keystoreInputStream.close();
+			} catch (IOException e) {
+				log.error("Failed to close keystore input stream.", e);
+			}
+		}
+	}
 
 	/**
 	 * Creates a new SSL context using the JVM default trust managers and the certificates in the given keystore.
