@@ -146,6 +146,18 @@ public class PushManagerFactoryTest {
 		}
 	}
 
+	@Test
+	public void testCreateDefaultSSLContextWithInputStream() throws IOException, CertificateException, UnrecoverableKeyException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
+		final FileInputStream keyStoreInputStream =
+			new FileInputStream(this.getFullPath(CLIENT_PKCS12_FILE_NAME));
+
+		try {
+            assertNotNull(PushManagerFactory.createDefaultSSLContext(keyStoreInputStream, KEYSTORE_PASSWORD));
+		} finally {
+			keyStoreInputStream.close();
+		}
+	}
+
 	@Test(expected = KeyStoreException.class)
 	public void testCreateDefaultSSLContextFromEmptyJKSFile() throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, UnrecoverableKeyException, KeyManagementException {
 		final FileInputStream keyStoreInputStream =
