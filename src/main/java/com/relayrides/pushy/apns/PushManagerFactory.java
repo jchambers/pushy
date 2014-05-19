@@ -195,7 +195,15 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	 */
 	public static SSLContext createDefaultSSLContext(final String pathToPKCS12File, final String keystorePassword) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException, KeyManagementException, IOException {
 		final FileInputStream keystoreInputStream = new FileInputStream(pathToPKCS12File);
-		return createDefaultSSLContext(keystoreInputStream, keystorePassword);
+		try {
+			return createDefaultSSLContext(keystoreInputStream, keystorePassword);
+		} finally {
+			try {
+				keystoreInputStream.close();
+			} catch (IOException e) {
+				log.error("Failed to close keystore input stream.", e);
+			}
+		}
 	}
 
 	/**
@@ -207,17 +215,9 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	 * @return an SSL context configured with the given client certificate and the JVM default trust managers
 	 */
 	public static SSLContext createDefaultSSLContext(final InputStream keystoreInputStream, final String keystorePassword) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException, KeyManagementException, IOException {
-		try {
-			final KeyStore keyStore = KeyStore.getInstance("PKCS12");
-			keyStore.load(keystoreInputStream, keystorePassword != null ? keystorePassword.toCharArray() : null);
-			return PushManagerFactory.createDefaultSSLContext(keyStore, keystorePassword != null ? keystorePassword.toCharArray() : null);
-		} finally {
-			try {
-				keystoreInputStream.close();
-			} catch (IOException e) {
-				log.error("Failed to close keystore input stream.", e);
-			}
-		}
+		final KeyStore keyStore = KeyStore.getInstance("PKCS12");
+		keyStore.load(keystoreInputStream, keystorePassword != null ? keystorePassword.toCharArray() : null);
+		return PushManagerFactory.createDefaultSSLContext(keyStore, keystorePassword != null ? keystorePassword.toCharArray() : null);
 	}
 
 	/**
