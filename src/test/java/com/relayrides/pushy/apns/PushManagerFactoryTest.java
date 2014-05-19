@@ -152,7 +152,7 @@ public class PushManagerFactoryTest {
 			new FileInputStream(this.getFullPath(CLIENT_PKCS12_FILE_NAME));
 
 		try {
-            assertNotNull(PushManagerFactory.createDefaultSSLContext(keyStoreInputStream, KEYSTORE_PASSWORD));
+			assertNotNull(PushManagerFactory.createDefaultSSLContext(keyStoreInputStream, KEYSTORE_PASSWORD));
 		} finally {
 			keyStoreInputStream.close();
 		}
