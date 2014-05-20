@@ -47,15 +47,15 @@ public class SentNotificationBufferTest {
 
 	@Test(expected = IllegalArgumentException.class)
 	public void testSentNotificationBufferBadCapacity() {
-		new SentNotificationBuffer<SimpleApnsPushNotification>(0);
+		new MemorySentNotificationBuffer<SimpleApnsPushNotification>(0);
 	}
 
 	@Test
 	public void testAddSentNotification() {
 		final int capacity = 8;
 
-		final SentNotificationBuffer<SimpleApnsPushNotification> buffer =
-				new SentNotificationBuffer<SimpleApnsPushNotification>(capacity);
+		final MemorySentNotificationBuffer<SimpleApnsPushNotification> buffer =
+				new MemorySentNotificationBuffer<SimpleApnsPushNotification>(capacity);
 
 		assertEquals(0, buffer.size());
 
@@ -71,8 +71,8 @@ public class SentNotificationBufferTest {
 		final int capacity = 10;
 
 		{
-			final SentNotificationBuffer<SimpleApnsPushNotification> buffer =
-					new SentNotificationBuffer<SimpleApnsPushNotification>(capacity);
+			final MemorySentNotificationBuffer<SimpleApnsPushNotification> buffer =
+					new MemorySentNotificationBuffer<SimpleApnsPushNotification>(capacity);
 
 			final int startingIndex = 0;
 
@@ -85,8 +85,8 @@ public class SentNotificationBufferTest {
 		}
 
 		{
-			final SentNotificationBuffer<SimpleApnsPushNotification> buffer =
-					new SentNotificationBuffer<SimpleApnsPushNotification>(capacity);
+			final MemorySentNotificationBuffer<SimpleApnsPushNotification> buffer =
+					new MemorySentNotificationBuffer<SimpleApnsPushNotification>(capacity);
 
 			final int startingIndex = Integer.MAX_VALUE - 2;
 
@@ -104,7 +104,7 @@ public class SentNotificationBufferTest {
 		final int capacity = 21;
 
 		final SentNotificationBuffer<SimpleApnsPushNotification> buffer =
-				new SentNotificationBuffer<SimpleApnsPushNotification>(capacity);
+				new MemorySentNotificationBuffer<SimpleApnsPushNotification>(capacity);
 
 		assertNull(buffer.getNotificationWithSequenceNumber(10));
 
@@ -130,7 +130,7 @@ public class SentNotificationBufferTest {
 		final int capacity = 10;
 
 		final SentNotificationBuffer<SimpleApnsPushNotification> buffer =
-				new SentNotificationBuffer<SimpleApnsPushNotification>(capacity);
+				new MemorySentNotificationBuffer<SimpleApnsPushNotification>(capacity);
 
 		for (final SendableApnsPushNotification<SimpleApnsPushNotification> notification : this.generateSequentialNotifications(capacity, 0)) {
 			buffer.addSentNotification(notification);
@@ -143,8 +143,8 @@ public class SentNotificationBufferTest {
 	public void testClearAllNotifications() {
 		final int capacity = 10;
 
-		final SentNotificationBuffer<SimpleApnsPushNotification> buffer =
-				new SentNotificationBuffer<SimpleApnsPushNotification>(capacity);
+		final MemorySentNotificationBuffer<SimpleApnsPushNotification> buffer =
+				new MemorySentNotificationBuffer<SimpleApnsPushNotification>(capacity);
 
 		for (final SendableApnsPushNotification<SimpleApnsPushNotification> notification : this.generateSequentialNotifications(capacity, 0)) {
 			buffer.addSentNotification(notification);
@@ -158,8 +158,8 @@ public class SentNotificationBufferTest {
 
 	@Test
 	public void testGetSequenceNumbersEmpty() {
-		final SentNotificationBuffer<SimpleApnsPushNotification> buffer =
-				new SentNotificationBuffer<SimpleApnsPushNotification>(1);
+		final MemorySentNotificationBuffer<SimpleApnsPushNotification> buffer =
+				new MemorySentNotificationBuffer<SimpleApnsPushNotification>(1);
 
 		assertNull(buffer.getLowestSequenceNumber());
 		assertNull(buffer.getHighestSequenceNumber());
@@ -170,8 +170,8 @@ public class SentNotificationBufferTest {
 	public void testGetSequenceNumbersSingleItem() {
 		final int sequenceNumber = 17;
 
-		final SentNotificationBuffer<SimpleApnsPushNotification> buffer =
-				new SentNotificationBuffer<SimpleApnsPushNotification>(1);
+		final MemorySentNotificationBuffer<SimpleApnsPushNotification> buffer =
+				new MemorySentNotificationBuffer<SimpleApnsPushNotification>(1);
 
 		final SendableApnsPushNotification<SimpleApnsPushNotification> sendableNotification =
 				new SendableApnsPushNotification<SimpleApnsPushNotification>(this.testNotification, sequenceNumber);
@@ -187,8 +187,8 @@ public class SentNotificationBufferTest {
 	public void testGetSequenceNumbersMultipleItems() {
 		final int capacity = 10;
 
-		final SentNotificationBuffer<SimpleApnsPushNotification> buffer =
-				new SentNotificationBuffer<SimpleApnsPushNotification>(capacity);
+		final MemorySentNotificationBuffer<SimpleApnsPushNotification> buffer =
+				new MemorySentNotificationBuffer<SimpleApnsPushNotification>(capacity);
 
 		for (final SendableApnsPushNotification<SimpleApnsPushNotification> notification : this.generateSequentialNotifications(capacity, 0)) {
 			buffer.addSentNotification(notification);

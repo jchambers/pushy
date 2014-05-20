@@ -97,7 +97,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final SSLContext sslContext;
 
 	private final int concurrentConnectionCount;
-	private final int sentNotificationBufferCapacity;
+	private final SentNotificationBufferProvider<T> sentNotificationBufferProvider;
 	private final HashSet<ApnsConnection<T>> activeConnections;
 	private final ApnsConnectionPool<T> writableConnectionPool;
 
@@ -160,13 +160,13 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * down automatically with the push manager is shut down. If not {@code null}, the caller <strong>must</strong>
 	 * shut down the executor service after shutting down the push manager.
 	 * @param queue the queue to be used to pass new notifications to this push manager
-	 * @param sentNotificationBufferCapacity the capacity of the sent notification buffer for connections created by
+	 * @param sentNotificationBufferProvider the capacity of the sent notification buffer for connections created by
 	 * this push manager
 	 */
 	protected PushManager(final ApnsEnvironment environment, final SSLContext sslContext,
 			final int concurrentConnectionCount, final NioEventLoopGroup eventLoopGroup,
 			final ExecutorService listenerExecutorService, final BlockingQueue<T> queue,
-			final int sentNotificationBufferCapacity) {
+			final SentNotificationBufferProvider<T> sentNotificationBufferProvider) {
 
 		this.queue = queue != null ? queue : new LinkedBlockingQueue<T>();
 		this.retryQueue = new LinkedBlockingQueue<T>();
@@ -178,7 +178,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		this.sslContext = sslContext;
 
 		this.concurrentConnectionCount = concurrentConnectionCount;
-		this.sentNotificationBufferCapacity = sentNotificationBufferCapacity;
+		this.sentNotificationBufferProvider = sentNotificationBufferProvider;
 		this.writableConnectionPool = new ApnsConnectionPool<T>();
 		this.activeConnections = new HashSet<ApnsConnection<T>>();
 
@@ -676,8 +676,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	private void startNewConnection() {
+		final SentNotificationBuffer<T> sentNotificationBuffer = this.sentNotificationBufferProvider.get();
 		synchronized (this.activeConnections) {
-			final ApnsConnection<T> connection = new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this.sentNotificationBufferCapacity, this);
+			final ApnsConnection<T> connection = new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, sentNotificationBuffer, this);
 			connection.connect();
 
 			this.activeConnections.add(connection);
