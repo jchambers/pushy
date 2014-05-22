@@ -44,11 +44,20 @@ public class TokenUtil {
 	 *
 	 * @return a byte array containing the values represented in the token string
 	 *
+	 * @throws MalformedTokenStringException if the given token string could not be parsed as an APNs token
 	 * @throws NullPointerException if the given string is {@code null}
 	 */
-	public static byte[] tokenStringToByteArray(final String tokenString) {
+	public static byte[] tokenStringToByteArray(final String tokenString) throws MalformedTokenStringException {
+
+		if (tokenString == null) {
+			throw new NullPointerException("Token string must not be null.");
+		}
 
 		final String strippedTokenString = tokenString.replaceAll(NON_HEX_CHARACTER_PATTERN, "");
+
+		if (strippedTokenString.length() % 2 != 0) {
+			throw new MalformedTokenStringException("Token strings must contain an even number of hexadecimal digits.");
+		}
 
 		final byte[] tokenBytes = new byte[strippedTokenString.length() / 2];
 
@@ -71,6 +80,10 @@ public class TokenUtil {
 	 * @throws NullPointerException if the given byte array is {@code null}
 	 */
 	public static String tokenBytesToString(final byte[] tokenBytes) {
+		if (tokenBytes == null) {
+			throw new NullPointerException("Token byte array must not be null.");
+		}
+
 		final StringBuilder builder = new StringBuilder();
 
 		for (final byte b : tokenBytes) {

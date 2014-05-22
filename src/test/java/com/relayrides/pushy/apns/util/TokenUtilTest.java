@@ -29,21 +29,21 @@ import org.junit.Test;
 public class TokenUtilTest {
 
 	@Test
-	public void testTokenStringToByteArray() {
+	public void testTokenStringToByteArray() throws MalformedTokenStringException {
 		final String tokenString = "<740f4707 61bb78ad>";
 		final byte[] expectedTokenBytes = new byte[] { 0x74, 0x0f, 0x47, 0x07, 0x61, (byte) 0xbb, 0x78, (byte) 0xad };
 
 		assertArrayEquals(expectedTokenBytes, TokenUtil.tokenStringToByteArray(tokenString));
 	}
 
-	@Test
-	public void testTokenStringToByteArrayOddStringLength() {
+	@Test(expected = MalformedTokenStringException.class)
+	public void testTokenStringToByteArrayOddStringLength() throws MalformedTokenStringException {
 		final String tokenString = "<740f4707 61bb78a>";
 		TokenUtil.tokenStringToByteArray(tokenString);
 	}
 
 	@Test(expected = NullPointerException.class)
-	public void testTokenStringToByteArrayNullString() {
+	public void testTokenStringToByteArrayNullString() throws MalformedTokenStringException {
 		TokenUtil.tokenStringToByteArray(null);
 	}
 
