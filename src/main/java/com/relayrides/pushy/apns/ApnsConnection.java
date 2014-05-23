@@ -154,8 +154,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		private static final byte BINARY_PUSH_NOTIFICATION_COMMAND = 2;
 		private static final int EXPIRE_IMMEDIATELY = 0;
 
-		private static final short FRAME_ITEM_ID_SIZE = 1;
-		private static final short FRAME_ITEM_LENGTH_SIZE = 2;
+		private static final int FRAME_ITEM_ID_SIZE = 1;
+		private static final int FRAME_ITEM_LENGTH_SIZE = 2;
 
 		private static final short SEQUENCE_NUMBER_SIZE = 4;
 		private static final short EXPIRATION_SIZE = 4;
