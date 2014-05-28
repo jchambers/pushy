@@ -148,6 +148,6 @@ public class ApnsConnectionPoolTest {
 			public void handleRejectedNotification(ApnsConnection<SimpleApnsPushNotification> connection, SimpleApnsPushNotification rejectedNotification, RejectedNotificationReason reason) {}
 			public void handleUnprocessedNotifications(ApnsConnection<SimpleApnsPushNotification> connection, Collection<SimpleApnsPushNotification> unprocessedNotifications) {}
 			public String getName() { return "SomeName"; }
-		}, 1);
+		}, "name");
 	}
 }

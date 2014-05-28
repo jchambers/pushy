@@ -71,7 +71,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private final ApnsConnectionListener<T> listener;
 
 	private final String name;
-	private final int connectionNumber;
 
 	private ChannelFuture connectFuture;
 	private volatile boolean handshakeCompleted = false;
@@ -251,7 +250,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			final SSLContext sslContext,
 			final NioEventLoopGroup eventLoopGroup,
 			final ApnsConnectionListener<T> listener,
-			final int connectionNumber) {
+			final String name) {
 
 		if (listener == null) {
 			throw new NullPointerException("Listener must not be null.");
@@ -261,9 +260,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		this.sslContext = sslContext;
 		this.eventLoopGroup = eventLoopGroup;
 		this.listener = listener;
-		this.connectionNumber = connectionNumber;
-
-		this.name = String.format("%s connection %d", listener.getName(), connectionNumber);
+		this.name = name;
 	}
 
 	/**
@@ -272,15 +269,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 */
 	public String getName() {
 	    return name;
-	}
-
-	/**
-	 * Returns connection number associated with this connection
-	 *
-	 * @return connection number
-	 */
-	protected int getConnectionNumber() {
-		return connectionNumber;
 	}
 
 	/**
