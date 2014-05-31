@@ -289,6 +289,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioSocketChannel.class);
 		bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+		bootstrap.option(ChannelOption.TCP_NODELAY, false);
 		bootstrap.option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
 
 		// TODO Remove this when Netty 5 is available
