@@ -65,4 +65,15 @@ public interface ApnsPushNotification {
 	 * Provider Communication with Apple Push Notification Service</a>
 	 */
 	Date getDeliveryInvalidationTime();
+
+	/**
+	 * Returns the priority with which this push notification should be sent to the receiving device. If {@code null},
+	 * an immediate delivery priority is assumed.
+	 * 
+	 * @return the priority with which this push notification should be sent to the receiving device
+	 * 
+	 * @see <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">
+	 * Provider Communication with Apple Push Notification Service</a>
+	 */
+	DeliveryPriority getPriority();
 }

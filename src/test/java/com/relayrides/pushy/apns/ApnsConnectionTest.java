@@ -33,6 +33,7 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 
 import javax.net.ssl.SSLHandshakeException;
@@ -241,6 +242,38 @@ public class ApnsConnectionTest extends BasePushyTest {
 		assertTrue(listener.connectionSucceeded);
 
 		apnsConnection.sendNotification(this.createTestNotification());
+		this.waitForLatch(latch);
+	}
+
+	@Test
+	public void testSendNotificationWithNullPriority() throws Exception {
+		final Object mutex = new Object();
+
+		final TestListener listener = new TestListener(mutex);
+		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
+				new ApnsConnection<SimpleApnsPushNotification>(
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
+						ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY, listener);
+
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(1);
+
+		synchronized (mutex) {
+			apnsConnection.connect();
+
+			while (!listener.connectionSucceeded) {
+				mutex.wait();
+			}
+		}
+
+		assertTrue(listener.connectionSucceeded);
+
+		final byte[] token = new byte[32];
+		new Random().nextBytes(token);
+
+		final SimpleApnsPushNotification nullPriorityNotification = new SimpleApnsPushNotification(
+				token, "This is a bogus payload, but that's okay.", null, null);
+
+		apnsConnection.sendNotification(nullPriorityNotification);
 		this.waitForLatch(latch);
 	}
 

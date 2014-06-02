@@ -37,6 +37,7 @@ import io.netty.handler.codec.MessageToByteEncoder;
 import io.netty.handler.codec.ReplayingDecoder;
 import io.netty.handler.ssl.SslHandler;
 
+import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Date;
@@ -46,6 +47,7 @@ import java.util.concurrent.CountDownLatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.relayrides.pushy.apns.ApnsConnection.ApnsFrameItem;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class MockApnsServer {
@@ -76,22 +78,24 @@ public class MockApnsServer {
 
 	private enum ApnsPushNotificationDecoderState {
 		OPCODE,
-		SEQUENCE_NUMBER,
-		EXPIRATION,
-		TOKEN_LENGTH,
-		TOKEN,
-		PAYLOAD_LENGTH,
-		PAYLOAD
+		FRAME_LENGTH,
+		FRAME;
 	}
 
 	private class ApnsPushNotificationDecoder extends ReplayingDecoder<ApnsPushNotificationDecoderState> {
 
 		private int sequenceNumber;
-		private Date expiration;
+		private Date deliveryInvalidation;
 		private byte[] token;
 		private byte[] payloadBytes;
+		private DeliveryPriority priority;
 
-		private static final byte EXPECTED_OPCODE = 1;
+		private byte[] frame;
+
+		private boolean hasReceivedDeliveryInvalidationTime;
+		private boolean hasReceivedSequenceNumber;
+
+		private static final byte BINARY_NOTIFICATION_OPCODE = 2;
 
 		public ApnsPushNotificationDecoder() {
 			super(ApnsPushNotificationDecoderState.OPCODE);
@@ -101,84 +105,149 @@ public class MockApnsServer {
 		protected void decode(final ChannelHandlerContext context, final ByteBuf in, final List<Object> out) throws ApnsDecoderException {
 			switch (this.state()) {
 				case OPCODE: {
+
+					this.sequenceNumber = 0;
+					this.deliveryInvalidation = null;
+					this.token = null;
+					this.payloadBytes = null;
+					this.priority = null;
+					this.frame = null;
+
+					this.hasReceivedDeliveryInvalidationTime = false;
+					this.hasReceivedSequenceNumber = false;
+
 					final byte opcode = in.readByte();
 
-					if (opcode != EXPECTED_OPCODE) {
-						throw new ApnsDecoderException(0, RejectedNotificationReason.UNKNOWN);
+					if (opcode == BINARY_NOTIFICATION_OPCODE) {
+						this.checkpoint(ApnsPushNotificationDecoderState.FRAME_LENGTH);
+					} else {
+						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.UNKNOWN);
 					}
 
-					this.checkpoint(ApnsPushNotificationDecoderState.SEQUENCE_NUMBER);
-
 					break;
 				}
 
-				case SEQUENCE_NUMBER: {
-					this.sequenceNumber = in.readInt();
-					this.checkpoint(ApnsPushNotificationDecoderState.EXPIRATION);
+				case FRAME_LENGTH: {
+					final int frameSize = in.readInt();
 
-					break;
-				}
-
-				case EXPIRATION: {
-					final long timestamp = (in.readInt() & 0xFFFFFFFFL) * 1000L;
-					this.expiration = new Date(timestamp);
-
-					this.checkpoint(ApnsPushNotificationDecoderState.TOKEN_LENGTH);
-
-					break;
-				}
-
-				case TOKEN_LENGTH: {
-
-					this.token = new byte[in.readShort() & 0x0000FFFF];
-
-					if (this.token.length == 0) {
-						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.MISSING_TOKEN);
-					} else if (this.token.length != EXPECTED_TOKEN_SIZE) {
-						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.INVALID_TOKEN_SIZE);
+					if (frameSize < 1) {
+						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.UNKNOWN);
 					}
 
-					this.checkpoint(ApnsPushNotificationDecoderState.TOKEN);
+					this.frame = new byte[frameSize];
+					this.checkpoint(ApnsPushNotificationDecoderState.FRAME);
 
 					break;
 				}
 
-				case TOKEN: {
-					in.readBytes(this.token);
-					this.checkpoint(ApnsPushNotificationDecoderState.PAYLOAD_LENGTH);
+				case FRAME: {
+					in.readBytes(this.frame);
 
-					break;
-				}
-
-				case PAYLOAD_LENGTH: {
-					final int payloadSize = in.readShort() & 0x0000FFFF;
-
-					if (payloadSize == 0) {
-						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.MISSING_PAYLOAD);
-					} else if (payloadSize > MAX_PAYLOAD_SIZE) {
-						throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.INVALID_PAYLOAD_SIZE);
-					}
-
-					this.payloadBytes = new byte[payloadSize];
-					this.checkpoint(ApnsPushNotificationDecoderState.PAYLOAD);
-
-					break;
-				}
-
-				case PAYLOAD: {
-					in.readBytes(this.payloadBytes);
-
-					final String payloadString = new String(this.payloadBytes, Charset.forName("UTF-8"));
-
-					out.add(new SendableApnsPushNotification<SimpleApnsPushNotification>(
-							new SimpleApnsPushNotification(this.token, payloadString, this.expiration),
-							this.sequenceNumber));
-
+					out.add(this.decodeNotificationFromFrame(this.frame));
 					this.checkpoint(ApnsPushNotificationDecoderState.OPCODE);
 
 					break;
 				}
 			}
+		}
+
+		private SendableApnsPushNotification<SimpleApnsPushNotification> decodeNotificationFromFrame(final byte[] frame) throws ApnsDecoderException {
+			final ByteBuffer buffer = ByteBuffer.wrap(frame);
+
+			while (buffer.hasRemaining()) {
+				try {
+					final ApnsFrameItem item = ApnsFrameItem.getFrameItemFromCode(buffer.get());
+					final short itemLength = buffer.getShort();
+
+					switch (item) {
+						case DEVICE_TOKEN: {
+							if (this.token != null) {
+								throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.UNKNOWN);
+							}
+
+							this.token = new byte[itemLength];
+
+							if (this.token.length == 0) {
+								throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.MISSING_TOKEN);
+							} else if (this.token.length != EXPECTED_TOKEN_SIZE) {
+								throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.INVALID_TOKEN_SIZE);
+							}
+
+							buffer.get(this.token);
+
+							break;
+						}
+
+						case DELIVERY_INVALIDATION_TIME: {
+							if (this.hasReceivedDeliveryInvalidationTime) {
+								throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.UNKNOWN);
+							}
+
+							final long timestamp = (buffer.getInt() & 0xFFFFFFFFL) * 1000L;
+							this.deliveryInvalidation = timestamp > 0 ? new Date(timestamp) : null;
+
+							this.hasReceivedDeliveryInvalidationTime = true;
+
+							break;
+						}
+
+						case PAYLOAD: {
+							if (this.payloadBytes != null) {
+								throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.UNKNOWN);
+							}
+
+							this.payloadBytes = new byte[itemLength];
+
+							if (this.payloadBytes.length == 0) {
+								throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.MISSING_PAYLOAD);
+							} else if (this.payloadBytes.length > MAX_PAYLOAD_SIZE) {
+								throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.INVALID_PAYLOAD_SIZE);
+							}
+
+							buffer.get(this.payloadBytes);
+
+							break;
+						}
+
+						case PRIORITY: {
+							if (this.priority != null) {
+								throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.UNKNOWN);
+							}
+
+							this.priority = DeliveryPriority.getFromCode(buffer.get());
+
+							break;
+						}
+
+						case SEQUENCE_NUMBER: {
+							if (this.hasReceivedSequenceNumber) {
+								throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.UNKNOWN);
+							}
+
+							this.sequenceNumber = buffer.getInt();
+							this.hasReceivedSequenceNumber = true;
+
+							break;
+						}
+					}
+				} catch (final RuntimeException e) {
+					throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.UNKNOWN);
+				}
+			}
+
+			return this.constructPushNotification();
+		}
+
+		private SendableApnsPushNotification<SimpleApnsPushNotification> constructPushNotification() throws ApnsDecoderException {
+			if (!this.hasReceivedSequenceNumber || !this.hasReceivedDeliveryInvalidationTime || this.token == null || this.payloadBytes == null || this.priority == null) {
+				throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.UNKNOWN);
+			}
+
+			final String payloadString = new String(this.payloadBytes, Charset.forName("UTF-8"));
+
+			return new SendableApnsPushNotification<SimpleApnsPushNotification>(
+					new SimpleApnsPushNotification(this.token, payloadString, this.deliveryInvalidation, this.priority),
+					this.sequenceNumber);
 		}
 	}
 

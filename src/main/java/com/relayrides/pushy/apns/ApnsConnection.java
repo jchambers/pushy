@@ -78,7 +78,11 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private volatile boolean handshakeCompleted = false;
 	private boolean closeOnRegistration;
 
-	private int sequenceNumber = 0;
+	// We want to start the count at 1 here because the gateway will send back a sequence number of 0 if it doesn't know
+	// which notification failed. This isn't 100% bulletproof (we'll legitimately get back to 0 after 2^32
+	// notifications), but the probability of collision (or even sending 4 billion notifications without some recipient
+	// having an expired token) is vanishingly small.
+	private int sequenceNumber = 1;
 
 	private final Object pendingWriteMonitor = new Object();
 	private int pendingWriteCount = 0;
@@ -91,6 +95,34 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
 
 	public static final int DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY = 8192;
+
+	protected enum ApnsFrameItem {
+		DEVICE_TOKEN((byte)1),
+		PAYLOAD((byte)2),
+		SEQUENCE_NUMBER((byte)3),
+		DELIVERY_INVALIDATION_TIME((byte)4),
+		PRIORITY((byte)5);
+
+		private final byte code;
+
+		private ApnsFrameItem(final byte code) {
+			this.code = code;
+		}
+
+		protected byte getCode() {
+			return this.code;
+		}
+
+		protected static ApnsFrameItem getFrameItemFromCode(final byte code) {
+			for (final ApnsFrameItem item : ApnsFrameItem.values()) {
+				if (item.getCode() == code) {
+					return item;
+				}
+			}
+
+			throw new IllegalArgumentException(String.format("No frame item found with code %d", code));
+		}
+	}
 
 	private class RejectedNotificationDecoder extends ByteToMessageDecoder {
 
@@ -119,33 +151,70 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 	private class ApnsPushNotificationEncoder extends MessageToByteEncoder<SendableApnsPushNotification<T>> {
 
-		private static final byte ENHANCED_PUSH_NOTIFICATION_COMMAND = 1;
-		private static final int EXPIRE_IMMEDIATELY = 0;
+		private static final byte BINARY_PUSH_NOTIFICATION_COMMAND = 2;
+		private static final int INVALIDATE_IMMEDIATELY = 0;
+
+		private static final int FRAME_ITEM_ID_SIZE = 1;
+		private static final int FRAME_ITEM_LENGTH_SIZE = 2;
+
+		private static final short SEQUENCE_NUMBER_SIZE = 4;
+		private static final short DELIVERY_INVALIDATION_TIME_SIZE = 4;
+		private static final short PRIORITY_SIZE = 1;
 
 		private final Charset utf8 = Charset.forName("UTF-8");
 
 		@Override
 		protected void encode(final ChannelHandlerContext context, final SendableApnsPushNotification<T> sendablePushNotification, final ByteBuf out) throws Exception {
-			out.writeByte(ENHANCED_PUSH_NOTIFICATION_COMMAND);
+			out.writeByte(BINARY_PUSH_NOTIFICATION_COMMAND);
+			out.writeInt(this.getFrameLength(sendablePushNotification));
+
+			out.writeByte(ApnsFrameItem.SEQUENCE_NUMBER.getCode());
+			out.writeShort(SEQUENCE_NUMBER_SIZE);
 			out.writeInt(sendablePushNotification.getSequenceNumber());
 
-			if (sendablePushNotification.getPushNotification().getDeliveryInvalidationTime() != null) {
-				out.writeInt(this.getTimestampInSeconds(sendablePushNotification.getPushNotification().getDeliveryInvalidationTime()));
-			} else {
-				out.writeInt(EXPIRE_IMMEDIATELY);
-			}
-
+			out.writeByte(ApnsFrameItem.DEVICE_TOKEN.getCode());
 			out.writeShort(sendablePushNotification.getPushNotification().getToken().length);
 			out.writeBytes(sendablePushNotification.getPushNotification().getToken());
 
 			final byte[] payloadBytes = sendablePushNotification.getPushNotification().getPayload().getBytes(utf8);
 
+			out.writeByte(ApnsFrameItem.PAYLOAD.getCode());
 			out.writeShort(payloadBytes.length);
 			out.writeBytes(payloadBytes);
+
+			out.writeByte(ApnsFrameItem.DELIVERY_INVALIDATION_TIME.getCode());
+			out.writeShort(DELIVERY_INVALIDATION_TIME_SIZE);
+
+			final int deliveryInvalidationTime;
+
+			if (sendablePushNotification.getPushNotification().getDeliveryInvalidationTime() != null) {
+				deliveryInvalidationTime = this.getTimestampInSeconds(
+						sendablePushNotification.getPushNotification().getDeliveryInvalidationTime());
+			} else {
+				deliveryInvalidationTime = INVALIDATE_IMMEDIATELY;
+			}
+
+			out.writeInt(deliveryInvalidationTime);
+
+			final DeliveryPriority priority = sendablePushNotification.getPushNotification().getPriority() != null ?
+					sendablePushNotification.getPushNotification().getPriority() : DeliveryPriority.IMMEDIATE;
+
+					out.writeByte(ApnsFrameItem.PRIORITY.getCode());
+					out.writeShort(PRIORITY_SIZE);
+					out.writeByte(priority.getCode());
 		}
 
 		private int getTimestampInSeconds(final Date date) {
 			return (int)(date.getTime() / 1000);
+		}
+
+		private int getFrameLength(final SendableApnsPushNotification<T> sendableApnsPushNotification) {
+			return	ApnsFrameItem.values().length * (FRAME_ITEM_ID_SIZE + FRAME_ITEM_LENGTH_SIZE) +
+					sendableApnsPushNotification.getPushNotification().getToken().length +
+					sendableApnsPushNotification.getPushNotification().getPayload().getBytes(utf8).length +
+					SEQUENCE_NUMBER_SIZE +
+					DELIVERY_INVALIDATION_TIME_SIZE +
+					PRIORITY_SIZE;
 		}
 	}
 
