@@ -85,14 +85,14 @@ public class MockApnsServer {
 	private class ApnsPushNotificationDecoder extends ReplayingDecoder<ApnsPushNotificationDecoderState> {
 
 		private int sequenceNumber;
-		private Date expiration;
+		private Date deliveryInvalidation;
 		private byte[] token;
 		private byte[] payloadBytes;
 		private DeliveryPriority priority;
 
 		private byte[] frame;
 
-		private boolean hasReceivedExpiration;
+		private boolean hasReceivedDeliveryInvalidationTime;
 		private boolean hasReceivedSequenceNumber;
 
 		private static final byte BINARY_NOTIFICATION_OPCODE = 2;
@@ -107,13 +107,13 @@ public class MockApnsServer {
 				case OPCODE: {
 
 					this.sequenceNumber = 0;
-					this.expiration = null;
+					this.deliveryInvalidation = null;
 					this.token = null;
 					this.payloadBytes = null;
 					this.priority = null;
 					this.frame = null;
 
-					this.hasReceivedExpiration = false;
+					this.hasReceivedDeliveryInvalidationTime = false;
 					this.hasReceivedSequenceNumber = false;
 
 					final byte opcode = in.readByte();
@@ -178,15 +178,15 @@ public class MockApnsServer {
 							break;
 						}
 
-						case EXPIRATION: {
-							if (this.hasReceivedExpiration) {
+						case DELIVERY_INVALIDATION_TIME: {
+							if (this.hasReceivedDeliveryInvalidationTime) {
 								throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.UNKNOWN);
 							}
 
 							final long timestamp = (buffer.getInt() & 0xFFFFFFFFL) * 1000L;
-							this.expiration = timestamp > 0 ? new Date(timestamp) : null;
+							this.deliveryInvalidation = timestamp > 0 ? new Date(timestamp) : null;
 
-							this.hasReceivedExpiration = true;
+							this.hasReceivedDeliveryInvalidationTime = true;
 
 							break;
 						}
@@ -239,14 +239,14 @@ public class MockApnsServer {
 		}
 
 		private SendableApnsPushNotification<SimpleApnsPushNotification> constructPushNotification() throws ApnsDecoderException {
-			if (!this.hasReceivedSequenceNumber || !this.hasReceivedExpiration || this.token == null || this.payloadBytes == null || this.priority == null) {
+			if (!this.hasReceivedSequenceNumber || !this.hasReceivedDeliveryInvalidationTime || this.token == null || this.payloadBytes == null || this.priority == null) {
 				throw new ApnsDecoderException(this.sequenceNumber, RejectedNotificationReason.UNKNOWN);
 			}
 
 			final String payloadString = new String(this.payloadBytes, Charset.forName("UTF-8"));
 
 			return new SendableApnsPushNotification<SimpleApnsPushNotification>(
-					new SimpleApnsPushNotification(this.token, payloadString, this.expiration, this.priority),
+					new SimpleApnsPushNotification(this.token, payloadString, this.deliveryInvalidation, this.priority),
 					this.sequenceNumber);
 		}
 	}

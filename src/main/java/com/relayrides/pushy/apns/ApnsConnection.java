@@ -100,7 +100,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		DEVICE_TOKEN((byte)1),
 		PAYLOAD((byte)2),
 		SEQUENCE_NUMBER((byte)3),
-		EXPIRATION((byte)4),
+		DELIVERY_INVALIDATION_TIME((byte)4),
 		PRIORITY((byte)5);
 
 		private final byte code;
@@ -152,13 +152,13 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private class ApnsPushNotificationEncoder extends MessageToByteEncoder<SendableApnsPushNotification<T>> {
 
 		private static final byte BINARY_PUSH_NOTIFICATION_COMMAND = 2;
-		private static final int EXPIRE_IMMEDIATELY = 0;
+		private static final int INVALIDATE_IMMEDIATELY = 0;
 
 		private static final int FRAME_ITEM_ID_SIZE = 1;
 		private static final int FRAME_ITEM_LENGTH_SIZE = 2;
 
 		private static final short SEQUENCE_NUMBER_SIZE = 4;
-		private static final short EXPIRATION_SIZE = 4;
+		private static final short DELIVERY_INVALIDATION_TIME_SIZE = 4;
 		private static final short PRIORITY_SIZE = 1;
 
 		private final Charset utf8 = Charset.forName("UTF-8");
@@ -182,19 +182,19 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			out.writeShort(payloadBytes.length);
 			out.writeBytes(payloadBytes);
 
-			out.writeByte(ApnsFrameItem.EXPIRATION.getCode());
-			out.writeShort(EXPIRATION_SIZE);
+			out.writeByte(ApnsFrameItem.DELIVERY_INVALIDATION_TIME.getCode());
+			out.writeShort(DELIVERY_INVALIDATION_TIME_SIZE);
 
-			final int expiration;
+			final int deliveryInvalidationTime;
 
 			if (sendablePushNotification.getPushNotification().getDeliveryInvalidationTime() != null) {
-				expiration = this.getTimestampInSeconds(
+				deliveryInvalidationTime = this.getTimestampInSeconds(
 						sendablePushNotification.getPushNotification().getDeliveryInvalidationTime());
 			} else {
-				expiration = EXPIRE_IMMEDIATELY;
+				deliveryInvalidationTime = INVALIDATE_IMMEDIATELY;
 			}
 
-			out.writeInt(expiration);
+			out.writeInt(deliveryInvalidationTime);
 
 			final DeliveryPriority priority = sendablePushNotification.getPushNotification().getPriority() != null ?
 					sendablePushNotification.getPushNotification().getPriority() : DeliveryPriority.IMMEDIATE;
@@ -213,7 +213,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 					sendableApnsPushNotification.getPushNotification().getToken().length +
 					sendableApnsPushNotification.getPushNotification().getPayload().getBytes(utf8).length +
 					SEQUENCE_NUMBER_SIZE +
-					EXPIRATION_SIZE +
+					DELIVERY_INVALIDATION_TIME_SIZE +
 					PRIORITY_SIZE;
 		}
 	}
