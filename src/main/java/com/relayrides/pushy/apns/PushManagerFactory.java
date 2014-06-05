@@ -23,25 +23,10 @@ package com.relayrides.pushy.apns;
 
 import io.netty.channel.nio.NioEventLoopGroup;
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.security.KeyManagementException;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.Security;
-import java.security.UnrecoverableKeyException;
-import java.security.cert.CertificateException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 
-import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManagerFactory;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A {@code PushManagerFactory} is used to configure and construct a new {@link PushManager}.
@@ -50,8 +35,6 @@ import org.slf4j.LoggerFactory;
  */
 public class PushManagerFactory<T extends ApnsPushNotification> {
 
-	private static final String PROTOCOL = "TLS";
-	private static final String DEFAULT_ALGORITHM = "SunX509";
 
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
@@ -63,8 +46,6 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	private ExecutorService listenerExecutorService;
 
 	private BlockingQueue<T> queue;
-
-	private static final Logger log = LoggerFactory.getLogger(PushManagerFactory.class);
 
 	/**
 	 * Constructs a new factory that will construct {@link PushManager}s that operate in the given environment with the
@@ -125,13 +106,13 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	 * registered listeners. If {@code null}, constructed {@code PushManager} instances will create and maintain their
 	 * own executor services. If a non-{@code null} executor service is provided, callers <strong>must</strong> shut
 	 * down the executor service after shutting down all {@code PushManager} instances that use that executor service.</p>
-	 * 
+	 *
 	 * <p>By default, constructed {@code PushManagers} will construct and maintain their own executor services.</p>
-	 * 
+	 *
 	 * @param listenerExecutorService the executor service to be used by constructed {@code PushManager} instances to
 	 * dispatch notifications to registered listeners; if not {@code null}, the caller <strong>must</strong> shut down
 	 * the executor service after shutting down all push managers that use the executor service
-	 * 
+	 *
 	 * @return a reference to this factory for ease of chaining configuration calls
 	 */
 	public PushManagerFactory<T> setListenerExecutorService(final ExecutorService listenerExecutorService) {
@@ -144,7 +125,7 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	 * default), constructed push managers will construct their own queues.</p>
 	 *
 	 * @param queue the queue to be used to pass new notifications to constructed push managers
-	 * 
+	 *
 	 * @return a reference to this factory for ease of chaining configuration calls
 	 */
 	public PushManagerFactory<T> setQueue(final BlockingQueue<T> queue) {
@@ -157,10 +138,10 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	 * default, the capacity of sent notification buffers is
 	 * {@value ApnsConnection#DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY}; while sent notification buffers may have any
 	 * positive capacity, it is not recommended that they be given a capacity less than the default.
-	 * 
+	 *
 	 * @param sentNotificationBufferCapacity the capacity of sent notification buffers for connections created by
 	 * constructed push managers
-	 * 
+	 *
 	 * @return a reference to this factory for ease of chaining configuration calls
 	 */
 	public PushManagerFactory<T> setSentNotificationBufferCapacity(final int sentNotificationBufferCapacity) {
@@ -183,73 +164,5 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 				this.listenerExecutorService,
 				this.queue,
 				this.sentNotificationBufferCapacity);
-	}
-
-	/**
-	 * Creates a new SSL context using the JVM default trust managers and the certificates in the given PKCS12 file.
-	 *
-	 * @param pathToPKCS12File the path to a PKCS12 file that contains the client certificate
-	 * @param keystorePassword the password to read the PKCS12 file; may be {@code null}
-	 *
-	 * @return an SSL context configured with the given client certificate and the JVM default trust managers
-	 */
-	public static SSLContext createDefaultSSLContext(final String pathToPKCS12File, final String keystorePassword) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException, KeyManagementException, IOException {
-		final FileInputStream keystoreInputStream = new FileInputStream(pathToPKCS12File);
-		try {
-			return createDefaultSSLContext(keystoreInputStream, keystorePassword);
-		} finally {
-			try {
-				keystoreInputStream.close();
-			} catch (IOException e) {
-				log.error("Failed to close keystore input stream.", e);
-			}
-		}
-	}
-
-	/**
-	 * Creates a new SSL context using the JVM default trust managers and the certificates in the given PKCS12 InputStream.
-	 *
-	 * @param keystoreInputStream a PKCS12 file that contains the client certificate
-	 * @param keystorePassword the password to read the PKCS12 file; may be {@code null}
-	 *
-	 * @return an SSL context configured with the given client certificate and the JVM default trust managers
-	 */
-	public static SSLContext createDefaultSSLContext(final InputStream keystoreInputStream, final String keystorePassword) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException, KeyManagementException, IOException {
-		final KeyStore keyStore = KeyStore.getInstance("PKCS12");
-		keyStore.load(keystoreInputStream, keystorePassword != null ? keystorePassword.toCharArray() : null);
-		return PushManagerFactory.createDefaultSSLContext(keyStore, keystorePassword != null ? keystorePassword.toCharArray() : null);
-	}
-
-	/**
-	 * Creates a new SSL context using the JVM default trust managers and the certificates in the given keystore.
-	 *
-	 * @param keyStore A {@code KeyStore} containing the client certificates to present during a TLS handshake; may be
-	 * {@code null} if the environment does not require TLS. The {@code KeyStore} should be loaded before being used
-	 * here.
-	 * @param keyStorePassword a password to unlock the given {@code KeyStore}; may be {@code null}
-	 *
-	 * @return an SSL context configured with the certificates in the given keystore and the JVM default trust managers
-	 */
-	public static SSLContext createDefaultSSLContext(final KeyStore keyStore, final char[] keyStorePassword) throws KeyStoreException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyManagementException {
-		String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
-
-		if (algorithm == null) {
-			algorithm = DEFAULT_ALGORITHM;
-		}
-
-		if (keyStore.size() == 0) {
-			throw new KeyStoreException("Keystore is empty; while this is legal for keystores in general, APNs clients must have at least one key.");
-		}
-
-		final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(algorithm);
-		trustManagerFactory.init((KeyStore) null);
-
-		final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(algorithm);
-		keyManagerFactory.init(keyStore, keyStorePassword);
-
-		final SSLContext sslContext = SSLContext.getInstance(PROTOCOL);
-		sslContext.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
-
-		return sslContext;
 	}
 }
