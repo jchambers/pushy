@@ -21,9 +21,10 @@
 
 package com.relayrides.pushy.apns;
 
-import static org.junit.Assert.*;
-
-import java.util.Collection;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -136,14 +137,7 @@ public class ApnsConnectionPoolTest {
 	}
 
 	private ApnsConnection<SimpleApnsPushNotification> createTestConnection() {
-		return new ApnsConnection<SimpleApnsPushNotification>(ApnsEnvironment.getSandboxEnvironment(), null, null, ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY, new ApnsConnectionListener<SimpleApnsPushNotification>() {
-			public void handleConnectionSuccess(ApnsConnection<SimpleApnsPushNotification> connection) {}
-			public void handleConnectionFailure(ApnsConnection<SimpleApnsPushNotification> connection, Throwable cause) {}
-			public void handleConnectionWritabilityChange(ApnsConnection<SimpleApnsPushNotification> connection, boolean writable) {}
-			public void handleConnectionClosure(ApnsConnection<SimpleApnsPushNotification> connection) {}
-			public void handleWriteFailure(ApnsConnection<SimpleApnsPushNotification> connection, SimpleApnsPushNotification notification, Throwable cause) {}
-			public void handleRejectedNotification(ApnsConnection<SimpleApnsPushNotification> connection, SimpleApnsPushNotification rejectedNotification, RejectedNotificationReason reason) {}
-			public void handleUnprocessedNotifications(ApnsConnection<SimpleApnsPushNotification> connection, Collection<SimpleApnsPushNotification> unprocessedNotifications) {}
-		});
+		return new ApnsConnection<SimpleApnsPushNotification>(ApnsEnvironment.getSandboxEnvironment(), null, null,
+				ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY, null);
 	}
 }
