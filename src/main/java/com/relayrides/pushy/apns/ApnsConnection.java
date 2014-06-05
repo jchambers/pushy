@@ -258,8 +258,10 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 						rejectedNotification.getSequenceNumber());
 
 				if (notification != null) {
-					this.apnsConnection.listener.handleRejectedNotification(
-							this.apnsConnection, notification, rejectedNotification.getReason());
+					if (this.apnsConnection.listener != null) {
+						this.apnsConnection.listener.handleRejectedNotification(
+								this.apnsConnection, notification, rejectedNotification.getReason());
+					}
 				} else {
 					log.error("{} failed to find rejected notification with sequence number {} (buffer has range {} to " +
 							"{}); this may mean the sent notification buffer is too small. Please report this as a bug.",
@@ -276,7 +278,9 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 							rejectedNotification.getSequenceNumber());
 
 			if (!unprocessedNotifications.isEmpty()) {
-				this.apnsConnection.listener.handleUnprocessedNotifications(this.apnsConnection, unprocessedNotifications);
+				if (this.apnsConnection.listener != null) {
+					this.apnsConnection.listener.handleUnprocessedNotifications(this.apnsConnection, unprocessedNotifications);
+				}
 			}
 
 			this.apnsConnection.sentNotificationBuffer.clearAllNotifications();
@@ -298,7 +302,9 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			// listeners if the handshake has completed. Otherwise, we'll notify listeners of a connection failure (as
 			// opposed to closure) elsewhere.
 			if (this.apnsConnection.handshakeCompleted) {
-				this.apnsConnection.listener.handleConnectionClosure(this.apnsConnection);
+				if (this.apnsConnection.listener != null) {
+					this.apnsConnection.listener.handleConnectionClosure(this.apnsConnection);
+				}
 			}
 		}
 
@@ -306,8 +312,10 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		public void channelWritabilityChanged(final ChannelHandlerContext context) throws Exception {
 			super.channelWritabilityChanged(context);
 
-			this.apnsConnection.listener.handleConnectionWritabilityChange(
-					this.apnsConnection, context.channel().isWritable());
+			if (this.apnsConnection.listener != null) {
+				this.apnsConnection.listener.handleConnectionWritabilityChange(
+						this.apnsConnection, context.channel().isWritable());
+			}
 		}
 	}
 
@@ -320,13 +328,9 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * communicating with the APNs gateway
 	 * @param eventLoopGroup the event loop group this connection should use for asynchronous network operations
 	 * @param sentNotificationBufferCapacity the capacity of this connection's sent notification buffer
-	 * @param listener the listener to which this connection will report lifecycle events; must not be {@code null}
+	 * @param listener the listener to which this connection will report lifecycle events; may be {@code null}
 	 */
 	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup, final int sentNotificationBufferCapacity, final ApnsConnectionListener<T> listener) {
-
-		if (listener == null) {
-			throw new NullPointerException("Listener must not be null.");
-		}
 
 		this.environment = environment;
 		this.sslContext = sslContext;
@@ -357,7 +361,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		final Bootstrap bootstrap = new Bootstrap();
 		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioSocketChannel.class);
-		bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
 		bootstrap.option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
 
 		// TODO Remove this when Netty 5 is available
@@ -397,25 +400,36 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 									log.debug("{} successfully completed TLS handshake.", apnsConnection.name);
 
 									apnsConnection.handshakeCompleted = true;
-									apnsConnection.listener.handleConnectionSuccess(apnsConnection);
+
+									if (apnsConnection.listener != null) {
+										apnsConnection.listener.handleConnectionSuccess(apnsConnection);
+									}
 								} else {
 									log.debug("{} failed to complete TLS handshake with APNs gateway.",
 											apnsConnection.name, handshakeFuture.cause());
 
 									connectFuture.channel().close();
-									apnsConnection.listener.handleConnectionFailure(apnsConnection, handshakeFuture.cause());
+
+									if (apnsConnection.listener != null) {
+										apnsConnection.listener.handleConnectionFailure(apnsConnection, handshakeFuture.cause());
+									}
 								}
 							}});
 					} catch (NullPointerException e) {
 						log.warn("{} failed to get SSL handler and could not wait for a TLS handshake.", apnsConnection.name);
 
 						connectFuture.channel().close();
-						apnsConnection.listener.handleConnectionFailure(apnsConnection, e);
+
+						if (apnsConnection.listener != null) {
+							apnsConnection.listener.handleConnectionFailure(apnsConnection, e);
+						}
 					}
 				} else {
 					log.debug("{} failed to connect to APNs gateway.", apnsConnection.name, connectFuture.cause());
 
-					apnsConnection.listener.handleConnectionFailure(apnsConnection, connectFuture.cause());
+					if (apnsConnection.listener != null) {
+						apnsConnection.listener.handleConnectionFailure(apnsConnection, connectFuture.cause());
+					}
 				}
 			}
 		});
@@ -459,7 +473,9 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 								// Even though the write succeeded, we know for sure that this notification was never
 								// processed by the gateway because it had already rejected another notification from
 								// this connection.
-								apnsConnection.listener.handleUnprocessedNotifications(apnsConnection, java.util.Collections.singletonList(notification));
+								if (apnsConnection.listener != null) {
+									apnsConnection.listener.handleUnprocessedNotifications(apnsConnection, java.util.Collections.singletonList(notification));
+								}
 							} else {
 								apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
 							}
@@ -469,7 +485,9 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 							// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
 							// even manage to write the notification to the wire) and re-enqueue for another send attempt.
-							apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
+							if (apnsConnection.listener != null) {
+								apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
+							}
 						}
 
 						apnsConnection.pendingWriteCount -= 1;
