@@ -96,8 +96,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
 
-	private final int concurrentConnectionCount;
-	private final int sentNotificationBufferCapacity;
+	private final PushManagerConfiguration configuration;
+
 	private final HashSet<ApnsConnection<T>> activeConnections;
 	private final ApnsConnectionPool<T> writableConnectionPool;
 
@@ -150,7 +150,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 *
 	 * @param environment the environment in which this {@code PushManager} operates
 	 * @param sslContext the SSL context in which APNs connections controlled by this {@code PushManager} will operate
-	 * @param concurrentConnectionCount the number of parallel connections to maintain
 	 * @param eventLoopGroup the event loop group this push manager should use for its connections to the APNs gateway and
 	 * feedback service; if {@code null}, a new event loop group will be created and will be shut down automatically
 	 * when the push manager is shut down. If not {@code null}, the caller <strong>must</strong> shut down the event
@@ -160,13 +159,11 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * down automatically with the push manager is shut down. If not {@code null}, the caller <strong>must</strong>
 	 * shut down the executor service after shutting down the push manager.
 	 * @param queue the queue to be used to pass new notifications to this push manager
-	 * @param sentNotificationBufferCapacity the capacity of the sent notification buffer for connections created by
-	 * this push manager
+	 * @param configuration TODO
 	 */
 	protected PushManager(final ApnsEnvironment environment, final SSLContext sslContext,
-			final int concurrentConnectionCount, final NioEventLoopGroup eventLoopGroup,
-			final ExecutorService listenerExecutorService, final BlockingQueue<T> queue,
-			final int sentNotificationBufferCapacity) {
+			final NioEventLoopGroup eventLoopGroup, final ExecutorService listenerExecutorService,
+			final BlockingQueue<T> queue, final PushManagerConfiguration configuration) {
 
 		this.queue = queue != null ? queue : new LinkedBlockingQueue<T>();
 		this.retryQueue = new LinkedBlockingQueue<T>();
@@ -176,9 +173,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		this.environment = environment;
 		this.sslContext = sslContext;
+		this.configuration = new PushManagerConfiguration(configuration);
 
-		this.concurrentConnectionCount = concurrentConnectionCount;
-		this.sentNotificationBufferCapacity = sentNotificationBufferCapacity;
 		this.writableConnectionPool = new ApnsConnectionPool<T>();
 		this.activeConnections = new HashSet<ApnsConnection<T>>();
 
@@ -188,7 +184,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		} else {
 			// Never use more threads than concurrent connections (Netty binds a channel to a single thread, so the
 			// excess threads would always go unused)
-			final int threadCount = Math.min(concurrentConnectionCount, Runtime.getRuntime().availableProcessors() * 2);
+			final int threadCount = Math.min(this.configuration.getConcurrentConnectionCount(), Runtime.getRuntime().availableProcessors() * 2);
 
 			this.eventLoopGroup = new NioEventLoopGroup(threadCount);
 			this.shouldShutDownEventLoopGroup = true;
@@ -224,7 +220,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		log.info("Push manager starting.");
 
-		for (int i = 0; i < this.concurrentConnectionCount; i++) {
+		for (int i = 0; i < this.configuration.getConcurrentConnectionCount(); i++) {
 			this.startNewConnection();
 		}
 
@@ -677,7 +673,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private void startNewConnection() {
 		synchronized (this.activeConnections) {
-			final ApnsConnection<T> connection = new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this.sentNotificationBufferCapacity, this);
+			final ApnsConnection<T> connection = new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this.configuration.getConnectionConfiguration(), this);
 			connection.connect();
 
 			this.activeConnections.add(connection);

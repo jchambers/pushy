@@ -19,7 +19,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.relayrides.pushy.apns.PushManager;
-import com.relayrides.pushy.apns.PushManagerFactory;
 
 /**
  * A utility class for creating SSL contexts for use with a {@link PushManager}.
@@ -31,7 +30,7 @@ public class SSLContextUtil {
 	private static final String PROTOCOL = "TLS";
 	private static final String DEFAULT_ALGORITHM = "SunX509";
 
-	private static final Logger log = LoggerFactory.getLogger(PushManagerFactory.class);
+	private static final Logger log = LoggerFactory.getLogger(SSLContextUtil.class);
 
 	/**
 	 * Creates a new SSL context using the JVM default trust managers and the certificates in the given PKCS12 file.

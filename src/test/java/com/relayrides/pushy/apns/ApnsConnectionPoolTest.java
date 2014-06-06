@@ -138,6 +138,6 @@ public class ApnsConnectionPoolTest {
 
 	private ApnsConnection<SimpleApnsPushNotification> createTestConnection() {
 		return new ApnsConnection<SimpleApnsPushNotification>(ApnsEnvironment.getSandboxEnvironment(), null, null,
-				ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY, null);
+				new ApnsConnectionConfiguration(), null);
 	}
 }

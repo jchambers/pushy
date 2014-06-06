@@ -328,16 +328,18 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * communicating with the APNs gateway
 	 * @param eventLoopGroup the event loop group this connection should use for asynchronous network operations
 	 * @param sentNotificationBufferCapacity the capacity of this connection's sent notification buffer
-	 * @param listener the listener to which this connection will report lifecycle events; may be {@code null}
+	 * @param configuration TODO
 	 */
-	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup, final int sentNotificationBufferCapacity, final ApnsConnectionListener<T> listener) {
+	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext,
+			final NioEventLoopGroup eventLoopGroup, final ApnsConnectionConfiguration configuration,
+			final ApnsConnectionListener<T> listener) {
 
 		this.environment = environment;
 		this.sslContext = sslContext;
 		this.eventLoopGroup = eventLoopGroup;
 		this.listener = listener;
 
-		this.sentNotificationBuffer = new SentNotificationBuffer<T>(sentNotificationBufferCapacity);
+		this.sentNotificationBuffer = new SentNotificationBuffer<T>(configuration.getSentNotificationBufferCapacity());
 
 		this.name = String.format("ApnsConnection-%d", ApnsConnection.connectionCounter.getAndIncrement());
 	}
