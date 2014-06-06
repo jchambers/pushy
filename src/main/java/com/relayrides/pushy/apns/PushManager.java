@@ -42,9 +42,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * <p>Push managers manage connections to the APNs gateway and send notifications from their queue. Push managers
- * should always be created using the {@link PushManagerFactory} class. Push managers are the main public-facing point
- * of interaction with Pushy.</p>
+ * <p>Push managers manage connections to the APNs gateway and send notifications from their queue. Push managers are
+ * the main public-facing point of interaction with Pushy.</p>
  *
  * <h2>Queues</h2>
  *
@@ -87,7 +86,6 @@ import org.slf4j.LoggerFactory;
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  *
  * @see PushManager#getQueue()
- * @see PushManagerFactory
  */
 public class PushManager<T extends ApnsPushNotification> implements ApnsConnectionListener<T> {
 	private final BlockingQueue<T> queue;
@@ -148,8 +146,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * is responsible for managing the lifecycle of the group and <strong>must</strong> shut it down after shutting down
 	 * this {@code PushManager}.</p>
 	 *
-	 * @param environment the environment in which this {@code PushManager} operates
-	 * @param sslContext the SSL context in which APNs connections controlled by this {@code PushManager} will operate
+	 * @param environment the environment in which this {@code PushManager} operates; must not be {@code null}
+	 * @param sslContext the SSL context in which APNs connections controlled by this {@code PushManager} will operate;
+	 * must not be {@code null}
 	 * @param eventLoopGroup the event loop group this push manager should use for its connections to the APNs gateway and
 	 * feedback service; if {@code null}, a new event loop group will be created and will be shut down automatically
 	 * when the push manager is shut down. If not {@code null}, the caller <strong>must</strong> shut down the event
@@ -158,10 +157,13 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * registered listeners. If {@code null}, a new single-thread executor service will be created and will be shut
 	 * down automatically with the push manager is shut down. If not {@code null}, the caller <strong>must</strong>
 	 * shut down the executor service after shutting down the push manager.
-	 * @param queue the queue to be used to pass new notifications to this push manager
-	 * @param configuration TODO
+	 * @param queue the queue to be used to pass new notifications to this push manager; if {@code null}, the new push
+	 * manager will create its own queue
+	 * @param configuration the set of configuration options to use for this push manager and the connections it
+	 * creates. The configuration object is copied and changes to the original object will not propagate to the push
+	 * manager after creation. Must not be {@code null}.
 	 */
-	protected PushManager(final ApnsEnvironment environment, final SSLContext sslContext,
+	public PushManager(final ApnsEnvironment environment, final SSLContext sslContext,
 			final NioEventLoopGroup eventLoopGroup, final ExecutorService listenerExecutorService,
 			final BlockingQueue<T> queue, final PushManagerConfiguration configuration) {
 
@@ -171,8 +173,22 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		this.rejectedNotificationListeners = new ArrayList<RejectedNotificationListener<? super T>>();
 		this.failedConnectionListeners = new ArrayList<FailedConnectionListener<? super T>>();
 
+		if (environment == null) {
+			throw new NullPointerException("Environment must not be null.");
+		}
+
 		this.environment = environment;
+
+		if (sslContext == null) {
+			throw new NullPointerException("SSL context must not be null.");
+		}
+
 		this.sslContext = sslContext;
+
+		if (configuration == null) {
+			throw new NullPointerException("Configuration object must not be null.");
+		}
+
 		this.configuration = new PushManagerConfiguration(configuration);
 
 		this.writableConnectionPool = new ApnsConnectionPool<T>();
