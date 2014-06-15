@@ -128,7 +128,7 @@ private class MyFailedConnectionListener implements FailedConnectionListener<Sim
 pushManager.registerFailedConnectionListener(new MyFailedConnectionListener());
 ```
 
-Generally, it's safe to ignore most failures (though you may want to log them). Failures that result from a `SSLHandshakeException`, though, likely indicate that your certificate is either invalid or expired, and you'll need to remedy the situation before reconnection attempts are likely to succeed.
+Generally, it's safe to ignore most failures (though you may want to log them). Failures that result from a `SSLHandshakeException`, though, likely indicate that your certificate is either invalid or expired, and you'll need to remedy the situation before reconnection attempts are likely to succeed. Poorly-timed connection issues may cause spurious exceptions, though, and it's wise to look for a pattern of failures before taking action.
 
 Like `RejectedNotificationListeners`, `FailedConnectionListeners` can be registered any time before the `PushManager` is shut down.
 
