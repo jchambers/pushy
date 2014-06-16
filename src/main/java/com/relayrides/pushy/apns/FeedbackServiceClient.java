@@ -191,6 +191,9 @@ class FeedbackServiceClient {
 
 		this.expiredTokens.clear();
 
+        final long timeoutMSecs = timeoutUnit.toMillis(timeout);
+        final long start = System.currentTimeMillis();
+
 		final Bootstrap bootstrap = new Bootstrap();
 		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioSocketChannel.class);
@@ -215,39 +218,61 @@ class FeedbackServiceClient {
 
 		final ChannelFuture connectFuture = bootstrap.connect(
 				this.environment.getFeedbackHost(),
-				this.environment.getFeedbackPort()).await();
+				this.environment.getFeedbackPort());
+		connectFuture.await(timeoutMSecs, TimeUnit.MILLISECONDS);
 
-		if (connectFuture.isSuccess()) {
-			log.debug("Connected to feedback service.");
+		if (connectFuture.isDone()) {
+			if (connectFuture.isSuccess()) {
+				long remainingTime = timeoutMSecs - (System.currentTimeMillis() - start);
 
-			final SslHandler sslHandler = connectFuture.channel().pipeline().get(SslHandler.class);
+				if (remainingTime < 0) {
+					// if it's already timeout, we will wait only 1 millisecond in subsequent calls
+					remainingTime = 1;
+				}
 
-			if (sslHandler != null) {
-				final Future<Channel> handshakeFuture = sslHandler.handshakeFuture().await();
+				log.debug("Connected to feedback service.");
 
-				if (handshakeFuture.isSuccess()) {
-					log.debug("Completed TLS handshake with feedback service.");
+				final SslHandler sslHandler = connectFuture.channel().pipeline().get(SslHandler.class);
 
-					// The feedback service will send us a list of device tokens as soon as we complete the SSL
-					// handshake, then hang up. While we're waiting to sync with the connection closure, we'll be
-					// receiving messages from the feedback service from another thread.
-					connectFuture.channel().closeFuture().await();
+				if (sslHandler != null) {
+					final Future<Channel> handshakeFuture = sslHandler.handshakeFuture();
+					handshakeFuture.await(remainingTime, TimeUnit.MILLISECONDS);
+
+					remainingTime = timeoutMSecs - (System.currentTimeMillis() - start);
+					if (remainingTime < 0) {
+						remainingTime = 1;
+					}
+
+
+					if (handshakeFuture.isSuccess()) {
+						log.debug("Completed TLS handshake with feedback service.");
+
+						// The feedback service will send us a list of device tokens as soon as we complete the SSL
+						// handshake, then hang up. While we're waiting to sync with the connection closure, we'll be
+						// receiving messages from the feedback service from another thread.
+						connectFuture.channel().closeFuture().await(remainingTime, TimeUnit.MILLISECONDS);
+					} else {
+						log.debug("Failed to complete TLS handshake with feedback service.", handshakeFuture.cause());
+
+						connectFuture.channel().close().await(remainingTime, TimeUnit.MILLISECONDS);
+
+						throw new FeedbackConnectionException(handshakeFuture.cause());
+					}
 				} else {
-					log.debug("Failed to complete TLS handshake with feedback service.", handshakeFuture.cause());
+					log.warn("Feedback client failed to get SSL handler and could not wait for TLS handshake.");
 
-					connectFuture.channel().close().await();
-					throw new FeedbackConnectionException(handshakeFuture.cause());
+					connectFuture.channel().close().await(remainingTime, TimeUnit.MILLISECONDS);
+					throw new FeedbackConnectionException(null);
 				}
 			} else {
-				log.warn("Feedback client failed to get SSL handler and could not wait for TLS handshake.");
-
-				connectFuture.channel().close().await();
-				throw new FeedbackConnectionException(null);
+				log.debug("Failed to connect to feedback service.", connectFuture.cause());
+				throw new FeedbackConnectionException(connectFuture.cause());
 			}
 		} else {
-			log.debug("Failed to connect to feedback service.", connectFuture.cause());
-			throw new FeedbackConnectionException(connectFuture.cause());
+			log.debug("Timeout wait for connecting.");
+			throw new FeedbackConnectionException(null);
 		}
+
 
 		return new ArrayList<ExpiredToken>(this.expiredTokens);
 	}
