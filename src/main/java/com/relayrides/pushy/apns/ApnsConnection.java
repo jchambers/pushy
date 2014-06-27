@@ -95,6 +95,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
 
 	public static final int DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY = 8192;
+	public static final long DEFAULT_MAX_RECONNECT_DELAY = 300000; // 5min
 
 	protected enum ApnsFrameItem {
 		DEVICE_TOKEN((byte)1),

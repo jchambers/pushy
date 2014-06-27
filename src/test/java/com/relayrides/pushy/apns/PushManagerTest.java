@@ -161,7 +161,7 @@ public class PushManagerTest extends BasePushyTest {
 		{
 			final PushManager<ApnsPushNotification> defaultGroupPushManager =
 					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
-							1, null, null, null, ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY);
+							1, null, null, null, ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY, ApnsConnection.DEFAULT_MAX_RECONNECT_DELAY);
 
 			defaultGroupPushManager.start();
 			defaultGroupPushManager.shutdown();
@@ -174,7 +174,7 @@ public class PushManagerTest extends BasePushyTest {
 
 			final PushManager<ApnsPushNotification> providedGroupPushManager =
 					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
-							1, group, null, null, ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY);
+							1, group, null, null, ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY, ApnsConnection.DEFAULT_MAX_RECONNECT_DELAY);
 
 			providedGroupPushManager.start();
 			providedGroupPushManager.shutdown();
@@ -190,7 +190,7 @@ public class PushManagerTest extends BasePushyTest {
 
 			final PushManager<ApnsPushNotification> providedExecutorServicePushManager =
 					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
-							1, null, listenerExecutorService, null, ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY);
+							1, null, listenerExecutorService, null, ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY, ApnsConnection.DEFAULT_MAX_RECONNECT_DELAY);
 
 			providedExecutorServicePushManager.start();
 			providedExecutorServicePushManager.shutdown();
@@ -235,7 +235,7 @@ public class PushManagerTest extends BasePushyTest {
 	public void testDoubleStart() throws Exception {
 		final PushManager<ApnsPushNotification> doubleStartPushManager =
 				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1,
-						null, null, null, ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY);
+						null, null, null, ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY, ApnsConnection.DEFAULT_MAX_RECONNECT_DELAY);
 
 		doubleStartPushManager.start();
 		doubleStartPushManager.start();
@@ -245,7 +245,7 @@ public class PushManagerTest extends BasePushyTest {
 	public void testPrematureShutdown() throws Exception {
 		final PushManager<ApnsPushNotification> prematureShutdownPushManager =
 				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1,
-						null, null, null, ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY);
+						null, null, null, ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY, ApnsConnection.DEFAULT_MAX_RECONNECT_DELAY);
 
 		prematureShutdownPushManager.shutdown();
 	}
@@ -254,7 +254,7 @@ public class PushManagerTest extends BasePushyTest {
 	public void testRepeatedShutdown() throws Exception {
 		final PushManager<ApnsPushNotification> repeatedShutdownPushManager =
 				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), 1,
-						null, null, null, ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY);
+						null, null, null, ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY, ApnsConnection.DEFAULT_MAX_RECONNECT_DELAY);
 
 		repeatedShutdownPushManager.start();
 		repeatedShutdownPushManager.shutdown();
@@ -421,7 +421,7 @@ public class PushManagerTest extends BasePushyTest {
 					CountDownLatch latch) {
 
 				super(environment, sslContext, concurrentConnectionCount, eventLoopGroup, null, queue,
-						ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY);
+						ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY, ApnsConnection.DEFAULT_MAX_RECONNECT_DELAY);
 
 				this.latch = latch;
 			}
