@@ -115,6 +115,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final ExecutorService listenerExecutorService;
 	private final boolean shouldShutDownListenerExecutorService;
 
+	private final long maxReconnectDelayMillis;
+	private long lastSuccessfulConnection;
+
 	private boolean shutDownStarted = false;
 	private boolean shutDownFinished = false;
 
@@ -162,11 +165,12 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @param queue the queue to be used to pass new notifications to this push manager
 	 * @param sentNotificationBufferCapacity the capacity of the sent notification buffer for connections created by
 	 * this push manager
+	 * @param maxReconnectDelayMillis Maximum delay after which is lost connection replaced
 	 */
 	protected PushManager(final ApnsEnvironment environment, final SSLContext sslContext,
 			final int concurrentConnectionCount, final NioEventLoopGroup eventLoopGroup,
 			final ExecutorService listenerExecutorService, final BlockingQueue<T> queue,
-			final int sentNotificationBufferCapacity) {
+			final int sentNotificationBufferCapacity, final long maxReconnectDelayMillis) {
 
 		this.queue = queue != null ? queue : new LinkedBlockingQueue<T>();
 		this.retryQueue = new LinkedBlockingQueue<T>();
@@ -203,6 +207,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		this.feedbackServiceClient = new FeedbackServiceClient(this.environment, this.sslContext, this.eventLoopGroup);
+
+		this.maxReconnectDelayMillis = maxReconnectDelayMillis;
 	}
 
 	/**
@@ -223,6 +229,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		log.info("Push manager starting.");
+
+		lastSuccessfulConnection = System.currentTimeMillis();
 
 		for (int i = 0; i < this.concurrentConnectionCount; i++) {
 			this.startNewConnection();
@@ -544,6 +552,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	public void handleConnectionSuccess(final ApnsConnection<T> connection) {
 		log.trace("Connection succeeded: {}", connection);
 
+		// Update timestamp for reconnection
+		lastSuccessfulConnection = System.currentTimeMillis();
+
 		if (this.dispatchThreadShouldContinue) {
 			this.writableConnectionPool.addConnection(connection);
 		} else {
@@ -579,7 +590,23 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		// As long as we're not shut down, keep trying to open a replacement connection.
 		if (this.shouldReplaceClosedConnection()) {
-			this.startNewConnection();
+			// Add 100ms for higher minimal delay and multiply by 2 for faster increment
+			long reconnectDelayMillis = Math.min(100 + (System.currentTimeMillis() - lastSuccessfulConnection) * 2, maxReconnectDelayMillis);
+
+			if (reconnectDelayMillis > 0) {
+				log.debug("Renewing lost connection in {} ms", reconnectDelayMillis);
+
+				// Schedule connection replacement
+				eventLoopGroup.schedule(new Runnable() {
+					@Override
+					public void run() {
+						PushManager.this.startNewConnection();
+					}
+				}, reconnectDelayMillis, TimeUnit.MILLISECONDS);
+			} else {
+				// Start new connection right away
+				this.startNewConnection();
+			}
 		}
 	}
 

@@ -35,6 +35,7 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -58,6 +59,8 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 
 	private int concurrentConnectionCount = 1;
 	private int sentNotificationBufferCapacity = ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY;
+
+	private long maxReconnectDelayMillis = ApnsConnection.DEFAULT_MAX_RECONNECT_DELAY;
 
 	private NioEventLoopGroup eventLoopGroup;
 	private ExecutorService listenerExecutorService;
@@ -169,6 +172,38 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 	}
 
 	/**
+	 * Maximum delay after which is lost connection replaced.
+	 *
+	 * @param maxReconnectDelay delay in provided units
+	 * @param unit delay units
+	 *
+	 * @return a reference to this factory for ease of chaining configuration calls
+	 */
+	public PushManagerFactory<T> setMaxReconnectDelay(long maxReconnectDelay, TimeUnit unit) {
+		if (unit == null) {
+			throw new NullPointerException("unit");
+		}
+
+		return setMaxReconnectDelayMillis(unit.toMillis(maxReconnectDelay));
+	}
+
+	/**
+	 * Maximum delay after which is lost connection replaced.
+	 *
+	 * @param maxReconnectDelayMillis delay in milliseconds
+	 *
+	 * @return a reference to this factory for ease of chaining configuration calls
+	 */
+	public PushManagerFactory<T> setMaxReconnectDelayMillis(long maxReconnectDelayMillis) {
+		if (maxReconnectDelayMillis < 0) {
+			throw new IllegalArgumentException("maxReconnectDelayMillis: " + maxReconnectDelayMillis + " (expected: >= 0)");
+		}
+
+		this.maxReconnectDelayMillis = maxReconnectDelayMillis;
+		return this;
+	}
+
+	/**
 	 * <p>Constructs a new {@link PushManager} with the settings provided to this factory. The returned push manager
 	 * will not be started automatically.</p>
 	 *
@@ -182,7 +217,8 @@ public class PushManagerFactory<T extends ApnsPushNotification> {
 				this.eventLoopGroup,
 				this.listenerExecutorService,
 				this.queue,
-				this.sentNotificationBufferCapacity);
+				this.sentNotificationBufferCapacity,
+				this.maxReconnectDelayMillis);
 	}
 
 	/**
