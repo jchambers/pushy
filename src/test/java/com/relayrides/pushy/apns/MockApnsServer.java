@@ -60,7 +60,7 @@ public class MockApnsServer {
 	private Channel channel;
 
 	public static final int EXPECTED_TOKEN_SIZE = 32;
-	public static final int MAX_PAYLOAD_SIZE = 256;
+	public static final int MAX_PAYLOAD_SIZE = 2048;
 
 	private static final Logger log = LoggerFactory.getLogger(MockApnsServer.class);
 

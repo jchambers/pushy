@@ -63,7 +63,7 @@ public class ApnsPayloadBuilder {
 
 	private final HashMap<String, Object> customProperties = new HashMap<String, Object>();
 
-	private static final int DEFAULT_PAYLOAD_SIZE = 256;
+	private static final int DEFAULT_PAYLOAD_SIZE = 2048;
 
 	private static final Charset UTF8 = Charset.forName("UTF-8");
 
@@ -243,7 +243,7 @@ public class ApnsPayloadBuilder {
 
 	/**
 	 * <p>Returns a JSON representation of the push notification payload under construction. If the payload length is
-	 * longer than the default maximum (256 bytes), the literal alert body will be shortened if possible. If the alert
+	 * longer than the default maximum (2048 bytes), the literal alert body will be shortened if possible. If the alert
 	 * body cannot be shortened or is not present, an {@code IllegalArgumentException} is thrown.</p>
 	 *
 	 * @return a JSON representation of the payload under construction (possibly with an abbreviated alert body)
