@@ -142,9 +142,15 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * <a href="http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW6">
 	 * Best Practices for Managing Connections</a> for additional information.</p>
 	 *
-	 * <p>This constructor may take an event loop group as an argument; if an event loop group is provided, the caller
-	 * is responsible for managing the lifecycle of the group and <strong>must</strong> shut it down after shutting down
-	 * this {@code PushManager}.</p>
+	 * <p>This constructor may take an event loop group as an argument. The push manager's event loop group will be
+	 * used for IO operations in all connections created by this push manager. If an event loop group is provided, the
+	 * caller is responsible for managing the lifecycle of the group and <strong>must</strong> shut it down after
+	 * shutting down this {@code PushManager}.</p>
+	 * 
+	 * <p>This constructor may also take an {@link java.util.concurrent.ExecutorService} as an argument. The executor
+	 * service is used to dispatch notifications to registered listeners. If a non-{@code null} executor service is
+	 * provided, callers <strong>must</strong> shut down the executor service after shutting down all
+	 * {@code PushManager} instances that use that executor service.</p>
 	 *
 	 * @param environment the environment in which this {@code PushManager} operates; must not be {@code null}
 	 * @param sslContext the SSL context in which APNs connections controlled by this {@code PushManager} will operate;
