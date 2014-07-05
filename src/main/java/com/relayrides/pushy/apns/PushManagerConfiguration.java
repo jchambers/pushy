@@ -73,4 +73,32 @@ public class PushManagerConfiguration {
 
 		this.connectionConfiguration = connectionConfiguration;
 	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + concurrentConnectionCount;
+		result = prime * result + ((connectionConfiguration == null) ? 0 : connectionConfiguration.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		PushManagerConfiguration other = (PushManagerConfiguration) obj;
+		if (concurrentConnectionCount != other.concurrentConnectionCount)
+			return false;
+		if (connectionConfiguration == null) {
+			if (other.connectionConfiguration != null)
+				return false;
+		} else if (!connectionConfiguration.equals(other.connectionConfiguration))
+			return false;
+		return true;
+	}
 }
