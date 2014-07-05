@@ -117,6 +117,36 @@ public class ApnsConnectionTest extends BasePushyTest {
 	}
 
 	@Test
+	public void testApnsConnectionNullListener() throws Exception {
+		new ApnsConnection<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
+				this.getEventLoopGroup(), new ApnsConnectionConfiguration(), null);
+	}
+
+	@Test(expected = NullPointerException.class)
+	public void testApnsConnectionNullEnvironment() throws Exception {
+		new ApnsConnection<ApnsPushNotification>(null, SSLTestUtil.createSSLContextForTestClient(),
+				this.getEventLoopGroup(), new ApnsConnectionConfiguration(), null);
+	}
+
+	@Test(expected = NullPointerException.class)
+	public void testApnsConnectionNullSslContext() throws Exception {
+		new ApnsConnection<ApnsPushNotification>(TEST_ENVIRONMENT, null, this.getEventLoopGroup(),
+				new ApnsConnectionConfiguration(), null);
+	}
+
+	@Test(expected = NullPointerException.class)
+	public void testApnsConnectionNullEventLoopGroup() throws Exception {
+		new ApnsConnection<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
+				null, new ApnsConnectionConfiguration(), null);
+	}
+
+	@Test(expected = NullPointerException.class)
+	public void testApnsConnectionNullConfiguration() throws Exception {
+		new ApnsConnection<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
+				this.getEventLoopGroup(), null, null);
+	}
+
+	@Test
 	public void testConnect() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, InterruptedException {
 		// For this test, we just want to make sure that connection succeeds and nothing explodes.
 		final Object mutex = new Object();

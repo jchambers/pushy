@@ -328,10 +328,10 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * communicating with the APNs gateway; must not be {@code null}
 	 * @param eventLoopGroup the event loop group this connection should use for asynchronous network operations; must
 	 * not be {@code null}
-	 * @param sentNotificationBufferCapacity the capacity of this connection's sent notification buffer
 	 * @param configuration the set of configuration options to use for this connection. The configuration object is
 	 * copied and changes to the original object will not propagate to the connection after creation. Must not be
 	 * {@code null}.
+	 * @param listener the listener to which this connection will report lifecycle events; may be {@code null}
 	 */
 	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext,
 			final NioEventLoopGroup eventLoopGroup, final ApnsConnectionConfiguration configuration,
