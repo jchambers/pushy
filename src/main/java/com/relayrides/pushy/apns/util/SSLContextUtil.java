@@ -63,8 +63,11 @@ public class SSLContextUtil {
 	 */
 	public static SSLContext createDefaultSSLContext(final InputStream keystoreInputStream, final String keystorePassword) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, UnrecoverableKeyException, KeyManagementException, IOException {
 		final KeyStore keyStore = KeyStore.getInstance("PKCS12");
-		keyStore.load(keystoreInputStream, keystorePassword != null ? keystorePassword.toCharArray() : null);
-		return SSLContextUtil.createDefaultSSLContext(keyStore, keystorePassword != null ? keystorePassword.toCharArray() : null);
+		final char[] password = keystorePassword != null ? keystorePassword.toCharArray() : null;
+
+		keyStore.load(keystoreInputStream, password);
+
+		return createDefaultSSLContext(keyStore, keystorePassword != null ? keystorePassword.toCharArray() : null);
 	}
 
 	/**
