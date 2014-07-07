@@ -30,10 +30,6 @@ import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import com.relayrides.pushy.apns.ApnsEnvironment;
-import com.relayrides.pushy.apns.PushManager;
-import com.relayrides.pushy.apns.PushManagerFactory;
-import com.relayrides.pushy.apns.RejectedNotificationListener;
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
@@ -44,7 +40,8 @@ public class BenchmarkApp {
 	private static final int GATEWAY_PORT = 2195;
 	private static final int FEEDPACK_PORT = 2196;
 
-	private final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory;
+	private static final ApnsEnvironment BENCHMARK_ENVIRONMENT =
+			new ApnsEnvironment("127.0.0.1", GATEWAY_PORT, "localhost", FEEDPACK_PORT);
 
 	private NioEventLoopGroup serverEventLoopGroup;
 	private MockApnsServer server;
@@ -65,10 +62,6 @@ public class BenchmarkApp {
 	}
 
 	public BenchmarkApp() throws Exception {
-		this.pushManagerFactory = new PushManagerFactory<SimpleApnsPushNotification>(
-				new ApnsEnvironment("127.0.0.1", GATEWAY_PORT, "localhost", FEEDPACK_PORT),
-				SSLTestUtil.createSSLContextForTestClient());
-
 		final ApnsPayloadBuilder builder = new ApnsPayloadBuilder();
 		final Random random = new Random();
 
@@ -116,10 +109,17 @@ public class BenchmarkApp {
 	}
 
 	private double runBenchmark(final NioEventLoopGroup eventLoopGroup, final int concurrentConnectionCount, final List<SimpleApnsPushNotification> notifications) throws InterruptedException {
-		this.pushManagerFactory.setEventLoopGroup(eventLoopGroup);
-		this.pushManagerFactory.setConcurrentConnectionCount(concurrentConnectionCount);
+		final PushManagerConfiguration configuration = new PushManagerConfiguration();
+		configuration.setConcurrentConnectionCount(concurrentConnectionCount);
 
-		final PushManager<SimpleApnsPushNotification> pushManager = this.pushManagerFactory.buildPushManager();
+		final PushManager<SimpleApnsPushNotification> pushManager;
+
+		try {
+			pushManager = new PushManager<SimpleApnsPushNotification>(BENCHMARK_ENVIRONMENT,
+					SSLTestUtil.createSSLContextForTestClient(), eventLoopGroup, null, null, configuration);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to create push manager.", e);
+		}
 
 		final BenchmarkErrorListener errorListener = new BenchmarkErrorListener();
 

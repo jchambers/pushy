@@ -323,21 +323,40 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * Constructs a new APNs connection. The connection connects to the APNs gateway in the given environment with the
 	 * credentials and key/trust managers in the given SSL context.
 	 *
-	 * @param environment the environment in which this connection will operate
+	 * @param environment the environment in which this connection will operate; must not be {@code null}
 	 * @param sslContext an SSL context with the keys/certificates and trust managers this connection should use when
-	 * communicating with the APNs gateway
-	 * @param eventLoopGroup the event loop group this connection should use for asynchronous network operations
-	 * @param sentNotificationBufferCapacity the capacity of this connection's sent notification buffer
+	 * communicating with the APNs gateway; must not be {@code null}
+	 * @param eventLoopGroup the event loop group this connection should use for asynchronous network operations; must
+	 * not be {@code null}
+	 * @param configuration the set of configuration options to use for this connection. The configuration object is
+	 * copied and changes to the original object will not propagate to the connection after creation. Must not be
+	 * {@code null}.
 	 * @param listener the listener to which this connection will report lifecycle events; may be {@code null}
 	 */
-	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup, final int sentNotificationBufferCapacity, final ApnsConnectionListener<T> listener) {
+	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext,
+			final NioEventLoopGroup eventLoopGroup, final ApnsConnectionConfiguration configuration,
+			final ApnsConnectionListener<T> listener) {
+
+		if (environment == null) {
+			throw new NullPointerException("Environment must not be null.");
+		}
 
 		this.environment = environment;
+
+		if (sslContext == null) {
+			throw new NullPointerException("SSL context must not be null.");
+		}
+
 		this.sslContext = sslContext;
+
+		if (eventLoopGroup == null) {
+			throw new NullPointerException("Event loop group must not be null.");
+		}
+
 		this.eventLoopGroup = eventLoopGroup;
 		this.listener = listener;
 
-		this.sentNotificationBuffer = new SentNotificationBuffer<T>(sentNotificationBufferCapacity);
+		this.sentNotificationBuffer = new SentNotificationBuffer<T>(configuration.getSentNotificationBufferCapacity());
 
 		this.name = String.format("ApnsConnection-%d", ApnsConnection.connectionCounter.getAndIncrement());
 	}

@@ -25,12 +25,29 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import io.netty.channel.nio.NioEventLoopGroup;
 
+import javax.net.ssl.SSLContext;
+
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class ApnsConnectionPoolTest {
+
+	private static NioEventLoopGroup eventLoopGroup;
+
+	@BeforeClass
+	public static void setUpBeforeClass() {
+		ApnsConnectionPoolTest.eventLoopGroup = new NioEventLoopGroup();
+	}
+
+	@AfterClass
+	public static void tearDownAfterClass() throws InterruptedException {
+		ApnsConnectionPoolTest.eventLoopGroup.shutdownGracefully().await();
+	}
 
 	@Test
 	public void testAddConnection() {
@@ -137,7 +154,11 @@ public class ApnsConnectionPoolTest {
 	}
 
 	private ApnsConnection<SimpleApnsPushNotification> createTestConnection() {
-		return new ApnsConnection<SimpleApnsPushNotification>(ApnsEnvironment.getSandboxEnvironment(), null, null,
-				ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY, null);
+		try {
+			return new ApnsConnection<SimpleApnsPushNotification>(ApnsEnvironment.getSandboxEnvironment(),
+					SSLContext.getDefault(), ApnsConnectionPoolTest.eventLoopGroup, new ApnsConnectionConfiguration(), null);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to create test connection.", e);
+		}
 	}
 }

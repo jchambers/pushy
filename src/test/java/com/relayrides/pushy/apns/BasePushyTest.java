@@ -67,12 +67,9 @@ public abstract class BasePushyTest {
 		this.feedbackServer = new MockFeedbackServer(TEST_ENVIRONMENT.getFeedbackPort(), BasePushyTest.eventLoopGroup);
 		this.feedbackServer.start();
 
-		final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
-				new PushManagerFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient());
-
-		pushManagerFactory.setEventLoopGroup(BasePushyTest.eventLoopGroup);
-
-		this.pushManager = pushManagerFactory.buildPushManager();
+		this.pushManager = new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
+				SSLTestUtil.createSSLContextForTestClient(), BasePushyTest.eventLoopGroup, null, null,
+				new PushManagerConfiguration());
 	}
 
 	@After

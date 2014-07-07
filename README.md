@@ -38,14 +38,11 @@ The main public-facing part of Pushy is the [`PushManager`](http://relayrides.gi
 Once you have your certificates and keys, you can construct a new `PushManager` like this:
 
 ```java
-final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
-        new PushManagerFactory<SimpleApnsPushNotification>(
-                ApnsEnvironment.getSandboxEnvironment(),
-                PushManagerFactory.createDefaultSSLContext(
-                        "/path/to/certificate.p12", "mySecretPassword"));
-
 final PushManager<SimpleApnsPushNotification> pushManager =
-        pushManagerFactory.buildPushManager();
+    new PushManager<SimpleApnsPushNotification>(
+        ApnsEnvironment.getSandboxEnvironment(),
+        SSLContextUtil.createDefaultSSLContext("path-to-key.p12", "my-password"),
+        null, null, null, new PushManagerConfiguration());
 
 pushManager.start();
 ```
