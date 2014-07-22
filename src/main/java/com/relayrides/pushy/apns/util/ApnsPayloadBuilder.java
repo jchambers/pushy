@@ -47,12 +47,14 @@ public class ApnsPayloadBuilder {
 	private String localizedActionButtonKey = null;
 	private Integer badgeNumber = null;
 	private String soundFileName = null;
+	private String categoryName = null;
 	private boolean contentAvailable = false;
 
 	private static final String APS_KEY = "aps";
 	private static final String ALERT_KEY = "alert";
 	private static final String BADGE_KEY = "badge";
 	private static final String SOUND_KEY = "sound";
+	private static final String CATEGORY_KEY = "category";
 	private static final String CONTENT_AVAILABLE_KEY = "content-available";
 
 	private static final String ALERT_BODY_KEY = "body";
@@ -64,6 +66,8 @@ public class ApnsPayloadBuilder {
 	private final HashMap<String, Object> customProperties = new HashMap<String, Object>();
 
 	private static final int DEFAULT_PAYLOAD_SIZE = 256;
+
+	private static final Charset UTF8 = Charset.forName("UTF-8");
 
 	/**
 	 * The name of the iOS default push notification sound ({@value DEFAULT_SOUND_FILENAME}).
@@ -182,6 +186,16 @@ public class ApnsPayloadBuilder {
 	}
 
 	/**
+	 * <p>Sets the name of the action category name for interactive remote notifications.</p>
+	 *
+	 * @param categoryName the action category name
+	 */
+	public ApnsPayloadBuilder setCategoryName(final String categoryName) {
+		this.categoryName = categoryName;
+		return this;
+	}
+
+	/**
 	 * <p>Sets the name of the sound file to play when the push notification is received. According to Apple's
 	 * documentation, the value here should be:</p>
 	 *
@@ -274,6 +288,10 @@ public class ApnsPayloadBuilder {
 				aps.put(SOUND_KEY, this.soundFileName);
 			}
 
+			if (this.categoryName != null) {
+				aps.put(CATEGORY_KEY, this.categoryName);
+			}
+
 			if (this.contentAvailable) {
 				aps.put(CONTENT_AVAILABLE_KEY, 1);
 			}
@@ -292,7 +310,7 @@ public class ApnsPayloadBuilder {
 		}
 
 		final String payloadString = payload.toJSONString();
-		final int initialPayloadLength = payloadString.getBytes(Charset.forName("UTF-8")).length;
+		final int initialPayloadLength = payloadString.getBytes(UTF8).length;
 
 		if (initialPayloadLength <= maximumPayloadLength) {
 			return payloadString;
@@ -300,7 +318,7 @@ public class ApnsPayloadBuilder {
 			// TODO This could probably be more efficient
 			if (this.alertBody != null) {
 				this.replaceMessageBody(payload, "");
-				final int payloadLengthWithEmptyMessage = payload.toJSONString().getBytes(Charset.forName("UTF-8")).length;
+				final int payloadLengthWithEmptyMessage = payload.toJSONString().getBytes(UTF8).length;
 
 				if (payloadLengthWithEmptyMessage > maximumPayloadLength) {
 					throw new IllegalArgumentException("Payload exceeds maximum length even with an empty message body.");
@@ -310,7 +328,7 @@ public class ApnsPayloadBuilder {
 
 				this.replaceMessageBody(payload, this.abbreviateString(this.alertBody, maximumMessageBodyLength--));
 
-				while (payload.toJSONString().getBytes(Charset.forName("UTF-8")).length > maximumPayloadLength) {
+				while (payload.toJSONString().getBytes(UTF8).length > maximumPayloadLength) {
 					this.replaceMessageBody(payload, this.abbreviateString(this.alertBody, maximumMessageBodyLength--));
 				}
 

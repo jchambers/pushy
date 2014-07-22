@@ -19,46 +19,23 @@
  * THE SOFTWARE.
  */
 
-package com.relayrides.pushy.apns;
-
-import java.util.Date;
+package com.relayrides.pushy.apns.util;
 
 /**
- * <p>A deliberately-malformed push notification used to trigger a remote shutdown of an APNs connection.</p>
+ * Signals that a given string was not could not be parsed as an APNs token.
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-class KnownBadPushNotification implements ApnsPushNotification {
+public class MalformedTokenStringException extends Exception {
 
-	/*
-	 * (non-Javadoc)
-	 * @see com.relayrides.pushy.apns.ApnsPushNotification#getToken()
-	 */
-	public byte[] getToken() {
-		return new byte[0];
-	}
+	private static final long serialVersionUID = 1L;
 
-	/*
-	 * (non-Javadoc)
-	 * @see com.relayrides.pushy.apns.ApnsPushNotification#getPayload()
+	/**
+	 * Constructs a new malformed token string exception with the given detail message.
+	 *
+	 * @param message an explanation of the cause of the exception
 	 */
-	public String getPayload() {
-		return "";
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * @see com.relayrides.pushy.apns.ApnsPushNotification#getDeliveryInvalidationTime()
-	 */
-	public Date getDeliveryInvalidationTime() {
-		return null;
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * @see com.relayrides.pushy.apns.ApnsPushNotification#getPriority()
-	 */
-	public DeliveryPriority getPriority() {
-		return DeliveryPriority.IMMEDIATE;
+	public MalformedTokenStringException(final String message) {
+		super(message);
 	}
 }

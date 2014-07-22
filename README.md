@@ -25,9 +25,11 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 
 If you don't use Maven, you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.3/pushy-0.3.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
-- [netty 4.0.18.Final](http://netty.io/)
+- [netty 4.0.19.Final](http://netty.io/)
 - [slf4j 1.7.6](http://www.slf4j.org/)
 - [json.simple 1.1.1](https://code.google.com/p/json-simple/)
+
+Pushy itself requires Java 1.6 or newer.
 
 ## Using Pushy
 
@@ -36,14 +38,11 @@ The main public-facing part of Pushy is the [`PushManager`](http://relayrides.gi
 Once you have your certificates and keys, you can construct a new `PushManager` like this:
 
 ```java
-final PushManagerFactory<SimpleApnsPushNotification> pushManagerFactory =
-        new PushManagerFactory<SimpleApnsPushNotification>(
-                ApnsEnvironment.getSandboxEnvironment(),
-                PushManagerFactory.createDefaultSSLContext(
-                        "/path/to/certificate.p12", "mySecretPassword"));
-
 final PushManager<SimpleApnsPushNotification> pushManager =
-        pushManagerFactory.buildPushManager();
+    new PushManager<SimpleApnsPushNotification>(
+        ApnsEnvironment.getSandboxEnvironment(),
+        SSLContextUtil.createDefaultSSLContext("path-to-key.p12", "my-password"),
+        null, null, null, new PushManagerConfiguration());
 
 pushManager.start();
 ```
@@ -83,6 +82,7 @@ Push notification providers communicate with APNs by opening a long-lived connec
 ```java
 private class MyRejectedNotificationListener implements RejectedNotificationListener<SimpleApnsPushNotification> {
 
+	@Override
 	public void handleRejectedNotification(
 			final PushManager<? extends SimpleApnsPushNotification> pushManager,
 			final SimpleApnsPushNotification notification,
@@ -108,6 +108,7 @@ You can listen for connection failures with a [`FailedConnectionListener`](http:
 ```java
 private class MyFailedConnectionListener implements FailedConnectionListener<SimpleApnsPushNotification> {
 
+	@Override
 	public void handleFailedConnection(
 			final PushManager<? extends SimpleApnsPushNotification> pushManager,
 			final Throwable cause) {
@@ -124,7 +125,7 @@ private class MyFailedConnectionListener implements FailedConnectionListener<Sim
 pushManager.registerFailedConnectionListener(new MyFailedConnectionListener());
 ```
 
-Generally, it's safe to ignore most failures (though you may want to log them). Failures that result from a `SSLHandshakeException`, though, likely indicate that your certificate is either invalid or expired, and you'll need to remedy the situation before reconnection attempts are likely to succeed.
+Generally, it's safe to ignore most failures (though you may want to log them). Failures that result from a `SSLHandshakeException`, though, likely indicate that your certificate is either invalid or expired, and you'll need to remedy the situation before reconnection attempts are likely to succeed. Poorly-timed connection issues may cause spurious exceptions, though, and it's wise to look for a pattern of failures before taking action.
 
 Like `RejectedNotificationListeners`, `FailedConnectionListeners` can be registered any time before the `PushManager` is shut down.
 

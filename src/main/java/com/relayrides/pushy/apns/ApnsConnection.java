@@ -78,7 +78,11 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private volatile boolean handshakeCompleted = false;
 	private boolean closeOnRegistration;
 
-	private int sequenceNumber = 0;
+	// We want to start the count at 1 here because the gateway will send back a sequence number of 0 if it doesn't know
+	// which notification failed. This isn't 100% bulletproof (we'll legitimately get back to 0 after 2^32
+	// notifications), but the probability of collision (or even sending 4 billion notifications without some recipient
+	// having an expired token) is vanishingly small.
+	private int sequenceNumber = 1;
 
 	private final Object pendingWriteMonitor = new Object();
 	private int pendingWriteCount = 0;
@@ -86,9 +90,39 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
 
 	private boolean rejectionReceived = false;
-	private final SentNotificationBuffer<T> sentNotificationBuffer = new SentNotificationBuffer<T>(4096);
+	private final SentNotificationBuffer<T> sentNotificationBuffer;
 
 	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
+
+	public static final int DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY = 8192;
+
+	protected enum ApnsFrameItem {
+		DEVICE_TOKEN((byte)1),
+		PAYLOAD((byte)2),
+		SEQUENCE_NUMBER((byte)3),
+		DELIVERY_INVALIDATION_TIME((byte)4),
+		PRIORITY((byte)5);
+
+		private final byte code;
+
+		private ApnsFrameItem(final byte code) {
+			this.code = code;
+		}
+
+		protected byte getCode() {
+			return this.code;
+		}
+
+		protected static ApnsFrameItem getFrameItemFromCode(final byte code) {
+			for (final ApnsFrameItem item : ApnsFrameItem.values()) {
+				if (item.getCode() == code) {
+					return item;
+				}
+			}
+
+			throw new IllegalArgumentException(String.format("No frame item found with code %d", code));
+		}
+	}
 
 	private class RejectedNotificationDecoder extends ByteToMessageDecoder {
 
@@ -117,33 +151,70 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 	private class ApnsPushNotificationEncoder extends MessageToByteEncoder<SendableApnsPushNotification<T>> {
 
-		private static final byte ENHANCED_PUSH_NOTIFICATION_COMMAND = 1;
-		private static final int EXPIRE_IMMEDIATELY = 0;
+		private static final byte BINARY_PUSH_NOTIFICATION_COMMAND = 2;
+		private static final int INVALIDATE_IMMEDIATELY = 0;
+
+		private static final int FRAME_ITEM_ID_SIZE = 1;
+		private static final int FRAME_ITEM_LENGTH_SIZE = 2;
+
+		private static final short SEQUENCE_NUMBER_SIZE = 4;
+		private static final short DELIVERY_INVALIDATION_TIME_SIZE = 4;
+		private static final short PRIORITY_SIZE = 1;
 
 		private final Charset utf8 = Charset.forName("UTF-8");
 
 		@Override
 		protected void encode(final ChannelHandlerContext context, final SendableApnsPushNotification<T> sendablePushNotification, final ByteBuf out) throws Exception {
-			out.writeByte(ENHANCED_PUSH_NOTIFICATION_COMMAND);
+			out.writeByte(BINARY_PUSH_NOTIFICATION_COMMAND);
+			out.writeInt(this.getFrameLength(sendablePushNotification));
+
+			out.writeByte(ApnsFrameItem.SEQUENCE_NUMBER.getCode());
+			out.writeShort(SEQUENCE_NUMBER_SIZE);
 			out.writeInt(sendablePushNotification.getSequenceNumber());
 
-			if (sendablePushNotification.getPushNotification().getDeliveryInvalidationTime() != null) {
-				out.writeInt(this.getTimestampInSeconds(sendablePushNotification.getPushNotification().getDeliveryInvalidationTime()));
-			} else {
-				out.writeInt(EXPIRE_IMMEDIATELY);
-			}
-
+			out.writeByte(ApnsFrameItem.DEVICE_TOKEN.getCode());
 			out.writeShort(sendablePushNotification.getPushNotification().getToken().length);
 			out.writeBytes(sendablePushNotification.getPushNotification().getToken());
 
 			final byte[] payloadBytes = sendablePushNotification.getPushNotification().getPayload().getBytes(utf8);
 
+			out.writeByte(ApnsFrameItem.PAYLOAD.getCode());
 			out.writeShort(payloadBytes.length);
 			out.writeBytes(payloadBytes);
+
+			out.writeByte(ApnsFrameItem.DELIVERY_INVALIDATION_TIME.getCode());
+			out.writeShort(DELIVERY_INVALIDATION_TIME_SIZE);
+
+			final int deliveryInvalidationTime;
+
+			if (sendablePushNotification.getPushNotification().getDeliveryInvalidationTime() != null) {
+				deliveryInvalidationTime = this.getTimestampInSeconds(
+						sendablePushNotification.getPushNotification().getDeliveryInvalidationTime());
+			} else {
+				deliveryInvalidationTime = INVALIDATE_IMMEDIATELY;
+			}
+
+			out.writeInt(deliveryInvalidationTime);
+
+			final DeliveryPriority priority = sendablePushNotification.getPushNotification().getPriority() != null ?
+					sendablePushNotification.getPushNotification().getPriority() : DeliveryPriority.IMMEDIATE;
+
+					out.writeByte(ApnsFrameItem.PRIORITY.getCode());
+					out.writeShort(PRIORITY_SIZE);
+					out.writeByte(priority.getCode());
 		}
 
 		private int getTimestampInSeconds(final Date date) {
 			return (int)(date.getTime() / 1000);
+		}
+
+		private int getFrameLength(final SendableApnsPushNotification<T> sendableApnsPushNotification) {
+			return	ApnsFrameItem.values().length * (FRAME_ITEM_ID_SIZE + FRAME_ITEM_LENGTH_SIZE) +
+					sendableApnsPushNotification.getPushNotification().getToken().length +
+					sendableApnsPushNotification.getPushNotification().getPayload().getBytes(utf8).length +
+					SEQUENCE_NUMBER_SIZE +
+					DELIVERY_INVALIDATION_TIME_SIZE +
+					PRIORITY_SIZE;
 		}
 	}
 
@@ -187,12 +258,16 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 						rejectedNotification.getSequenceNumber());
 
 				if (notification != null) {
-					this.apnsConnection.listener.handleRejectedNotification(
-							this.apnsConnection, notification, rejectedNotification.getReason());
+					if (this.apnsConnection.listener != null) {
+						this.apnsConnection.listener.handleRejectedNotification(
+								this.apnsConnection, notification, rejectedNotification.getReason());
+					}
 				} else {
-					log.error("{} failed to find rejected notification with sequence number {}; this may mean the " +
-							"sent notification buffer is too small. Please report this as a bug.",
-							this.apnsConnection.name, rejectedNotification.getSequenceNumber());
+					log.error("{} failed to find rejected notification with sequence number {} (buffer has range {} to " +
+							"{}); this may mean the sent notification buffer is too small. Please report this as a bug.",
+							this.apnsConnection.name, rejectedNotification.getSequenceNumber(),
+							this.apnsConnection.sentNotificationBuffer.getLowestSequenceNumber(),
+							this.apnsConnection.sentNotificationBuffer.getHighestSequenceNumber());
 				}
 			}
 
@@ -203,7 +278,9 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 							rejectedNotification.getSequenceNumber());
 
 			if (!unprocessedNotifications.isEmpty()) {
-				this.apnsConnection.listener.handleUnprocessedNotifications(this.apnsConnection, unprocessedNotifications);
+				if (this.apnsConnection.listener != null) {
+					this.apnsConnection.listener.handleUnprocessedNotifications(this.apnsConnection, unprocessedNotifications);
+				}
 			}
 
 			this.apnsConnection.sentNotificationBuffer.clearAllNotifications();
@@ -225,7 +302,9 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			// listeners if the handshake has completed. Otherwise, we'll notify listeners of a connection failure (as
 			// opposed to closure) elsewhere.
 			if (this.apnsConnection.handshakeCompleted) {
-				this.apnsConnection.listener.handleConnectionClosure(this.apnsConnection);
+				if (this.apnsConnection.listener != null) {
+					this.apnsConnection.listener.handleConnectionClosure(this.apnsConnection);
+				}
 			}
 		}
 
@@ -233,8 +312,10 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		public void channelWritabilityChanged(final ChannelHandlerContext context) throws Exception {
 			super.channelWritabilityChanged(context);
 
-			this.apnsConnection.listener.handleConnectionWritabilityChange(
-					this.apnsConnection, context.channel().isWritable());
+			if (this.apnsConnection.listener != null) {
+				this.apnsConnection.listener.handleConnectionWritabilityChange(
+						this.apnsConnection, context.channel().isWritable());
+			}
 		}
 	}
 
@@ -242,22 +323,40 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * Constructs a new APNs connection. The connection connects to the APNs gateway in the given environment with the
 	 * credentials and key/trust managers in the given SSL context.
 	 *
-	 * @param environment the environment in which this connection will operate
+	 * @param environment the environment in which this connection will operate; must not be {@code null}
 	 * @param sslContext an SSL context with the keys/certificates and trust managers this connection should use when
-	 * communicating with the APNs gateway
-	 * @param eventLoopGroup the event loop group this connection should use for asynchronous network operations
-	 * @param listener the listener to which this connection will report lifecycle events; must not be {@code null}
+	 * communicating with the APNs gateway; must not be {@code null}
+	 * @param eventLoopGroup the event loop group this connection should use for asynchronous network operations; must
+	 * not be {@code null}
+	 * @param configuration the set of configuration options to use for this connection. The configuration object is
+	 * copied and changes to the original object will not propagate to the connection after creation. Must not be
+	 * {@code null}.
+	 * @param listener the listener to which this connection will report lifecycle events; may be {@code null}
 	 */
-	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup, final ApnsConnectionListener<T> listener) {
+	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext,
+			final NioEventLoopGroup eventLoopGroup, final ApnsConnectionConfiguration configuration,
+			final ApnsConnectionListener<T> listener) {
 
-		if (listener == null) {
-			throw new NullPointerException("Listener must not be null.");
+		if (environment == null) {
+			throw new NullPointerException("Environment must not be null.");
 		}
 
 		this.environment = environment;
+
+		if (sslContext == null) {
+			throw new NullPointerException("SSL context must not be null.");
+		}
+
 		this.sslContext = sslContext;
+
+		if (eventLoopGroup == null) {
+			throw new NullPointerException("Event loop group must not be null.");
+		}
+
 		this.eventLoopGroup = eventLoopGroup;
 		this.listener = listener;
+
+		this.sentNotificationBuffer = new SentNotificationBuffer<T>(configuration.getSentNotificationBufferCapacity());
 
 		this.name = String.format("ApnsConnection-%d", ApnsConnection.connectionCounter.getAndIncrement());
 	}
@@ -281,7 +380,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		final Bootstrap bootstrap = new Bootstrap();
 		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioSocketChannel.class);
-		bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
 		bootstrap.option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
 
 		// TODO Remove this when Netty 5 is available
@@ -321,25 +419,36 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 									log.debug("{} successfully completed TLS handshake.", apnsConnection.name);
 
 									apnsConnection.handshakeCompleted = true;
-									apnsConnection.listener.handleConnectionSuccess(apnsConnection);
+
+									if (apnsConnection.listener != null) {
+										apnsConnection.listener.handleConnectionSuccess(apnsConnection);
+									}
 								} else {
 									log.debug("{} failed to complete TLS handshake with APNs gateway.",
 											apnsConnection.name, handshakeFuture.cause());
 
 									connectFuture.channel().close();
-									apnsConnection.listener.handleConnectionFailure(apnsConnection, handshakeFuture.cause());
+
+									if (apnsConnection.listener != null) {
+										apnsConnection.listener.handleConnectionFailure(apnsConnection, handshakeFuture.cause());
+									}
 								}
 							}});
 					} catch (NullPointerException e) {
 						log.warn("{} failed to get SSL handler and could not wait for a TLS handshake.", apnsConnection.name);
 
 						connectFuture.channel().close();
-						apnsConnection.listener.handleConnectionFailure(apnsConnection, e);
+
+						if (apnsConnection.listener != null) {
+							apnsConnection.listener.handleConnectionFailure(apnsConnection, e);
+						}
 					}
 				} else {
 					log.debug("{} failed to connect to APNs gateway.", apnsConnection.name, connectFuture.cause());
 
-					apnsConnection.listener.handleConnectionFailure(apnsConnection, connectFuture.cause());
+					if (apnsConnection.listener != null) {
+						apnsConnection.listener.handleConnectionFailure(apnsConnection, connectFuture.cause());
+					}
 				}
 			}
 		});
@@ -383,7 +492,9 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 								// Even though the write succeeded, we know for sure that this notification was never
 								// processed by the gateway because it had already rejected another notification from
 								// this connection.
-								apnsConnection.listener.handleUnprocessedNotifications(apnsConnection, java.util.Collections.singletonList(notification));
+								if (apnsConnection.listener != null) {
+									apnsConnection.listener.handleUnprocessedNotifications(apnsConnection, java.util.Collections.singletonList(notification));
+								}
 							} else {
 								apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
 							}
@@ -393,7 +504,9 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 							// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
 							// even manage to write the notification to the wire) and re-enqueue for another send attempt.
-							apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
+							if (apnsConnection.listener != null) {
+								apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
+							}
 						}
 
 						apnsConnection.pendingWriteCount -= 1;

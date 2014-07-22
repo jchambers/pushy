@@ -29,8 +29,10 @@ import javax.net.ssl.SSLHandshakeException;
  *
  * <p>While some connection failures are temporary and likely to be resolved by retrying the connection, some causes of
  * failure are more permanent; generally, an {@link SSLHandshakeException} indicates a problem with SSL certificates
- * that is unlikely to be resolved by retrying the connection, and applications using Pushy are encouraged to register a
- * listener that shuts down a push manager in the event of a handshake exception.</p>
+ * that is unlikely to be resolved by retrying the connection. Applications using Pushy are encouraged to register a
+ * listener that watches for handshake exceptions that shuts down a push manager in the event of a pattern of failure
+ * (transient connection problems can cause spurious exceptions, so it's best not to shut down after a single
+ * exception).</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  *

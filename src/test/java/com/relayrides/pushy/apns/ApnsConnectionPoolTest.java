@@ -21,15 +21,33 @@
 
 package com.relayrides.pushy.apns;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import io.netty.channel.nio.NioEventLoopGroup;
 
-import java.util.Collection;
+import javax.net.ssl.SSLContext;
 
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class ApnsConnectionPoolTest {
+
+	private static NioEventLoopGroup eventLoopGroup;
+
+	@BeforeClass
+	public static void setUpBeforeClass() {
+		ApnsConnectionPoolTest.eventLoopGroup = new NioEventLoopGroup();
+	}
+
+	@AfterClass
+	public static void tearDownAfterClass() throws InterruptedException {
+		ApnsConnectionPoolTest.eventLoopGroup.shutdownGracefully().await();
+	}
 
 	@Test
 	public void testAddConnection() {
@@ -136,14 +154,11 @@ public class ApnsConnectionPoolTest {
 	}
 
 	private ApnsConnection<SimpleApnsPushNotification> createTestConnection() {
-		return new ApnsConnection<SimpleApnsPushNotification>(ApnsEnvironment.getSandboxEnvironment(), null, null, new ApnsConnectionListener<SimpleApnsPushNotification>() {
-			public void handleConnectionSuccess(ApnsConnection<SimpleApnsPushNotification> connection) {}
-			public void handleConnectionFailure(ApnsConnection<SimpleApnsPushNotification> connection, Throwable cause) {}
-			public void handleConnectionWritabilityChange(ApnsConnection<SimpleApnsPushNotification> connection, boolean writable) {}
-			public void handleConnectionClosure(ApnsConnection<SimpleApnsPushNotification> connection) {}
-			public void handleWriteFailure(ApnsConnection<SimpleApnsPushNotification> connection, SimpleApnsPushNotification notification, Throwable cause) {}
-			public void handleRejectedNotification(ApnsConnection<SimpleApnsPushNotification> connection, SimpleApnsPushNotification rejectedNotification, RejectedNotificationReason reason) {}
-			public void handleUnprocessedNotifications(ApnsConnection<SimpleApnsPushNotification> connection, Collection<SimpleApnsPushNotification> unprocessedNotifications) {}
-		});
+		try {
+			return new ApnsConnection<SimpleApnsPushNotification>(ApnsEnvironment.getSandboxEnvironment(),
+					SSLContext.getDefault(), ApnsConnectionPoolTest.eventLoopGroup, new ApnsConnectionConfiguration(), null);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to create test connection.", e);
+		}
 	}
 }
