@@ -47,12 +47,14 @@ public class ApnsPayloadBuilder {
 	private String localizedActionButtonKey = null;
 	private Integer badgeNumber = null;
 	private String soundFileName = null;
+	private String categoryName = null;
 	private boolean contentAvailable = false;
 
 	private static final String APS_KEY = "aps";
 	private static final String ALERT_KEY = "alert";
 	private static final String BADGE_KEY = "badge";
 	private static final String SOUND_KEY = "sound";
+	private static final String CATEGORY_KEY = "category";
 	private static final String CONTENT_AVAILABLE_KEY = "content-available";
 
 	private static final String ALERT_BODY_KEY = "body";
@@ -184,6 +186,16 @@ public class ApnsPayloadBuilder {
 	}
 
 	/**
+	 * <p>Sets the name of the action category name for interactive remote notifications.</p>
+	 *
+	 * @param categoryName the action category name
+	 */
+	public ApnsPayloadBuilder setCategoryName(final String categoryName) {
+		this.categoryName = categoryName;
+		return this;
+	}
+
+	/**
 	 * <p>Sets the name of the sound file to play when the push notification is received. According to Apple's
 	 * documentation, the value here should be:</p>
 	 *
@@ -274,6 +286,10 @@ public class ApnsPayloadBuilder {
 
 			if (this.soundFileName != null) {
 				aps.put(SOUND_KEY, this.soundFileName);
+			}
+
+			if (this.categoryName != null) {
+				aps.put(CATEGORY_KEY, this.categoryName);
 			}
 
 			if (this.contentAvailable) {
