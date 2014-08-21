@@ -43,6 +43,7 @@ import org.junit.Test;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class ApnsConnectionTest extends BasePushyTest {
+	private static final String CONN_NAME = "connName";
 
 	private class TestListener implements ApnsConnectionListener<SimpleApnsPushNotification> {
 
@@ -114,36 +115,41 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		public void handleConnectionWritabilityChange(ApnsConnection<SimpleApnsPushNotification> connection, boolean writable) {
 		}
+
+		@Override
+		public String getName() {
+			return "someName";
+		}
 	}
 
 	@Test
 	public void testApnsConnectionNullListener() throws Exception {
 		new ApnsConnection<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
-				this.getEventLoopGroup(), new ApnsConnectionConfiguration(), null);
+				this.getEventLoopGroup(), new ApnsConnectionConfiguration(), null, CONN_NAME);
 	}
 
 	@Test(expected = NullPointerException.class)
 	public void testApnsConnectionNullEnvironment() throws Exception {
 		new ApnsConnection<ApnsPushNotification>(null, SSLTestUtil.createSSLContextForTestClient(),
-				this.getEventLoopGroup(), new ApnsConnectionConfiguration(), null);
+				this.getEventLoopGroup(), new ApnsConnectionConfiguration(), null, CONN_NAME);
 	}
 
 	@Test(expected = NullPointerException.class)
 	public void testApnsConnectionNullSslContext() throws Exception {
 		new ApnsConnection<ApnsPushNotification>(TEST_ENVIRONMENT, null, this.getEventLoopGroup(),
-				new ApnsConnectionConfiguration(), null);
+				new ApnsConnectionConfiguration(), null, CONN_NAME);
 	}
 
 	@Test(expected = NullPointerException.class)
 	public void testApnsConnectionNullEventLoopGroup() throws Exception {
 		new ApnsConnection<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
-				null, new ApnsConnectionConfiguration(), null);
+				null, new ApnsConnectionConfiguration(), null, CONN_NAME);
 	}
 
 	@Test(expected = NullPointerException.class)
 	public void testApnsConnectionNullConfiguration() throws Exception {
 		new ApnsConnection<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
-				this.getEventLoopGroup(), null, null);
+				this.getEventLoopGroup(), null, null, CONN_NAME);
 	}
 
 	@Test
@@ -154,7 +160,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		final TestListener listener = new TestListener(mutex);
 		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
 				new ApnsConnection<SimpleApnsPushNotification>(
-						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(), new ApnsConnectionConfiguration(), listener);
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(), new ApnsConnectionConfiguration(), listener, CONN_NAME);
 
 		synchronized (mutex) {
 			apnsConnection.connect();
@@ -172,7 +178,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
 				new ApnsConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-						new ApnsConnectionConfiguration(), new TestListener(new Object()));
+						new ApnsConnectionConfiguration(), new TestListener(new Object()), CONN_NAME);
 
 		apnsConnection.connect();
 		apnsConnection.connect();
@@ -188,7 +194,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
 				new ApnsConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient("/empty-keystore.jks"),
-						this.getEventLoopGroup(), new ApnsConnectionConfiguration(), listener);
+						this.getEventLoopGroup(), new ApnsConnectionConfiguration(), listener, CONN_NAME);
 
 		synchronized (mutex) {
 			apnsConnection.connect();
@@ -212,7 +218,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
 				new ApnsConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient("/pushy-test-client-untrusted.jks"),
-						this.getEventLoopGroup(), new ApnsConnectionConfiguration(), listener);
+						this.getEventLoopGroup(), new ApnsConnectionConfiguration(), listener, CONN_NAME);
 
 		synchronized (mutex) {
 			apnsConnection.connect();
@@ -236,7 +242,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
 				new ApnsConnection<SimpleApnsPushNotification>(
 						connectionRefusedEnvironment, SSLTestUtil.createSSLContextForTestClient("/pushy-test-client.jks"),
-						this.getEventLoopGroup(), new ApnsConnectionConfiguration(), listener);
+						this.getEventLoopGroup(), new ApnsConnectionConfiguration(), listener, CONN_NAME);
 
 		synchronized (mutex) {
 			apnsConnection.connect();
@@ -257,7 +263,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
 				new ApnsConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-						new ApnsConnectionConfiguration(), listener);
+						new ApnsConnectionConfiguration(), listener, CONN_NAME);
 
 		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(1);
 
@@ -283,7 +289,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
 				new ApnsConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-						new ApnsConnectionConfiguration(), listener);
+						new ApnsConnectionConfiguration(), listener, CONN_NAME);
 
 		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(1);
 
@@ -315,7 +321,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
 				new ApnsConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-						new ApnsConnectionConfiguration(), listener);
+						new ApnsConnectionConfiguration(), listener, CONN_NAME);
 
 		synchronized (mutex) {
 			apnsConnection.connect();
@@ -351,7 +357,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
 				new ApnsConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-						new ApnsConnectionConfiguration(), listener);
+						new ApnsConnectionConfiguration(), listener, CONN_NAME);
 
 		synchronized (mutex) {
 			apnsConnection.connect();
@@ -385,7 +391,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
 				new ApnsConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-						new ApnsConnectionConfiguration(), listener);
+						new ApnsConnectionConfiguration(), listener, CONN_NAME);
 
 		synchronized (mutex) {
 			apnsConnection.connect();
@@ -420,7 +426,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
 				new ApnsConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-						new ApnsConnectionConfiguration(), listener);
+						new ApnsConnectionConfiguration(), listener, CONN_NAME);
 
 		apnsConnection.shutdownGracefully();
 	}
@@ -433,7 +439,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
 				new ApnsConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-						new ApnsConnectionConfiguration(), listener);
+						new ApnsConnectionConfiguration(), listener, CONN_NAME);
 
 		synchronized (mutex) {
 			apnsConnection.connect();
@@ -464,7 +470,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
 				new ApnsConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-						new ApnsConnectionConfiguration(), listener);
+						new ApnsConnectionConfiguration(), listener, CONN_NAME);
 
 		apnsConnection.shutdownImmediately();
 	}
@@ -480,7 +486,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 			final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
 					new ApnsConnection<SimpleApnsPushNotification>(
 							TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-							new ApnsConnectionConfiguration(), listener);
+							new ApnsConnectionConfiguration(), listener, CONN_NAME);
 
 			apnsConnection.waitForPendingWritesToFinish();
 			apnsConnection.shutdownImmediately();
@@ -493,7 +499,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 			final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
 					new ApnsConnection<SimpleApnsPushNotification>(
 							TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-							new ApnsConnectionConfiguration(), listener);
+							new ApnsConnectionConfiguration(), listener, CONN_NAME);
 
 			synchronized (mutex) {
 				apnsConnection.connect();
