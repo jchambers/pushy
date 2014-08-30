@@ -475,6 +475,20 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		return this.retryQueue;
 	}
 
+    /**
+     * Returns the number of elements in queue for sending.
+     */
+    public int getQueueSize() {
+        return this.queue.size();
+    }
+
+    /**
+     * Returns the number of elements in retry-queue.
+     */
+    public int getRetryQueueSize() {
+        return this.retryQueue.size();
+    }
+
 	/**
 	 * <p>Queries the APNs feedback service for expired tokens using a reasonable default timeout. Be warned that this
 	 * is a <strong>destructive operation</strong>. According to Apple's documentation:</p>
