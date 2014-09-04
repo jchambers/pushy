@@ -7,8 +7,13 @@ package com.relayrides.pushy.apns;
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
 public class PushManagerConfiguration {
+	/**
+	 * Default push manager's name. (value: <b>@{value}</b>)
+	 */
+	public static final String DEFAULT_NAME = "PushManager";
 
 	private int concurrentConnectionCount = 1;
+	private String name = DEFAULT_NAME;
 
 	private ApnsConnectionConfiguration connectionConfiguration = new ApnsConnectionConfiguration();
 
@@ -26,6 +31,26 @@ public class PushManagerConfiguration {
 	public PushManagerConfiguration(final PushManagerConfiguration configuration) {
 		this.concurrentConnectionCount = configuration.getConcurrentConnectionCount();
 		this.connectionConfiguration = new ApnsConnectionConfiguration(configuration.getConnectionConfiguration());
+		this.name = configuration.getName();
+	}
+
+	/**
+	 * Returns PushManager's name.
+	 *
+	 * @return push manager's name
+	 */
+	public String getName() {
+		return name;
+	}
+
+	/**
+	 * Sets push manager's name.
+	 *
+	 * @param name push manager's name (must be non-null, non-empty string)
+	 */
+	public void setName(String name) {
+		if (name == null || name.isEmpty()) return;
+		this.name = name;
 	}
 
 	/**

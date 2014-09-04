@@ -105,4 +105,11 @@ public interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	 * @param unprocessedNotifications the notifications known to have not been processed by the APNs gateway
 	 */
 	void handleUnprocessedNotifications(ApnsConnection<T> connection, Collection<T> unprocessedNotifications);
+
+	/**
+	 * <p>Returns ApnsConnectionListener's name.</p>
+	 *
+	 * @return connection listener's name
+	 */
+	public String getName();
 }
