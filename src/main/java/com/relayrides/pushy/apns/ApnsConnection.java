@@ -37,6 +37,8 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.handler.codec.MessageToByteEncoder;
 import io.netty.handler.ssl.SslHandler;
+import io.netty.handler.timeout.IdleStateEvent;
+import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
@@ -69,6 +71,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
 	private final NioEventLoopGroup eventLoopGroup;
+	private final ApnsConnectionConfiguration configuration;
 	private final ApnsConnectionListener<T> listener;
 
 	private static final AtomicInteger connectionCounter = new AtomicInteger(0);
@@ -91,6 +94,9 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 	private boolean rejectionReceived = false;
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
+
+	private static final String PIPELINE_MAIN_HANDLER = "handler";
+	private static final String PIPELINE_IDLE_STATE_HANLDER = "idleStateHandler";
 
 	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
 
@@ -317,6 +323,18 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 						this.apnsConnection, context.channel().isWritable());
 			}
 		}
+
+		@Override
+		public void userEventTriggered(final ChannelHandlerContext context, final Object event) throws Exception {
+			if (event instanceof IdleStateEvent) {
+				log.debug("{} will shut down due to inactivity.", this.apnsConnection.name);
+
+				context.pipeline().remove(ApnsConnection.PIPELINE_IDLE_STATE_HANLDER);
+				this.apnsConnection.shutdownGracefully();
+			} else {
+				super.userEventTriggered(context, event);
+			}
+		}
 	}
 
 	/**
@@ -354,6 +372,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		}
 
 		this.eventLoopGroup = eventLoopGroup;
+		this.configuration = configuration;
 		this.listener = listener;
 
 		this.sentNotificationBuffer = new SentNotificationBuffer<T>(configuration.getSentNotificationBufferCapacity());
@@ -397,7 +416,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 				pipeline.addLast("ssl", new SslHandler(sslEngine));
 				pipeline.addLast("decoder", new RejectedNotificationDecoder());
 				pipeline.addLast("encoder", new ApnsPushNotificationEncoder());
-				pipeline.addLast("handler", new ApnsConnectionHandler(apnsConnection));
+				pipeline.addLast(ApnsConnection.PIPELINE_MAIN_HANDLER, new ApnsConnectionHandler(apnsConnection));
 			}
 		});
 
@@ -405,6 +424,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		this.connectFuture = bootstrap.connect(this.environment.getApnsGatewayHost(), this.environment.getApnsGatewayPort());
 		this.connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
 
+			@Override
 			public void operationComplete(final ChannelFuture connectFuture) {
 				if (connectFuture.isSuccess()) {
 					log.debug("{} connected; waiting for TLS handshake.", apnsConnection.name);
@@ -414,6 +434,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 					try {
 						sslHandler.handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
 
+							@Override
 							public void operationComplete(final Future<Channel> handshakeFuture) {
 								if (handshakeFuture.isSuccess()) {
 									log.debug("{} successfully completed TLS handshake.", apnsConnection.name);
@@ -423,6 +444,13 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 									if (apnsConnection.listener != null) {
 										apnsConnection.listener.handleConnectionSuccess(apnsConnection);
 									}
+
+									if (apnsConnection.configuration.getCloseAfterInactivityTime() != null) {
+										connectFuture.channel().pipeline().addBefore(ApnsConnection.PIPELINE_MAIN_HANDLER,
+												ApnsConnection.PIPELINE_IDLE_STATE_HANLDER,
+												new IdleStateHandler(0, 0, apnsConnection.configuration.getCloseAfterInactivityTime()));
+									}
+
 								} else {
 									log.debug("{} failed to complete TLS handshake with APNs gateway.",
 											apnsConnection.name, handshakeFuture.cause());
@@ -473,6 +501,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 		this.connectFuture.channel().eventLoop().execute(new Runnable() {
 
+			@Override
 			public void run() {
 				final SendableApnsPushNotification<T> sendableNotification =
 						new SendableApnsPushNotification<T>(notification, apnsConnection.sequenceNumber++);
@@ -483,6 +512,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 				apnsConnection.connectFuture.channel().writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
+					@Override
 					public void operationComplete(final ChannelFuture writeFuture) {
 						if (writeFuture.isSuccess()) {
 							log.trace("{} successfully wrote notification {}", apnsConnection.name,
@@ -570,6 +600,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 			this.connectFuture.channel().eventLoop().execute(new Runnable() {
 
+				@Override
 				public void run() {
 					// Don't send a second shutdown notification if we've already started the graceful shutdown process.
 					if (apnsConnection.shutdownNotification == null) {
@@ -583,6 +614,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 						apnsConnection.connectFuture.channel().writeAndFlush(apnsConnection.shutdownNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
+							@Override
 							public void operationComplete(final ChannelFuture future) {
 								if (future.isSuccess()) {
 									log.trace("{} successfully wrote known-bad notification {}",
@@ -643,6 +675,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		final ApnsConnection<T> apnsConnection = this;
 
 		return new Runnable() {
+			@Override
 			public void run() {
 				final SslHandler sslHandler = apnsConnection.connectFuture.channel().pipeline().get(SslHandler.class);
 
