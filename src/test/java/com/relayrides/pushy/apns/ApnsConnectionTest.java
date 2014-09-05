@@ -545,4 +545,41 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		assertTrue(listener.connectionClosed);
 	}
+
+	@Test
+	public void testGracefulShutdownTimeout() throws Exception {
+		final Object mutex = new Object();
+
+		final TestListener listener = new TestListener(mutex);
+
+		final ApnsConnectionConfiguration gracefulShutdownTimeoutConfiguration = new ApnsConnectionConfiguration();
+		gracefulShutdownTimeoutConfiguration.setGracefulShutdownTimeout(1);
+
+		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
+				new ApnsConnection<SimpleApnsPushNotification>(
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
+						gracefulShutdownTimeoutConfiguration, listener);
+
+		this.getApnsServer().setShouldSendErrorResponses(false);
+
+		synchronized (mutex) {
+			apnsConnection.connect();
+
+			while (!listener.connectionSucceeded) {
+				mutex.wait();
+			}
+		}
+
+		assertTrue(listener.connectionSucceeded);
+
+		synchronized (mutex) {
+			apnsConnection.shutdownGracefully();
+
+			while (!listener.connectionClosed) {
+				mutex.wait();
+			}
+		}
+
+		assertTrue(listener.connectionClosed);
+	}
 }
