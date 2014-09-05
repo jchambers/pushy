@@ -97,6 +97,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 	private static final String PIPELINE_MAIN_HANDLER = "handler";
 	private static final String PIPELINE_IDLE_STATE_HANLDER = "idleStateHandler";
+	private static final String PIPELINE_GRACEFUL_SHUTDOWN_TIMEOUT_HANDLER = "gracefulShutdownTimeoutHandler";
 
 	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
 
@@ -327,10 +328,13 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		@Override
 		public void userEventTriggered(final ChannelHandlerContext context, final Object event) throws Exception {
 			if (event instanceof IdleStateEvent) {
-				log.debug("{} will shut down due to inactivity.", this.apnsConnection.name);
-
-				context.pipeline().remove(ApnsConnection.PIPELINE_IDLE_STATE_HANLDER);
-				this.apnsConnection.shutdownGracefully();
+				if (this.apnsConnection.shutdownNotification == null) {
+					log.debug("{} will shut down gracefully due to inactivity.", this.apnsConnection.name);
+					this.apnsConnection.shutdownGracefully();
+				} else {
+					log.debug("Graceful shutdown attempt for {} timed out; shutting down immediately.", this.apnsConnection.name);
+					this.apnsConnection.shutdownImmediately();
+				}
 			} else {
 				super.userEventTriggered(context, event);
 			}
@@ -592,6 +596,12 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 */
 	public synchronized void shutdownGracefully() {
 
+		if (this.connectFuture != null && this.connectFuture.channel() != null) {
+			if (this.connectFuture.channel().pipeline().get(ApnsConnection.PIPELINE_IDLE_STATE_HANLDER) != null) {
+				this.connectFuture.channel().pipeline().remove(ApnsConnection.PIPELINE_IDLE_STATE_HANLDER);
+			}
+		}
+
 		final ApnsConnection<T> apnsConnection = this;
 
 		// We only need to send a known-bad notification if we were ever connected in the first place and if we're
@@ -609,6 +619,16 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 						apnsConnection.shutdownNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
 								new KnownBadPushNotification(), apnsConnection.sequenceNumber++);
+
+						if (apnsConnection.configuration.getGracefulShutdownTimeout() != null &&
+								apnsConnection.connectFuture.channel().pipeline().get(PIPELINE_GRACEFUL_SHUTDOWN_TIMEOUT_HANDLER) == null) {
+							// We should time out, but haven't added an idle state handler yet.
+							apnsConnection.connectFuture.channel().pipeline().addBefore(
+									PIPELINE_MAIN_HANDLER,
+									PIPELINE_GRACEFUL_SHUTDOWN_TIMEOUT_HANDLER,
+									new IdleStateHandler(apnsConnection.configuration.getGracefulShutdownTimeout(), 0, 0));
+						}
+
 
 						apnsConnection.pendingWriteCount += 1;
 
