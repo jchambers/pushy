@@ -523,28 +523,26 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 	@Test
 	public void testWriteTimeout() throws Exception {
-		{
-			final Object mutex = new Object();
+		final Object mutex = new Object();
 
-			final TestListener listener = new TestListener(mutex);
+		final TestListener listener = new TestListener(mutex);
 
-			final ApnsConnectionConfiguration writeTimeoutConfiguration = new ApnsConnectionConfiguration();
-			writeTimeoutConfiguration.setCloseAfterInactivityTime(1);
+		final ApnsConnectionConfiguration writeTimeoutConfiguration = new ApnsConnectionConfiguration();
+		writeTimeoutConfiguration.setCloseAfterInactivityTime(1);
 
-			final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
-					new ApnsConnection<SimpleApnsPushNotification>(
-							TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-							writeTimeoutConfiguration, listener);
+		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
+				new ApnsConnection<SimpleApnsPushNotification>(
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
+						writeTimeoutConfiguration, listener);
 
-			synchronized (mutex) {
-				apnsConnection.connect();
+		synchronized (mutex) {
+			apnsConnection.connect();
 
-				while (!listener.connectionClosed) {
-					mutex.wait();
-				}
+			while (!listener.connectionClosed) {
+				mutex.wait();
 			}
-
-			assertTrue(listener.connectionClosed);
 		}
+
+		assertTrue(listener.connectionClosed);
 	}
 }
