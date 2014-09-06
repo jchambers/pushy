@@ -545,4 +545,43 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		assertTrue(listener.connectionClosed);
 	}
+
+	@Test
+	public void testShutdownAtSendAttemptLimit() throws Exception {
+
+		final int notificationCount = 1000;
+		final int sendAttemptLimit = 100;
+
+		final Object mutex = new Object();
+
+		final TestListener listener = new TestListener(mutex);
+
+		final ApnsConnectionConfiguration sendAttemptLimitConfiguration = new ApnsConnectionConfiguration();
+		sendAttemptLimitConfiguration.setSendAttemptLimit(100);
+
+		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
+				new ApnsConnection<SimpleApnsPushNotification>(
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
+						sendAttemptLimitConfiguration, listener);
+
+		final CountDownLatch totalLatch = this.getApnsServer().getAcceptedNotificationCountDownLatch(notificationCount);
+		final CountDownLatch limitLatch = this.getApnsServer().getAcceptedNotificationCountDownLatch(sendAttemptLimit);
+
+		synchronized (mutex) {
+			apnsConnection.connect();
+
+			while (!listener.connectionSucceeded) {
+				mutex.wait();
+			}
+		}
+
+		assertTrue(listener.connectionSucceeded);
+
+		for (int i = 0; i < notificationCount; i++) {
+			apnsConnection.sendNotification(this.createTestNotification());
+		}
+
+		this.waitForLatch(limitLatch);
+		assertEquals(notificationCount - sendAttemptLimit, totalLatch.getCount());
+	}
 }

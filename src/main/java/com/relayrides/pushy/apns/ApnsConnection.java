@@ -89,6 +89,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 	private final Object pendingWriteMonitor = new Object();
 	private int pendingWriteCount = 0;
+	private int sendAttempts = 0;
 
 	private SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
 
@@ -556,6 +557,11 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			if (this.listener != null) {
 				this.listener.handleWriteFailure(this, notification, new IllegalStateException("Connection is shutting down."));
 			}
+		}
+
+		if (this.configuration.getSendAttemptLimit() != null && ++this.sendAttempts >= this.configuration.getSendAttemptLimit()) {
+			log.debug("{} reached send attempt limit and will shut down gracefully.", this.name);
+			this.shutdownGracefully();
 		}
 	}
 
