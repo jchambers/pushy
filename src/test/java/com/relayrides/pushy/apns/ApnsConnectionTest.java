@@ -65,6 +65,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 			this.mutex = mutex;
 		}
 
+		@Override
 		public void handleConnectionSuccess(final ApnsConnection<SimpleApnsPushNotification> connection) {
 			synchronized (this.mutex) {
 				this.connectionSucceeded = true;
@@ -72,6 +73,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 			}
 		}
 
+		@Override
 		public void handleConnectionFailure(final ApnsConnection<SimpleApnsPushNotification> connection, final Throwable cause) {
 			synchronized (mutex) {
 				this.connectionFailed = true;
@@ -81,7 +83,8 @@ public class ApnsConnectionTest extends BasePushyTest {
 			}
 		}
 
-		public void handleConnectionClosure(ApnsConnection<SimpleApnsPushNotification> connection) {
+		@Override
+		public void handleConnectionClosure(final ApnsConnection<SimpleApnsPushNotification> connection) {
 			try {
 				connection.waitForPendingWritesToFinish();
 			} catch (InterruptedException ignored) {
@@ -93,26 +96,30 @@ public class ApnsConnectionTest extends BasePushyTest {
 			}
 		}
 
-		public void handleWriteFailure(ApnsConnection<SimpleApnsPushNotification> connection,
-				SimpleApnsPushNotification notification, Throwable cause) {
+		@Override
+		public void handleWriteFailure(final ApnsConnection<SimpleApnsPushNotification> connection,
+				final SimpleApnsPushNotification notification, final Throwable cause) {
 
 			this.writeFailures.add(notification);
 		}
 
-		public void handleRejectedNotification(ApnsConnection<SimpleApnsPushNotification> connection,
-				SimpleApnsPushNotification rejectedNotification, RejectedNotificationReason reason) {
+		@Override
+		public void handleRejectedNotification(final ApnsConnection<SimpleApnsPushNotification> connection,
+				final SimpleApnsPushNotification rejectedNotification, final RejectedNotificationReason reason) {
 
 			this.rejectedNotification = rejectedNotification;
 			this.rejectionReason = reason;
 		}
 
-		public void handleUnprocessedNotifications(ApnsConnection<SimpleApnsPushNotification> connection,
-				Collection<SimpleApnsPushNotification> unprocessedNotifications) {
+		@Override
+		public void handleUnprocessedNotifications(final ApnsConnection<SimpleApnsPushNotification> connection,
+				final Collection<SimpleApnsPushNotification> unprocessedNotifications) {
 
 			this.unprocessedNotifications.addAll(unprocessedNotifications);
 		}
 
-		public void handleConnectionWritabilityChange(ApnsConnection<SimpleApnsPushNotification> connection, boolean writable) {
+		@Override
+		public void handleConnectionWritabilityChange(final ApnsConnection<SimpleApnsPushNotification> connection, final boolean writable) {
 		}
 	}
 
@@ -512,5 +519,30 @@ public class ApnsConnectionTest extends BasePushyTest {
 			apnsConnection.waitForPendingWritesToFinish();
 			apnsConnection.shutdownGracefully();
 		}
+	}
+
+	@Test
+	public void testWriteTimeout() throws Exception {
+		final Object mutex = new Object();
+
+		final TestListener listener = new TestListener(mutex);
+
+		final ApnsConnectionConfiguration writeTimeoutConfiguration = new ApnsConnectionConfiguration();
+		writeTimeoutConfiguration.setCloseAfterInactivityTime(1);
+
+		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
+				new ApnsConnection<SimpleApnsPushNotification>(
+						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
+						writeTimeoutConfiguration, listener);
+
+		synchronized (mutex) {
+			apnsConnection.connect();
+
+			while (!listener.connectionClosed) {
+				mutex.wait();
+			}
+		}
+
+		assertTrue(listener.connectionClosed);
 	}
 }
