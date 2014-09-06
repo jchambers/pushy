@@ -194,6 +194,16 @@ public class ApnsPayloadBuilderTest {
 	}
 
 	@Test
+	public void testSetCategoryName() throws ParseException {
+		final String categoryName = "INVITE";
+		this.builder.setCategoryName(categoryName);
+
+		final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+		assertEquals(categoryName, aps.get("category"));
+	}
+
+	@Test
 	public void testSetContentAvailable() throws ParseException {
 		{
 			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
