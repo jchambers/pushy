@@ -405,6 +405,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		this.connectFuture = bootstrap.connect(this.environment.getApnsGatewayHost(), this.environment.getApnsGatewayPort());
 		this.connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
 
+			@Override
 			public void operationComplete(final ChannelFuture connectFuture) {
 				if (connectFuture.isSuccess()) {
 					log.debug("{} connected; waiting for TLS handshake.", apnsConnection.name);
@@ -414,6 +415,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 					try {
 						sslHandler.handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
 
+							@Override
 							public void operationComplete(final Future<Channel> handshakeFuture) {
 								if (handshakeFuture.isSuccess()) {
 									log.debug("{} successfully completed TLS handshake.", apnsConnection.name);
@@ -471,56 +473,64 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			throw new IllegalStateException(String.format("%s has not completed handshake.", this.name));
 		}
 
-		this.connectFuture.channel().eventLoop().execute(new Runnable() {
+		if (this.shutdownNotification == null) {
+			this.connectFuture.channel().eventLoop().execute(new Runnable() {
 
-			public void run() {
-				final SendableApnsPushNotification<T> sendableNotification =
-						new SendableApnsPushNotification<T>(notification, apnsConnection.sequenceNumber++);
+				@Override
+				public void run() {
+					final SendableApnsPushNotification<T> sendableNotification =
+							new SendableApnsPushNotification<T>(notification, apnsConnection.sequenceNumber++);
 
-				log.trace("{} sending {}", apnsConnection.name, sendableNotification);
+					log.trace("{} sending {}", apnsConnection.name, sendableNotification);
 
-				apnsConnection.pendingWriteCount += 1;
+					apnsConnection.pendingWriteCount += 1;
 
-				apnsConnection.connectFuture.channel().writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+					apnsConnection.connectFuture.channel().writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
-					public void operationComplete(final ChannelFuture writeFuture) {
-						if (writeFuture.isSuccess()) {
-							log.trace("{} successfully wrote notification {}", apnsConnection.name,
-									sendableNotification.getSequenceNumber());
+						@Override
+						public void operationComplete(final ChannelFuture writeFuture) {
+							if (writeFuture.isSuccess()) {
+								log.trace("{} successfully wrote notification {}", apnsConnection.name,
+										sendableNotification.getSequenceNumber());
 
-							if (apnsConnection.rejectionReceived) {
-								// Even though the write succeeded, we know for sure that this notification was never
-								// processed by the gateway because it had already rejected another notification from
-								// this connection.
-								if (apnsConnection.listener != null) {
-									apnsConnection.listener.handleUnprocessedNotifications(apnsConnection, java.util.Collections.singletonList(notification));
+								if (apnsConnection.rejectionReceived) {
+									// Even though the write succeeded, we know for sure that this notification was never
+									// processed by the gateway because it had already rejected another notification from
+									// this connection.
+									if (apnsConnection.listener != null) {
+										apnsConnection.listener.handleUnprocessedNotifications(apnsConnection, java.util.Collections.singletonList(notification));
+									}
+								} else {
+									apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
 								}
 							} else {
-								apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
+								log.trace("{} failed to write notification {}",
+										apnsConnection.name, sendableNotification, writeFuture.cause());
+
+								// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
+								// even manage to write the notification to the wire) and re-enqueue for another send attempt.
+								if (apnsConnection.listener != null) {
+									apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
+								}
 							}
-						} else {
-							log.trace("{} failed to write notification {}",
-									apnsConnection.name, sendableNotification, writeFuture.cause());
 
-							// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
-							// even manage to write the notification to the wire) and re-enqueue for another send attempt.
-							if (apnsConnection.listener != null) {
-								apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
-							}
-						}
+							apnsConnection.pendingWriteCount -= 1;
+							assert apnsConnection.pendingWriteCount >= 0;
 
-						apnsConnection.pendingWriteCount -= 1;
-						assert apnsConnection.pendingWriteCount >= 0;
-
-						if (apnsConnection.pendingWriteCount == 0) {
-							synchronized (apnsConnection.pendingWriteMonitor) {
-								apnsConnection.pendingWriteMonitor.notifyAll();
+							if (apnsConnection.pendingWriteCount == 0) {
+								synchronized (apnsConnection.pendingWriteMonitor) {
+									apnsConnection.pendingWriteMonitor.notifyAll();
+								}
 							}
 						}
-					}
-				});
+					});
+				}
+			});
+		} else {
+			if (this.listener != null) {
+				this.listener.handleWriteFailure(this, notification, new IllegalStateException("Connection is shutting down."));
 			}
-		});
+		}
 	}
 
 	/**
@@ -570,6 +580,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 			this.connectFuture.channel().eventLoop().execute(new Runnable() {
 
+				@Override
 				public void run() {
 					// Don't send a second shutdown notification if we've already started the graceful shutdown process.
 					if (apnsConnection.shutdownNotification == null) {
@@ -583,6 +594,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 						apnsConnection.connectFuture.channel().writeAndFlush(apnsConnection.shutdownNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
+							@Override
 							public void operationComplete(final ChannelFuture future) {
 								if (future.isSuccess()) {
 									log.trace("{} successfully wrote known-bad notification {}",
@@ -643,6 +655,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		final ApnsConnection<T> apnsConnection = this;
 
 		return new Runnable() {
+			@Override
 			public void run() {
 				final SslHandler sslHandler = apnsConnection.connectFuture.channel().pipeline().get(SslHandler.class);
 
