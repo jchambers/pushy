@@ -23,6 +23,7 @@ public class ApnsConnectionConfiguration {
 	 */
 	public ApnsConnectionConfiguration(final ApnsConnectionConfiguration configuration) {
 		this.sentNotificationBufferCapacity = configuration.sentNotificationBufferCapacity;
+		this.closeAfterInactivityTime = configuration.closeAfterInactivityTime;
 	}
 
 	/**
