@@ -94,9 +94,17 @@ public class PushManagerTest extends BasePushyTest {
 	}
 
 	@Test(expected = NullPointerException.class)
-	public void testPushmanagerNullConfiguration() throws Exception {
+	public void testPushManagerNullConfiguration() throws Exception {
 		new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
 				null, null, null, null, TEST_PUSH_MANAGER_NAME);
+	}
+
+	@Test
+	public void testPushManagerNullName() throws Exception {
+		final PushManager<ApnsPushNotification> pushManager = new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT,
+				SSLTestUtil.createSSLContextForTestClient(), null, null, null, new PushManagerConfiguration(), null);
+
+		assertNotNull(pushManager.getName());
 	}
 
 	@Test

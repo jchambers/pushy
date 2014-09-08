@@ -155,6 +155,12 @@ public class ApnsConnectionTest extends BasePushyTest {
 				this.getEventLoopGroup(), null, null, TEST_CONNECTION_NAME);
 	}
 
+	@Test(expected = NullPointerException.class)
+	public void testApnsConnectionNullName() throws Exception {
+		new ApnsConnection<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
+				this.getEventLoopGroup(), new ApnsConnectionConfiguration(), null, null);
+	}
+
 	@Test
 	public void testConnect() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, InterruptedException {
 		// For this test, we just want to make sure that connection succeeds and nothing explodes.
