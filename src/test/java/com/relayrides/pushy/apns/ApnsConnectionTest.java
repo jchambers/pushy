@@ -538,6 +538,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		synchronized (mutex) {
 			apnsConnection.connect();
 
+			// Do nothing, but wait for the connection to time out due to inactivity
 			while (!listener.connectionClosed) {
 				mutex.wait();
 			}
