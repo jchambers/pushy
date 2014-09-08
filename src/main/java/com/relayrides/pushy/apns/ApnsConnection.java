@@ -328,6 +328,10 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		@Override
 		public void userEventTriggered(final ChannelHandlerContext context, final Object event) throws Exception {
 			if (event instanceof IdleStateEvent) {
+				// The IdleStateHandler for connection inactivity is removed by shutdownGracefully, which also populates
+				// shutdownNotification. If we get an IdleStateEvent without a shutdownNotification, we know that the
+				// event came from the connection inactivity handler. Otherwise, we know it came from the graceful
+				// shutdown timeout handler.
 				if (this.apnsConnection.shutdownNotification == null) {
 					log.debug("{} will shut down gracefully due to inactivity.", this.apnsConnection.name);
 					this.apnsConnection.shutdownGracefully();
