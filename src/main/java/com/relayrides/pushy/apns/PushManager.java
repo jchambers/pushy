@@ -96,8 +96,11 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private final PushManagerConfiguration configuration;
 
-	private final HashSet<ApnsConnection<T>> activeConnections;
-	private final ApnsConnectionPool<T> writableConnectionPool;
+	private final String name;
+	private int connectionCounter = 0;
+
+	private final HashSet<ApnsConnection<T>> activeConnections = new HashSet<ApnsConnection<T>>();
+	private final ApnsConnectionPool<T> writableConnectionPool = new ApnsConnectionPool<T>();;
 
 	private final FeedbackServiceClient feedbackServiceClient;
 
@@ -127,6 +130,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.manager = manager;
 		}
 
+		@Override
 		public void uncaughtException(final Thread t, final Throwable e) {
 			log.error("Dispatch thread died unexpectedly. Please file a bug with the exception details.", e);
 
@@ -146,7 +150,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * used for IO operations in all connections created by this push manager. If an event loop group is provided, the
 	 * caller is responsible for managing the lifecycle of the group and <strong>must</strong> shut it down after
 	 * shutting down this {@code PushManager}.</p>
-	 * 
+	 *
 	 * <p>This constructor may also take an {@link java.util.concurrent.ExecutorService} as an argument. The executor
 	 * service is used to dispatch notifications to registered listeners. If a non-{@code null} executor service is
 	 * provided, callers <strong>must</strong> shut down the executor service after shutting down all
@@ -171,7 +175,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public PushManager(final ApnsEnvironment environment, final SSLContext sslContext,
 			final NioEventLoopGroup eventLoopGroup, final ExecutorService listenerExecutorService,
-			final BlockingQueue<T> queue, final PushManagerConfiguration configuration) {
+			final BlockingQueue<T> queue, final PushManagerConfiguration configuration, final String name) {
 
 		this.queue = queue != null ? queue : new LinkedBlockingQueue<T>();
 		this.retryQueue = new LinkedBlockingQueue<T>();
@@ -196,9 +200,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		this.configuration = new PushManagerConfiguration(configuration);
-
-		this.writableConnectionPool = new ApnsConnectionPool<T>();
-		this.activeConnections = new HashSet<ApnsConnection<T>>();
+		this.name = name;
 
 		if (eventLoopGroup != null) {
 			this.eventLoopGroup = eventLoopGroup;
@@ -258,6 +260,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	protected Thread createDispatchThread() {
 		return new Thread(new Runnable() {
 
+			@Override
 			public void run() {
 				while (dispatchThreadShouldContinue) {
 					try {
@@ -559,6 +562,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * (non-Javadoc)
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionSuccess(com.relayrides.pushy.apns.ApnsConnection)
 	 */
+	@Override
 	public void handleConnectionSuccess(final ApnsConnection<T> connection) {
 		log.trace("Connection succeeded: {}", connection);
 
@@ -574,6 +578,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * (non-Javadoc)
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionFailure(com.relayrides.pushy.apns.ApnsConnection, java.lang.Throwable)
 	 */
+	@Override
 	public void handleConnectionFailure(final ApnsConnection<T> connection, final Throwable cause) {
 
 		log.trace("Connection failed: {}", connection, cause);
@@ -588,6 +593,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 				// Handle connection failures in a separate thread in case a handler takes a long time to run
 				this.listenerExecutorService.submit(new Runnable() {
+					@Override
 					public void run() {
 						listener.handleFailedConnection(pushManager, cause);
 					}
@@ -605,6 +611,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * (non-Javadoc)
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionWritabilityChange(com.relayrides.pushy.apns.ApnsConnection, boolean)
 	 */
+	@Override
 	public void handleConnectionWritabilityChange(final ApnsConnection<T> connection, final boolean writable) {
 
 		log.trace("Writability for {} changed to {}", connection, writable);
@@ -621,6 +628,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * (non-Javadoc)
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionClosure(com.relayrides.pushy.apns.ApnsConnection)
 	 */
+	@Override
 	public void handleConnectionClosure(final ApnsConnection<T> connection) {
 
 		log.trace("Connection closed: {}", connection);
@@ -631,6 +639,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		final PushManager<T> pushManager = this;
 
 		this.listenerExecutorService.execute(new Runnable() {
+			@Override
 			public void run() {
 				try {
 					connection.waitForPendingWritesToFinish();
@@ -651,6 +660,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * (non-Javadoc)
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleWriteFailure(com.relayrides.pushy.apns.ApnsConnection, com.relayrides.pushy.apns.ApnsPushNotification, java.lang.Throwable)
 	 */
+	@Override
 	public void handleWriteFailure(ApnsConnection<T> connection, T notification, Throwable cause) {
 		this.retryQueue.add(notification);
 		this.dispatchThread.interrupt();
@@ -660,6 +670,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * (non-Javadoc)
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleRejectedNotification(com.relayrides.pushy.apns.ApnsConnection, com.relayrides.pushy.apns.ApnsPushNotification, com.relayrides.pushy.apns.RejectedNotificationReason)
 	 */
+	@Override
 	public void handleRejectedNotification(final ApnsConnection<T> connection, final T rejectedNotification,
 			final RejectedNotificationReason reason) {
 
@@ -672,6 +683,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 				// Handle the notifications in a separate thread in case a listener takes a long time to run
 				this.listenerExecutorService.execute(new Runnable() {
+					@Override
 					public void run() {
 						listener.handleRejectedNotification(pushManager, rejectedNotification, reason);
 					}
@@ -684,6 +696,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * (non-Javadoc)
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleUnprocessedNotifications(com.relayrides.pushy.apns.ApnsConnection, java.util.Collection)
 	 */
+	@Override
 	public void handleUnprocessedNotifications(ApnsConnection<T> connection, Collection<T> unprocessedNotifications) {
 
 		log.trace("{} returned {} unprocessed notifications", connection, unprocessedNotifications.size());
@@ -695,7 +708,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private void startNewConnection() {
 		synchronized (this.activeConnections) {
-			final ApnsConnection<T> connection = new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this.configuration.getConnectionConfiguration(), this);
+			final ApnsConnection<T> connection = new ApnsConnection<T>(this.environment, this.sslContext,
+					this.eventLoopGroup, this.configuration.getConnectionConfiguration(), this,
+					String.format("%s-connection-%d", this.name, this.connectionCounter++));
+
 			connection.connect();
 
 			this.activeConnections.add(connection);
