@@ -96,7 +96,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
 
 	private static final String PIPELINE_MAIN_HANDLER = "handler";
-	private static final String PIPELINE_IDLE_STATE_HANLDER = "idleStateHandler";
+	private static final String PIPELINE_IDLE_STATE_HANDLER = "idleStateHandler";
 
 	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
 
@@ -329,7 +329,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			if (event instanceof IdleStateEvent) {
 				log.debug("{} will shut down due to inactivity.", this.apnsConnection.name);
 
-				context.pipeline().remove(ApnsConnection.PIPELINE_IDLE_STATE_HANLDER);
+				context.pipeline().remove(ApnsConnection.PIPELINE_IDLE_STATE_HANDLER);
 				this.apnsConnection.shutdownGracefully();
 			} else {
 				super.userEventTriggered(context, event);
@@ -447,7 +447,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 									if (apnsConnection.configuration.getCloseAfterInactivityTime() != null) {
 										connectFuture.channel().pipeline().addBefore(ApnsConnection.PIPELINE_MAIN_HANDLER,
-												ApnsConnection.PIPELINE_IDLE_STATE_HANLDER,
+												ApnsConnection.PIPELINE_IDLE_STATE_HANDLER,
 												new IdleStateHandler(0, 0, apnsConnection.configuration.getCloseAfterInactivityTime()));
 									}
 
