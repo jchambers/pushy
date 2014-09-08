@@ -49,23 +49,21 @@ public class ApnsConnectionConfiguration {
 	}
 
 	/**
-	 * Returns the time, in seconds, since the last push notification was sent after which connections created with this
-	 * configuration will be closed. If {@code null}, connections created with this configuration will never be closed
-	 * due to inactivity.
+	 * Returns the time, in seconds, between the sending of the last push notification and connection closure. If
+	 * {@code null}, connections created with this configuration will never be closed due to inactivity.
 	 *
-	 * @return the time, in seconds, since the last push notification was sent after which connections created with this
-	 * configuration will be closed
+	 * @return the time, in seconds, between the sending of the last push notification and connection closure
 	 */
 	public Integer getCloseAfterInactivityTime() {
 		return this.closeAfterInactivityTime;
 	}
 
 	/**
-	 * Sets the time, in seconds, since the last push notification was sent after which connections created with this
-	 * configuration will be closed. If {@code null} (the default), connections will never be closed due to inactivity.
+	 * Sets the time, in seconds, between the sending of the last push notification and connection closure. If
+	 * {@code null} (the default), connections will never be closed due to inactivity.
 	 *
-	 * @param closeAfterInactivityTime the time, in seconds since the last push notification was sent, after which
-	 * connections will be closed
+	 * @param closeAfterInactivityTime the time, in seconds, between the sending of the last push notification and
+	 * connection closure
 	 */
 	public void setCloseAfterInactivityTime(final Integer closeAfterInactivityTime) {
 		this.closeAfterInactivityTime = closeAfterInactivityTime;
