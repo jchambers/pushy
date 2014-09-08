@@ -373,7 +373,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 		this.eventLoopGroup = eventLoopGroup;
 
-		if (this.configuration == null) {
+		if (configuration == null) {
 			throw new NullPointerException("Connection configuration must not be null.");
 		}
 
