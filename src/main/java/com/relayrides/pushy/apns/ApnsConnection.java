@@ -96,7 +96,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
 
 	private static final String PIPELINE_MAIN_HANDLER = "handler";
-	private static final String PIPELINE_IDLE_STATE_HANLDER = "idleStateHandler";
+	private static final String PIPELINE_IDLE_STATE_HANDLER = "idleStateHandler";
 	private static final String PIPELINE_GRACEFUL_SHUTDOWN_TIMEOUT_HANDLER = "gracefulShutdownTimeoutHandler";
 
 	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
@@ -376,6 +376,11 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		}
 
 		this.eventLoopGroup = eventLoopGroup;
+
+		if (configuration == null) {
+			throw new NullPointerException("Connection configuration must not be null.");
+		}
+
 		this.configuration = configuration;
 		this.listener = listener;
 
@@ -451,7 +456,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 									if (apnsConnection.configuration.getCloseAfterInactivityTime() != null) {
 										connectFuture.channel().pipeline().addBefore(ApnsConnection.PIPELINE_MAIN_HANDLER,
-												ApnsConnection.PIPELINE_IDLE_STATE_HANLDER,
+												ApnsConnection.PIPELINE_IDLE_STATE_HANDLER,
 												new IdleStateHandler(0, 0, apnsConnection.configuration.getCloseAfterInactivityTime()));
 									}
 
@@ -597,8 +602,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	public synchronized void shutdownGracefully() {
 
 		if (this.connectFuture != null && this.connectFuture.channel() != null) {
-			if (this.connectFuture.channel().pipeline().get(ApnsConnection.PIPELINE_IDLE_STATE_HANLDER) != null) {
-				this.connectFuture.channel().pipeline().remove(ApnsConnection.PIPELINE_IDLE_STATE_HANLDER);
+			if (this.connectFuture.channel().pipeline().get(ApnsConnection.PIPELINE_IDLE_STATE_HANDLER) != null) {
+				this.connectFuture.channel().pipeline().remove(ApnsConnection.PIPELINE_IDLE_STATE_HANDLER);
 			}
 		}
 
