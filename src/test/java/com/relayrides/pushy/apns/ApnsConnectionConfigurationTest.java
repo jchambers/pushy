@@ -14,6 +14,7 @@ public class ApnsConnectionConfigurationTest {
 
 		assertTrue(configuration.getSentNotificationBufferCapacity() > 0);
 		assertNull(configuration.getCloseAfterInactivityTime());
+		assertNull(configuration.getGracefulShutdownTimeout());
 	}
 
 	@Test
@@ -21,6 +22,7 @@ public class ApnsConnectionConfigurationTest {
 		final ApnsConnectionConfiguration configuration = new ApnsConnectionConfiguration();
 		configuration.setSentNotificationBufferCapacity(17);
 		configuration.setCloseAfterInactivityTime(19);
+		configuration.setGracefulShutdownTimeout(23);
 
 		final ApnsConnectionConfiguration configurationCopy = new ApnsConnectionConfiguration(configuration);
 

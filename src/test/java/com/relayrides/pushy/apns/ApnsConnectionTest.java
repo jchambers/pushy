@@ -561,6 +561,8 @@ public class ApnsConnectionTest extends BasePushyTest {
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
 						gracefulShutdownTimeoutConfiguration, listener);
 
+		// We'll pretend that we have a "dead" connection; it will be up to the graceful shutdown timeout to close the
+		// connection.
 		this.getApnsServer().setShouldSendErrorResponses(false);
 
 		synchronized (mutex) {
