@@ -132,7 +132,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		@Override
 		public void uncaughtException(final Thread t, final Throwable e) {
-			log.error("Dispatch thread died unexpectedly. Please file a bug with the exception details.", e);
+			log.error("Dispatch thread for {} died unexpectedly. Please file a bug with the exception details.",
+					this.manager.name, e);
 
 			if (this.manager.isStarted()) {
 				this.manager.createAndStartDispatchThread();
@@ -242,7 +243,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			throw new IllegalStateException("Push manager has already been shut down and may not be restarted.");
 		}
 
-		log.info("Push manager starting.");
+		log.info("{} starting.", this.name);
 
 		for (int i = 0; i < this.configuration.getConcurrentConnectionCount(); i++) {
 			this.startNewConnection();
@@ -357,10 +358,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 */
 	public synchronized List<T> shutdown(long timeout) throws InterruptedException {
 		if (this.isShutDown()) {
-			log.warn("Push manager has already been shut down; shutting down multiple times is harmless, but may "
-					+ "indicate a problem elsewhere.");
+			log.warn("{} has already been shut down; shutting down multiple times is harmless, but may "
+					+ "indicate a problem elsewhere.", this.name);
 		} else {
-			log.info("Push manager shutting down.");
+			log.info("{} shutting down.", this.name);
 		}
 
 		if (this.shutDownFinished) {
@@ -650,7 +651,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 					removeActiveConnection(connection);
 				} catch (InterruptedException e) {
-					log.warn("Interrupted while waiting for closed connection's pending operations to finish.");
+					log.warn("{} interrupted while waiting for closed connection's pending operations to finish.",
+							pushManager.name);
 				}
 			}
 		});
