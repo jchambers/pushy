@@ -330,6 +330,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * copied and changes to the original object will not propagate to the connection after creation. Must not be
 	 * {@code null}.
 	 * @param listener the listener to which this connection will report lifecycle events; may be {@code null}
+	 * @param name a human-readable name for this connection; names must not be {@code null}
 	 */
 	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext,
 			final NioEventLoopGroup eventLoopGroup, final ApnsConnectionConfiguration configuration,
@@ -354,9 +355,13 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		this.eventLoopGroup = eventLoopGroup;
 		this.listener = listener;
 
-		this.sentNotificationBuffer = new SentNotificationBuffer<T>(configuration.getSentNotificationBufferCapacity());
+		if (name == null) {
+			throw new NullPointerException("Connection name must not be null.");
+		}
 
 		this.name = name;
+
+		this.sentNotificationBuffer = new SentNotificationBuffer<T>(configuration.getSentNotificationBufferCapacity());
 	}
 
 	/**

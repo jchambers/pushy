@@ -34,6 +34,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLHandshakeException;
@@ -97,6 +98,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final PushManagerConfiguration configuration;
 
 	private final String name;
+	private static final AtomicInteger pushManagerCounter = new AtomicInteger(0);
 	private int connectionCounter = 0;
 
 	private final HashSet<ApnsConnection<T>> activeConnections = new HashSet<ApnsConnection<T>>();
@@ -173,6 +175,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @param configuration the set of configuration options to use for this push manager and the connections it
 	 * creates. The configuration object is copied and changes to the original object will not propagate to the push
 	 * manager after creation. Must not be {@code null}.
+	 * @param name a human-readable name for this push manager; if {@code null}, a default name will be used
 	 */
 	public PushManager(final ApnsEnvironment environment, final SSLContext sslContext,
 			final NioEventLoopGroup eventLoopGroup, final ExecutorService listenerExecutorService,
@@ -201,7 +204,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		this.configuration = new PushManagerConfiguration(configuration);
-		this.name = name;
+		this.name = name == null ? String.format("PushManager-%d", PushManager.pushManagerCounter.getAndIncrement()) : name;
 
 		if (eventLoopGroup != null) {
 			this.eventLoopGroup = eventLoopGroup;
@@ -482,6 +485,15 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		synchronized (this.failedConnectionListeners) {
 			return this.failedConnectionListeners.remove(listener);
 		}
+	}
+
+	/**
+	 * Returns the human-readable name of this push manager.
+	 *
+	 * @return the human-readable name of this push manager
+	 */
+	public String getName() {
+		return this.name;
 	}
 
 	/**
