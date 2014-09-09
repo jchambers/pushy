@@ -9,6 +9,7 @@ public class ApnsConnectionConfiguration {
 
 	private int sentNotificationBufferCapacity = ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY;
 	private Integer closeAfterInactivityTime = null;
+	private Integer gracefulShutdownTimeout = null;
 
 	/**
 	 * Creates a new connection configuration object with all options set to their default values.
@@ -24,6 +25,7 @@ public class ApnsConnectionConfiguration {
 	public ApnsConnectionConfiguration(final ApnsConnectionConfiguration configuration) {
 		this.sentNotificationBufferCapacity = configuration.sentNotificationBufferCapacity;
 		this.closeAfterInactivityTime = configuration.closeAfterInactivityTime;
+		this.gracefulShutdownTimeout = configuration.gracefulShutdownTimeout;
 	}
 
 	/**
@@ -69,6 +71,29 @@ public class ApnsConnectionConfiguration {
 		this.closeAfterInactivityTime = closeAfterInactivityTime;
 	}
 
+	/**
+	 * Returns the time, in seconds, after which a graceful shutdown attempt should be abandoned and the connection
+	 * should be closed immediately.
+	 *
+	 * @return the time, in seconds, after which a graceful shutdown attempt should be abandoned and the connection
+	 * should be closed immediately
+	 */
+	public Integer getGracefulShutdownTimeout() {
+		return this.gracefulShutdownTimeout;
+	}
+
+	/**
+	 * Sets the time, in seconds, after which a graceful shutdown attempt should be abandoned and the connection should
+	 * be closed immediately. If {@code null} (the default) graceful shutdown attempts will never time out. Note that,
+	 * if a graceful shutdown attempt times out, no guarantees are made as to the state of notifications sent by the
+	 * connection.
+	 *
+	 * @param gracefulShutdownTimeout the time, in seconds, after which a graceful shutdown attempt should be abandoned
+	 */
+	public void setGracefulShutdownTimeout(final Integer gracefulShutdownTimeout) {
+		this.gracefulShutdownTimeout = gracefulShutdownTimeout;
+	}
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;
@@ -77,6 +102,10 @@ public class ApnsConnectionConfiguration {
 				* result
 				+ ((closeAfterInactivityTime == null) ? 0
 						: closeAfterInactivityTime.hashCode());
+		result = prime
+				* result
+				+ ((gracefulShutdownTimeout == null) ? 0
+						: gracefulShutdownTimeout.hashCode());
 		result = prime * result + sentNotificationBufferCapacity;
 		return result;
 	}
@@ -96,8 +125,15 @@ public class ApnsConnectionConfiguration {
 		} else if (!closeAfterInactivityTime
 				.equals(other.closeAfterInactivityTime))
 			return false;
+		if (gracefulShutdownTimeout == null) {
+			if (other.gracefulShutdownTimeout != null)
+				return false;
+		} else if (!gracefulShutdownTimeout
+				.equals(other.gracefulShutdownTimeout))
+			return false;
 		if (sentNotificationBufferCapacity != other.sentNotificationBufferCapacity)
 			return false;
 		return true;
 	}
+
 }
