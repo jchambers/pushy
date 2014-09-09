@@ -9,6 +9,7 @@ public class ApnsConnectionConfiguration {
 
 	private int sentNotificationBufferCapacity = ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY;
 	private Integer closeAfterInactivityTime = null;
+	private Integer gracefulShutdownTimeout = null;
 	private Integer sendAttemptLimit = null;
 
 	/**
@@ -25,6 +26,7 @@ public class ApnsConnectionConfiguration {
 	public ApnsConnectionConfiguration(final ApnsConnectionConfiguration configuration) {
 		this.sentNotificationBufferCapacity = configuration.sentNotificationBufferCapacity;
 		this.closeAfterInactivityTime = configuration.closeAfterInactivityTime;
+		this.gracefulShutdownTimeout = configuration.gracefulShutdownTimeout;
 	}
 
 	/**
@@ -50,26 +52,47 @@ public class ApnsConnectionConfiguration {
 	}
 
 	/**
-	 * Returns the time, in seconds, since the last push notification was sent after which connections created with this
-	 * configuration will be closed. If {@code null}, connections created with this configuration will never be closed
-	 * due to inactivity.
+	 * Returns the time, in seconds, between the sending of the last push notification and connection closure. If
+	 * {@code null}, connections created with this configuration will never be closed due to inactivity.
 	 *
-	 * @return the time, in seconds, since the last push notification was sent after which connections created with this
-	 * configuration will be closed
+	 * @return the time, in seconds, between the sending of the last push notification and connection closure
 	 */
 	public Integer getCloseAfterInactivityTime() {
 		return this.closeAfterInactivityTime;
 	}
 
 	/**
-	 * Sets the time, in seconds, since the last push notification was sent after which connections created with this
-	 * configuration will be closed. If {@code null} (the default), connections will never be closed due to inactivity.
+	 * Sets the time, in seconds, between the sending of the last push notification and connection closure. If
+	 * {@code null} (the default), connections will never be closed due to inactivity.
 	 *
-	 * @param closeAfterInactivityTime the time, in seconds since the last push notification was sent, after which
-	 * connections will be closed
+	 * @param closeAfterInactivityTime the time, in seconds, between the sending of the last push notification and
+	 * connection closure
 	 */
 	public void setCloseAfterInactivityTime(final Integer closeAfterInactivityTime) {
 		this.closeAfterInactivityTime = closeAfterInactivityTime;
+	}
+
+	/**
+	 * Returns the time, in seconds, after which a graceful shutdown attempt should be abandoned and the connection
+	 * should be closed immediately.
+	 *
+	 * @return the time, in seconds, after which a graceful shutdown attempt should be abandoned and the connection
+	 * should be closed immediately
+	 */
+	public Integer getGracefulShutdownTimeout() {
+		return this.gracefulShutdownTimeout;
+	}
+
+	/**
+	 * Sets the time, in seconds, after which a graceful shutdown attempt should be abandoned and the connection should
+	 * be closed immediately. If {@code null} (the default) graceful shutdown attempts will never time out. Note that,
+	 * if a graceful shutdown attempt times out, no guarantees are made as to the state of notifications sent by the
+	 * connection.
+	 *
+	 * @param gracefulShutdownTimeout the time, in seconds, after which a graceful shutdown attempt should be abandoned
+	 */
+	public void setGracefulShutdownTimeout(final Integer gracefulShutdownTimeout) {
+		this.gracefulShutdownTimeout = gracefulShutdownTimeout;
 	}
 
 	/**
@@ -108,6 +131,10 @@ public class ApnsConnectionConfiguration {
 				* result
 				+ ((closeAfterInactivityTime == null) ? 0
 						: closeAfterInactivityTime.hashCode());
+		result = prime
+				* result
+				+ ((gracefulShutdownTimeout == null) ? 0
+						: gracefulShutdownTimeout.hashCode());
 		result = prime * result + sentNotificationBufferCapacity;
 		return result;
 	}
@@ -127,8 +154,15 @@ public class ApnsConnectionConfiguration {
 		} else if (!closeAfterInactivityTime
 				.equals(other.closeAfterInactivityTime))
 			return false;
+		if (gracefulShutdownTimeout == null) {
+			if (other.gracefulShutdownTimeout != null)
+				return false;
+		} else if (!gracefulShutdownTimeout
+				.equals(other.gracefulShutdownTimeout))
+			return false;
 		if (sentNotificationBufferCapacity != other.sentNotificationBufferCapacity)
 			return false;
 		return true;
 	}
+
 }
