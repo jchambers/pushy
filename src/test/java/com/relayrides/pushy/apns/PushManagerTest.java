@@ -497,12 +497,12 @@ public class PushManagerTest extends BasePushyTest {
 
     @Test
     public void testReturnsCorrectNumberOfWritableConnectionsWhenThereAreConcurrentConnections() throws Exception {
-        final PushManagerFactory<SimpleApnsPushNotification> factory =
-                new PushManagerFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient());
-        factory.setEventLoopGroup(this.getEventLoopGroup());
-        factory.setConcurrentConnectionCount(4);
+        final PushManagerConfiguration configuration = new PushManagerConfiguration();
+        		configuration.setConcurrentConnectionCount(4);
 
-        final PushManager<SimpleApnsPushNotification> parallelPushManager = factory.buildPushManager();
+        final PushManager<SimpleApnsPushNotification> parallelPushManager =
+                new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(), null, null, configuration);
+
         final int iterations = 10;
         final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(iterations);
 
@@ -521,11 +521,10 @@ public class PushManagerTest extends BasePushyTest {
 
     @Test
     public void testWritableCountNotIncrementedForFailedConnection() throws Exception {
-        final PushManagerFactory<SimpleApnsPushNotification> factory =
-                new PushManagerFactory<SimpleApnsPushNotification>(
-                        TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient("/pushy-test-client-untrusted.jks"));
-
-        final PushManager<SimpleApnsPushNotification> badCredentialManager = factory.buildPushManager();
+        final PushManager<SimpleApnsPushNotification> badCredentialManager =
+        				new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
+        						SSLTestUtil.createSSLContextForTestClient("/pushy-test-client-untrusted.jks"), null,
+        						null, null, new PushManagerConfiguration());
 
         final Object monitor = new Object();
         final TestFailedConnectionListener listener = new TestFailedConnectionListener(monitor);
