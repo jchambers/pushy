@@ -555,6 +555,15 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		return this.feedbackServiceClient.getExpiredTokens(timeout, timeoutUnit);
 	}
 
+    /**
+     * <p>Returns the number of writable connections. A connection is considered writable after the SSL handshake has succeeded. </p>
+     *
+     * @return the number of writable connections
+     */
+    public int getNumberOfWritableConnections() {
+        return writableConnectionPool.getAll().size();
+    }
+
 	/*
 	 * (non-Javadoc)
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionSuccess(com.relayrides.pushy.apns.ApnsConnection)
