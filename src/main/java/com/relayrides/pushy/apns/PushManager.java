@@ -313,9 +313,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	/**
-	 * <p>Disconnects from APNs and gracefully shuts down all connections. This method will block until the internal
-	 * retry queue has been emptied and until all connections have shut down gracefully. Calling this method is
-	 * identical to calling {@link PushManager#shutdown(long)} with a timeout of {@code 0}.</p>
+	 * <p>Disconnects from APNs and gracefully shuts down all connections. As soon as this method is called, the push
+	 * manager will stop taking notifications from the public queue. This method will block until the internal retry queue
+	 * has been emptied and until all connections have shut down gracefully. Calling this method is identical to calling
+	 * {@link PushManager#shutdown(long)} with a timeout of {@code 0}.</p>
 	 *
 	 * <p>By the time this method return normally, all notifications removed from the public queue are guaranteed to
 	 * have been delivered to the APNs gateway and either accepted or rejected (i.e. the state of all sent
@@ -329,9 +330,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	/**
-	 * <p>Disconnects from the APNs and gracefully shuts down all connections. This method will wait until either the
-	 * given timeout expires or until the internal retry queue has been emptied and connections have closed gracefully.
-	 * If the timeout expires, the push manager will close all connections immediately.</p>
+	 * <p>Disconnects from the APNs and gracefully shuts down all connections. As soon as this method is called, the
+	 * push manager will stop taking notifications from the public queue. This method will wait until either the given
+	 * timeout expires or until the internal retry queue has been emptied and connections have closed gracefully. If the
+	 * timeout expires, the push manager will close all connections immediately.</p>
 	 *
 	 * <p>This method returns the notifications that are still in the internal retry queue by the time this push manager
 	 * has shut down. If this method is called with a non-zero timeout, a collection of notifications still in the push
