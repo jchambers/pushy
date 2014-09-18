@@ -51,11 +51,13 @@ public class BenchmarkApp {
 
 	private class BenchmarkErrorListener implements RejectedNotificationListener<SimpleApnsPushNotification>, FailedConnectionListener<SimpleApnsPushNotification> {
 
+		@Override
 		public void handleFailedConnection(final PushManager<? extends SimpleApnsPushNotification> pushManager, final Throwable cause) {
 			System.err.println("Connection failed.");
 			cause.printStackTrace(System.err);
 		}
 
+		@Override
 		public void handleRejectedNotification(final PushManager<? extends SimpleApnsPushNotification> pushManager, final SimpleApnsPushNotification notification, final RejectedNotificationReason rejectionReason) {
 			System.err.format("%s rejected: %s\n", notification, rejectionReason);
 		}
@@ -116,7 +118,8 @@ public class BenchmarkApp {
 
 		try {
 			pushManager = new PushManager<SimpleApnsPushNotification>(BENCHMARK_ENVIRONMENT,
-					SSLTestUtil.createSSLContextForTestClient(), eventLoopGroup, null, null, configuration);
+					SSLTestUtil.createSSLContextForTestClient(), eventLoopGroup, null, null, configuration,
+					"Benchmark push manager");
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to create push manager.", e);
 		}
