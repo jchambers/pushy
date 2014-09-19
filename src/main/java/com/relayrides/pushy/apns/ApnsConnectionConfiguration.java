@@ -10,6 +10,7 @@ public class ApnsConnectionConfiguration {
 	private int sentNotificationBufferCapacity = ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY;
 	private Integer closeAfterInactivityTime = null;
 	private Integer gracefulShutdownTimeout = null;
+	private Integer sendAttemptLimit = null;
 
 	/**
 	 * Creates a new connection configuration object with all options set to their default values.
@@ -26,6 +27,7 @@ public class ApnsConnectionConfiguration {
 		this.sentNotificationBufferCapacity = configuration.sentNotificationBufferCapacity;
 		this.closeAfterInactivityTime = configuration.closeAfterInactivityTime;
 		this.gracefulShutdownTimeout = configuration.gracefulShutdownTimeout;
+		this.sendAttemptLimit = configuration.sendAttemptLimit;
 	}
 
 	/**
@@ -94,6 +96,34 @@ public class ApnsConnectionConfiguration {
 		this.gracefulShutdownTimeout = gracefulShutdownTimeout;
 	}
 
+	/**
+	 * Returns the number of notifications a connection may attempt to send before shutting down.
+	 *
+	 * @return the number of notifications a connection may attempt to send before shutting down, or {@code null} if no
+	 * limit has been set
+	 */
+	public Integer getSendAttemptLimit() {
+		return this.sendAttemptLimit;
+	}
+
+	/**
+	 * <p>Sets the number of notifications a connection may attempt to send before shutting down. If not {@code null},
+	 * connections will attempt to shut down gracefully after the given number of send attempts regardless of whether
+	 * those attempts were actually successful. By default, no limit is set.</p>
+	 *
+	 * <p>If the a send attempt limit is set and is less than the sent notification buffer size, it is guaranteed that
+	 * notifications will never be lost due to buffer overruns (though they may be lost by other means, such as non-
+	 * graceful shutdowns).</p>
+	 *
+	 * @param sendAttemptLimit the number of notifications the connection may attempt to send before shutting down
+	 * gracefully; if {@code null}, no limit is set
+	 *
+	 * @see ApnsConnectionConfiguration#setSentNotificationBufferCapacity(int)
+	 */
+	public void setSendAttemptLimit(final Integer sendAttemptLimit) {
+		this.sendAttemptLimit = sendAttemptLimit;
+	}
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;
@@ -106,6 +136,9 @@ public class ApnsConnectionConfiguration {
 				* result
 				+ ((gracefulShutdownTimeout == null) ? 0
 						: gracefulShutdownTimeout.hashCode());
+		result = prime
+				* result
+				+ ((sendAttemptLimit == null) ? 0 : sendAttemptLimit.hashCode());
 		result = prime * result + sentNotificationBufferCapacity;
 		return result;
 	}
@@ -130,6 +163,11 @@ public class ApnsConnectionConfiguration {
 				return false;
 		} else if (!gracefulShutdownTimeout
 				.equals(other.gracefulShutdownTimeout))
+			return false;
+		if (sendAttemptLimit == null) {
+			if (other.sendAttemptLimit != null)
+				return false;
+		} else if (!sendAttemptLimit.equals(other.sendAttemptLimit))
 			return false;
 		if (sentNotificationBufferCapacity != other.sentNotificationBufferCapacity)
 			return false;
