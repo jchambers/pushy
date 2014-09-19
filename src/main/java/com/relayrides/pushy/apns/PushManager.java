@@ -600,10 +600,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		this.removeActiveConnection(connection);
 
-		// We tried to open a connection, but failed. As long as we're not shut down, try to open a new one.
-		final PushManager<T> pushManager = this;
-
 		synchronized (this.failedConnectionListeners) {
+			final PushManager<T> pushManager = this;
+
 			for (final FailedConnectionListener<? super T> listener : this.failedConnectionListeners) {
 
 				// Handle connection failures in a separate thread in case a handler takes a long time to run
@@ -616,7 +615,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			}
 		}
 
-		// As long as we're not shut down, keep trying to open a replacement connection.
+		// As long as we're not shut down, try to open a replacement connection.
 		if (this.shouldReplaceClosedConnection()) {
 			this.startNewConnection();
 		}
