@@ -46,7 +46,6 @@ import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
@@ -74,7 +73,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private final ApnsConnectionConfiguration configuration;
 	private final ApnsConnectionListener<T> listener;
 
-	private static final AtomicInteger connectionCounter = new AtomicInteger(0);
 	private final String name;
 
 	private ChannelFuture connectFuture;
@@ -359,10 +357,11 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * copied and changes to the original object will not propagate to the connection after creation. Must not be
 	 * {@code null}.
 	 * @param listener the listener to which this connection will report lifecycle events; may be {@code null}
+	 * @param name a human-readable name for this connection; names must not be {@code null}
 	 */
 	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext,
 			final NioEventLoopGroup eventLoopGroup, final ApnsConnectionConfiguration configuration,
-			final ApnsConnectionListener<T> listener) {
+			final ApnsConnectionListener<T> listener, final String name) {
 
 		if (environment == null) {
 			throw new NullPointerException("Environment must not be null.");
@@ -389,9 +388,13 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		this.configuration = configuration;
 		this.listener = listener;
 
-		this.sentNotificationBuffer = new SentNotificationBuffer<T>(configuration.getSentNotificationBufferCapacity());
+		if (name == null) {
+			throw new NullPointerException("Connection name must not be null.");
+		}
 
-		this.name = String.format("ApnsConnection-%d", ApnsConnection.connectionCounter.getAndIncrement());
+		this.name = name;
+
+		this.sentNotificationBuffer = new SentNotificationBuffer<T>(configuration.getSentNotificationBufferCapacity());
 	}
 
 	/**

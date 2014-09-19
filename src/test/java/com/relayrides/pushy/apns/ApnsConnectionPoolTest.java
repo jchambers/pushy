@@ -156,7 +156,8 @@ public class ApnsConnectionPoolTest {
 	private ApnsConnection<SimpleApnsPushNotification> createTestConnection() {
 		try {
 			return new ApnsConnection<SimpleApnsPushNotification>(ApnsEnvironment.getSandboxEnvironment(),
-					SSLContext.getDefault(), ApnsConnectionPoolTest.eventLoopGroup, new ApnsConnectionConfiguration(), null);
+					SSLContext.getDefault(), ApnsConnectionPoolTest.eventLoopGroup, new ApnsConnectionConfiguration(),
+					null, "Test connection");
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to create test connection.", e);
 		}

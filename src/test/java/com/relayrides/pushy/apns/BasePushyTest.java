@@ -69,7 +69,7 @@ public abstract class BasePushyTest {
 
 		this.pushManager = new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
 				SSLTestUtil.createSSLContextForTestClient(), BasePushyTest.eventLoopGroup, null, null,
-				new PushManagerConfiguration());
+				new PushManagerConfiguration(), "Test push manager");
 	}
 
 	@After
