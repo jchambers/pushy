@@ -59,6 +59,8 @@ public class MockApnsServer {
 
 	private Channel channel;
 
+	private boolean shouldSendErrorResponses = true;
+
 	public static final int EXPECTED_TOKEN_SIZE = 32;
 	public static final int MAX_PAYLOAD_SIZE = 2048;
 
@@ -288,11 +290,13 @@ public class MockApnsServer {
 				final DecoderException decoderException = (DecoderException)cause;
 
 				if (decoderException.getCause() instanceof ApnsDecoderException) {
-					final ApnsDecoderException apnsDecoderException = (ApnsDecoderException)decoderException.getCause();
-					final RejectedNotification rejectedNotification =
-							new RejectedNotification(apnsDecoderException.sequenceNumber, apnsDecoderException.reason);
+					if (this.server.shouldSendErrorResponses()) {
+						final ApnsDecoderException apnsDecoderException = (ApnsDecoderException)decoderException.getCause();
+						final RejectedNotification rejectedNotification =
+								new RejectedNotification(apnsDecoderException.sequenceNumber, apnsDecoderException.reason);
 
-					context.writeAndFlush(rejectedNotification).addListener(ChannelFutureListener.CLOSE);
+						context.writeAndFlush(rejectedNotification).addListener(ChannelFutureListener.CLOSE);
+					}
 				}
 			} else {
 				log.warn("Caught an unexpected exception; closing connection.", cause);
@@ -304,7 +308,6 @@ public class MockApnsServer {
 	public MockApnsServer(final int port, final NioEventLoopGroup eventLoopGroup) {
 		this.port = port;
 		this.eventLoopGroup = eventLoopGroup;
-
 	}
 
 	public synchronized void start() throws InterruptedException {
@@ -338,7 +341,15 @@ public class MockApnsServer {
 		this.channel = null;
 	}
 
-	protected void acceptNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
+	public void setShouldSendErrorResponses(final boolean shouldSendErrorResponses) {
+		this.shouldSendErrorResponses = shouldSendErrorResponses;
+	}
+
+	public boolean shouldSendErrorResponses() {
+		return this.shouldSendErrorResponses;
+	}
+
+	private void acceptNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
 		synchronized (this.countdownLatches) {
 			for (final CountDownLatch latch : this.countdownLatches) {
 				latch.countDown();

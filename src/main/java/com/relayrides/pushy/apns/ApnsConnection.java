@@ -37,6 +37,8 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.handler.codec.MessageToByteEncoder;
 import io.netty.handler.ssl.SslHandler;
+import io.netty.handler.timeout.IdleStateEvent;
+import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
@@ -68,6 +70,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
 	private final NioEventLoopGroup eventLoopGroup;
+	private final ApnsConnectionConfiguration configuration;
 	private final ApnsConnectionListener<T> listener;
 
 	private final String name;
@@ -84,11 +87,16 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 	private final Object pendingWriteMonitor = new Object();
 	private int pendingWriteCount = 0;
+	private int sendAttempts = 0;
 
 	private SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
 
 	private boolean rejectionReceived = false;
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
+
+	private static final String PIPELINE_MAIN_HANDLER = "handler";
+	private static final String PIPELINE_IDLE_STATE_HANDLER = "idleStateHandler";
+	private static final String PIPELINE_GRACEFUL_SHUTDOWN_TIMEOUT_HANDLER = "gracefulShutdownTimeoutHandler";
 
 	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
 
@@ -315,6 +323,25 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 						this.apnsConnection, context.channel().isWritable());
 			}
 		}
+
+		@Override
+		public void userEventTriggered(final ChannelHandlerContext context, final Object event) throws Exception {
+			if (event instanceof IdleStateEvent) {
+				// The IdleStateHandler for connection inactivity is removed by shutdownGracefully, which also populates
+				// shutdownNotification. If we get an IdleStateEvent without a shutdownNotification, we know that the
+				// event came from the connection inactivity handler. Otherwise, we know it came from the graceful
+				// shutdown timeout handler.
+				if (this.apnsConnection.shutdownNotification == null) {
+					log.debug("{} will shut down gracefully due to inactivity.", this.apnsConnection.name);
+					this.apnsConnection.shutdownGracefully();
+				} else {
+					log.debug("Graceful shutdown attempt for {} timed out; shutting down immediately.", this.apnsConnection.name);
+					this.apnsConnection.shutdownImmediately();
+				}
+			} else {
+				super.userEventTriggered(context, event);
+			}
+		}
 	}
 
 	/**
@@ -353,6 +380,12 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		}
 
 		this.eventLoopGroup = eventLoopGroup;
+
+		if (configuration == null) {
+			throw new NullPointerException("Connection configuration must not be null.");
+		}
+
+		this.configuration = configuration;
 		this.listener = listener;
 
 		if (name == null) {
@@ -400,7 +433,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 				pipeline.addLast("ssl", new SslHandler(sslEngine));
 				pipeline.addLast("decoder", new RejectedNotificationDecoder());
 				pipeline.addLast("encoder", new ApnsPushNotificationEncoder());
-				pipeline.addLast("handler", new ApnsConnectionHandler(apnsConnection));
+				pipeline.addLast(ApnsConnection.PIPELINE_MAIN_HANDLER, new ApnsConnectionHandler(apnsConnection));
 			}
 		});
 
@@ -428,6 +461,13 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 									if (apnsConnection.listener != null) {
 										apnsConnection.listener.handleConnectionSuccess(apnsConnection);
 									}
+
+									if (apnsConnection.configuration.getCloseAfterInactivityTime() != null) {
+										connectFuture.channel().pipeline().addBefore(ApnsConnection.PIPELINE_MAIN_HANDLER,
+												ApnsConnection.PIPELINE_IDLE_STATE_HANDLER,
+												new IdleStateHandler(0, 0, apnsConnection.configuration.getCloseAfterInactivityTime()));
+									}
+
 								} else {
 									log.debug("{} failed to complete TLS handshake with APNs gateway.",
 											apnsConnection.name, handshakeFuture.cause());
@@ -476,58 +516,69 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			throw new IllegalStateException(String.format("%s has not completed handshake.", this.name));
 		}
 
-		this.connectFuture.channel().eventLoop().execute(new Runnable() {
+		if (this.shutdownNotification == null) {
+			this.connectFuture.channel().eventLoop().execute(new Runnable() {
 
-			@Override
-			public void run() {
-				final SendableApnsPushNotification<T> sendableNotification =
-						new SendableApnsPushNotification<T>(notification, apnsConnection.sequenceNumber++);
+				@Override
+				public void run() {
+					final SendableApnsPushNotification<T> sendableNotification =
+							new SendableApnsPushNotification<T>(notification, apnsConnection.sequenceNumber++);
 
-				log.trace("{} sending {}", apnsConnection.name, sendableNotification);
+					log.trace("{} sending {}", apnsConnection.name, sendableNotification);
 
-				apnsConnection.pendingWriteCount += 1;
+					apnsConnection.pendingWriteCount += 1;
 
-				apnsConnection.connectFuture.channel().writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+					apnsConnection.connectFuture.channel().writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
-					@Override
-					public void operationComplete(final ChannelFuture writeFuture) {
-						if (writeFuture.isSuccess()) {
-							log.trace("{} successfully wrote notification {}", apnsConnection.name,
-									sendableNotification.getSequenceNumber());
+						@Override
+						public void operationComplete(final ChannelFuture writeFuture) {
+							if (writeFuture.isSuccess()) {
+								log.trace("{} successfully wrote notification {}", apnsConnection.name,
+										sendableNotification.getSequenceNumber());
 
-							if (apnsConnection.rejectionReceived) {
-								// Even though the write succeeded, we know for sure that this notification was never
-								// processed by the gateway because it had already rejected another notification from
-								// this connection.
-								if (apnsConnection.listener != null) {
-									apnsConnection.listener.handleUnprocessedNotifications(apnsConnection, java.util.Collections.singletonList(notification));
+								if (apnsConnection.rejectionReceived) {
+									// Even though the write succeeded, we know for sure that this notification was never
+									// processed by the gateway because it had already rejected another notification from
+									// this connection.
+									if (apnsConnection.listener != null) {
+										apnsConnection.listener.handleUnprocessedNotifications(apnsConnection, java.util.Collections.singletonList(notification));
+									}
+								} else {
+									apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
 								}
 							} else {
-								apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
+								log.trace("{} failed to write notification {}",
+										apnsConnection.name, sendableNotification, writeFuture.cause());
+
+								// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
+								// even manage to write the notification to the wire) and re-enqueue for another send attempt.
+								if (apnsConnection.listener != null) {
+									apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
+								}
 							}
-						} else {
-							log.trace("{} failed to write notification {}",
-									apnsConnection.name, sendableNotification, writeFuture.cause());
 
-							// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
-							// even manage to write the notification to the wire) and re-enqueue for another send attempt.
-							if (apnsConnection.listener != null) {
-								apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
-							}
-						}
+							apnsConnection.pendingWriteCount -= 1;
+							assert apnsConnection.pendingWriteCount >= 0;
 
-						apnsConnection.pendingWriteCount -= 1;
-						assert apnsConnection.pendingWriteCount >= 0;
-
-						if (apnsConnection.pendingWriteCount == 0) {
-							synchronized (apnsConnection.pendingWriteMonitor) {
-								apnsConnection.pendingWriteMonitor.notifyAll();
+							if (apnsConnection.pendingWriteCount == 0) {
+								synchronized (apnsConnection.pendingWriteMonitor) {
+									apnsConnection.pendingWriteMonitor.notifyAll();
+								}
 							}
 						}
-					}
-				});
+					});
+				}
+			});
+		} else {
+			if (this.listener != null) {
+				this.listener.handleWriteFailure(this, notification, new IllegalStateException("Connection is shutting down."));
 			}
-		});
+		}
+
+		if (this.configuration.getSendAttemptLimit() != null && ++this.sendAttempts >= this.configuration.getSendAttemptLimit()) {
+			log.debug("{} reached send attempt limit and will shut down gracefully.", this.name);
+			this.shutdownGracefully();
+		}
 	}
 
 	/**
@@ -569,6 +620,12 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 */
 	public synchronized void shutdownGracefully() {
 
+		if (this.connectFuture != null && this.connectFuture.channel() != null) {
+			if (this.connectFuture.channel().pipeline().get(ApnsConnection.PIPELINE_IDLE_STATE_HANDLER) != null) {
+				this.connectFuture.channel().pipeline().remove(ApnsConnection.PIPELINE_IDLE_STATE_HANDLER);
+			}
+		}
+
 		final ApnsConnection<T> apnsConnection = this;
 
 		// We only need to send a known-bad notification if we were ever connected in the first place and if we're
@@ -586,6 +643,16 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 						apnsConnection.shutdownNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
 								new KnownBadPushNotification(), apnsConnection.sequenceNumber++);
+
+						if (apnsConnection.configuration.getGracefulShutdownTimeout() != null &&
+								apnsConnection.connectFuture.channel().pipeline().get(PIPELINE_GRACEFUL_SHUTDOWN_TIMEOUT_HANDLER) == null) {
+							// We should time out, but haven't added an idle state handler yet.
+							apnsConnection.connectFuture.channel().pipeline().addBefore(
+									PIPELINE_MAIN_HANDLER,
+									PIPELINE_GRACEFUL_SHUTDOWN_TIMEOUT_HANDLER,
+									new IdleStateHandler(apnsConnection.configuration.getGracefulShutdownTimeout(), 0, 0));
+						}
+
 
 						apnsConnection.pendingWriteCount += 1;
 
