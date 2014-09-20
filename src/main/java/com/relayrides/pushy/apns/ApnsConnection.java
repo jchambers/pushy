@@ -236,10 +236,12 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		public void channelRegistered(final ChannelHandlerContext context) throws Exception {
 			super.channelRegistered(context);
 
-			synchronized (this.apnsConnection.connectFuture) {
-				if (this.apnsConnection.closeOnRegistration) {
-					log.debug("Channel registered for {}, but shutting down immediately.", this.apnsConnection.name);
-					context.channel().eventLoop().execute(this.apnsConnection.getImmediateShutdownRunnable());
+			if (this.apnsConnection.connectFuture != null) {
+				synchronized (this.apnsConnection.connectFuture) {
+					if (this.apnsConnection.closeOnRegistration) {
+						log.debug("Channel registered for {}, but shutting down immediately.", this.apnsConnection.name);
+						context.channel().eventLoop().execute(this.apnsConnection.getImmediateShutdownRunnable());
+					}
 				}
 			}
 		}
