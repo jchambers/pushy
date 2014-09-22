@@ -28,6 +28,7 @@ import static org.junit.Assert.assertTrue;
 import io.netty.channel.nio.NioEventLoopGroup;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -79,6 +80,27 @@ public class PushManagerTest extends BasePushyTest {
 				this.mutex.notifyAll();
 			}
 		}
+	}
+
+	private class TestExpiredTokenListener implements ExpiredTokenListener {
+
+		private final Object mutex;
+
+		private Collection<ExpiredToken> expiredTokens;
+
+		public TestExpiredTokenListener(final Object mutex) {
+			this.mutex = mutex;
+		}
+
+		@Override
+		public void handleExpiredTokens(final Collection<ExpiredToken> expiredTokens) {
+			this.expiredTokens = expiredTokens;
+
+			synchronized (this.mutex) {
+				this.mutex.notifyAll();
+			}
+		}
+
 	}
 
 	@Test(expected = NullPointerException.class)
@@ -292,9 +314,23 @@ public class PushManagerTest extends BasePushyTest {
 	}
 
 	@Test
-	public void testGetExpiredTokens() throws InterruptedException, FeedbackConnectionException {
+	public void testRequestExpiredTokens() throws InterruptedException, FeedbackConnectionException {
+		final Object mutex = new Object();
+		final TestExpiredTokenListener listener = new TestExpiredTokenListener(mutex);
+
+		this.getPushManager().registerExpiredTokenListener(listener);
 		this.getPushManager().start();
-		assertTrue(this.getPushManager().getExpiredTokens().isEmpty());
+
+		synchronized (mutex) {
+			this.getPushManager().requestExpiredTokens();
+
+			while (listener.expiredTokens == null) {
+				mutex.wait();
+			}
+		}
+
+		assertTrue(listener.expiredTokens.isEmpty());
+
 		this.getPushManager().shutdown();
 	}
 
@@ -305,10 +341,22 @@ public class PushManagerTest extends BasePushyTest {
 						SSLTestUtil.createSSLContextForTestClient(), null, null, null, new PushManagerConfiguration(),
 						TEST_PUSH_MANAGER_NAME);
 
+		final Object mutex = new Object();
+		final TestExpiredTokenListener listener = new TestExpiredTokenListener(mutex);
+
+		defaultPushManager.registerExpiredTokenListener(listener);
 		defaultPushManager.start();
 
 		try {
-			assertTrue(defaultPushManager.getExpiredTokens().isEmpty());
+			synchronized (mutex) {
+				defaultPushManager.requestExpiredTokens();
+
+				while (listener.expiredTokens == null) {
+					mutex.wait();
+				}
+			}
+
+			assertTrue(listener.expiredTokens.isEmpty());
 		} finally {
 			defaultPushManager.shutdown();
 		}
@@ -316,7 +364,7 @@ public class PushManagerTest extends BasePushyTest {
 
 	@Test(expected = IllegalStateException.class)
 	public void testGetExpiredTokensBeforeStart() throws InterruptedException, FeedbackConnectionException {
-		this.getPushManager().getExpiredTokens();
+		this.getPushManager().requestExpiredTokens();
 	}
 
 	@Test(expected = IllegalStateException.class)
@@ -324,7 +372,7 @@ public class PushManagerTest extends BasePushyTest {
 		this.getPushManager().start();
 		this.getPushManager().shutdown();
 
-		this.getPushManager().getExpiredTokens();
+		this.getPushManager().requestExpiredTokens();
 	}
 
 	@Test

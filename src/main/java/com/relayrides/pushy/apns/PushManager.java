@@ -89,7 +89,7 @@ import org.slf4j.LoggerFactory;
  */
 public class PushManager<T extends ApnsPushNotification> implements ApnsConnectionListener<T>, FeedbackServiceListener {
 	private final BlockingQueue<T> queue;
-	private final LinkedBlockingQueue<T> retryQueue;
+	private final LinkedBlockingQueue<T> retryQueue = new LinkedBlockingQueue<T>();;
 
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
@@ -102,12 +102,18 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private int feedbackConnectionCounter = 0;
 
 	private final HashSet<ApnsConnection<T>> activeConnections = new HashSet<ApnsConnection<T>>();
-	private final ApnsConnectionPool<T> writableConnectionPool = new ApnsConnectionPool<T>();;
+	private final ApnsConnectionPool<T> writableConnectionPool = new ApnsConnectionPool<T>();
 
-	private final FeedbackServiceConnection feedbackServiceClient;
+	private FeedbackServiceConnection feedbackConnection;
+	private List<ExpiredToken> expiredTokens;
 
-	private final ArrayList<RejectedNotificationListener<? super T>> rejectedNotificationListeners;
-	private final ArrayList<FailedConnectionListener<? super T>> failedConnectionListeners;
+	private final List<RejectedNotificationListener<? super T>> rejectedNotificationListeners =
+			new ArrayList<RejectedNotificationListener<? super T>>();
+
+	private final List<FailedConnectionListener<? super T>> failedConnectionListeners =
+			new ArrayList<FailedConnectionListener<? super T>>();
+
+	private final List<ExpiredTokenListener> expiredTokenListeners = new ArrayList<ExpiredTokenListener>();
 
 	private Thread dispatchThread;
 	private boolean dispatchThreadShouldContinue = true;
@@ -182,10 +188,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			final BlockingQueue<T> queue, final PushManagerConfiguration configuration, final String name) {
 
 		this.queue = queue != null ? queue : new LinkedBlockingQueue<T>();
-		this.retryQueue = new LinkedBlockingQueue<T>();
-
-		this.rejectedNotificationListeners = new ArrayList<RejectedNotificationListener<? super T>>();
-		this.failedConnectionListeners = new ArrayList<FailedConnectionListener<? super T>>();
 
 		if (environment == null) {
 			throw new NullPointerException("Environment must not be null.");
@@ -225,11 +227,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.listenerExecutorService = Executors.newSingleThreadExecutor();
 			this.shouldShutDownListenerExecutorService = true;
 		}
-
-		this.feedbackServiceClient = new FeedbackServiceConnection(
-				this.environment, this.sslContext, this.eventLoopGroup,
-				this.configuration.getFeedbackConnectionConfiguration(), this,
-				String.format("%s-feedbackConnection-%d", this.name, this.feedbackConnectionCounter++));
 	}
 
 	/**
@@ -525,22 +522,19 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		return this.retryQueue;
 	}
 
-	/**
-	 * <p>Queries the APNs feedback service for expired tokens. Be warned that this is a <strong>destructive
-	 * operation</strong>. According to Apple's documentation:</p>
-	 *
-	 * <blockquote>The feedback service’s list is cleared after you read it. Each time you connect to the feedback
-	 * service, the information it returns lists only the failures that have happened since you last
-	 * connected.</blockquote>
-	 *
-	 * <p>The push manager must be started before calling this method.</p>
-	 *
-	 * @return a list of tokens that have expired since the last connection to the feedback service
-	 *
-	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
-	 * @throws FeedbackConnectionException if the attempt to connect to the feedback service failed for any reason
-	 */
-	public List<ExpiredToken> getExpiredTokens() throws InterruptedException, FeedbackConnectionException {
+	public void registerExpiredTokenListener(final ExpiredTokenListener listener) {
+		synchronized (this.expiredTokenListeners) {
+			this.expiredTokenListeners.add(listener);
+		}
+	}
+
+	public void unregisterExpiredTokenListener(final ExpiredTokenListener listener) {
+		synchronized (this.expiredTokenListeners) {
+			this.expiredTokenListeners.remove(listener);
+		}
+	}
+
+	public synchronized void requestExpiredTokens() {
 		if (!this.isStarted()) {
 			throw new IllegalStateException("Push manager has not been started yet.");
 		}
@@ -549,8 +543,49 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			throw new IllegalStateException("Push manager has already been shut down.");
 		}
 
-		// return this.feedbackServiceClient.getExpiredTokens();
-		return null;
+		// If we already have a feedback connection in play, let it finish
+		if (this.feedbackConnection == null) {
+			this.expiredTokens = new ArrayList<ExpiredToken>();
+
+			this.feedbackConnection = new FeedbackServiceConnection(
+					this.environment, this.sslContext, this.eventLoopGroup,
+					this.configuration.getFeedbackConnectionConfiguration(), this,
+					String.format("%s-feedbackConnection-%d", this.name, this.feedbackConnectionCounter++));
+
+			this.feedbackConnection.connect();
+		}
+	}
+
+	@Override
+	public void handleConnectionSuccess(final FeedbackServiceConnection connection) {}
+
+	@Override
+	public void handleConnectionFailure(final FeedbackServiceConnection connection, final Throwable cause) {
+		// TODO
+	}
+
+	@Override
+	public void handleExpiredToken(final FeedbackServiceConnection connection, final ExpiredToken token) {
+		this.expiredTokens.add(token);
+	}
+
+	@Override
+	public void handleConnectionClosure(FeedbackServiceConnection connection) {
+		final List<ExpiredToken> expiredTokens = new ArrayList<ExpiredToken>(this.expiredTokens);
+
+		synchronized (this.expiredTokenListeners) {
+			for (final ExpiredTokenListener listener : this.expiredTokenListeners) {
+				this.listenerExecutorService.submit(new Runnable() {
+
+					@Override
+					public void run() {
+						listener.handleExpiredTokens(expiredTokens);
+					}});
+			}
+		}
+
+		this.feedbackConnection = null;
+		this.expiredTokens = null;
 	}
 
 	/*
@@ -762,30 +797,5 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			// We always want to replace closed connections if we're running normally
 			return true;
 		}
-	}
-
-	@Override
-	public void handleConnectionSuccess(FeedbackServiceConnection connection) {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void handleConnectionFailure(final FeedbackServiceConnection connection, final Throwable cause) {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void handleExpiredToken(FeedbackServiceConnection connection,
-			ExpiredToken token) {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void handleConnectionClosure(FeedbackServiceConnection connection) {
-		// TODO Auto-generated method stub
-
 	}
 }
