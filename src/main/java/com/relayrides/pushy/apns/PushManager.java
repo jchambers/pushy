@@ -87,7 +87,7 @@ import org.slf4j.LoggerFactory;
  *
  * @see PushManager#getQueue()
  */
-public class PushManager<T extends ApnsPushNotification> implements ApnsConnectionListener<T> {
+public class PushManager<T extends ApnsPushNotification> implements ApnsConnectionListener<T>, FeedbackServiceListener {
 	private final BlockingQueue<T> queue;
 	private final LinkedBlockingQueue<T> retryQueue;
 
@@ -99,6 +99,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final String name;
 	private static final AtomicInteger pushManagerCounter = new AtomicInteger(0);
 	private int connectionCounter = 0;
+	private int feedbackConnectionCounter = 0;
 
 	private final HashSet<ApnsConnection<T>> activeConnections = new HashSet<ApnsConnection<T>>();
 	private final ApnsConnectionPool<T> writableConnectionPool = new ApnsConnectionPool<T>();;
@@ -225,7 +226,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.shouldShutDownListenerExecutorService = true;
 		}
 
-		this.feedbackServiceClient = new FeedbackServiceConnection(this.environment, this.sslContext, this.eventLoopGroup, this.configuration.getFeedbackConnectionConfiguration());
+		this.feedbackServiceClient = new FeedbackServiceConnection(
+				this.environment, this.sslContext, this.eventLoopGroup,
+				this.configuration.getFeedbackConnectionConfiguration(), this,
+				String.format("%s-feedbackConnection-%d", this.name, this.feedbackConnectionCounter++));
 	}
 
 	/**
@@ -545,7 +549,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			throw new IllegalStateException("Push manager has already been shut down.");
 		}
 
-		return this.feedbackServiceClient.getExpiredTokens();
+		// return this.feedbackServiceClient.getExpiredTokens();
+		return null;
 	}
 
 	/*
@@ -757,5 +762,30 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			// We always want to replace closed connections if we're running normally
 			return true;
 		}
+	}
+
+	@Override
+	public void handleConnectionSuccess(FeedbackServiceConnection connection) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void handleConnectionFailure(final FeedbackServiceConnection connection, final Throwable cause) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void handleExpiredToken(FeedbackServiceConnection connection,
+			ExpiredToken token) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void handleConnectionClosure(FeedbackServiceConnection connection) {
+		// TODO Auto-generated method stub
+
 	}
 }

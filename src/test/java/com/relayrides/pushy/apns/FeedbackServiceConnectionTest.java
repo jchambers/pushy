@@ -21,17 +21,10 @@
 
 package com.relayrides.pushy.apns;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
-import java.util.Date;
-import java.util.List;
-
-import org.junit.Test;
 
 public class FeedbackServiceConnectionTest extends BasePushyTest {
 
-	@Test
+	/* @Test
 	public void testGetExpiredTokens() throws Exception {
 		final FeedbackServiceConnection feedbackClient =
 				new FeedbackServiceConnection(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
@@ -60,5 +53,5 @@ public class FeedbackServiceConnectionTest extends BasePushyTest {
 	public void testGetExpiredTokensCloseWhenDone() throws Exception {
 		this.getFeedbackServer().setCloseWhenDone(true);
 		this.testGetExpiredTokens();
-	}
+	} */
 }

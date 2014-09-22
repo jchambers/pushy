@@ -37,8 +37,8 @@ import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -77,8 +77,13 @@ class FeedbackServiceConnection {
 	private final SSLContext sslContext;
 	private final NioEventLoopGroup eventLoopGroup;
 	private final FeedbackConnectionConfiguration configuration;
+	private final FeedbackServiceListener listener;
+	private final String name;
 
-	private final List<ExpiredToken> expiredTokens = new ArrayList<ExpiredToken>();
+	private final Object channelRegistrationMonitor = new Object();
+	private ChannelFuture connectFuture;
+	private volatile boolean handshakeCompleted = false;
+	private volatile boolean closeOnRegistration;
 
 	private static final Logger log = LoggerFactory.getLogger(FeedbackServiceConnection.class);
 
@@ -137,8 +142,22 @@ class FeedbackServiceConnection {
 		}
 
 		@Override
+		public void channelRegistered(final ChannelHandlerContext context) throws Exception {
+			super.channelRegistered(context);
+
+			synchronized (this.feedbackClient.channelRegistrationMonitor) {
+				if (this.feedbackClient.closeOnRegistration) {
+					log.debug("Channel registered for {}, but shutting down immediately.", this.feedbackClient.name);
+					context.channel().eventLoop().execute(this.feedbackClient.getImmediateShutdownRunnable());
+				}
+			}
+		}
+
+		@Override
 		protected void channelRead0(final ChannelHandlerContext context, final ExpiredToken expiredToken) {
-			this.feedbackClient.expiredTokens.add(expiredToken);
+			if (this.feedbackClient.listener != null) {
+				this.feedbackClient.listener.handleExpiredToken(feedbackClient, expiredToken);
+			}
 		}
 
 		@Override
@@ -149,6 +168,20 @@ class FeedbackServiceConnection {
 			}
 
 			context.close();
+		}
+
+		@Override
+		public void channelInactive(final ChannelHandlerContext context) throws Exception {
+			super.channelInactive(context);
+
+			// Channel closure implies that the connection attempt had fully succeeded, so we only want to notify
+			// listeners if the handshake has completed. Otherwise, we'll notify listeners of a connection failure (as
+			// opposed to closure) elsewhere.
+			if (this.feedbackClient.handshakeCompleted) {
+				if (this.feedbackClient.listener != null) {
+					this.feedbackClient.listener.handleConnectionClosure(this.feedbackClient);
+				}
+			}
 		}
 	}
 
@@ -163,12 +196,35 @@ class FeedbackServiceConnection {
 	 * @param configuration the set of configuration options to use for this connection. The configuration object is
 	 * copied and changes to the original object will not propagate to the connection after creation. Must not be
 	 * {@code null}.
+	 * @param name a human-readable name for this connection; names must not be {@code null}
 	 */
-	public FeedbackServiceConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup, final FeedbackConnectionConfiguration configuration) {
+	public FeedbackServiceConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup, final FeedbackConnectionConfiguration configuration, final FeedbackServiceListener listener, final String name) {
+		if (environment == null) {
+			throw new NullPointerException("Environment must not be null.");
+		}
+
+		if (sslContext == null) {
+			throw new NullPointerException("SSL context must not be null.");
+		}
+
+		if (eventLoopGroup == null) {
+			throw new NullPointerException("Event loop group must not be null.");
+		}
+
+		if (configuration == null) {
+			throw new NullPointerException("Feedback service connection configuration must not be null.");
+		}
+
+		if (name == null) {
+			throw new NullPointerException("Feedback service connection name must not be null.");
+		}
+
 		this.environment = environment;
 		this.sslContext = sslContext;
 		this.eventLoopGroup = eventLoopGroup;
 		this.configuration = configuration;
+		this.listener = listener;
+		this.name = name;
 	}
 
 	/**
@@ -184,9 +240,11 @@ class FeedbackServiceConnection {
 	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
 	 * @throws FeedbackConnectionException if the connection to the feedback service failed for any reason
 	 */
-	public synchronized List<ExpiredToken> getExpiredTokens() throws InterruptedException, FeedbackConnectionException {
+	public synchronized void connect() {
 
-		this.expiredTokens.clear();
+		if (this.connectFuture != null) {
+			throw new IllegalStateException(String.format("%s already started a connection attempt.", this.name));
+		}
 
 		final Bootstrap bootstrap = new Bootstrap();
 		bootstrap.group(this.eventLoopGroup);
@@ -207,45 +265,92 @@ class FeedbackServiceConnection {
 				pipeline.addLast("decoder", new ExpiredTokenDecoder());
 				pipeline.addLast("handler", new FeedbackClientHandler(feedbackConnection));
 			}
-
 		});
 
-		final ChannelFuture connectFuture = bootstrap.connect(
-				this.environment.getFeedbackHost(),
-				this.environment.getFeedbackPort()).await();
+		this.connectFuture = bootstrap.connect(this.environment.getFeedbackHost(), this.environment.getFeedbackPort());
+		this.connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
 
-		if (connectFuture.isSuccess()) {
-			log.debug("Connected to feedback service.");
+			@Override
+			public void operationComplete(final ChannelFuture connectFuture) {
 
-			final SslHandler sslHandler = connectFuture.channel().pipeline().get(SslHandler.class);
+				if (connectFuture.isSuccess()) {
+					log.debug("{} connected; waiting for TLS handshake.", feedbackConnection.name);
 
-			if (sslHandler != null) {
-				final Future<Channel> handshakeFuture = sslHandler.handshakeFuture().await();
+					final SslHandler sslHandler = connectFuture.channel().pipeline().get(SslHandler.class);
 
-				if (handshakeFuture.isSuccess()) {
-					log.debug("Completed TLS handshake with feedback service.");
+					try {
+						sslHandler.handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
 
-					// The feedback service will send us a list of device tokens as soon as we complete the SSL
-					// handshake, then hang up. While we're waiting to sync with the connection closure, we'll be
-					// receiving messages from the feedback service from another thread.
-					connectFuture.channel().closeFuture().await();
+							@Override
+							public void operationComplete(final Future<Channel> handshakeFuture) {
+								if (handshakeFuture.isSuccess()) {
+									log.debug("{} successfully completed TLS handshake.", feedbackConnection.name);
+
+									feedbackConnection.handshakeCompleted = true;
+
+									if (feedbackConnection.listener != null) {
+										feedbackConnection.listener.handleConnectionSuccess(feedbackConnection);
+									}
+
+								} else {
+									log.debug("{} failed to complete TLS handshake with APNs feedback service.",
+											feedbackConnection.name, handshakeFuture.cause());
+
+									connectFuture.channel().close();
+
+									if (feedbackConnection.listener != null) {
+										feedbackConnection.listener.handleConnectionFailure(feedbackConnection, handshakeFuture.cause());
+									}
+								}
+							}});
+					} catch (NullPointerException e) {
+						log.warn("{} failed to get SSL handler and could not wait for a TLS handshake.", feedbackConnection.name);
+
+						connectFuture.channel().close();
+
+						if (feedbackConnection.listener != null) {
+							feedbackConnection.listener.handleConnectionFailure(feedbackConnection, e);
+						}
+					}
 				} else {
-					log.debug("Failed to complete TLS handshake with feedback service.", handshakeFuture.cause());
+					log.debug("{} failed to connect to APNs feedback service.", feedbackConnection.name, connectFuture.cause());
 
-					connectFuture.channel().close().await();
-					throw new FeedbackConnectionException(handshakeFuture.cause());
+					if (feedbackConnection.listener != null) {
+						feedbackConnection.listener.handleConnectionFailure(feedbackConnection, connectFuture.cause());
+					}
 				}
-			} else {
-				log.warn("Feedback connection failed to get SSL handler and could not wait for TLS handshake.");
-
-				connectFuture.channel().close().await();
-				throw new FeedbackConnectionException(null);
 			}
-		} else {
-			log.debug("Failed to connect to feedback service.", connectFuture.cause());
-			throw new FeedbackConnectionException(connectFuture.cause());
-		}
+		});
+	}
 
-		return new ArrayList<ExpiredToken>(this.expiredTokens);
+	public synchronized void shutdownImmediately() {
+		if (this.connectFuture != null) {
+			synchronized (this.channelRegistrationMonitor) {
+				if (this.connectFuture.channel().isRegistered()) {
+					this.connectFuture.channel().eventLoop().execute(this.getImmediateShutdownRunnable());
+				} else {
+					this.closeOnRegistration = true;
+				}
+			}
+		}
+	}
+
+	private Runnable getImmediateShutdownRunnable() {
+		final FeedbackServiceConnection feedbackConnection = this;
+
+		return new Runnable() {
+			@Override
+			public void run() {
+				final SslHandler sslHandler = feedbackConnection.connectFuture.channel().pipeline().get(SslHandler.class);
+
+				if (feedbackConnection.connectFuture.isCancellable()) {
+					feedbackConnection.connectFuture.cancel(true);
+				} else if (sslHandler != null && sslHandler.handshakeFuture().isCancellable()) {
+					sslHandler.handshakeFuture().cancel(true);
+				} else {
+					feedbackConnection.connectFuture.channel().close();
+				}
+			}
+		};
 	}
 }
