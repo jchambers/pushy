@@ -75,6 +75,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 	private final String name;
 
+	private final Object channelRegistrationMonitor = new Object();
 	private ChannelFuture connectFuture;
 	private volatile boolean handshakeCompleted = false;
 	private boolean closeOnRegistration;
@@ -236,7 +237,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		public void channelRegistered(final ChannelHandlerContext context) throws Exception {
 			super.channelRegistered(context);
 
-			synchronized (this.apnsConnection.connectFuture) {
+			synchronized (this.apnsConnection.channelRegistrationMonitor) {
 				if (this.apnsConnection.closeOnRegistration) {
 					log.debug("Channel registered for {}, but shutting down immediately.", this.apnsConnection.name);
 					context.channel().eventLoop().execute(this.apnsConnection.getImmediateShutdownRunnable());
@@ -705,7 +706,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 */
 	public synchronized void shutdownImmediately() {
 		if (this.connectFuture != null) {
-			synchronized (this.connectFuture) {
+			synchronized (this.channelRegistrationMonitor) {
 				if (this.connectFuture.channel().isRegistered()) {
 					this.connectFuture.channel().eventLoop().execute(this.getImmediateShutdownRunnable());
 				} else {
