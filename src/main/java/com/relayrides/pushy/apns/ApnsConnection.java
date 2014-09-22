@@ -228,8 +228,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 		private final ApnsConnection<T> apnsConnection;
 
-		public ApnsConnectionHandler(final ApnsConnection<T> clientThread) {
-			this.apnsConnection = clientThread;
+		public ApnsConnectionHandler(final ApnsConnection<T> apnsConnection) {
+			this.apnsConnection = apnsConnection;
 		}
 
 		@Override
