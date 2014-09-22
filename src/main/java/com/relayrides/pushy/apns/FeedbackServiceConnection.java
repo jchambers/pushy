@@ -41,7 +41,6 @@ import io.netty.util.concurrent.Future;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Vector;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLContext;
@@ -51,8 +50,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * <p>A client that communicates with the APNs feedback to retrieve expired device tokens. According to Apple's
- * documentation:</p>
+ * <p>A connection to the APNs feedback service that listens for expired tokens, then disconnects after a period of
+ * inactivity. According to Apple's documentation:</p>
  *
  * <blockquote><p>The Apple Push Notification Service includes a feedback service to give you information about failed
  * push notifications. When a push notification cannot be delivered because the intended app does not exist on the
@@ -63,9 +62,9 @@ import org.slf4j.LoggerFactory;
  * tokens haven't been reregistered since the feedback entry was generated. For each device that has not been
  * reregistered, stop sending notifications.</p></blockquote>
  *
- * <p>Generally, users of Pushy should <em>not</em> instantiate a {@code FeedbackServiceClient} directly, but should
- * instead call {@link com.relayrides.pushy.apns.PushManager#getExpiredTokens()}, which will manage the creation
- * and configuration of a {@code FeedbackServiceClient} internally.</p>
+ * <p>Generally, users of Pushy should <em>not</em> instantiate a {@code FeedbackServiceConnetion} directly, but should
+ * instead call {@link com.relayrides.pushy.apns.PushManager#getExpiredTokens()}, which will manage the creation and
+ * configuration of a {@code FeedbackServiceConnection} internally.</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  *
@@ -73,15 +72,15 @@ import org.slf4j.LoggerFactory;
  * Local and Push Notification Programming Guide - Provider Communication with Apple Push Notification Service - The
  * Feedback Service</a>
  */
-class FeedbackServiceClient {
+class FeedbackServiceConnection {
 
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
 	private final NioEventLoopGroup eventLoopGroup;
 
-	private final Vector<ExpiredToken> expiredTokens;
+	private final List<ExpiredToken> expiredTokens = new ArrayList<ExpiredToken>();
 
-	private static final Logger log = LoggerFactory.getLogger(FeedbackServiceClient.class);
+	private static final Logger log = LoggerFactory.getLogger(FeedbackServiceConnection.class);
 
 	private enum ExpiredTokenDecoderState {
 		EXPIRATION,
@@ -131,9 +130,9 @@ class FeedbackServiceClient {
 
 	private class FeedbackClientHandler extends SimpleChannelInboundHandler<ExpiredToken> {
 
-		private final FeedbackServiceClient feedbackClient;
+		private final FeedbackServiceConnection feedbackClient;
 
-		public FeedbackClientHandler(final FeedbackServiceClient feedbackClient) {
+		public FeedbackClientHandler(final FeedbackServiceConnection feedbackClient) {
 			this.feedbackClient = feedbackClient;
 		}
 
@@ -146,7 +145,7 @@ class FeedbackServiceClient {
 		public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
 
 			if (!(cause instanceof ReadTimeoutException)) {
-				log.debug("Caught an unexpected exception while waiting for feedback.", cause);
+				log.debug("Caught an unexpected exception while waiting for expired tokens.", cause);
 			}
 
 			context.close();
@@ -162,12 +161,10 @@ class FeedbackServiceClient {
 	 * communicating with the APNs feedback service
 	 * @param eventLoopGroup the event loop group this client should use for asynchronous network operations
 	 */
-	public FeedbackServiceClient(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup) {
+	public FeedbackServiceConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup) {
 		this.environment = environment;
 		this.sslContext = sslContext;
 		this.eventLoopGroup = eventLoopGroup;
-
-		this.expiredTokens = new Vector<ExpiredToken>();
 	}
 
 	/**
@@ -189,26 +186,24 @@ class FeedbackServiceClient {
 	 */
 	public synchronized List<ExpiredToken> getExpiredTokens(final long timeout, final TimeUnit timeoutUnit) throws InterruptedException, FeedbackConnectionException {
 
-		this.expiredTokens.clear();
-
 		final Bootstrap bootstrap = new Bootstrap();
 		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioSocketChannel.class);
 
-		final FeedbackServiceClient feedbackClient = this;
+		final FeedbackServiceConnection feedbackConnection = this;
 		bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
 			@Override
 			protected void initChannel(final SocketChannel channel) throws Exception {
 				final ChannelPipeline pipeline = channel.pipeline();
 
-				final SSLEngine sslEngine = feedbackClient.sslContext.createSSLEngine();
+				final SSLEngine sslEngine = feedbackConnection.sslContext.createSSLEngine();
 				sslEngine.setUseClientMode(true);
 
 				pipeline.addLast("ssl", new SslHandler(sslEngine));
 				pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(timeout, timeoutUnit));
 				pipeline.addLast("decoder", new ExpiredTokenDecoder());
-				pipeline.addLast("handler", new FeedbackClientHandler(feedbackClient));
+				pipeline.addLast("handler", new FeedbackClientHandler(feedbackConnection));
 			}
 
 		});
@@ -239,7 +234,7 @@ class FeedbackServiceClient {
 					throw new FeedbackConnectionException(handshakeFuture.cause());
 				}
 			} else {
-				log.warn("Feedback client failed to get SSL handler and could not wait for TLS handshake.");
+				log.warn("Feedback connection failed to get SSL handler and could not wait for TLS handshake.");
 
 				connectFuture.channel().close().await();
 				throw new FeedbackConnectionException(null);

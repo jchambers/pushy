@@ -104,7 +104,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final HashSet<ApnsConnection<T>> activeConnections = new HashSet<ApnsConnection<T>>();
 	private final ApnsConnectionPool<T> writableConnectionPool = new ApnsConnectionPool<T>();;
 
-	private final FeedbackServiceClient feedbackServiceClient;
+	private final FeedbackServiceConnection feedbackServiceClient;
 
 	private final ArrayList<RejectedNotificationListener<? super T>> rejectedNotificationListeners;
 	private final ArrayList<FailedConnectionListener<? super T>> failedConnectionListeners;
@@ -226,7 +226,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.shouldShutDownListenerExecutorService = true;
 		}
 
-		this.feedbackServiceClient = new FeedbackServiceClient(this.environment, this.sslContext, this.eventLoopGroup);
+		this.feedbackServiceClient = new FeedbackServiceConnection(this.environment, this.sslContext, this.eventLoopGroup);
 	}
 
 	/**

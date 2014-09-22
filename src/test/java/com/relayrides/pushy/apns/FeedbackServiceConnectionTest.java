@@ -30,12 +30,12 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 
-public class FeedbackServiceClientTest extends BasePushyTest {
+public class FeedbackServiceConnectionTest extends BasePushyTest {
 
 	@Test
 	public void testGetExpiredTokens() throws Exception {
-		final FeedbackServiceClient feedbackClient =
-				new FeedbackServiceClient(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup());
+		final FeedbackServiceConnection feedbackClient =
+				new FeedbackServiceConnection(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup());
 
 		assertTrue(feedbackClient.getExpiredTokens(1, TimeUnit.SECONDS).isEmpty());
 
