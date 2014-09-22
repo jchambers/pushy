@@ -26,7 +26,6 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 
@@ -35,9 +34,10 @@ public class FeedbackServiceConnectionTest extends BasePushyTest {
 	@Test
 	public void testGetExpiredTokens() throws Exception {
 		final FeedbackServiceConnection feedbackClient =
-				new FeedbackServiceConnection(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup());
+				new FeedbackServiceConnection(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
+						this.getEventLoopGroup(), new FeedbackConnectionConfiguration());
 
-		assertTrue(feedbackClient.getExpiredTokens(1, TimeUnit.SECONDS).isEmpty());
+		assertTrue(feedbackClient.getExpiredTokens().isEmpty());
 
 		// Dates will have some loss of precision since APNS only deals with SECONDS since the epoch; we choose
 		// timestamps that just happen to be on full seconds.
@@ -47,13 +47,13 @@ public class FeedbackServiceConnectionTest extends BasePushyTest {
 		this.getFeedbackServer().addExpiredToken(firstToken);
 		this.getFeedbackServer().addExpiredToken(secondToken);
 
-		final List<ExpiredToken> expiredTokens = feedbackClient.getExpiredTokens(1, TimeUnit.SECONDS);
+		final List<ExpiredToken> expiredTokens = feedbackClient.getExpiredTokens();
 
 		assertEquals(2, expiredTokens.size());
 		assertTrue(expiredTokens.contains(firstToken));
 		assertTrue(expiredTokens.contains(secondToken));
 
-		assertTrue(feedbackClient.getExpiredTokens(1, TimeUnit.SECONDS).isEmpty());
+		assertTrue(feedbackClient.getExpiredTokens().isEmpty());
 	}
 
 	@Test

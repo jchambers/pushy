@@ -33,7 +33,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
@@ -226,7 +225,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.shouldShutDownListenerExecutorService = true;
 		}
 
-		this.feedbackServiceClient = new FeedbackServiceConnection(this.environment, this.sslContext, this.eventLoopGroup);
+		this.feedbackServiceClient = new FeedbackServiceConnection(this.environment, this.sslContext, this.eventLoopGroup, this.configuration.getFeedbackConnectionConfiguration());
 	}
 
 	/**
@@ -523,8 +522,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	/**
-	 * <p>Queries the APNs feedback service for expired tokens using a reasonable default timeout. Be warned that this
-	 * is a <strong>destructive operation</strong>. According to Apple's documentation:</p>
+	 * <p>Queries the APNs feedback service for expired tokens. Be warned that this is a <strong>destructive
+	 * operation</strong>. According to Apple's documentation:</p>
 	 *
 	 * <blockquote>The feedback service’s list is cleared after you read it. Each time you connect to the feedback
 	 * service, the information it returns lists only the failures that have happened since you last
@@ -538,30 +537,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @throws FeedbackConnectionException if the attempt to connect to the feedback service failed for any reason
 	 */
 	public List<ExpiredToken> getExpiredTokens() throws InterruptedException, FeedbackConnectionException {
-		return this.getExpiredTokens(1, TimeUnit.SECONDS);
-	}
-
-	/**
-	 * <p>Queries the APNs feedback service for expired tokens using the given timeout. Be warned that this is a
-	 * <strong>destructive operation</strong>. According to Apple's documentation:</p>
-	 *
-	 * <blockquote>The feedback service's list is cleared after you read it. Each time you connect to the feedback
-	 * service, the information it returns lists only the failures that have happened since you last
-	 * connected.</blockquote>
-	 *
-	 * <p>The push manager must be started before calling this method.</p>
-	 *
-	 * @param timeout the time after the last received data after which the connection to the feedback service should
-	 * be closed
-	 * @param timeoutUnit the unit of time in which the given {@code timeout} is measured
-	 *
-	 * @return a list of tokens that have expired since the last connection to the feedback service
-	 *
-	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
-	 * @throws FeedbackConnectionException if the attempt to connect to the feedback service failed for any reason
-	 * @throws IllegalStateException if this push manager has not been started yet or has already been shut down
-	 */
-	public List<ExpiredToken> getExpiredTokens(final long timeout, final TimeUnit timeoutUnit) throws InterruptedException, FeedbackConnectionException {
 		if (!this.isStarted()) {
 			throw new IllegalStateException("Push manager has not been started yet.");
 		}
@@ -570,7 +545,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			throw new IllegalStateException("Push manager has already been shut down.");
 		}
 
-		return this.feedbackServiceClient.getExpiredTokens(timeout, timeoutUnit);
+		return this.feedbackServiceClient.getExpiredTokens();
 	}
 
 	/*

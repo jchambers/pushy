@@ -11,6 +11,7 @@ public class PushManagerConfiguration {
 	private int concurrentConnectionCount = 1;
 
 	private ApnsConnectionConfiguration connectionConfiguration = new ApnsConnectionConfiguration();
+	private FeedbackConnectionConfiguration feedbackConfiguration = new FeedbackConnectionConfiguration();
 
 	/**
 	 * Constructs a new push manager configuration object with all options set to their default values.
@@ -25,7 +26,9 @@ public class PushManagerConfiguration {
 	 */
 	public PushManagerConfiguration(final PushManagerConfiguration configuration) {
 		this.concurrentConnectionCount = configuration.getConcurrentConnectionCount();
+
 		this.connectionConfiguration = new ApnsConnectionConfiguration(configuration.getConnectionConfiguration());
+		this.feedbackConfiguration = new FeedbackConnectionConfiguration(configuration.getFeedbackConnectionConfiguration());
 	}
 
 	/**
@@ -74,30 +77,71 @@ public class PushManagerConfiguration {
 		this.connectionConfiguration = connectionConfiguration;
 	}
 
+	/**
+	 * Returns the configuration to be used for connections to the APNs feedback service created by push managers with
+	 * this configuration. A set of default options is used if none is specified.
+	 *
+	 * @return the configuration to be used for connections to the APNs feedback service created by push managers with
+	 * this configuration
+	 */
+	public FeedbackConnectionConfiguration getFeedbackConnectionConfiguration() {
+		return this.feedbackConfiguration;
+	}
+
+	/**
+	 * Sets the configuration to be used for connections to the APNs feedback service created by push managers with
+	 * this configuration.
+	 *
+	 * @param connectionConfiguration the configuration to be used for connections to the APNs feedback service created
+	 * by push managers with this configuration; must not be {@code null}
+	 *
+	 * @throws NullPointerException if the given feedback connection configuration is {@code null}
+	 */
+	public void setFeedbackConnectionConfiguration(final FeedbackConnectionConfiguration feedbackConnectionConfiguration) {
+		if (feedbackConnectionConfiguration == null) {
+			throw new NullPointerException("Feedback connection configuration must not be null.");
+		}
+
+		this.feedbackConfiguration = feedbackConnectionConfiguration;
+	}
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + concurrentConnectionCount;
-		result = prime * result + ((connectionConfiguration == null) ? 0 : connectionConfiguration.hashCode());
+		result = prime
+				* result
+				+ ((connectionConfiguration == null) ? 0
+						: connectionConfiguration.hashCode());
+		result = prime
+				* result
+				+ ((feedbackConfiguration == null) ? 0 : feedbackConfiguration
+						.hashCode());
 		return result;
 	}
 
 	@Override
-	public boolean equals(Object obj) {
+	public boolean equals(final Object obj) {
 		if (this == obj)
 			return true;
 		if (obj == null)
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		PushManagerConfiguration other = (PushManagerConfiguration) obj;
+		final PushManagerConfiguration other = (PushManagerConfiguration) obj;
 		if (concurrentConnectionCount != other.concurrentConnectionCount)
 			return false;
 		if (connectionConfiguration == null) {
 			if (other.connectionConfiguration != null)
 				return false;
-		} else if (!connectionConfiguration.equals(other.connectionConfiguration))
+		} else if (!connectionConfiguration
+				.equals(other.connectionConfiguration))
+			return false;
+		if (feedbackConfiguration == null) {
+			if (other.feedbackConfiguration != null)
+				return false;
+		} else if (!feedbackConfiguration.equals(other.feedbackConfiguration))
 			return false;
 		return true;
 	}

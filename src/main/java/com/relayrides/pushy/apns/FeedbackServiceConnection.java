@@ -41,7 +41,6 @@ import io.netty.util.concurrent.Future;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
@@ -77,6 +76,7 @@ class FeedbackServiceConnection {
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
 	private final NioEventLoopGroup eventLoopGroup;
+	private final FeedbackConnectionConfiguration configuration;
 
 	private final List<ExpiredToken> expiredTokens = new ArrayList<ExpiredToken>();
 
@@ -160,11 +160,15 @@ class FeedbackServiceConnection {
 	 * @param sslContext an SSL context with the keys/certificates and trust managers this client should use when
 	 * communicating with the APNs feedback service
 	 * @param eventLoopGroup the event loop group this client should use for asynchronous network operations
+	 * @param configuration the set of configuration options to use for this connection. The configuration object is
+	 * copied and changes to the original object will not propagate to the connection after creation. Must not be
+	 * {@code null}.
 	 */
-	public FeedbackServiceConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup) {
+	public FeedbackServiceConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup, final FeedbackConnectionConfiguration configuration) {
 		this.environment = environment;
 		this.sslContext = sslContext;
 		this.eventLoopGroup = eventLoopGroup;
+		this.configuration = configuration;
 	}
 
 	/**
@@ -175,16 +179,14 @@ class FeedbackServiceConnection {
 	 * service, the information it returns lists only the failures that have happened since you last
 	 * connected.</blockquote>
 	 *
-	 * @param timeout the time after the last received data after which the connection to the feedback service should
-	 * be closed
-	 * @param timeoutUnit the unit of time in which the given {@code timeout} is measured
-	 *
 	 * @return a list of tokens that have expired since the last connection to the feedback service
 	 *
 	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
 	 * @throws FeedbackConnectionException if the connection to the feedback service failed for any reason
 	 */
-	public synchronized List<ExpiredToken> getExpiredTokens(final long timeout, final TimeUnit timeoutUnit) throws InterruptedException, FeedbackConnectionException {
+	public synchronized List<ExpiredToken> getExpiredTokens() throws InterruptedException, FeedbackConnectionException {
+
+		this.expiredTokens.clear();
 
 		final Bootstrap bootstrap = new Bootstrap();
 		bootstrap.group(this.eventLoopGroup);
@@ -201,7 +203,7 @@ class FeedbackServiceConnection {
 				sslEngine.setUseClientMode(true);
 
 				pipeline.addLast("ssl", new SslHandler(sslEngine));
-				pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(timeout, timeoutUnit));
+				pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(feedbackConnection.configuration.getReadTimeout()));
 				pipeline.addLast("decoder", new ExpiredTokenDecoder());
 				pipeline.addLast("handler", new FeedbackClientHandler(feedbackConnection));
 			}
