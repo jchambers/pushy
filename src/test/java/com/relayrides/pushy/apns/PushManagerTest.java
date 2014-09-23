@@ -314,7 +314,7 @@ public class PushManagerTest extends BasePushyTest {
 	}
 
 	@Test
-	public void testRequestExpiredTokens() throws InterruptedException, FeedbackConnectionException {
+	public void testRequestExpiredTokens() throws InterruptedException {
 		final Object mutex = new Object();
 		final TestExpiredTokenListener listener = new TestExpiredTokenListener(mutex);
 
@@ -335,7 +335,7 @@ public class PushManagerTest extends BasePushyTest {
 	}
 
 	@Test
-	public void testGetExpiredTokensWithDefaultEventLoopGroup() throws Exception {
+	public void testRequestExpiredTokensWithDefaultEventLoopGroup() throws Exception {
 		final PushManager<SimpleApnsPushNotification> defaultPushManager =
 				new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
 						SSLTestUtil.createSSLContextForTestClient(), null, null, null, new PushManagerConfiguration(),
@@ -363,12 +363,12 @@ public class PushManagerTest extends BasePushyTest {
 	}
 
 	@Test(expected = IllegalStateException.class)
-	public void testGetExpiredTokensBeforeStart() throws InterruptedException, FeedbackConnectionException {
+	public void testRequestExpiredTokensBeforeStart() throws InterruptedException {
 		this.getPushManager().requestExpiredTokens();
 	}
 
 	@Test(expected = IllegalStateException.class)
-	public void testGetExpiredTokensAfterShutdown() throws InterruptedException, FeedbackConnectionException {
+	public void testRequestExpiredTokensAfterShutdown() throws InterruptedException {
 		this.getPushManager().start();
 		this.getPushManager().shutdown();
 
