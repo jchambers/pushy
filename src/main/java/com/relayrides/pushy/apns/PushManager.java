@@ -102,7 +102,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private int connectionCounter = 0;
 
 	private final HashSet<ApnsConnection<T>> activeConnections = new HashSet<ApnsConnection<T>>();
-	private final ApnsConnectionPool<T> writableConnectionPool = new ApnsConnectionPool<T>();;
+	private final ApnsConnectionPool<T> writableConnectionPool = new ApnsConnectionPool<T>();
 
 	private final FeedbackServiceClient feedbackServiceClient;
 
