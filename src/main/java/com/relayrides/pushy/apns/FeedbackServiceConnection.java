@@ -353,4 +353,9 @@ class FeedbackServiceConnection {
 			}
 		};
 	}
+
+	@Override
+	public String toString() {
+		return "FeedbackServiceConnection [name=" + name + "]";
+	}
 }

@@ -557,20 +557,42 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	@Override
-	public void handleConnectionSuccess(final FeedbackServiceConnection connection) {}
+	public void handleConnectionSuccess(final FeedbackServiceConnection connection) {
+		log.trace("Feedback connection succeeded: {}", connection);
+	}
 
 	@Override
 	public void handleConnectionFailure(final FeedbackServiceConnection connection, final Throwable cause) {
-		// TODO
+		log.trace("Feedback connection failed: {}", connection, cause);
+
+		this.feedbackConnection = null;
+
+		synchronized (this.failedConnectionListeners) {
+			final PushManager<T> pushManager = this;
+
+			for (final FailedConnectionListener<? super T> listener : this.failedConnectionListeners) {
+
+				// Handle connection failures in a separate thread in case a handler takes a long time to run
+				this.listenerExecutorService.submit(new Runnable() {
+					@Override
+					public void run() {
+						listener.handleFailedConnection(pushManager, cause);
+					}
+				});
+			}
+		}
 	}
 
 	@Override
 	public void handleExpiredToken(final FeedbackServiceConnection connection, final ExpiredToken token) {
+		log.trace("Received expired token {} from feedback connection {}.", token, connection);
 		this.expiredTokens.add(token);
 	}
 
 	@Override
-	public void handleConnectionClosure(FeedbackServiceConnection connection) {
+	public void handleConnectionClosure(final FeedbackServiceConnection connection) {
+		log.trace("Feedback connection closed: {}", connection);
+
 		final List<ExpiredToken> expiredTokens = new ArrayList<ExpiredToken>(this.expiredTokens);
 
 		synchronized (this.expiredTokenListeners) {
