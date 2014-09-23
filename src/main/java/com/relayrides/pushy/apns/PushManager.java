@@ -104,6 +104,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final HashSet<ApnsConnection<T>> activeConnections = new HashSet<ApnsConnection<T>>();
 	private final ApnsConnectionPool<T> writableConnectionPool = new ApnsConnectionPool<T>();
 
+	private final Object feedbackConnectionMonitor = new Object();
 	private FeedbackServiceConnection feedbackConnection;
 	private List<ExpiredToken> expiredTokens;
 
@@ -380,6 +381,13 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		this.shutDownStarted = true;
+
+		synchronized (this.feedbackConnectionMonitor) {
+			if (this.feedbackConnection != null) {
+				this.feedbackConnection.shutdownImmediately();
+			}
+		}
+
 		this.dispatchThread.interrupt();
 
 		final Date deadline = timeout > 0 ? new Date(System.currentTimeMillis() + timeout) : null;
@@ -408,6 +416,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		synchronized (this.failedConnectionListeners) {
 			this.failedConnectionListeners.clear();
+		}
+
+		synchronized (this.expiredTokenListeners) {
+			this.expiredTokenListeners.clear();
 		}
 
 		if (this.shouldShutDownListenerExecutorService) {
@@ -543,16 +555,18 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			throw new IllegalStateException("Push manager has already been shut down.");
 		}
 
-		// If we already have a feedback connection in play, let it finish
-		if (this.feedbackConnection == null) {
-			this.expiredTokens = new ArrayList<ExpiredToken>();
+		synchronized (this.feedbackConnectionMonitor) {
+			// If we already have a feedback connection in play, let it finish
+			if (this.feedbackConnection == null) {
+				this.expiredTokens = new ArrayList<ExpiredToken>();
 
-			this.feedbackConnection = new FeedbackServiceConnection(
-					this.environment, this.sslContext, this.eventLoopGroup,
-					this.configuration.getFeedbackConnectionConfiguration(), this,
-					String.format("%s-feedbackConnection-%d", this.name, this.feedbackConnectionCounter++));
+				this.feedbackConnection = new FeedbackServiceConnection(
+						this.environment, this.sslContext, this.eventLoopGroup,
+						this.configuration.getFeedbackConnectionConfiguration(), this,
+						String.format("%s-feedbackConnection-%d", this.name, this.feedbackConnectionCounter++));
 
-			this.feedbackConnection.connect();
+				this.feedbackConnection.connect();
+			}
 		}
 	}
 
@@ -565,7 +579,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	public void handleConnectionFailure(final FeedbackServiceConnection connection, final Throwable cause) {
 		log.trace("Feedback connection failed: {}", connection, cause);
 
-		this.feedbackConnection = null;
+		synchronized (this.feedbackConnectionMonitor) {
+			this.feedbackConnection = null;
+		}
 
 		synchronized (this.failedConnectionListeners) {
 			final PushManager<T> pushManager = this;
@@ -606,8 +622,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			}
 		}
 
-		this.feedbackConnection = null;
-		this.expiredTokens = null;
+		synchronized (this.feedbackConnectionMonitor) {
+			this.feedbackConnection = null;
+			this.expiredTokens = null;
+		}
 	}
 
 	/*
