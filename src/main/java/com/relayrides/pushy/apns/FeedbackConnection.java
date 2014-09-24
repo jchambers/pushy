@@ -66,14 +66,14 @@ import org.slf4j.LoggerFactory;
  * Local and Push Notification Programming Guide - Provider Communication with Apple Push Notification Service - The
  * Feedback Service</a>
  */
-class FeedbackServiceConnection extends ApnsConnection {
+class FeedbackConnection extends ApnsConnection {
 
 	private final SSLContext sslContext;
 	private final NioEventLoopGroup eventLoopGroup;
 	private final FeedbackConnectionConfiguration configuration;
-	private final FeedbackServiceListener listener;
+	private final FeedbackConnectionListener listener;
 
-	private static final Logger log = LoggerFactory.getLogger(FeedbackServiceConnection.class);
+	private static final Logger log = LoggerFactory.getLogger(FeedbackConnection.class);
 
 	private enum ExpiredTokenDecoderState {
 		EXPIRATION,
@@ -123,9 +123,9 @@ class FeedbackServiceConnection extends ApnsConnection {
 
 	private class FeedbackClientHandler extends ApnsConnectionHandler<ExpiredToken> {
 
-		private final FeedbackServiceConnection feedbackConnection;
+		private final FeedbackConnection feedbackConnection;
 
-		public FeedbackClientHandler(final FeedbackServiceConnection feedbackConnection) {
+		public FeedbackClientHandler(final FeedbackConnection feedbackConnection) {
 			super(feedbackConnection);
 
 			this.feedbackConnection = feedbackConnection;
@@ -162,9 +162,9 @@ class FeedbackServiceConnection extends ApnsConnection {
 	 * {@code null}.
 	 * @param name a human-readable name for this connection; names must not be {@code null}
 	 */
-	public FeedbackServiceConnection(final ApnsEnvironment environment, final SSLContext sslContext,
+	public FeedbackConnection(final ApnsEnvironment environment, final SSLContext sslContext,
 			final NioEventLoopGroup eventLoopGroup, final FeedbackConnectionConfiguration configuration,
-			final FeedbackServiceListener listener, final String name) {
+			final FeedbackConnectionListener listener, final String name) {
 
 		super(environment, configuration, name);
 
@@ -193,7 +193,7 @@ class FeedbackServiceConnection extends ApnsConnection {
 		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioSocketChannel.class);
 
-		final FeedbackServiceConnection feedbackConnection = this;
+		final FeedbackConnection feedbackConnection = this;
 		bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
 			@Override

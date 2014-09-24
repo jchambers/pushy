@@ -22,13 +22,13 @@
 package com.relayrides.pushy.apns;
 
 /**
- * A {@code FeedbackServiceListener} receives lifecycle events from {@link FeedbackServiceConnection} instances. Handler
+ * A {@code FeedbackServiceListener} receives lifecycle events from {@link FeedbackConnection} instances. Handler
  * methods are called from IO threads in the connection's event loop, and as such handler method implementations
  * <em>must not</em> perform blocking operations. Blocking operations should be dispatched to separate threads.
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-interface FeedbackServiceListener extends ApnsConnectionListener {
+interface FeedbackConnectionListener extends ApnsConnectionListener {
 
 	/**
 	 * Indicates that the given connection received an expired token from the APNs feedback service.
@@ -36,5 +36,5 @@ interface FeedbackServiceListener extends ApnsConnectionListener {
 	 * @param connection the connection that received the expired token
 	 * @param token the expired token
 	 */
-	void handleExpiredToken(FeedbackServiceConnection connection, ExpiredToken token);
+	void handleExpiredToken(FeedbackConnection connection, ExpiredToken token);
 }

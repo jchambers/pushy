@@ -22,7 +22,7 @@
 package com.relayrides.pushy.apns;
 
 /**
- * A set of user-configurable options that affect the behavior of a {@link FeedbackServiceConnection}.
+ * A set of user-configurable options that affect the behavior of a {@link FeedbackConnection}.
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */

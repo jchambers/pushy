@@ -87,7 +87,7 @@ import org.slf4j.LoggerFactory;
  *
  * @see PushManager#getQueue()
  */
-public class PushManager<T extends ApnsPushNotification> implements PushNotificationConnectionListener<T>, FeedbackServiceListener {
+public class PushManager<T extends ApnsPushNotification> implements PushNotificationConnectionListener<T>, FeedbackConnectionListener {
 	private final BlockingQueue<T> queue;
 	private final LinkedBlockingQueue<T> retryQueue = new LinkedBlockingQueue<T>();;
 
@@ -105,7 +105,7 @@ public class PushManager<T extends ApnsPushNotification> implements PushNotifica
 	private final PushNotificationConnectionPool<T> writableConnectionPool = new PushNotificationConnectionPool<T>();
 
 	private final Object feedbackConnectionMonitor = new Object();
-	private FeedbackServiceConnection feedbackConnection;
+	private FeedbackConnection feedbackConnection;
 	private List<ExpiredToken> expiredTokens;
 
 	private final List<RejectedNotificationListener<? super T>> rejectedNotificationListeners =
@@ -599,7 +599,7 @@ public class PushManager<T extends ApnsPushNotification> implements PushNotifica
 			if (this.feedbackConnection == null) {
 				this.expiredTokens = new ArrayList<ExpiredToken>();
 
-				this.feedbackConnection = new FeedbackServiceConnection(
+				this.feedbackConnection = new FeedbackConnection(
 						this.environment, this.sslContext, this.eventLoopGroup,
 						this.configuration.getFeedbackConnectionConfiguration(), this,
 						String.format("%s-feedbackConnection-%d", this.name, this.feedbackConnectionCounter++));
@@ -614,7 +614,7 @@ public class PushManager<T extends ApnsPushNotification> implements PushNotifica
 	 * @see com.relayrides.pushy.apns.FeedbackServiceListener#handleExpiredToken(com.relayrides.pushy.apns.FeedbackServiceConnection, com.relayrides.pushy.apns.ExpiredToken)
 	 */
 	@Override
-	public void handleExpiredToken(final FeedbackServiceConnection connection, final ExpiredToken token) {
+	public void handleExpiredToken(final FeedbackConnection connection, final ExpiredToken token) {
 		log.trace("Received expired token {} from feedback connection {}.", token, connection);
 		this.expiredTokens.add(token);
 	}
@@ -628,7 +628,7 @@ public class PushManager<T extends ApnsPushNotification> implements PushNotifica
 	public void handleConnectionSuccess(final ApnsConnection connection) {
 		log.trace("Connection succeeded: {}", connection);
 
-		assert connection instanceof PushNotificationConnection || connection instanceof FeedbackServiceConnection;
+		assert connection instanceof PushNotificationConnection || connection instanceof FeedbackConnection;
 
 		if (connection instanceof PushNotificationConnection) {
 			if (this.dispatchThreadShouldContinue) {
@@ -649,7 +649,7 @@ public class PushManager<T extends ApnsPushNotification> implements PushNotifica
 	public void handleConnectionFailure(final ApnsConnection connection, final Throwable cause) {
 		log.trace("Connection failed: {}", connection, cause);
 
-		assert connection instanceof PushNotificationConnection || connection instanceof FeedbackServiceConnection;
+		assert connection instanceof PushNotificationConnection || connection instanceof FeedbackConnection;
 
 		if (connection instanceof PushNotificationConnection) {
 			this.removeActiveConnection((PushNotificationConnection<T>) connection);
@@ -721,7 +721,7 @@ public class PushManager<T extends ApnsPushNotification> implements PushNotifica
 	public void handleConnectionClosure(final ApnsConnection connection) {
 		log.trace("Connection closed: {}", connection);
 
-		assert connection instanceof PushNotificationConnection || connection instanceof FeedbackServiceConnection;
+		assert connection instanceof PushNotificationConnection || connection instanceof FeedbackConnection;
 
 		if (connection instanceof PushNotificationConnection) {
 			@SuppressWarnings("unchecked")

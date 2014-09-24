@@ -29,10 +29,9 @@ import java.util.Date;
 
 import org.junit.Test;
 
+public class FeedbackConnectionTest extends BasePushyTest {
 
-public class FeedbackServiceConnectionTest extends BasePushyTest {
-
-	private class TestListener implements FeedbackServiceListener {
+	private class TestListener implements FeedbackConnectionListener {
 
 		private final Object mutex;
 
@@ -67,7 +66,7 @@ public class FeedbackServiceConnectionTest extends BasePushyTest {
 		}
 
 		@Override
-		public void handleExpiredToken(final FeedbackServiceConnection connection, final ExpiredToken token) {
+		public void handleExpiredToken(final FeedbackConnection connection, final ExpiredToken token) {
 			this.expiredTokens.add(token);
 		}
 
@@ -88,8 +87,8 @@ public class FeedbackServiceConnectionTest extends BasePushyTest {
 
 		final TestListener listener = new TestListener(mutex);
 
-		final FeedbackServiceConnection feedbackConnection =
-				new FeedbackServiceConnection(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
+		final FeedbackConnection feedbackConnection =
+				new FeedbackConnection(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
 						this.getEventLoopGroup(), new FeedbackConnectionConfiguration(), listener, TEST_CONNETION_NAME);
 
 		assertTrue(listener.expiredTokens.isEmpty());
