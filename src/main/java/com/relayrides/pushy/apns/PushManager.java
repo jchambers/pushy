@@ -546,7 +546,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @see PushManager#unregisterExpiredTokenListener(ExpiredTokenListener)
 	 * @see PushManager#requestExpiredTokens()
 	 */
-	public void registerExpiredTokenListener(final ExpiredTokenListener listener) {
+	public void registerExpiredTokenListener(final ExpiredTokenListener<? super T> listener) {
 		if (this.isShutDown()) {
 			throw new IllegalStateException("Expired token listeners may not be registered after a push manager has been shut down.");
 		}
@@ -564,7 +564,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @return {@code true} if the given listener was registered with this push manager and removed or {@code false} if
 	 * the listener was not already registered with this push manager
 	 */
-	public boolean unregisterExpiredTokenListener(final ExpiredTokenListener listener) {
+	public boolean unregisterExpiredTokenListener(final ExpiredTokenListener<? super T> listener) {
 		synchronized (this.expiredTokenListeners) {
 			return this.expiredTokenListeners.remove(listener);
 		}
