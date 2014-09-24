@@ -1,13 +1,13 @@
 package com.relayrides.pushy.apns;
 
-public interface ApnsConnectionListener<T extends ApnsConnection> {
+public interface ApnsConnectionListener {
 	/**
 	 * Indicates that the given connection successfully connected to the APNs feedback service and will receive expired
 	 * when they are sent by the feedback service.
 	 *
 	 * @param connection the connection that completed its connection attempt
 	 */
-	void handleConnectionSuccess(T connection);
+	void handleConnectionSuccess(ApnsConnection connection);
 
 	/**
 	 * Indicates that the given connection attempted to connect to the APNs feedback service, but failed.
@@ -15,7 +15,7 @@ public interface ApnsConnectionListener<T extends ApnsConnection> {
 	 * @param connection the connection that failed to connect to the APNs feedback service
 	 * @param cause the cause of the failure
 	 */
-	void handleConnectionFailure(T connection, Throwable cause);
+	void handleConnectionFailure(ApnsConnection connection, Throwable cause);
 
 	/**
 	 * Indicates that the given connection has disconnected from the APNs feedback service and will no longer receive
@@ -24,5 +24,5 @@ public interface ApnsConnectionListener<T extends ApnsConnection> {
 	 *
 	 * @param connection the connection that has been disconnected and is no longer active
 	 */
-	void handleConnectionClosure(T connection);
+	void handleConnectionClosure(ApnsConnection connection);
 }

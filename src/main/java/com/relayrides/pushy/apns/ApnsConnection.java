@@ -12,13 +12,12 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class ApnsConnection {
 	private final ApnsEnvironment environment;
 	private final NioEventLoopGroup eventLoopGroup;
 	private final ApnsConnectionConfiguration configuration;
-
-	private final ApnsConnectionListener listener;
 
 	private final String name;
 
@@ -27,8 +26,10 @@ public abstract class ApnsConnection {
 	private volatile boolean handshakeCompleted = false;
 	private volatile boolean closeOnRegistration;
 
+	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
+
 	public ApnsConnection(final ApnsEnvironment environment, final NioEventLoopGroup eventLoopGroup,
-			final ApnsConnectionConfiguration configuration, final ApnsConnectionListener listener, final String name) {
+			final ApnsConnectionConfiguration configuration, final String name) {
 
 		if (environment == null) {
 			throw new NullPointerException("Environment must not be null.");
@@ -49,7 +50,6 @@ public abstract class ApnsConnection {
 		this.environment = environment;
 		this.eventLoopGroup = eventLoopGroup;
 		this.configuration = configuration;
-		this.listener = listener;
 		this.name = name;
 	}
 
@@ -60,14 +60,14 @@ public abstract class ApnsConnection {
 
 		final ApnsConnection apnsConnection = this;
 
-		this.getLogger().debug("{} beginning connection process.", apnsConnection.name);
+		log.debug("{} beginning connection process.", apnsConnection.name);
 		this.connectFuture = this.getBootstrap().connect(this.environment.getApnsGatewayHost(), this.environment.getApnsGatewayPort());
 		this.connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
 
 			@Override
 			public void operationComplete(final ChannelFuture connectFuture) {
 				if (connectFuture.isSuccess()) {
-					apnsConnection.getLogger().debug("{} connected; waiting for TLS handshake.", apnsConnection.name);
+					log.debug("{} connected; waiting for TLS handshake.", apnsConnection.name);
 
 					final SslHandler sslHandler = connectFuture.channel().pipeline().get(SslHandler.class);
 
@@ -77,41 +77,48 @@ public abstract class ApnsConnection {
 							@Override
 							public void operationComplete(final Future<Channel> handshakeFuture) {
 								if (handshakeFuture.isSuccess()) {
-									apnsConnection.getLogger().debug("{} successfully completed TLS handshake.", apnsConnection.name);
+									log.debug("{} successfully completed TLS handshake.", apnsConnection.name);
 
 									apnsConnection.handshakeCompleted = true;
-
 									apnsConnection.handleConnectionCompletion(connectFuture.channel());
 
-									if (apnsConnection.listener != null) {
-										apnsConnection.listener.handleConnectionSuccess(apnsConnection);
+									final ApnsConnectionListener listener = apnsConnection.getListener();
+
+									if (listener != null) {
+										listener.handleConnectionSuccess(apnsConnection);
 									}
 
 								} else {
-									apnsConnection.getLogger().debug("{} failed to complete TLS handshake with APNs gateway.",
+									log.debug("{} failed to complete TLS handshake with APNs gateway.",
 											apnsConnection.name, handshakeFuture.cause());
 
 									connectFuture.channel().close();
 
-									if (apnsConnection.listener != null) {
-										apnsConnection.listener.handleConnectionFailure(apnsConnection, handshakeFuture.cause());
+									final ApnsConnectionListener listener = apnsConnection.getListener();
+
+									if (listener != null) {
+										listener.handleConnectionFailure(apnsConnection, handshakeFuture.cause());
 									}
 								}
 							}});
 					} catch (NullPointerException e) {
-						apnsConnection.getLogger().warn("{} failed to get SSL handler and could not wait for a TLS handshake.", apnsConnection.name);
+						log.warn("{} failed to get SSL handler and could not wait for a TLS handshake.", apnsConnection.name);
 
 						connectFuture.channel().close();
 
-						if (apnsConnection.listener != null) {
-							apnsConnection.listener.handleConnectionFailure(apnsConnection, e);
+						final ApnsConnectionListener listener = apnsConnection.getListener();
+
+						if (listener != null) {
+							listener.handleConnectionFailure(apnsConnection, e);
 						}
 					}
 				} else {
-					apnsConnection.getLogger().debug("{} failed to connect to APNs gateway.", apnsConnection.name, connectFuture.cause());
+					log.debug("{} failed to connect to APNs gateway.", apnsConnection.name, connectFuture.cause());
 
-					if (apnsConnection.listener != null) {
-						apnsConnection.listener.handleConnectionFailure(apnsConnection, connectFuture.cause());
+					final ApnsConnectionListener listener = apnsConnection.getListener();
+
+					if (listener != null) {
+						listener.handleConnectionFailure(apnsConnection, connectFuture.cause());
 					}
 				}
 			}
@@ -156,8 +163,8 @@ public abstract class ApnsConnection {
 			}
 		};
 	}
-	protected abstract void handleConnectionCompletion(Channel channel);
-	protected abstract Logger getLogger();
+
+	protected void handleConnectionCompletion(final Channel channel) {}
 
 	protected Bootstrap getBootstrap() {
 		final Bootstrap bootstrap = new Bootstrap();
@@ -180,9 +187,7 @@ public abstract class ApnsConnection {
 		return this.channelRegistrationMonitor;
 	}
 
-	public ApnsConnectionListener getListener() {
-		return this.listener;
-	}
+	public abstract ApnsConnectionListener getListener();
 
 	public String getName() {
 		return this.name;
