@@ -32,12 +32,13 @@ import java.util.Collection;
  * @see PushManager#unregisterExpiredTokenListener(ExpiredTokenListener)
  * @see PushManager#requestExpiredTokens()
  */
-public interface ExpiredTokenListener {
+public interface ExpiredTokenListener<T extends ApnsPushNotification> {
 
 	/**
 	 * Handles a collection of expired tokens received from the APNs feedback service.
 	 *
+	 * @param pushManager the push manager that reported the expired tokens
 	 * @param expiredTokens a collection of tokens that have expired since the last call to the feedback service
 	 */
-	void handleExpiredTokens(Collection<ExpiredToken> expiredTokens);
+	void handleExpiredTokens(PushManager<? extends T> pushManager, Collection<ExpiredToken> expiredTokens);
 }

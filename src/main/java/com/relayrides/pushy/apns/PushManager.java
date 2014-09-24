@@ -114,7 +114,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final List<FailedConnectionListener<? super T>> failedConnectionListeners =
 			new ArrayList<FailedConnectionListener<? super T>>();
 
-	private final List<ExpiredTokenListener> expiredTokenListeners = new ArrayList<ExpiredTokenListener>();
+	private final List<ExpiredTokenListener<? super T>> expiredTokenListeners =
+			new ArrayList<ExpiredTokenListener<? super T>>();
 
 	private Thread dispatchThread;
 	private boolean dispatchThreadShouldContinue = true;
@@ -663,15 +664,16 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	public void handleConnectionClosure(final FeedbackServiceConnection connection) {
 		log.trace("Feedback connection closed: {}", connection);
 
+		final PushManager<T> pushManager = this;
 		final List<ExpiredToken> expiredTokens = new ArrayList<ExpiredToken>(this.expiredTokens);
 
 		synchronized (this.expiredTokenListeners) {
-			for (final ExpiredTokenListener listener : this.expiredTokenListeners) {
+			for (final ExpiredTokenListener<? super T> listener : this.expiredTokenListeners) {
 				this.listenerExecutorService.submit(new Runnable() {
 
 					@Override
 					public void run() {
-						listener.handleExpiredTokens(expiredTokens);
+						listener.handleExpiredTokens(pushManager, expiredTokens);
 					}});
 			}
 		}

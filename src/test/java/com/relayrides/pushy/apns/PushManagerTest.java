@@ -82,7 +82,7 @@ public class PushManagerTest extends BasePushyTest {
 		}
 	}
 
-	private class TestExpiredTokenListener implements ExpiredTokenListener {
+	private class TestExpiredTokenListener implements ExpiredTokenListener<SimpleApnsPushNotification> {
 
 		private final Object mutex;
 
@@ -93,14 +93,14 @@ public class PushManagerTest extends BasePushyTest {
 		}
 
 		@Override
-		public void handleExpiredTokens(final Collection<ExpiredToken> expiredTokens) {
+		public void handleExpiredTokens(final PushManager<? extends SimpleApnsPushNotification> pushManager, final Collection<ExpiredToken> expiredTokens) {
+
 			this.expiredTokens = expiredTokens;
 
 			synchronized (this.mutex) {
 				this.mutex.notifyAll();
 			}
 		}
-
 	}
 
 	@Test(expected = NullPointerException.class)
