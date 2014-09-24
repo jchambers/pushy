@@ -26,7 +26,7 @@ package com.relayrides.pushy.apns;
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-public class FeedbackConnectionConfiguration {
+public class FeedbackConnectionConfiguration extends ApnsConnectionConfiguration {
 	private int readTimeout = 1;
 
 	/**

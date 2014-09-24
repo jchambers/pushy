@@ -23,12 +23,9 @@ package com.relayrides.pushy.apns;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
-import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -36,8 +33,6 @@ import io.netty.handler.codec.ReplayingDecoder;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.handler.timeout.ReadTimeoutHandler;
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
 
 import java.util.Date;
 import java.util.List;
@@ -71,19 +66,12 @@ import org.slf4j.LoggerFactory;
  * Local and Push Notification Programming Guide - Provider Communication with Apple Push Notification Service - The
  * Feedback Service</a>
  */
-class FeedbackServiceConnection {
+class FeedbackServiceConnection extends ApnsConnection {
 
-	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
 	private final NioEventLoopGroup eventLoopGroup;
 	private final FeedbackConnectionConfiguration configuration;
 	private final FeedbackServiceListener listener;
-	private final String name;
-
-	private final Object channelRegistrationMonitor = new Object();
-	private ChannelFuture connectFuture;
-	private volatile boolean handshakeCompleted = false;
-	private volatile boolean closeOnRegistration;
 
 	private static final Logger log = LoggerFactory.getLogger(FeedbackServiceConnection.class);
 
@@ -133,30 +121,20 @@ class FeedbackServiceConnection {
 		}
 	}
 
-	private class FeedbackClientHandler extends SimpleChannelInboundHandler<ExpiredToken> {
+	private class FeedbackClientHandler extends ApnsConnectionHandler<ExpiredToken> {
 
-		private final FeedbackServiceConnection feedbackClient;
+		private final FeedbackServiceConnection feedbackConnection;
 
-		public FeedbackClientHandler(final FeedbackServiceConnection feedbackClient) {
-			this.feedbackClient = feedbackClient;
-		}
+		public FeedbackClientHandler(final FeedbackServiceConnection feedbackConnection) {
+			super(feedbackConnection);
 
-		@Override
-		public void channelRegistered(final ChannelHandlerContext context) throws Exception {
-			super.channelRegistered(context);
-
-			synchronized (this.feedbackClient.channelRegistrationMonitor) {
-				if (this.feedbackClient.closeOnRegistration) {
-					log.debug("Channel registered for {}, but shutting down immediately.", this.feedbackClient.name);
-					context.channel().eventLoop().execute(this.feedbackClient.getImmediateShutdownRunnable());
-				}
-			}
+			this.feedbackConnection = feedbackConnection;
 		}
 
 		@Override
 		protected void channelRead0(final ChannelHandlerContext context, final ExpiredToken expiredToken) {
-			if (this.feedbackClient.listener != null) {
-				this.feedbackClient.listener.handleExpiredToken(feedbackClient, expiredToken);
+			if (this.feedbackConnection.listener != null) {
+				this.feedbackConnection.listener.handleExpiredToken(feedbackConnection, expiredToken);
 			}
 		}
 
@@ -168,20 +146,6 @@ class FeedbackServiceConnection {
 			}
 
 			context.close();
-		}
-
-		@Override
-		public void channelInactive(final ChannelHandlerContext context) throws Exception {
-			super.channelInactive(context);
-
-			// Channel closure implies that the connection attempt had fully succeeded, so we only want to notify
-			// listeners if the handshake has completed. Otherwise, we'll notify listeners of a connection failure (as
-			// opposed to closure) elsewhere.
-			if (this.feedbackClient.handshakeCompleted) {
-				if (this.feedbackClient.listener != null) {
-					this.feedbackClient.listener.handleConnectionClosure(this.feedbackClient);
-				}
-			}
 		}
 	}
 
@@ -198,10 +162,11 @@ class FeedbackServiceConnection {
 	 * {@code null}.
 	 * @param name a human-readable name for this connection; names must not be {@code null}
 	 */
-	public FeedbackServiceConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup, final FeedbackConnectionConfiguration configuration, final FeedbackServiceListener listener, final String name) {
-		if (environment == null) {
-			throw new NullPointerException("Environment must not be null.");
-		}
+	public FeedbackServiceConnection(final ApnsEnvironment environment, final SSLContext sslContext,
+			final NioEventLoopGroup eventLoopGroup, final FeedbackConnectionConfiguration configuration,
+			final FeedbackServiceListener listener, final String name) {
+
+		super(environment, configuration, name);
 
 		if (sslContext == null) {
 			throw new NullPointerException("SSL context must not be null.");
@@ -211,41 +176,19 @@ class FeedbackServiceConnection {
 			throw new NullPointerException("Event loop group must not be null.");
 		}
 
-		if (configuration == null) {
-			throw new NullPointerException("Feedback service connection configuration must not be null.");
-		}
-
-		if (name == null) {
-			throw new NullPointerException("Feedback service connection name must not be null.");
-		}
-
-		this.environment = environment;
 		this.sslContext = sslContext;
 		this.eventLoopGroup = eventLoopGroup;
 		this.configuration = configuration;
 		this.listener = listener;
-		this.name = name;
 	}
 
-	/**
-	 * <p>Retrieves a list of expired tokens from the APNs feedback service. Be warned that this is a
-	 * <strong>destructive operation</strong>. According to Apple's documentation:</p>
-	 *
-	 * <blockquote>The feedback service's list is cleared after you read it. Each time you connect to the feedback
-	 * service, the information it returns lists only the failures that have happened since you last
-	 * connected.</blockquote>
-	 *
-	 * @return a list of tokens that have expired since the last connection to the feedback service
-	 *
-	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
-	 * @throws FeedbackConnectionException if the connection to the feedback service failed for any reason
-	 */
-	public synchronized void connect() {
+	@Override
+	public String toString() {
+		return String.format("FeedbackServiceConnection [name=%s]", this.getName());
+	}
 
-		if (this.connectFuture != null) {
-			throw new IllegalStateException(String.format("%s already started a connection attempt.", this.name));
-		}
-
+	@Override
+	protected Bootstrap getBootstrap() {
 		final Bootstrap bootstrap = new Bootstrap();
 		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioSocketChannel.class);
@@ -267,95 +210,22 @@ class FeedbackServiceConnection {
 			}
 		});
 
-		this.connectFuture = bootstrap.connect(this.environment.getFeedbackHost(), this.environment.getFeedbackPort());
-		this.connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
-
-			@Override
-			public void operationComplete(final ChannelFuture connectFuture) {
-
-				if (connectFuture.isSuccess()) {
-					log.debug("{} connected; waiting for TLS handshake.", feedbackConnection.name);
-
-					final SslHandler sslHandler = connectFuture.channel().pipeline().get(SslHandler.class);
-
-					try {
-						sslHandler.handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
-
-							@Override
-							public void operationComplete(final Future<Channel> handshakeFuture) {
-								if (handshakeFuture.isSuccess()) {
-									log.debug("{} successfully completed TLS handshake.", feedbackConnection.name);
-
-									feedbackConnection.handshakeCompleted = true;
-
-									if (feedbackConnection.listener != null) {
-										feedbackConnection.listener.handleConnectionSuccess(feedbackConnection);
-									}
-
-								} else {
-									log.debug("{} failed to complete TLS handshake with APNs feedback service.",
-											feedbackConnection.name, handshakeFuture.cause());
-
-									connectFuture.channel().close();
-
-									if (feedbackConnection.listener != null) {
-										feedbackConnection.listener.handleConnectionFailure(feedbackConnection, handshakeFuture.cause());
-									}
-								}
-							}});
-					} catch (NullPointerException e) {
-						log.warn("{} failed to get SSL handler and could not wait for a TLS handshake.", feedbackConnection.name);
-
-						connectFuture.channel().close();
-
-						if (feedbackConnection.listener != null) {
-							feedbackConnection.listener.handleConnectionFailure(feedbackConnection, e);
-						}
-					}
-				} else {
-					log.debug("{} failed to connect to APNs feedback service.", feedbackConnection.name, connectFuture.cause());
-
-					if (feedbackConnection.listener != null) {
-						feedbackConnection.listener.handleConnectionFailure(feedbackConnection, connectFuture.cause());
-					}
-				}
-			}
-		});
-	}
-
-	public synchronized void shutdownImmediately() {
-		if (this.connectFuture != null) {
-			synchronized (this.channelRegistrationMonitor) {
-				if (this.connectFuture.channel().isRegistered()) {
-					this.connectFuture.channel().eventLoop().execute(this.getImmediateShutdownRunnable());
-				} else {
-					this.closeOnRegistration = true;
-				}
-			}
-		}
-	}
-
-	private Runnable getImmediateShutdownRunnable() {
-		final FeedbackServiceConnection feedbackConnection = this;
-
-		return new Runnable() {
-			@Override
-			public void run() {
-				final SslHandler sslHandler = feedbackConnection.connectFuture.channel().pipeline().get(SslHandler.class);
-
-				if (feedbackConnection.connectFuture.isCancellable()) {
-					feedbackConnection.connectFuture.cancel(true);
-				} else if (sslHandler != null && sslHandler.handshakeFuture().isCancellable()) {
-					sslHandler.handshakeFuture().cancel(true);
-				} else {
-					feedbackConnection.connectFuture.channel().close();
-				}
-			}
-		};
+		return bootstrap;
 	}
 
 	@Override
-	public String toString() {
-		return "FeedbackServiceConnection [name=" + name + "]";
+	public ApnsConnectionListener getListener() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	protected String getHost() {
+		return this.getEnvironment().getFeedbackHost();
+	}
+
+	@Override
+	protected int getPort() {
+		return this.getEnvironment().getFeedbackPort();
 	}
 }
