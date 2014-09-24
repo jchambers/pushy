@@ -27,11 +27,11 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
-public class ApnsConnectionConfigurationTest {
+public class PushNotificationConnectionConfigurationTest {
 
 	@Test
 	public void testApnsConnectionConfiguration() {
-		final ApnsConnectionConfiguration configuration = new ApnsConnectionConfiguration();
+		final PushNotificationConnectionConfiguration configuration = new PushNotificationConnectionConfiguration();
 
 		assertTrue(configuration.getSentNotificationBufferCapacity() > 0);
 		assertNull(configuration.getCloseAfterInactivityTime());
@@ -41,13 +41,13 @@ public class ApnsConnectionConfigurationTest {
 
 	@Test
 	public void testApnsConnectionConfigurationApnsConnectionConfiguration() {
-		final ApnsConnectionConfiguration configuration = new ApnsConnectionConfiguration();
+		final PushNotificationConnectionConfiguration configuration = new PushNotificationConnectionConfiguration();
 		configuration.setSentNotificationBufferCapacity(17);
 		configuration.setCloseAfterInactivityTime(19);
 		configuration.setGracefulShutdownTimeout(23);
 		configuration.setSendAttemptLimit(29);
 
-		final ApnsConnectionConfiguration configurationCopy = new ApnsConnectionConfiguration(configuration);
+		final PushNotificationConnectionConfiguration configurationCopy = new PushNotificationConnectionConfiguration(configuration);
 
 		assertEquals(configuration, configurationCopy);
 	}

@@ -42,7 +42,7 @@ public class PushManagerConfigurationTest {
 	public void testPushManagerConfigurationPushManagerConfiguration() {
 		final PushManagerConfiguration configuration = new PushManagerConfiguration();
 		configuration.setConcurrentConnectionCount(7);
-		configuration.setConnectionConfiguration(new ApnsConnectionConfiguration());
+		configuration.setConnectionConfiguration(new PushNotificationConnectionConfiguration());
 		configuration.setFeedbackConnectionConfiguration(new FeedbackConnectionConfiguration());
 
 		final PushManagerConfiguration configurationCopy = new PushManagerConfiguration(configuration);

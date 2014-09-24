@@ -55,7 +55,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * <p>A connection to an APNs gateway. An {@code ApnsConnection} is responsible for sending push notifications to the
- * APNs gateway, and reports lifecycle events via its {@link ApnsConnectionListener}.</p>
+ * APNs gateway, and reports lifecycle events via its {@link PushNotificationConnectionListener}.</p>
  *
  * <p>Generally, connections should be managed by a parent {@link PushManager} and not manipulated directly (although
  * connections are fully functional on their own). Connections are created in a disconnected state, and must be
@@ -65,13 +65,13 @@ import org.slf4j.LoggerFactory;
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-public class ApnsConnection<T extends ApnsPushNotification> {
+public class PushNotificationConnection<T extends ApnsPushNotification> {
 
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
 	private final NioEventLoopGroup eventLoopGroup;
-	private final ApnsConnectionConfiguration configuration;
-	private final ApnsConnectionListener<T> listener;
+	private final PushNotificationConnectionConfiguration configuration;
+	private final PushNotificationConnectionListener<T> listener;
 
 	private final String name;
 
@@ -99,7 +99,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private static final String PIPELINE_IDLE_STATE_HANDLER = "idleStateHandler";
 	private static final String PIPELINE_GRACEFUL_SHUTDOWN_TIMEOUT_HANDLER = "gracefulShutdownTimeoutHandler";
 
-	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
+	private static final Logger log = LoggerFactory.getLogger(PushNotificationConnection.class);
 
 	public static final int DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY = 8192;
 
@@ -227,9 +227,9 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 	private class ApnsConnectionHandler extends SimpleChannelInboundHandler<RejectedNotification> {
 
-		private final ApnsConnection<T> apnsConnection;
+		private final PushNotificationConnection<T> apnsConnection;
 
-		public ApnsConnectionHandler(final ApnsConnection<T> apnsConnection) {
+		public ApnsConnectionHandler(final PushNotificationConnection<T> apnsConnection) {
 			this.apnsConnection = apnsConnection;
 		}
 
@@ -360,9 +360,9 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * @param listener the listener to which this connection will report lifecycle events; may be {@code null}
 	 * @param name a human-readable name for this connection; names must not be {@code null}
 	 */
-	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext,
-			final NioEventLoopGroup eventLoopGroup, final ApnsConnectionConfiguration configuration,
-			final ApnsConnectionListener<T> listener, final String name) {
+	public PushNotificationConnection(final ApnsEnvironment environment, final SSLContext sslContext,
+			final NioEventLoopGroup eventLoopGroup, final PushNotificationConnectionConfiguration configuration,
+			final PushNotificationConnectionListener<T> listener, final String name) {
 
 		if (environment == null) {
 			throw new NullPointerException("Environment must not be null.");
@@ -402,13 +402,13 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * Asynchronously connects to the APNs gateway in this connection's environment. The outcome of the connection
 	 * attempt is reported via this connection's listener.
 	 *
-	 * @see ApnsConnectionListener#handleConnectionSuccess(ApnsConnection)
-	 * @see ApnsConnectionListener#handleConnectionFailure(ApnsConnection, Throwable)
+	 * @see PushNotificationConnectionListener#handleConnectionSuccess(PushNotificationConnection)
+	 * @see PushNotificationConnectionListener#handleConnectionFailure(PushNotificationConnection, Throwable)
 	 */
 	@SuppressWarnings("deprecation")
 	public synchronized void connect() {
 
-		final ApnsConnection<T> apnsConnection = this;
+		final PushNotificationConnection<T> apnsConnection = this;
 
 		if (this.connectFuture != null) {
 			throw new IllegalStateException(String.format("%s already started a connection attempt.", this.name));
@@ -434,7 +434,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 				pipeline.addLast("ssl", new SslHandler(sslEngine));
 				pipeline.addLast("decoder", new RejectedNotificationDecoder());
 				pipeline.addLast("encoder", new ApnsPushNotificationEncoder());
-				pipeline.addLast(ApnsConnection.PIPELINE_MAIN_HANDLER, new ApnsConnectionHandler(apnsConnection));
+				pipeline.addLast(PushNotificationConnection.PIPELINE_MAIN_HANDLER, new ApnsConnectionHandler(apnsConnection));
 			}
 		});
 
@@ -464,8 +464,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 									}
 
 									if (apnsConnection.configuration.getCloseAfterInactivityTime() != null) {
-										connectFuture.channel().pipeline().addBefore(ApnsConnection.PIPELINE_MAIN_HANDLER,
-												ApnsConnection.PIPELINE_IDLE_STATE_HANDLER,
+										connectFuture.channel().pipeline().addBefore(PushNotificationConnection.PIPELINE_MAIN_HANDLER,
+												PushNotificationConnection.PIPELINE_IDLE_STATE_HANDLER,
 												new IdleStateHandler(0, 0, apnsConnection.configuration.getCloseAfterInactivityTime()));
 									}
 
@@ -507,11 +507,11 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 *
 	 * @param notification the notification to send
 	 *
-	 * @see ApnsConnectionListener#handleWriteFailure(ApnsConnection, ApnsPushNotification, Throwable)
-	 * @see ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason)
+	 * @see PushNotificationConnectionListener#handleWriteFailure(PushNotificationConnection, ApnsPushNotification, Throwable)
+	 * @see PushNotificationConnectionListener#handleRejectedNotification(PushNotificationConnection, ApnsPushNotification, RejectedNotificationReason)
 	 */
 	public synchronized void sendNotification(final T notification) {
-		final ApnsConnection<T> apnsConnection = this;
+		final PushNotificationConnection<T> apnsConnection = this;
 
 		if (!this.handshakeCompleted) {
 			throw new IllegalStateException(String.format("%s has not completed handshake.", this.name));
@@ -586,12 +586,12 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * <p>Waits for all pending write operations to finish. When this method exits normally (i.e. when it does
 	 * not throw an {@code InterruptedException}), All pending writes will have either finished successfully or failed
 	 * and passed to this connection's listener via the
-	 * {@link ApnsConnectionListener#handleWriteFailure(ApnsConnection, ApnsPushNotification, Throwable)} method.</p>
+	 * {@link PushNotificationConnectionListener#handleWriteFailure(PushNotificationConnection, ApnsPushNotification, Throwable)} method.</p>
 	 *
 	 * <p>It is <em>not</em> guaranteed that all write operations will have finished by the time a connection has
 	 * closed. Applications that need to know when all writes have finished should call this method after a connection
 	 * closes, but must not do so in an IO thread (i.e. the thread that called the
-	 * {@link ApnsConnectionListener#handleConnectionClosure(ApnsConnection)} method.</p>
+	 * {@link PushNotificationConnectionListener#handleConnectionClosure(PushNotificationConnection)} method.</p>
 	 *
 	 * @throws InterruptedException if interrupted while waiting for pending read/write operations to finish
 	 */
@@ -616,18 +616,18 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * <p>Calling this method before establishing a connection with the APNs gateway or while a graceful shutdown
 	 * attempt is already in progress has no effect.</p>
 	 *
-	 * @see ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason)
-	 * @see ApnsConnectionListener#handleConnectionClosure(ApnsConnection)
+	 * @see PushNotificationConnectionListener#handleRejectedNotification(PushNotificationConnection, ApnsPushNotification, RejectedNotificationReason)
+	 * @see PushNotificationConnectionListener#handleConnectionClosure(PushNotificationConnection)
 	 */
 	public synchronized void shutdownGracefully() {
 
 		if (this.connectFuture != null && this.connectFuture.channel() != null) {
-			if (this.connectFuture.channel().pipeline().get(ApnsConnection.PIPELINE_IDLE_STATE_HANDLER) != null) {
-				this.connectFuture.channel().pipeline().remove(ApnsConnection.PIPELINE_IDLE_STATE_HANDLER);
+			if (this.connectFuture.channel().pipeline().get(PushNotificationConnection.PIPELINE_IDLE_STATE_HANDLER) != null) {
+				this.connectFuture.channel().pipeline().remove(PushNotificationConnection.PIPELINE_IDLE_STATE_HANDLER);
 			}
 		}
 
-		final ApnsConnection<T> apnsConnection = this;
+		final PushNotificationConnection<T> apnsConnection = this;
 
 		// We only need to send a known-bad notification if we were ever connected in the first place and if we're
 		// still connected.
@@ -695,14 +695,14 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 	/**
 	 * <p>Immediately closes this connection (assuming it was ever open). No guarantees are made with regard to the
-	 * state of sent notifications, and callers should generally prefer {@link ApnsConnection#shutdownGracefully} to
+	 * state of sent notifications, and callers should generally prefer {@link PushNotificationConnection#shutdownGracefully} to
 	 * this method. If the connection was previously open, the connection's listener will be notified of the
 	 * connection's closure. If a connection attempt was in progress, the listener will be notified of a connection
 	 * failure. If the connection was never open, this method has no effect.</p>
 	 *
 	 * <p>Calling this method while not connected has no effect.</p>
 	 *
-	 * @see ApnsConnectionListener#handleConnectionClosure(ApnsConnection)
+	 * @see PushNotificationConnectionListener#handleConnectionClosure(PushNotificationConnection)
 	 */
 	public synchronized void shutdownImmediately() {
 		if (this.connectFuture != null) {
@@ -717,7 +717,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	}
 
 	private Runnable getImmediateShutdownRunnable() {
-		final ApnsConnection<T> apnsConnection = this;
+		final PushNotificationConnection<T> apnsConnection = this;
 
 		return new Runnable() {
 			@Override

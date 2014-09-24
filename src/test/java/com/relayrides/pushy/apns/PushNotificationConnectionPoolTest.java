@@ -35,24 +35,24 @@ import org.junit.Test;
 
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
-public class ApnsConnectionPoolTest {
+public class PushNotificationConnectionPoolTest {
 
 	private static NioEventLoopGroup eventLoopGroup;
 
 	@BeforeClass
 	public static void setUpBeforeClass() {
-		ApnsConnectionPoolTest.eventLoopGroup = new NioEventLoopGroup();
+		PushNotificationConnectionPoolTest.eventLoopGroup = new NioEventLoopGroup();
 	}
 
 	@AfterClass
 	public static void tearDownAfterClass() throws InterruptedException {
-		ApnsConnectionPoolTest.eventLoopGroup.shutdownGracefully().await();
+		PushNotificationConnectionPoolTest.eventLoopGroup.shutdownGracefully().await();
 	}
 
 	@Test
 	public void testAddConnection() {
-		final ApnsConnectionPool<SimpleApnsPushNotification> pool =
-				new ApnsConnectionPool<SimpleApnsPushNotification>();
+		final PushNotificationConnectionPool<SimpleApnsPushNotification> pool =
+				new PushNotificationConnectionPool<SimpleApnsPushNotification>();
 
 		assertEquals(0, pool.getAll().size());
 		pool.addConnection(this.createTestConnection());
@@ -61,12 +61,12 @@ public class ApnsConnectionPoolTest {
 
 	@Test
 	public void testRemoveConnection() {
-		final ApnsConnectionPool<SimpleApnsPushNotification> pool =
-				new ApnsConnectionPool<SimpleApnsPushNotification>();
+		final PushNotificationConnectionPool<SimpleApnsPushNotification> pool =
+				new PushNotificationConnectionPool<SimpleApnsPushNotification>();
 
 		assertEquals(0, pool.getAll().size());
 
-		final ApnsConnection<SimpleApnsPushNotification> testConnection = this.createTestConnection();
+		final PushNotificationConnection<SimpleApnsPushNotification> testConnection = this.createTestConnection();
 		pool.addConnection(testConnection);
 
 		assertEquals(1, pool.getAll().size());
@@ -79,16 +79,16 @@ public class ApnsConnectionPoolTest {
 	public void testGetNextConnection() throws InterruptedException {
 
 		{
-			final ApnsConnectionPool<SimpleApnsPushNotification> pool =
-					new ApnsConnectionPool<SimpleApnsPushNotification>();
+			final PushNotificationConnectionPool<SimpleApnsPushNotification> pool =
+					new PushNotificationConnectionPool<SimpleApnsPushNotification>();
 
-			final ApnsConnection<SimpleApnsPushNotification> firstConnection = this.createTestConnection();
+			final PushNotificationConnection<SimpleApnsPushNotification> firstConnection = this.createTestConnection();
 
 			pool.addConnection(firstConnection);
 
 			assertEquals(firstConnection, pool.getNextConnection());
 
-			final ApnsConnection<SimpleApnsPushNotification> secondConnection = this.createTestConnection();
+			final PushNotificationConnection<SimpleApnsPushNotification> secondConnection = this.createTestConnection();
 			pool.addConnection(secondConnection);
 
 			assertNotEquals(firstConnection, secondConnection);
@@ -97,14 +97,14 @@ public class ApnsConnectionPoolTest {
 		}
 
 		{
-			final ApnsConnectionPool<SimpleApnsPushNotification> pool =
-					new ApnsConnectionPool<SimpleApnsPushNotification>();
+			final PushNotificationConnectionPool<SimpleApnsPushNotification> pool =
+					new PushNotificationConnectionPool<SimpleApnsPushNotification>();
 
 			final Object mutex = new Object();
 
 			final class ConnectionConsumerThread extends Thread {
 
-				private ApnsConnection<SimpleApnsPushNotification> connection;
+				private PushNotificationConnection<SimpleApnsPushNotification> connection;
 
 				@Override
 				public void run() {
@@ -139,11 +139,11 @@ public class ApnsConnectionPoolTest {
 
 	@Test
 	public void testGetAll() {
-		final ApnsConnectionPool<SimpleApnsPushNotification> pool =
-				new ApnsConnectionPool<SimpleApnsPushNotification>();
+		final PushNotificationConnectionPool<SimpleApnsPushNotification> pool =
+				new PushNotificationConnectionPool<SimpleApnsPushNotification>();
 
-		final ApnsConnection<SimpleApnsPushNotification> firstConnection = this.createTestConnection();
-		final ApnsConnection<SimpleApnsPushNotification> secondConnection = this.createTestConnection();
+		final PushNotificationConnection<SimpleApnsPushNotification> firstConnection = this.createTestConnection();
+		final PushNotificationConnection<SimpleApnsPushNotification> secondConnection = this.createTestConnection();
 
 		pool.addConnection(firstConnection);
 		pool.addConnection(secondConnection);
@@ -153,10 +153,10 @@ public class ApnsConnectionPoolTest {
 		assertTrue(pool.getAll().contains(secondConnection));
 	}
 
-	private ApnsConnection<SimpleApnsPushNotification> createTestConnection() {
+	private PushNotificationConnection<SimpleApnsPushNotification> createTestConnection() {
 		try {
-			return new ApnsConnection<SimpleApnsPushNotification>(ApnsEnvironment.getSandboxEnvironment(),
-					SSLContext.getDefault(), ApnsConnectionPoolTest.eventLoopGroup, new ApnsConnectionConfiguration(),
+			return new PushNotificationConnection<SimpleApnsPushNotification>(ApnsEnvironment.getSandboxEnvironment(),
+					SSLContext.getDefault(), PushNotificationConnectionPoolTest.eventLoopGroup, new PushNotificationConnectionConfiguration(),
 					null, "Test connection");
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to create test connection.", e);

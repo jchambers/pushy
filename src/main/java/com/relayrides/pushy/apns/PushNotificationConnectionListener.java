@@ -24,13 +24,13 @@ package com.relayrides.pushy.apns;
 import java.util.Collection;
 
 /**
- * An {@code ApnsConnectionListener} receives lifecycle events from {@link ApnsConnection} instances. Handler methods
+ * An {@code ApnsConnectionListener} receives lifecycle events from {@link PushNotificationConnection} instances. Handler methods
  * are called from IO threads in the connection's event loop, and as such handler method implementations <em>must
  * not</em> perform blocking operations. Blocking operations should be dispatched in separate threads.
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-public interface ApnsConnectionListener<T extends ApnsPushNotification> {
+public interface PushNotificationConnectionListener<T extends ApnsPushNotification> {
 
 	/**
 	 * Indicates that the given connection successfully connected to an APNs gateway and is ready to send push
@@ -38,7 +38,7 @@ public interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	 *
 	 * @param connection the connection that completed its connection attempt
 	 */
-	void handleConnectionSuccess(ApnsConnection<T> connection);
+	void handleConnectionSuccess(PushNotificationConnection<T> connection);
 
 	/**
 	 * Indicates that the given connection attempted to connect to an APNs gateway, but failed.
@@ -46,7 +46,7 @@ public interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	 * @param connection the connection that failed to connect to an APNs gateway
 	 * @param cause the cause of the failure
 	 */
-	void handleConnectionFailure(ApnsConnection<T> connection, Throwable cause);
+	void handleConnectionFailure(PushNotificationConnection<T> connection, Throwable cause);
 
 	/**
 	 * Indicates that the given connection has changed its writability state. Attempts to write to an unwritable
@@ -55,7 +55,7 @@ public interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	 * @param connection the connection whose writability has changed
 	 * @param writable {@code true} if the connection has become writable or {@code false} if it has become unwritable
 	 */
-	void handleConnectionWritabilityChange(ApnsConnection<T> connection, boolean writable);
+	void handleConnectionWritabilityChange(PushNotificationConnection<T> connection, boolean writable);
 
 	/**
 	 * Indicates that the given connection has disconnected from the previously-connected APNs gateway and can no
@@ -65,7 +65,7 @@ public interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	 *
 	 * @param connection the connection that has been disconnected and is no longer active
 	 */
-	void handleConnectionClosure(ApnsConnection<T> connection);
+	void handleConnectionClosure(PushNotificationConnection<T> connection);
 
 	/**
 	 * Indicates that the given connection failed to send a push notification to an APNs gateway. This indicates a
@@ -77,7 +77,7 @@ public interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	 * @param notification the notification that could not be written
 	 * @param cause the cause of the write failure
 	 */
-	void handleWriteFailure(ApnsConnection<T> connection, T notification, Throwable cause);
+	void handleWriteFailure(PushNotificationConnection<T> connection, T notification, Throwable cause);
 
 	/**
 	 * Indicates that a notification sent via the given connection was definitively rejected by the APNs gateway. When
@@ -90,10 +90,10 @@ public interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	 * @param rejectedNotification the notification that was rejected
 	 * @param reason the reason for the rejection
 	 *
-	 * @see ApnsConnectionListener#handleConnectionClosure(ApnsConnection)
-	 * @see ApnsConnectionListener#handleUnprocessedNotifications(ApnsConnection, Collection)
+	 * @see PushNotificationConnectionListener#handleConnectionClosure(PushNotificationConnection)
+	 * @see PushNotificationConnectionListener#handleUnprocessedNotifications(PushNotificationConnection, Collection)
 	 */
-	void handleRejectedNotification(ApnsConnection<T> connection, T rejectedNotification, RejectedNotificationReason reason);
+	void handleRejectedNotification(PushNotificationConnection<T> connection, T rejectedNotification, RejectedNotificationReason reason);
 
 	/**
 	 * Indicates that notifications that had previously been sent to an APNs gateway by the given connection were not
@@ -104,5 +104,5 @@ public interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	 * @param connection the connection that sent the notifications that were not processed
 	 * @param unprocessedNotifications the notifications known to have not been processed by the APNs gateway
 	 */
-	void handleUnprocessedNotifications(ApnsConnection<T> connection, Collection<T> unprocessedNotifications);
+	void handleUnprocessedNotifications(PushNotificationConnection<T> connection, Collection<T> unprocessedNotifications);
 }

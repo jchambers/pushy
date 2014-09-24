@@ -22,13 +22,13 @@
 package com.relayrides.pushy.apns;
 
 /**
- * A set of user-configurable options that affect the behavior of an {@link ApnsConnection}.
+ * A set of user-configurable options that affect the behavior of an {@link PushNotificationConnection}.
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-public class ApnsConnectionConfiguration {
+public class PushNotificationConnectionConfiguration {
 
-	private int sentNotificationBufferCapacity = ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY;
+	private int sentNotificationBufferCapacity = PushNotificationConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY;
 	private Integer closeAfterInactivityTime = null;
 	private Integer gracefulShutdownTimeout = null;
 	private Integer sendAttemptLimit = null;
@@ -36,7 +36,7 @@ public class ApnsConnectionConfiguration {
 	/**
 	 * Creates a new connection configuration object with all options set to their default values.
 	 */
-	public ApnsConnectionConfiguration() {}
+	public PushNotificationConnectionConfiguration() {}
 
 	/**
 	 * Creates a new connection configuration object with all options set to the values in the given connection
@@ -44,7 +44,7 @@ public class ApnsConnectionConfiguration {
 	 *
 	 * @param configuration the configuration object to copy
 	 */
-	public ApnsConnectionConfiguration(final ApnsConnectionConfiguration configuration) {
+	public PushNotificationConnectionConfiguration(final PushNotificationConnectionConfiguration configuration) {
 		this.sentNotificationBufferCapacity = configuration.sentNotificationBufferCapacity;
 		this.closeAfterInactivityTime = configuration.closeAfterInactivityTime;
 		this.gracefulShutdownTimeout = configuration.gracefulShutdownTimeout;
@@ -62,7 +62,7 @@ public class ApnsConnectionConfiguration {
 
 	/**
 	 * Sets the sent notification buffer capacity for connections created with this configuration. The default capacity
-	 * is {@value ApnsConnection#DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY} notifications. While sent notification
+	 * is {@value PushNotificationConnection#DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY} notifications. While sent notification
 	 * buffers may have any positive capacity, it is not recommended that they be given a capacity less than the
 	 * default.
 	 *
@@ -139,7 +139,7 @@ public class ApnsConnectionConfiguration {
 	 * @param sendAttemptLimit the number of notifications the connection may attempt to send before shutting down
 	 * gracefully; if {@code null}, no limit is set
 	 *
-	 * @see ApnsConnectionConfiguration#setSentNotificationBufferCapacity(int)
+	 * @see PushNotificationConnectionConfiguration#setSentNotificationBufferCapacity(int)
 	 */
 	public void setSendAttemptLimit(final Integer sendAttemptLimit) {
 		this.sendAttemptLimit = sendAttemptLimit;
@@ -172,7 +172,7 @@ public class ApnsConnectionConfiguration {
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		final ApnsConnectionConfiguration other = (ApnsConnectionConfiguration) obj;
+		final PushNotificationConnectionConfiguration other = (PushNotificationConnectionConfiguration) obj;
 		if (closeAfterInactivityTime == null) {
 			if (other.closeAfterInactivityTime != null)
 				return false;
