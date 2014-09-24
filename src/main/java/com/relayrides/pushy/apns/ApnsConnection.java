@@ -43,6 +43,8 @@ public abstract class ApnsConnection {
 		this.name = name;
 	}
 
+	protected abstract Bootstrap getBootstrap();
+
 	public synchronized void connect() {
 		if (this.connectFuture != null) {
 			throw new IllegalStateException(String.format("%s already started a connection attempt.", this.name));
@@ -115,6 +117,8 @@ public abstract class ApnsConnection {
 		});
 	}
 
+	protected void handleConnectionCompletion(final Channel channel) {}
+
 	/**
 	 * <p>Immediately closes this connection (assuming it was ever open). If the connection was previously open, the
 	 * connection's listener will be notified of the connection's closure. If a connection attempt was in progress, the
@@ -154,10 +158,6 @@ public abstract class ApnsConnection {
 		};
 	}
 
-	protected void handleConnectionCompletion(final Channel channel) {}
-
-	protected abstract Bootstrap getBootstrap();
-
 	protected boolean shouldCloseOnRegistration() {
 		return this.closeOnRegistration;
 	}
@@ -170,7 +170,9 @@ public abstract class ApnsConnection {
 		return this.channelRegistrationMonitor;
 	}
 
-	public abstract ApnsConnectionListener getListener();
+	protected Channel getChannel() {
+		return this.connectFuture != null ? this.connectFuture.channel() : null;
+	}
 
 	public String getName() {
 		return this.name;
@@ -183,7 +185,5 @@ public abstract class ApnsConnection {
 	protected abstract String getHost();
 	protected abstract int getPort();
 
-	protected Channel getChannel() {
-		return this.connectFuture != null ? this.connectFuture.channel() : null;
-	}
+	public abstract ApnsConnectionListener getListener();
 }
