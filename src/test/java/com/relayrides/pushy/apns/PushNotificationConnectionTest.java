@@ -68,7 +68,7 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		}
 
 		@Override
-		public void handleConnectionSuccess(final PushNotificationConnection<SimpleApnsPushNotification> connection) {
+		public void handleConnectionSuccess(final ApnsConnection connection) {
 			synchronized (this.mutex) {
 				this.connectionSucceeded = true;
 				this.mutex.notifyAll();
@@ -76,7 +76,7 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		}
 
 		@Override
-		public void handleConnectionFailure(final PushNotificationConnection<SimpleApnsPushNotification> connection, final Throwable cause) {
+		public void handleConnectionFailure(final ApnsConnection connection, final Throwable cause) {
 			synchronized (mutex) {
 				this.connectionFailed = true;
 				this.connectionFailureCause = cause;
@@ -85,10 +85,11 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 			}
 		}
 
+		@SuppressWarnings("unchecked")
 		@Override
-		public void handleConnectionClosure(final PushNotificationConnection<SimpleApnsPushNotification> connection) {
+		public void handleConnectionClosure(final ApnsConnection connection) {
 			try {
-				connection.waitForPendingWritesToFinish();
+				((PushNotificationConnection<SimpleApnsPushNotification>) connection).waitForPendingWritesToFinish();
 			} catch (InterruptedException ignored) {
 			}
 

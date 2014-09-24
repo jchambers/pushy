@@ -30,23 +30,7 @@ import java.util.Collection;
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-public interface PushNotificationConnectionListener<T extends ApnsPushNotification> {
-
-	/**
-	 * Indicates that the given connection successfully connected to an APNs gateway and is ready to send push
-	 * notifications.
-	 *
-	 * @param connection the connection that completed its connection attempt
-	 */
-	void handleConnectionSuccess(PushNotificationConnection<T> connection);
-
-	/**
-	 * Indicates that the given connection attempted to connect to an APNs gateway, but failed.
-	 *
-	 * @param connection the connection that failed to connect to an APNs gateway
-	 * @param cause the cause of the failure
-	 */
-	void handleConnectionFailure(PushNotificationConnection<T> connection, Throwable cause);
+public interface PushNotificationConnectionListener<T extends ApnsPushNotification> extends ApnsConnectionListener {
 
 	/**
 	 * Indicates that the given connection has changed its writability state. Attempts to write to an unwritable
@@ -56,16 +40,6 @@ public interface PushNotificationConnectionListener<T extends ApnsPushNotificati
 	 * @param writable {@code true} if the connection has become writable or {@code false} if it has become unwritable
 	 */
 	void handleConnectionWritabilityChange(PushNotificationConnection<T> connection, boolean writable);
-
-	/**
-	 * Indicates that the given connection has disconnected from the previously-connected APNs gateway and can no
-	 * longer send push notifications. This may happen either when the connection is closed locally or when the APNs
-	 * gateway closes the connection remotely. This method will only be called if the connection had previously
-	 * succeeded and completed a TLS handshake.
-	 *
-	 * @param connection the connection that has been disconnected and is no longer active
-	 */
-	void handleConnectionClosure(PushNotificationConnection<T> connection);
 
 	/**
 	 * Indicates that the given connection failed to send a push notification to an APNs gateway. This indicates a

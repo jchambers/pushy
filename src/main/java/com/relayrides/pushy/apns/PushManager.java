@@ -688,15 +688,18 @@ public class PushManager<T extends ApnsPushNotification> implements PushNotifica
 	 * (non-Javadoc)
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionSuccess(com.relayrides.pushy.apns.ApnsConnection)
 	 */
+	@SuppressWarnings("unchecked")
 	@Override
-	public void handleConnectionSuccess(final PushNotificationConnection<T> connection) {
+	public void handleConnectionSuccess(final ApnsConnection connection) {
 		log.trace("Connection succeeded: {}", connection);
 
-		if (this.dispatchThreadShouldContinue) {
-			this.writableConnectionPool.addConnection(connection);
-		} else {
-			// There's no dispatch thread to use this connection, so shut it down immediately
-			connection.shutdownImmediately();
+		if (connection instanceof PushNotificationConnection) {
+			if (this.dispatchThreadShouldContinue) {
+				this.writableConnectionPool.addConnection((PushNotificationConnection<T>)connection);
+			} else {
+				// There's no dispatch thread to use this connection, so shut it down immediately
+				connection.shutdownImmediately();
+			}
 		}
 	}
 
@@ -704,31 +707,33 @@ public class PushManager<T extends ApnsPushNotification> implements PushNotifica
 	 * (non-Javadoc)
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionFailure(com.relayrides.pushy.apns.ApnsConnection, java.lang.Throwable)
 	 */
+	@SuppressWarnings("unchecked")
 	@Override
-	public void handleConnectionFailure(final PushNotificationConnection<T> connection, final Throwable cause) {
-
+	public void handleConnectionFailure(final ApnsConnection connection, final Throwable cause) {
 		log.trace("Connection failed: {}", connection, cause);
 
-		this.removeActiveConnection(connection);
+		if (connection instanceof PushNotificationConnection) {
+			this.removeActiveConnection((PushNotificationConnection<T>) connection);
 
-		synchronized (this.failedConnectionListeners) {
-			final PushManager<T> pushManager = this;
+			synchronized (this.failedConnectionListeners) {
+				final PushManager<T> pushManager = this;
 
-			for (final FailedConnectionListener<? super T> listener : this.failedConnectionListeners) {
+				for (final FailedConnectionListener<? super T> listener : this.failedConnectionListeners) {
 
-				// Handle connection failures in a separate thread in case a handler takes a long time to run
-				this.listenerExecutorService.submit(new Runnable() {
-					@Override
-					public void run() {
-						listener.handleFailedConnection(pushManager, cause);
-					}
-				});
+					// Handle connection failures in a separate thread in case a handler takes a long time to run
+					this.listenerExecutorService.submit(new Runnable() {
+						@Override
+						public void run() {
+							listener.handleFailedConnection(pushManager, cause);
+						}
+					});
+				}
 			}
-		}
 
-		// As long as we're not shut down, try to open a replacement connection.
-		if (this.shouldReplaceClosedConnection()) {
-			this.startNewConnection();
+			// As long as we're not shut down, try to open a replacement connection.
+			if (this.shouldReplaceClosedConnection()) {
+				this.startNewConnection();
+			}
 		}
 	}
 
@@ -754,32 +759,36 @@ public class PushManager<T extends ApnsPushNotification> implements PushNotifica
 	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionClosure(com.relayrides.pushy.apns.ApnsConnection)
 	 */
 	@Override
-	public void handleConnectionClosure(final PushNotificationConnection<T> connection) {
-
+	public void handleConnectionClosure(final ApnsConnection connection) {
 		log.trace("Connection closed: {}", connection);
 
-		this.writableConnectionPool.removeConnection(connection);
-		this.dispatchThread.interrupt();
+		if (connection instanceof PushNotificationConnection) {
+			@SuppressWarnings("unchecked")
+			final PushNotificationConnection<T> pushNotificationConnection = (PushNotificationConnection<T>) connection;
 
-		final PushManager<T> pushManager = this;
+			this.writableConnectionPool.removeConnection(pushNotificationConnection);
+			this.dispatchThread.interrupt();
 
-		this.listenerExecutorService.execute(new Runnable() {
-			@Override
-			public void run() {
-				try {
-					connection.waitForPendingWritesToFinish();
+			final PushManager<T> pushManager = this;
 
-					if (pushManager.shouldReplaceClosedConnection()) {
-						pushManager.startNewConnection();
+			this.listenerExecutorService.execute(new Runnable() {
+				@Override
+				public void run() {
+					try {
+						pushNotificationConnection.waitForPendingWritesToFinish();
+
+						if (pushManager.shouldReplaceClosedConnection()) {
+							pushManager.startNewConnection();
+						}
+
+						removeActiveConnection(pushNotificationConnection);
+					} catch (InterruptedException e) {
+						log.warn("{} interrupted while waiting for closed connection's pending operations to finish.",
+								pushManager.name);
 					}
-
-					removeActiveConnection(connection);
-				} catch (InterruptedException e) {
-					log.warn("{} interrupted while waiting for closed connection's pending operations to finish.",
-							pushManager.name);
 				}
-			}
-		});
+			});
+		}
 	}
 
 	/*
