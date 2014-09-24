@@ -49,7 +49,7 @@ public class FeedbackServiceConnectionTest extends BasePushyTest {
 		}
 
 		@Override
-		public void handleConnectionSuccess(final FeedbackServiceConnection connection) {
+		public void handleConnectionSuccess(final ApnsConnection connection) {
 			synchronized (this.mutex) {
 				this.connectionSucceeded = true;
 				this.mutex.notifyAll();
@@ -57,7 +57,7 @@ public class FeedbackServiceConnectionTest extends BasePushyTest {
 		}
 
 		@Override
-		public void handleConnectionFailure(final FeedbackServiceConnection connection, final Throwable cause) {
+		public void handleConnectionFailure(final ApnsConnection connection, final Throwable cause) {
 			synchronized (this.mutex) {
 				this.connectionFailed = true;
 				this.connectionFailureCause = cause;
@@ -72,7 +72,7 @@ public class FeedbackServiceConnectionTest extends BasePushyTest {
 		}
 
 		@Override
-		public void handleConnectionClosure(final FeedbackServiceConnection connection) {
+		public void handleConnectionClosure(final ApnsConnection connection) {
 			synchronized (this.mutex) {
 				this.connectionClosed = true;
 				this.mutex.notifyAll();

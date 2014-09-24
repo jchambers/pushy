@@ -215,8 +215,7 @@ class FeedbackServiceConnection extends ApnsConnection {
 
 	@Override
 	public ApnsConnectionListener getListener() {
-		// TODO Auto-generated method stub
-		return null;
+		return this.listener;
 	}
 
 	@Override
