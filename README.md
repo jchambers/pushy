@@ -133,13 +133,27 @@ Like `RejectedNotificationListeners`, `FailedConnectionListeners` can be registe
 
 Apple also provides a "feedback service" as part of APNs. The feedback service reports which tokens are no longer valid because the end user uninstalled the receiving app. Apple requires push notification providers to poll for expired tokens on a daily basis. See ["The Feedback Service"](http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW3) for additional details from Apple.
 
-To get expired device tokens with Pushy:
+To get expired device tokens with Pushy, you'll need to register an `ExpiredTokenListener` with your `PushManager`, then call the `requestExpiredTokens` method. For example:
 
 ```java
-for (final ExpiredToken expiredToken : pushManager.getExpiredTokens()) {
-    // Stop sending push notifications to each expired token if the expiration
-    // time is after the last time the app registered that token.
+private class MyExpiredTokenListener implements ExpiredTokenListener {
+
+	@Override
+	public void handleExpiredTokens(
+			final PushManager<? extends SimpleApnsPushNotification> pushManager,
+			final Collection<ExpiredToken> tokens) {
+
+		for (final ExpiredToken expiredToken : pushManager.getExpiredTokens()) {
+		    // Stop sending push notifications to each expired token if the expiration
+		    // time is after the last time the app registered that token.
+		}
+	}
 }
+
+// ...
+
+pushManager.registerExpiredTokenListener(new MyExpiredTokenListener());
+pushManager.requestExpiredTokens();
 ```
 
 ## Logging
