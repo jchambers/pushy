@@ -26,7 +26,7 @@ package com.relayrides.pushy.apns;
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-public class PushNotificationConnectionConfiguration {
+public class PushNotificationConnectionConfiguration extends ApnsConnectionConfiguration {
 
 	private int sentNotificationBufferCapacity = PushNotificationConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY;
 	private Integer closeAfterInactivityTime = null;

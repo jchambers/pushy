@@ -1,12 +1,8 @@
 package com.relayrides.pushy.apns;
 
 import io.netty.bootstrap.Bootstrap;
-import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
@@ -16,7 +12,6 @@ import org.slf4j.LoggerFactory;
 
 public abstract class ApnsConnection {
 	private final ApnsEnvironment environment;
-	private final NioEventLoopGroup eventLoopGroup;
 	private final ApnsConnectionConfiguration configuration;
 
 	private final String name;
@@ -28,15 +23,11 @@ public abstract class ApnsConnection {
 
 	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
 
-	public ApnsConnection(final ApnsEnvironment environment, final NioEventLoopGroup eventLoopGroup,
-			final ApnsConnectionConfiguration configuration, final String name) {
+	public ApnsConnection(final ApnsEnvironment environment, final ApnsConnectionConfiguration configuration,
+			final String name) {
 
 		if (environment == null) {
 			throw new NullPointerException("Environment must not be null.");
-		}
-
-		if (eventLoopGroup == null) {
-			throw new NullPointerException("Event loop group must not be null.");
 		}
 
 		if (configuration == null) {
@@ -48,7 +39,6 @@ public abstract class ApnsConnection {
 		}
 
 		this.environment = environment;
-		this.eventLoopGroup = eventLoopGroup;
 		this.configuration = configuration;
 		this.name = name;
 	}
@@ -61,7 +51,7 @@ public abstract class ApnsConnection {
 		final ApnsConnection apnsConnection = this;
 
 		log.debug("{} beginning connection process.", apnsConnection.name);
-		this.connectFuture = this.getBootstrap().connect(this.environment.getApnsGatewayHost(), this.environment.getApnsGatewayPort());
+		this.connectFuture = this.getBootstrap().connect(this.getHost(), this.getPort());
 		this.connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
 
 			@Override
@@ -166,14 +156,7 @@ public abstract class ApnsConnection {
 
 	protected void handleConnectionCompletion(final Channel channel) {}
 
-	protected Bootstrap getBootstrap() {
-		final Bootstrap bootstrap = new Bootstrap();
-		bootstrap.group(this.eventLoopGroup);
-		bootstrap.channel(NioSocketChannel.class);
-		bootstrap.option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
-
-		return bootstrap;
-	}
+	protected abstract Bootstrap getBootstrap();
 
 	protected boolean shouldCloseOnRegistration() {
 		return this.closeOnRegistration;
@@ -191,5 +174,16 @@ public abstract class ApnsConnection {
 
 	public String getName() {
 		return this.name;
+	}
+
+	public ApnsEnvironment getEnvironment() {
+		return this.environment;
+	}
+
+	protected abstract String getHost();
+	protected abstract int getPort();
+
+	protected Channel getChannel() {
+		return this.connectFuture != null ? this.connectFuture.channel() : null;
 	}
 }
