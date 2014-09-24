@@ -138,7 +138,7 @@ public abstract class ApnsConnection {
 		}
 	}
 
-	private Runnable getImmediateShutdownRunnable() {
+	protected Runnable getImmediateShutdownRunnable() {
 		final ApnsConnection apnsConnection = this;
 
 		return new Runnable() {
@@ -166,6 +166,22 @@ public abstract class ApnsConnection {
 		bootstrap.option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
 
 		return bootstrap;
+	}
+
+	protected boolean shouldCloseOnRegistration() {
+		return this.closeOnRegistration;
+	}
+
+	protected boolean hasCompletedHandshake() {
+		return this.handshakeCompleted;
+	}
+
+	protected Object getChannelRegistrationMonitor() {
+		return this.channelRegistrationMonitor;
+	}
+
+	public ApnsConnectionListener getListener() {
+		return this.listener;
 	}
 
 	public String getName() {
