@@ -534,18 +534,56 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		return this.retryQueue;
 	}
 
+	/**
+	 * Registers a listener for expired tokens received from the feedback service. Expired tokens will be passed to
+	 * registered listeners some time after a call to {@link PushManager#requestExpiredTokens()}.
+	 *
+	 * @param listener the listener to register
+	 *
+	 * @throws IllegalStateException if this push manager has already been shut down
+	 *
+	 * @see PushManager#unregisterExpiredTokenListener(ExpiredTokenListener)
+	 * @see PushManager#requestExpiredTokens()
+	 */
 	public void registerExpiredTokenListener(final ExpiredTokenListener listener) {
+		if (this.isShutDown()) {
+			throw new IllegalStateException("Expired token listeners may not be registered after a push manager has been shut down.");
+		}
+
 		synchronized (this.expiredTokenListeners) {
 			this.expiredTokenListeners.add(listener);
 		}
 	}
 
-	public void unregisterExpiredTokenListener(final ExpiredTokenListener listener) {
+	/**
+	 * <p>Un-registers an expired token listener.</p>
+	 *
+	 * @param listener the listener to un-register
+	 *
+	 * @return {@code true} if the given listener was registered with this push manager and removed or {@code false} if
+	 * the listener was not already registered with this push manager
+	 */
+	public boolean unregisterExpiredTokenListener(final ExpiredTokenListener listener) {
 		synchronized (this.expiredTokenListeners) {
-			this.expiredTokenListeners.remove(listener);
+			return this.expiredTokenListeners.remove(listener);
 		}
 	}
 
+	/**
+	 * <p>Begins an asynchronous attempt to get a list of expired tokens from the feedback service. Be warned that this
+	 * is a <strong>destructive operation</strong>. According to Apple's documentation:</p>
+	 *
+	 * <blockquote>The feedback service’s list is cleared after you read it. Each time you connect to the feedback
+	 * service, the information it returns lists only the failures that have happened since you last
+	 * connected.</blockquote>
+	 *
+	 * <p>When a list of expired tokens has been gathered, registered expired token listeners will be notified
+	 * (see {@link PushManager#registerExpiredTokenListener(ExpiredTokenListener)}). If a feedback polling attempt
+	 * fails, registered failed conenction listeners will be notified.</p>
+	 *
+	 * @see PushManager#registerExpiredTokenListener(ExpiredTokenListener)
+	 * @see PushManager#registerFailedConnectionListener(FailedConnectionListener)
+	 */
 	public synchronized void requestExpiredTokens() {
 		if (!this.isStarted()) {
 			throw new IllegalStateException("Push manager has not been started yet.");
@@ -570,11 +608,19 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see com.relayrides.pushy.apns.FeedbackServiceListener#handleConnectionSuccess(com.relayrides.pushy.apns.FeedbackServiceConnection)
+	 */
 	@Override
 	public void handleConnectionSuccess(final FeedbackServiceConnection connection) {
 		log.trace("Feedback connection succeeded: {}", connection);
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see com.relayrides.pushy.apns.FeedbackServiceListener#handleConnectionFailure(com.relayrides.pushy.apns.FeedbackServiceConnection, java.lang.Throwable)
+	 */
 	@Override
 	public void handleConnectionFailure(final FeedbackServiceConnection connection, final Throwable cause) {
 		log.trace("Feedback connection failed: {}", connection, cause);
@@ -599,12 +645,20 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see com.relayrides.pushy.apns.FeedbackServiceListener#handleExpiredToken(com.relayrides.pushy.apns.FeedbackServiceConnection, com.relayrides.pushy.apns.ExpiredToken)
+	 */
 	@Override
 	public void handleExpiredToken(final FeedbackServiceConnection connection, final ExpiredToken token) {
 		log.trace("Received expired token {} from feedback connection {}.", token, connection);
 		this.expiredTokens.add(token);
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see com.relayrides.pushy.apns.FeedbackServiceListener#handleConnectionClosure(com.relayrides.pushy.apns.FeedbackServiceConnection)
+	 */
 	@Override
 	public void handleConnectionClosure(final FeedbackServiceConnection connection) {
 		log.trace("Feedback connection closed: {}", connection);
