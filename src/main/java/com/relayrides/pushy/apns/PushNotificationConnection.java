@@ -550,8 +550,7 @@ public class PushNotificationConnection<T extends ApnsPushNotification> extends 
 
 	@Override
 	public ApnsConnectionListener getListener() {
-		// TODO Auto-generated method stub
-		return null;
+		return this.listener;
 	}
 
 	@Override
