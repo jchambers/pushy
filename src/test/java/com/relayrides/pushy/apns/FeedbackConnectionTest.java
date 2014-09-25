@@ -26,11 +26,21 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.Date;
 
+import javax.net.ssl.SSLContext;
+
 import org.junit.Test;
 
-public class FeedbackConnectionTest extends BasePushyTest {
+public class FeedbackConnectionTest extends ApnsConnectionTest {
 
 	private static final String TEST_CONNETION_NAME = "TestFeedbackConnection";
+
+	@Override
+	public FeedbackConnection getTestConnection(final ApnsEnvironment environment, final SSLContext sslContext,
+			final TestConnectionListener listener) {
+
+		return new FeedbackConnection(environment, sslContext, this.getEventLoopGroup(),
+				new FeedbackConnectionConfiguration(), listener, TEST_CONNETION_NAME);
+	}
 
 	@Test
 	public void testGetExpiredTokens() throws Exception {
@@ -38,9 +48,9 @@ public class FeedbackConnectionTest extends BasePushyTest {
 
 		final TestConnectionListener listener = new TestConnectionListener(mutex);
 
-		final FeedbackConnection feedbackConnection =
-				new FeedbackConnection(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
-						this.getEventLoopGroup(), new FeedbackConnectionConfiguration(), listener, TEST_CONNETION_NAME);
+
+		final FeedbackConnection feedbackConnection = this.getTestConnection(TEST_ENVIRONMENT,
+				SSLTestUtil.createSSLContextForTestClient(), listener);
 
 		assertTrue(listener.getExpiredTokens().isEmpty());
 
