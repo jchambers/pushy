@@ -25,6 +25,7 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
@@ -200,6 +201,7 @@ class FeedbackConnection extends ApnsConnection {
 		final Bootstrap bootstrap = new Bootstrap();
 		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioSocketChannel.class);
+		bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, this.configuration.getConnectTimeout() * 1000);
 
 		final FeedbackConnection feedbackConnection = this;
 		bootstrap.handler(new ChannelInitializer<SocketChannel>() {
