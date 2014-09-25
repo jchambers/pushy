@@ -42,12 +42,47 @@ public class FeedbackConnectionTest extends ApnsConnectionTest {
 				new FeedbackConnectionConfiguration(), listener, TEST_CONNETION_NAME);
 	}
 
+	@Test(expected = NullPointerException.class)
+	public void testFeedbackConnectionNullEnvironment() throws Exception {
+		new FeedbackConnection(null, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
+				new FeedbackConnectionConfiguration(), new TestConnectionListener(new Object()), TEST_CONNETION_NAME);
+	}
+
+	@Test(expected = NullPointerException.class)
+	public void testFeedbackConnectionNullSslContext() throws Exception {
+		new FeedbackConnection(TEST_ENVIRONMENT, null, this.getEventLoopGroup(),
+				new FeedbackConnectionConfiguration(), new TestConnectionListener(new Object()), TEST_CONNETION_NAME);
+	}
+
+	@Test(expected = NullPointerException.class)
+	public void testFeedbackConnectionNullEventLoopGroup() throws Exception {
+		new FeedbackConnection(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), null,
+				new FeedbackConnectionConfiguration(), new TestConnectionListener(new Object()), TEST_CONNETION_NAME);
+	}
+
+	@Test(expected = NullPointerException.class)
+	public void testFeedbackConnectionNullConfiguration() throws Exception {
+		new FeedbackConnection(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
+				null, new TestConnectionListener(new Object()), TEST_CONNETION_NAME);
+	}
+
+	@Test(expected = NullPointerException.class)
+	public void testFeedbackConnectionNullListener() throws Exception {
+		new FeedbackConnection(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
+				new FeedbackConnectionConfiguration(), null, TEST_CONNETION_NAME);
+	}
+
+	@Test(expected = NullPointerException.class)
+	public void testFeedbackConnectionNullName() throws Exception {
+		new FeedbackConnection(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
+				new FeedbackConnectionConfiguration(), new TestConnectionListener(new Object()), null);
+	}
+
 	@Test
 	public void testGetExpiredTokens() throws Exception {
 		final Object mutex = new Object();
 
 		final TestConnectionListener listener = new TestConnectionListener(mutex);
-
 
 		final FeedbackConnection feedbackConnection = this.getTestConnection(TEST_ENVIRONMENT,
 				SSLTestUtil.createSSLContextForTestClient(), listener);

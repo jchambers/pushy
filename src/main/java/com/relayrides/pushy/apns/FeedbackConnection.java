@@ -176,6 +176,10 @@ class FeedbackConnection extends ApnsConnection {
 			throw new NullPointerException("Event loop group must not be null.");
 		}
 
+		if (listener == null) {
+			throw new NullPointerException("Feedback connection listener must not be null.");
+		}
+
 		this.sslContext = sslContext;
 		this.eventLoopGroup = eventLoopGroup;
 		this.configuration = configuration;

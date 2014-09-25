@@ -36,7 +36,7 @@ public abstract class ApnsConnectionTest extends BasePushyTest {
 	public void testDoubleConnect() throws Exception {
 
 		final ApnsConnection apnsConnection = this.getTestConnection(TEST_ENVIRONMENT,
-				SSLTestUtil.createSSLContextForTestClient(), null);
+				SSLTestUtil.createSSLContextForTestClient(), new TestConnectionListener(new Object()));
 
 		apnsConnection.connect();
 		apnsConnection.connect();
