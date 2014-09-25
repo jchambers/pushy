@@ -6,7 +6,7 @@ import java.util.List;
 
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
-class TestConnectionListener implements FeedbackConnectionListener, PushNotificationConnectionListener<SimpleApnsPushNotification> {
+public class TestConnectionListener implements FeedbackConnectionListener, PushNotificationConnectionListener<SimpleApnsPushNotification> {
 
 	private final Object mutex;
 
