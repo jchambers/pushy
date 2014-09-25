@@ -53,37 +53,37 @@ public class PushNotificationConnectionTest extends ApnsConnectionTest {
 	}
 
 	@Test
-	public void testApnsConnectionNullListener() throws Exception {
+	public void testPushNotificationConnectionNullListener() throws Exception {
 		new PushNotificationConnection<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
 				this.getEventLoopGroup(), new PushNotificationConnectionConfiguration(), null, TEST_CONNECTION_NAME);
 	}
 
 	@Test(expected = NullPointerException.class)
-	public void testApnsConnectionNullEnvironment() throws Exception {
+	public void testPushNotificationConnectionNullEnvironment() throws Exception {
 		new PushNotificationConnection<ApnsPushNotification>(null, SSLTestUtil.createSSLContextForTestClient(),
 				this.getEventLoopGroup(), new PushNotificationConnectionConfiguration(), null, TEST_CONNECTION_NAME);
 	}
 
 	@Test(expected = NullPointerException.class)
-	public void testApnsConnectionNullSslContext() throws Exception {
+	public void testPushNotificationConnectionNullSslContext() throws Exception {
 		new PushNotificationConnection<ApnsPushNotification>(TEST_ENVIRONMENT, null, this.getEventLoopGroup(),
 				new PushNotificationConnectionConfiguration(), null, TEST_CONNECTION_NAME);
 	}
 
 	@Test(expected = NullPointerException.class)
-	public void testApnsConnectionNullEventLoopGroup() throws Exception {
+	public void testPushNotificationConnectionNullEventLoopGroup() throws Exception {
 		new PushNotificationConnection<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
 				null, new PushNotificationConnectionConfiguration(), null, TEST_CONNECTION_NAME);
 	}
 
 	@Test(expected = NullPointerException.class)
-	public void testApnsConnectionNullConfiguration() throws Exception {
+	public void testPushNotificationConnectionNullConfiguration() throws Exception {
 		new PushNotificationConnection<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
 				this.getEventLoopGroup(), null, null, TEST_CONNECTION_NAME);
 	}
 
 	@Test(expected = NullPointerException.class)
-	public void testApnsConnectionNullName() throws Exception {
+	public void testPushNotificationConnectionNullName() throws Exception {
 		new PushNotificationConnection<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
 				this.getEventLoopGroup(), new PushNotificationConnectionConfiguration(), null, null);
 	}
