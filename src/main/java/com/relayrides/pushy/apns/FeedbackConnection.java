@@ -211,7 +211,10 @@ class FeedbackConnection extends ApnsConnection {
 				final SSLEngine sslEngine = feedbackConnection.sslContext.createSSLEngine();
 				sslEngine.setUseClientMode(true);
 
-				pipeline.addLast("ssl", new SslHandler(sslEngine));
+				final SslHandler sslHandler = new SslHandler(sslEngine);
+				sslHandler.setHandshakeTimeoutMillis(feedbackConnection.configuration.getSslHandshakeTimeout() * 1000);
+
+				pipeline.addLast("ssl", sslHandler);
 				pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(feedbackConnection.configuration.getReadTimeout()));
 				pipeline.addLast("decoder", new ExpiredTokenDecoder());
 				pipeline.addLast("handler", new FeedbackClientHandler(feedbackConnection));
