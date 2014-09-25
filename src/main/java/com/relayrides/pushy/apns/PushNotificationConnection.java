@@ -329,14 +329,18 @@ public class PushNotificationConnection<T extends ApnsPushNotification> extends 
 			final NioEventLoopGroup eventLoopGroup, final PushNotificationConnectionConfiguration configuration,
 			final PushNotificationConnectionListener<T> listener, final String name) {
 
-		super(environment, configuration, name);
+		super(environment, name);
+
+		if (sslContext == null) {
+			throw new NullPointerException("SSL context must not be null.");
+		}
 
 		if (eventLoopGroup == null) {
 			throw new NullPointerException("Event loop group must not be null.");
 		}
 
-		if (sslContext == null) {
-			throw new NullPointerException("SSL context must not be null.");
+		if (configuration == null) {
+			throw new NullPointerException("Connection configuration must not be null.");
 		}
 
 		this.sslContext = sslContext;

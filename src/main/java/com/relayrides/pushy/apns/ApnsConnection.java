@@ -12,7 +12,6 @@ import org.slf4j.LoggerFactory;
 
 public abstract class ApnsConnection {
 	private final ApnsEnvironment environment;
-	private final ApnsConnectionConfiguration configuration;
 
 	private final String name;
 
@@ -23,23 +22,18 @@ public abstract class ApnsConnection {
 
 	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
 
-	public ApnsConnection(final ApnsEnvironment environment, final ApnsConnectionConfiguration configuration,
-			final String name) {
+	public ApnsConnection(final ApnsEnvironment environment, final String name) {
 
 		if (environment == null) {
 			throw new NullPointerException("Environment must not be null.");
 		}
 
-		if (configuration == null) {
-			throw new NullPointerException("Connection configuration must not be null.");
-		}
 
 		if (name == null) {
 			throw new NullPointerException("Connection name must not be null.");
 		}
 
 		this.environment = environment;
-		this.configuration = configuration;
 		this.name = name;
 	}
 

@@ -166,7 +166,7 @@ class FeedbackConnection extends ApnsConnection {
 			final NioEventLoopGroup eventLoopGroup, final FeedbackConnectionConfiguration configuration,
 			final FeedbackConnectionListener listener, final String name) {
 
-		super(environment, configuration, name);
+		super(environment, name);
 
 		if (sslContext == null) {
 			throw new NullPointerException("SSL context must not be null.");
@@ -174,6 +174,10 @@ class FeedbackConnection extends ApnsConnection {
 
 		if (eventLoopGroup == null) {
 			throw new NullPointerException("Event loop group must not be null.");
+		}
+
+		if (configuration == null) {
+			throw new NullPointerException("Connection configuration must not be null.");
 		}
 
 		if (listener == null) {
