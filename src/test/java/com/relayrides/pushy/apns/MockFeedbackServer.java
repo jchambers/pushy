@@ -40,6 +40,9 @@ import io.netty.util.concurrent.GenericFutureListener;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class MockFeedbackServer {
 
 	private final int port;
@@ -50,6 +53,8 @@ public class MockFeedbackServer {
 	private volatile boolean closeWhenDone = false;
 
 	private Channel channel;
+
+	private static final Logger log = LoggerFactory.getLogger(MockFeedbackServer.class);
 
 	private class ExpiredTokenEncoder extends MessageToByteEncoder<ExpiredToken> {
 
@@ -74,6 +79,7 @@ public class MockFeedbackServer {
 
 			context.pipeline().get(SslHandler.class).handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
 
+				@Override
 				public void operationComplete(final Future<Channel> future) {
 					if (future.isSuccess()) {
 						final List<ExpiredToken> expiredTokens = feedbackServer.getAndClearAllExpiredTokens();
@@ -94,10 +100,17 @@ public class MockFeedbackServer {
 
 						context.flush();
 					} else {
-						throw new RuntimeException("Failed to complete TLS handshake.", future.cause());
+						log.debug("Failed to complete TLS handshake.", future.cause());
+						context.close();
 					}
 				}
 			});
+		}
+
+		@Override
+		public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
+			log.debug("Mock feedback server caught an exception and will close its connection.", cause);
+			context.close();
 		}
 	}
 
