@@ -24,60 +24,11 @@ package com.relayrides.pushy.apns;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import java.util.ArrayList;
 import java.util.Date;
 
 import org.junit.Test;
 
 public class FeedbackConnectionTest extends BasePushyTest {
-
-	private class TestListener implements FeedbackConnectionListener {
-
-		private final Object mutex;
-
-		private boolean connectionSucceeded = false;
-		private boolean connectionFailed = false;
-		private boolean connectionClosed = false;
-
-		private Throwable connectionFailureCause;
-
-		private final ArrayList<ExpiredToken> expiredTokens = new ArrayList<ExpiredToken>();
-
-		public TestListener(final Object mutex) {
-			this.mutex = mutex;
-		}
-
-		@Override
-		public void handleConnectionSuccess(final ApnsConnection connection) {
-			synchronized (this.mutex) {
-				this.connectionSucceeded = true;
-				this.mutex.notifyAll();
-			}
-		}
-
-		@Override
-		public void handleConnectionFailure(final ApnsConnection connection, final Throwable cause) {
-			synchronized (this.mutex) {
-				this.connectionFailed = true;
-				this.connectionFailureCause = cause;
-
-				this.mutex.notifyAll();
-			}
-		}
-
-		@Override
-		public void handleExpiredToken(final FeedbackConnection connection, final ExpiredToken token) {
-			this.expiredTokens.add(token);
-		}
-
-		@Override
-		public void handleConnectionClosure(final ApnsConnection connection) {
-			synchronized (this.mutex) {
-				this.connectionClosed = true;
-				this.mutex.notifyAll();
-			}
-		}
-	}
 
 	private static final String TEST_CONNETION_NAME = "TestFeedbackConnection";
 
@@ -85,13 +36,13 @@ public class FeedbackConnectionTest extends BasePushyTest {
 	public void testGetExpiredTokens() throws Exception {
 		final Object mutex = new Object();
 
-		final TestListener listener = new TestListener(mutex);
+		final TestConnectionListener listener = new TestConnectionListener(mutex);
 
 		final FeedbackConnection feedbackConnection =
 				new FeedbackConnection(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
 						this.getEventLoopGroup(), new FeedbackConnectionConfiguration(), listener, TEST_CONNETION_NAME);
 
-		assertTrue(listener.expiredTokens.isEmpty());
+		assertTrue(listener.getExpiredTokens().isEmpty());
 
 		// Dates will have some loss of precision since APNS only deals with SECONDS since the epoch; we choose
 		// timestamps that just happen to be on full seconds.
@@ -104,22 +55,22 @@ public class FeedbackConnectionTest extends BasePushyTest {
 		synchronized (mutex) {
 			feedbackConnection.connect();
 
-			while (!listener.connectionSucceeded) {
+			while (!listener.hasConnectionSucceeded()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionSucceeded);
+		assertTrue(listener.hasConnectionSucceeded());
 
 		synchronized (mutex) {
-			while (!listener.connectionClosed) {
+			while (!listener.hasConnectionClosed()) {
 				mutex.wait();
 			}
 		}
 
-		assertEquals(2, listener.expiredTokens.size());
-		assertTrue(listener.expiredTokens.contains(firstToken));
-		assertTrue(listener.expiredTokens.contains(secondToken));
+		assertEquals(2, listener.getExpiredTokens().size());
+		assertTrue(listener.getExpiredTokens().contains(firstToken));
+		assertTrue(listener.getExpiredTokens().contains(secondToken));
 	}
 
 	@Test

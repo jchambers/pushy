@@ -31,8 +31,6 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 
@@ -45,86 +43,6 @@ import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 public class PushNotificationConnectionTest extends BasePushyTest {
 
 	private static final String TEST_CONNECTION_NAME = "Test connection";
-
-	private class TestListener implements PushNotificationConnectionListener<SimpleApnsPushNotification> {
-
-		private final Object mutex;
-
-		private boolean connectionSucceeded = false;
-		private boolean connectionFailed = false;
-		private boolean connectionClosed = false;
-
-		private Throwable connectionFailureCause;
-
-		private final ArrayList<SimpleApnsPushNotification> writeFailures = new ArrayList<SimpleApnsPushNotification>();
-
-		private SimpleApnsPushNotification rejectedNotification;
-		private RejectedNotificationReason rejectionReason;
-
-		private final ArrayList<SimpleApnsPushNotification> unprocessedNotifications = new ArrayList<SimpleApnsPushNotification>();
-
-		public TestListener(final Object mutex) {
-			this.mutex = mutex;
-		}
-
-		@Override
-		public void handleConnectionSuccess(final ApnsConnection connection) {
-			synchronized (this.mutex) {
-				this.connectionSucceeded = true;
-				this.mutex.notifyAll();
-			}
-		}
-
-		@Override
-		public void handleConnectionFailure(final ApnsConnection connection, final Throwable cause) {
-			synchronized (mutex) {
-				this.connectionFailed = true;
-				this.connectionFailureCause = cause;
-
-				this.mutex.notifyAll();
-			}
-		}
-
-		@SuppressWarnings("unchecked")
-		@Override
-		public void handleConnectionClosure(final ApnsConnection connection) {
-			try {
-				((PushNotificationConnection<SimpleApnsPushNotification>) connection).waitForPendingWritesToFinish();
-			} catch (InterruptedException ignored) {
-			}
-
-			synchronized (mutex) {
-				this.connectionClosed = true;
-				this.mutex.notifyAll();
-			}
-		}
-
-		@Override
-		public void handleWriteFailure(final PushNotificationConnection<SimpleApnsPushNotification> connection,
-				final SimpleApnsPushNotification notification, final Throwable cause) {
-
-			this.writeFailures.add(notification);
-		}
-
-		@Override
-		public void handleRejectedNotification(final PushNotificationConnection<SimpleApnsPushNotification> connection,
-				final SimpleApnsPushNotification rejectedNotification, final RejectedNotificationReason reason) {
-
-			this.rejectedNotification = rejectedNotification;
-			this.rejectionReason = reason;
-		}
-
-		@Override
-		public void handleUnprocessedNotifications(final PushNotificationConnection<SimpleApnsPushNotification> connection,
-				final Collection<SimpleApnsPushNotification> unprocessedNotifications) {
-
-			this.unprocessedNotifications.addAll(unprocessedNotifications);
-		}
-
-		@Override
-		public void handleConnectionWritabilityChange(final PushNotificationConnection<SimpleApnsPushNotification> connection, final boolean writable) {
-		}
-	}
 
 	@Test
 	public void testApnsConnectionNullListener() throws Exception {
@@ -167,7 +85,7 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		// For this test, we just want to make sure that connection succeeds and nothing explodes.
 		final Object mutex = new Object();
 
-		final TestListener listener = new TestListener(mutex);
+		final TestConnectionListener listener = new TestConnectionListener(mutex);
 		final PushNotificationConnection<SimpleApnsPushNotification> apnsConnection =
 				new PushNotificationConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
@@ -176,12 +94,12 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		synchronized (mutex) {
 			apnsConnection.connect();
 
-			while (!listener.connectionSucceeded) {
+			while (!listener.hasConnectionSucceeded()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionSucceeded);
+		assertTrue(listener.hasConnectionSucceeded());
 	}
 
 	@Test(expected = IllegalStateException.class)
@@ -189,7 +107,7 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		final PushNotificationConnection<SimpleApnsPushNotification> apnsConnection =
 				new PushNotificationConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-						new PushNotificationConnectionConfiguration(), new TestListener(new Object()), TEST_CONNECTION_NAME);
+						new PushNotificationConnectionConfiguration(), new TestConnectionListener(new Object()), TEST_CONNECTION_NAME);
 
 		apnsConnection.connect();
 		apnsConnection.connect();
@@ -200,7 +118,7 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 
 		final Object mutex = new Object();
 
-		final TestListener listener = new TestListener(mutex);
+		final TestConnectionListener listener = new TestConnectionListener(mutex);
 
 		final PushNotificationConnection<SimpleApnsPushNotification> apnsConnection =
 				new PushNotificationConnection<SimpleApnsPushNotification>(
@@ -210,13 +128,13 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		synchronized (mutex) {
 			apnsConnection.connect();
 
-			while (!listener.connectionFailed) {
+			while (!listener.hasConnectionFailed()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionFailed);
-		assertTrue(listener.connectionFailureCause instanceof SSLHandshakeException);
+		assertTrue(listener.hasConnectionFailed());
+		assertTrue(listener.getConnectionFailureCause() instanceof SSLHandshakeException);
 	}
 
 	@Test
@@ -224,7 +142,7 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 
 		final Object mutex = new Object();
 
-		final TestListener listener = new TestListener(mutex);
+		final TestConnectionListener listener = new TestConnectionListener(mutex);
 
 		final PushNotificationConnection<SimpleApnsPushNotification> apnsConnection =
 				new PushNotificationConnection<SimpleApnsPushNotification>(
@@ -234,20 +152,20 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		synchronized (mutex) {
 			apnsConnection.connect();
 
-			while (!listener.connectionFailed) {
+			while (!listener.hasConnectionFailed()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionFailed);
-		assertTrue(listener.connectionFailureCause instanceof SSLHandshakeException);
+		assertTrue(listener.hasConnectionFailed());
+		assertTrue(listener.getConnectionFailureCause() instanceof SSLHandshakeException);
 	}
 
 	@Test
 	public void testConnectionRefusal() throws Exception {
 		final Object mutex = new Object();
 
-		final TestListener listener = new TestListener(mutex);
+		final TestConnectionListener listener = new TestConnectionListener(mutex);
 		final ApnsEnvironment connectionRefusedEnvironment = new ApnsEnvironment("localhost", 7876, "localhost", 7877);
 
 		final PushNotificationConnection<SimpleApnsPushNotification> apnsConnection =
@@ -258,19 +176,19 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		synchronized (mutex) {
 			apnsConnection.connect();
 
-			while (!listener.connectionFailed) {
+			while (!listener.hasConnectionFailed()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionFailed);
+		assertTrue(listener.hasConnectionFailed());
 	}
 
 	@Test
 	public void testSendNotification() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, InterruptedException {
 		final Object mutex = new Object();
 
-		final TestListener listener = new TestListener(mutex);
+		final TestConnectionListener listener = new TestConnectionListener(mutex);
 		final PushNotificationConnection<SimpleApnsPushNotification> apnsConnection =
 				new PushNotificationConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
@@ -281,12 +199,12 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		synchronized (mutex) {
 			apnsConnection.connect();
 
-			while (!listener.connectionSucceeded) {
+			while (!listener.hasConnectionSucceeded()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionSucceeded);
+		assertTrue(listener.hasConnectionSucceeded());
 
 		apnsConnection.sendNotification(this.createTestNotification());
 		this.waitForLatch(latch);
@@ -296,7 +214,7 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 	public void testSendNotificationWithNullPriority() throws Exception {
 		final Object mutex = new Object();
 
-		final TestListener listener = new TestListener(mutex);
+		final TestConnectionListener listener = new TestConnectionListener(mutex);
 		final PushNotificationConnection<SimpleApnsPushNotification> apnsConnection =
 				new PushNotificationConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
@@ -307,12 +225,12 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		synchronized (mutex) {
 			apnsConnection.connect();
 
-			while (!listener.connectionSucceeded) {
+			while (!listener.hasConnectionSucceeded()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionSucceeded);
+		assertTrue(listener.hasConnectionSucceeded());
 
 		final byte[] token = new byte[32];
 		new Random().nextBytes(token);
@@ -328,7 +246,7 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 	public void testSendNotificationWithError() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, InterruptedException {
 		final Object mutex = new Object();
 
-		final TestListener listener = new TestListener(mutex);
+		final TestConnectionListener listener = new TestConnectionListener(mutex);
 		final PushNotificationConnection<SimpleApnsPushNotification> apnsConnection =
 				new PushNotificationConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
@@ -337,12 +255,12 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		synchronized (mutex) {
 			apnsConnection.connect();
 
-			while (!listener.connectionSucceeded) {
+			while (!listener.hasConnectionSucceeded()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionSucceeded);
+		assertTrue(listener.hasConnectionSucceeded());
 
 		final SimpleApnsPushNotification bogusNotification =
 				new SimpleApnsPushNotification(new byte[] {}, "This is a bogus notification and should be rejected.");
@@ -350,21 +268,21 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		synchronized (mutex) {
 			apnsConnection.sendNotification(bogusNotification);
 
-			while (!listener.connectionClosed) {
+			while (!listener.hasConnectionClosed()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionClosed);
-		assertEquals(bogusNotification, listener.rejectedNotification);
-		assertEquals(RejectedNotificationReason.MISSING_TOKEN, listener.rejectionReason);
+		assertTrue(listener.hasConnectionClosed());
+		assertEquals(bogusNotification, listener.getRejectedNotification());
+		assertEquals(RejectedNotificationReason.MISSING_TOKEN, listener.getRejectionReason());
 	}
 
 	@Test
 	public void testShutdownGracefully() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, InterruptedException {
 		final Object mutex = new Object();
 
-		final TestListener listener = new TestListener(mutex);
+		final TestConnectionListener listener = new TestConnectionListener(mutex);
 		final PushNotificationConnection<SimpleApnsPushNotification> apnsConnection =
 				new PushNotificationConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
@@ -373,32 +291,32 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		synchronized (mutex) {
 			apnsConnection.connect();
 
-			while (!listener.connectionSucceeded) {
+			while (!listener.hasConnectionSucceeded()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionSucceeded);
+		assertTrue(listener.hasConnectionSucceeded());
 
 		synchronized (mutex) {
 			apnsConnection.shutdownGracefully();
 
-			while (!listener.connectionClosed) {
+			while (!listener.hasConnectionClosed()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionClosed);
-		assertNull(listener.rejectedNotification);
-		assertNull(listener.rejectionReason);
-		assertTrue(listener.unprocessedNotifications.isEmpty());
+		assertTrue(listener.hasConnectionClosed());
+		assertNull(listener.getRejectedNotification());
+		assertNull(listener.getRejectionReason());
+		assertTrue(listener.getUnprocessedNotifications().isEmpty());
 	}
 
 	@Test
 	public void testDoubleShutdownGracefully() throws Exception {
 		final Object mutex = new Object();
 
-		final TestListener listener = new TestListener(mutex);
+		final TestConnectionListener listener = new TestConnectionListener(mutex);
 		final PushNotificationConnection<SimpleApnsPushNotification> apnsConnection =
 				new PushNotificationConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
@@ -407,33 +325,33 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		synchronized (mutex) {
 			apnsConnection.connect();
 
-			while (!listener.connectionSucceeded) {
+			while (!listener.hasConnectionSucceeded()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionSucceeded);
+		assertTrue(listener.hasConnectionSucceeded());
 
 		synchronized (mutex) {
 			apnsConnection.shutdownGracefully();
 			apnsConnection.shutdownGracefully();
 
-			while (!listener.connectionClosed) {
+			while (!listener.hasConnectionClosed()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionClosed);
-		assertNull(listener.rejectedNotification);
-		assertNull(listener.rejectionReason);
-		assertTrue(listener.unprocessedNotifications.isEmpty());
+		assertTrue(listener.hasConnectionClosed());
+		assertNull(listener.getRejectedNotification());
+		assertNull(listener.getRejectionReason());
+		assertTrue(listener.getUnprocessedNotifications().isEmpty());
 	}
 
 	@Test
 	public void testShutdownGracefullyBeforeConnect() throws Exception {
 		final Object mutex = new Object();
 
-		final TestListener listener = new TestListener(mutex);
+		final TestConnectionListener listener = new TestConnectionListener(mutex);
 		final PushNotificationConnection<SimpleApnsPushNotification> apnsConnection =
 				new PushNotificationConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
@@ -446,7 +364,7 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 	public void testShutdownImmediately() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, InterruptedException {
 		final Object mutex = new Object();
 
-		final TestListener listener = new TestListener(mutex);
+		final TestConnectionListener listener = new TestConnectionListener(mutex);
 		final PushNotificationConnection<SimpleApnsPushNotification> apnsConnection =
 				new PushNotificationConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
@@ -455,29 +373,29 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		synchronized (mutex) {
 			apnsConnection.connect();
 
-			while (!listener.connectionSucceeded) {
+			while (!listener.hasConnectionSucceeded()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionSucceeded);
+		assertTrue(listener.hasConnectionSucceeded());
 
 		synchronized (mutex) {
 			apnsConnection.shutdownImmediately();
 
-			while (!listener.connectionClosed) {
+			while (!listener.hasConnectionClosed()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionClosed);
+		assertTrue(listener.hasConnectionClosed());
 	}
 
 	@Test
 	public void testShutdownImmediatelyBeforeConnect() throws Exception {
 		final Object mutex = new Object();
 
-		final TestListener listener = new TestListener(mutex);
+		final TestConnectionListener listener = new TestConnectionListener(mutex);
 		final PushNotificationConnection<SimpleApnsPushNotification> apnsConnection =
 				new PushNotificationConnection<SimpleApnsPushNotification>(
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
@@ -493,7 +411,7 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		{
 			final Object mutex = new Object();
 
-			final TestListener listener = new TestListener(mutex);
+			final TestConnectionListener listener = new TestConnectionListener(mutex);
 			final PushNotificationConnection<SimpleApnsPushNotification> apnsConnection =
 					new PushNotificationConnection<SimpleApnsPushNotification>(
 							TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
@@ -506,7 +424,7 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		{
 			final Object mutex = new Object();
 
-			final TestListener listener = new TestListener(mutex);
+			final TestConnectionListener listener = new TestConnectionListener(mutex);
 			final PushNotificationConnection<SimpleApnsPushNotification> apnsConnection =
 					new PushNotificationConnection<SimpleApnsPushNotification>(
 							TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
@@ -515,12 +433,12 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 			synchronized (mutex) {
 				apnsConnection.connect();
 
-				while (!listener.connectionSucceeded) {
+				while (!listener.hasConnectionSucceeded()) {
 					mutex.wait();
 				}
 			}
 
-			assertTrue(listener.connectionSucceeded);
+			assertTrue(listener.hasConnectionSucceeded());
 
 			for (int i = 0; i < 1000; i++) {
 				apnsConnection.sendNotification(this.createTestNotification());
@@ -535,7 +453,7 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 	public void testWriteTimeout() throws Exception {
 		final Object mutex = new Object();
 
-		final TestListener listener = new TestListener(mutex);
+		final TestConnectionListener listener = new TestConnectionListener(mutex);
 
 		final PushNotificationConnectionConfiguration writeTimeoutConfiguration = new PushNotificationConnectionConfiguration();
 		writeTimeoutConfiguration.setCloseAfterInactivityTime(1);
@@ -549,19 +467,19 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 			apnsConnection.connect();
 
 			// Do nothing, but wait for the connection to time out due to inactivity
-			while (!listener.connectionClosed) {
+			while (!listener.hasConnectionClosed()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionClosed);
+		assertTrue(listener.hasConnectionClosed());
 	}
 
 	@Test
 	public void testGracefulShutdownTimeout() throws Exception {
 		final Object mutex = new Object();
 
-		final TestListener listener = new TestListener(mutex);
+		final TestConnectionListener listener = new TestConnectionListener(mutex);
 
 		final PushNotificationConnectionConfiguration gracefulShutdownTimeoutConfiguration = new PushNotificationConnectionConfiguration();
 		gracefulShutdownTimeoutConfiguration.setGracefulShutdownTimeout(1);
@@ -578,22 +496,22 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		synchronized (mutex) {
 			apnsConnection.connect();
 
-			while (!listener.connectionSucceeded) {
+			while (!listener.hasConnectionSucceeded()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionSucceeded);
+		assertTrue(listener.hasConnectionSucceeded());
 
 		synchronized (mutex) {
 			apnsConnection.shutdownGracefully();
 
-			while (!listener.connectionClosed) {
+			while (!listener.hasConnectionClosed()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionClosed);
+		assertTrue(listener.hasConnectionClosed());
 	}
 
 	@Test
@@ -604,7 +522,7 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 
 		final Object mutex = new Object();
 
-		final TestListener listener = new TestListener(mutex);
+		final TestConnectionListener listener = new TestConnectionListener(mutex);
 
 		final PushNotificationConnectionConfiguration sendAttemptLimitConfiguration = new PushNotificationConnectionConfiguration();
 		sendAttemptLimitConfiguration.setSendAttemptLimit(100);
@@ -620,12 +538,12 @@ public class PushNotificationConnectionTest extends BasePushyTest {
 		synchronized (mutex) {
 			apnsConnection.connect();
 
-			while (!listener.connectionSucceeded) {
+			while (!listener.hasConnectionSucceeded()) {
 				mutex.wait();
 			}
 		}
 
-		assertTrue(listener.connectionSucceeded);
+		assertTrue(listener.hasConnectionSucceeded());
 
 		for (int i = 0; i < notificationCount; i++) {
 			apnsConnection.sendNotification(this.createTestNotification());
