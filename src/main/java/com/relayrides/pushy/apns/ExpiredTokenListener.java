@@ -1,4 +1,4 @@
-/* Copyright (c) 2013 RelayRides
+/* Copyright (c) 2014 RelayRides
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,21 +21,24 @@
 
 package com.relayrides.pushy.apns;
 
-/**
- * Signals that an attempt to connect to the APNs feedback service has failed.
- * 
- * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
- */
-public class FeedbackConnectionException extends Exception {
+import java.util.Collection;
 
-	private static final long serialVersionUID = 1L;
+/**
+ * <p>Listens for expired tokens from the APNs feedback service.</p>
+ *
+ * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
+ *
+ * @see PushManager#registerExpiredTokenListener(ExpiredTokenListener)
+ * @see PushManager#unregisterExpiredTokenListener(ExpiredTokenListener)
+ * @see PushManager#requestExpiredTokens()
+ */
+public interface ExpiredTokenListener<T extends ApnsPushNotification> {
 
 	/**
-	 * Constructs a new feedback connection exception with the given root cause.
-	 * 
-	 * @param cause the cause of the connection failure
+	 * Handles a collection of expired tokens received from the APNs feedback service.
+	 *
+	 * @param pushManager the push manager that reported the expired tokens
+	 * @param expiredTokens a collection of tokens that have expired since the last call to the feedback service
 	 */
-	public FeedbackConnectionException(final Throwable cause) {
-		super(cause);
-	}
+	void handleExpiredTokens(PushManager<? extends T> pushManager, Collection<ExpiredToken> expiredTokens);
 }

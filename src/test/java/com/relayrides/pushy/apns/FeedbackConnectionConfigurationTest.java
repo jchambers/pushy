@@ -22,33 +22,41 @@
 package com.relayrides.pushy.apns;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
-public class ApnsConnectionConfigurationTest {
+public class FeedbackConnectionConfigurationTest {
 
 	@Test
-	public void testApnsConnectionConfiguration() {
-		final ApnsConnectionConfiguration configuration = new ApnsConnectionConfiguration();
+	public void testFeedbackConnectionConfiguration() {
+		final FeedbackConnectionConfiguration configuration = new FeedbackConnectionConfiguration();
 
-		assertTrue(configuration.getSentNotificationBufferCapacity() > 0);
-		assertNull(configuration.getCloseAfterInactivityTime());
-		assertNull(configuration.getGracefulShutdownTimeout());
-		assertNull(configuration.getSendAttemptLimit());
+		assertTrue(configuration.getReadTimeout() > 0);
 	}
 
 	@Test
-	public void testApnsConnectionConfigurationApnsConnectionConfiguration() {
-		final ApnsConnectionConfiguration configuration = new ApnsConnectionConfiguration();
-		configuration.setSentNotificationBufferCapacity(17);
-		configuration.setCloseAfterInactivityTime(19);
-		configuration.setGracefulShutdownTimeout(23);
-		configuration.setSendAttemptLimit(29);
+	public void testFeedbackConnectionConfigurationFeedbackConnectionConfiguration() {
+		final FeedbackConnectionConfiguration configuration = new FeedbackConnectionConfiguration();
+		configuration.setReadTimeout(17);
 
-		final ApnsConnectionConfiguration configurationCopy = new ApnsConnectionConfiguration(configuration);
+		final FeedbackConnectionConfiguration configurationCopy = new FeedbackConnectionConfiguration(configuration);
 
 		assertEquals(configuration, configurationCopy);
+	}
+
+	@Test
+	public void testSetReadTimeout() {
+		final int expectedTimeout = 17;
+
+		final FeedbackConnectionConfiguration configuration = new FeedbackConnectionConfiguration();
+		configuration.setReadTimeout(expectedTimeout);
+
+		assertEquals(expectedTimeout, configuration.getReadTimeout());
+	}
+
+	@Test(expected = IllegalArgumentException.class)
+	public void testSetReadTimeoutNonPositive() {
+		new FeedbackConnectionConfiguration().setReadTimeout(0);
 	}
 }

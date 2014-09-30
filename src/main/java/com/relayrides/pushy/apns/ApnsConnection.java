@@ -78,7 +78,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private final Object channelRegistrationMonitor = new Object();
 	private ChannelFuture connectFuture;
 	private volatile boolean handshakeCompleted = false;
-	private boolean closeOnRegistration;
+	private volatile boolean closeOnRegistration;
 
 	// We want to start the count at 1 here because the gateway will send back a sequence number of 0 if it doesn't know
 	// which notification failed. This isn't 100% bulletproof (we'll legitimately get back to 0 after 2^32

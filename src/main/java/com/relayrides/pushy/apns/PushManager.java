@@ -33,7 +33,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
@@ -88,9 +87,9 @@ import org.slf4j.LoggerFactory;
  *
  * @see PushManager#getQueue()
  */
-public class PushManager<T extends ApnsPushNotification> implements ApnsConnectionListener<T> {
+public class PushManager<T extends ApnsPushNotification> implements ApnsConnectionListener<T>, FeedbackServiceListener {
 	private final BlockingQueue<T> queue;
-	private final LinkedBlockingQueue<T> retryQueue;
+	private final LinkedBlockingQueue<T> retryQueue = new LinkedBlockingQueue<T>();;
 
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
@@ -100,14 +99,23 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final String name;
 	private static final AtomicInteger pushManagerCounter = new AtomicInteger(0);
 	private int connectionCounter = 0;
+	private int feedbackConnectionCounter = 0;
 
 	private final HashSet<ApnsConnection<T>> activeConnections = new HashSet<ApnsConnection<T>>();
 	private final ApnsConnectionPool<T> writableConnectionPool = new ApnsConnectionPool<T>();
 
-	private final FeedbackServiceClient feedbackServiceClient;
+	private final Object feedbackConnectionMonitor = new Object();
+	private FeedbackServiceConnection feedbackConnection;
+	private List<ExpiredToken> expiredTokens;
 
-	private final ArrayList<RejectedNotificationListener<? super T>> rejectedNotificationListeners;
-	private final ArrayList<FailedConnectionListener<? super T>> failedConnectionListeners;
+	private final List<RejectedNotificationListener<? super T>> rejectedNotificationListeners =
+			new ArrayList<RejectedNotificationListener<? super T>>();
+
+	private final List<FailedConnectionListener<? super T>> failedConnectionListeners =
+			new ArrayList<FailedConnectionListener<? super T>>();
+
+	private final List<ExpiredTokenListener<? super T>> expiredTokenListeners =
+			new ArrayList<ExpiredTokenListener<? super T>>();
 
 	private Thread dispatchThread;
 	private boolean dispatchThreadShouldContinue = true;
@@ -182,10 +190,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			final BlockingQueue<T> queue, final PushManagerConfiguration configuration, final String name) {
 
 		this.queue = queue != null ? queue : new LinkedBlockingQueue<T>();
-		this.retryQueue = new LinkedBlockingQueue<T>();
-
-		this.rejectedNotificationListeners = new ArrayList<RejectedNotificationListener<? super T>>();
-		this.failedConnectionListeners = new ArrayList<FailedConnectionListener<? super T>>();
 
 		if (environment == null) {
 			throw new NullPointerException("Environment must not be null.");
@@ -225,8 +229,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.listenerExecutorService = Executors.newSingleThreadExecutor();
 			this.shouldShutDownListenerExecutorService = true;
 		}
-
-		this.feedbackServiceClient = new FeedbackServiceClient(this.environment, this.sslContext, this.eventLoopGroup);
 	}
 
 	/**
@@ -380,6 +382,13 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		this.shutDownStarted = true;
+
+		synchronized (this.feedbackConnectionMonitor) {
+			if (this.feedbackConnection != null) {
+				this.feedbackConnection.shutdownImmediately();
+			}
+		}
+
 		this.dispatchThread.interrupt();
 
 		final Date deadline = timeout > 0 ? new Date(System.currentTimeMillis() + timeout) : null;
@@ -408,6 +417,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		synchronized (this.failedConnectionListeners) {
 			this.failedConnectionListeners.clear();
+		}
+
+		synchronized (this.expiredTokenListeners) {
+			this.expiredTokenListeners.clear();
 		}
 
 		if (this.shouldShutDownListenerExecutorService) {
@@ -523,45 +536,56 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	/**
-	 * <p>Queries the APNs feedback service for expired tokens using a reasonable default timeout. Be warned that this
+	 * Registers a listener for expired tokens received from the feedback service. Expired tokens will be passed to
+	 * registered listeners some time after a call to {@link PushManager#requestExpiredTokens()}.
+	 *
+	 * @param listener the listener to register
+	 *
+	 * @throws IllegalStateException if this push manager has already been shut down
+	 *
+	 * @see PushManager#unregisterExpiredTokenListener(ExpiredTokenListener)
+	 * @see PushManager#requestExpiredTokens()
+	 */
+	public void registerExpiredTokenListener(final ExpiredTokenListener<? super T> listener) {
+		if (this.isShutDown()) {
+			throw new IllegalStateException("Expired token listeners may not be registered after a push manager has been shut down.");
+		}
+
+		synchronized (this.expiredTokenListeners) {
+			this.expiredTokenListeners.add(listener);
+		}
+	}
+
+	/**
+	 * <p>Un-registers an expired token listener.</p>
+	 *
+	 * @param listener the listener to un-register
+	 *
+	 * @return {@code true} if the given listener was registered with this push manager and removed or {@code false} if
+	 * the listener was not already registered with this push manager
+	 */
+	public boolean unregisterExpiredTokenListener(final ExpiredTokenListener<? super T> listener) {
+		synchronized (this.expiredTokenListeners) {
+			return this.expiredTokenListeners.remove(listener);
+		}
+	}
+
+	/**
+	 * <p>Begins an asynchronous attempt to get a list of expired tokens from the feedback service. Be warned that this
 	 * is a <strong>destructive operation</strong>. According to Apple's documentation:</p>
 	 *
 	 * <blockquote>The feedback service’s list is cleared after you read it. Each time you connect to the feedback
 	 * service, the information it returns lists only the failures that have happened since you last
 	 * connected.</blockquote>
 	 *
-	 * <p>The push manager must be started before calling this method.</p>
+	 * <p>When a list of expired tokens has been gathered, registered expired token listeners will be notified
+	 * (see {@link PushManager#registerExpiredTokenListener(ExpiredTokenListener)}). If a feedback polling attempt
+	 * fails, registered failed connection listeners will be notified.</p>
 	 *
-	 * @return a list of tokens that have expired since the last connection to the feedback service
-	 *
-	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
-	 * @throws FeedbackConnectionException if the attempt to connect to the feedback service failed for any reason
+	 * @see PushManager#registerExpiredTokenListener(ExpiredTokenListener)
+	 * @see PushManager#registerFailedConnectionListener(FailedConnectionListener)
 	 */
-	public List<ExpiredToken> getExpiredTokens() throws InterruptedException, FeedbackConnectionException {
-		return this.getExpiredTokens(1, TimeUnit.SECONDS);
-	}
-
-	/**
-	 * <p>Queries the APNs feedback service for expired tokens using the given timeout. Be warned that this is a
-	 * <strong>destructive operation</strong>. According to Apple's documentation:</p>
-	 *
-	 * <blockquote>The feedback service's list is cleared after you read it. Each time you connect to the feedback
-	 * service, the information it returns lists only the failures that have happened since you last
-	 * connected.</blockquote>
-	 *
-	 * <p>The push manager must be started before calling this method.</p>
-	 *
-	 * @param timeout the time after the last received data after which the connection to the feedback service should
-	 * be closed
-	 * @param timeoutUnit the unit of time in which the given {@code timeout} is measured
-	 *
-	 * @return a list of tokens that have expired since the last connection to the feedback service
-	 *
-	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
-	 * @throws FeedbackConnectionException if the attempt to connect to the feedback service failed for any reason
-	 * @throws IllegalStateException if this push manager has not been started yet or has already been shut down
-	 */
-	public List<ExpiredToken> getExpiredTokens(final long timeout, final TimeUnit timeoutUnit) throws InterruptedException, FeedbackConnectionException {
+	public synchronized void requestExpiredTokens() {
 		if (!this.isStarted()) {
 			throw new IllegalStateException("Push manager has not been started yet.");
 		}
@@ -570,7 +594,94 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			throw new IllegalStateException("Push manager has already been shut down.");
 		}
 
-		return this.feedbackServiceClient.getExpiredTokens(timeout, timeoutUnit);
+		synchronized (this.feedbackConnectionMonitor) {
+			// If we already have a feedback connection in play, let it finish
+			if (this.feedbackConnection == null) {
+				this.expiredTokens = new ArrayList<ExpiredToken>();
+
+				this.feedbackConnection = new FeedbackServiceConnection(
+						this.environment, this.sslContext, this.eventLoopGroup,
+						this.configuration.getFeedbackConnectionConfiguration(), this,
+						String.format("%s-feedbackConnection-%d", this.name, this.feedbackConnectionCounter++));
+
+				this.feedbackConnection.connect();
+			}
+		}
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see com.relayrides.pushy.apns.FeedbackServiceListener#handleConnectionSuccess(com.relayrides.pushy.apns.FeedbackServiceConnection)
+	 */
+	@Override
+	public void handleConnectionSuccess(final FeedbackServiceConnection connection) {
+		log.trace("Feedback connection succeeded: {}", connection);
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see com.relayrides.pushy.apns.FeedbackServiceListener#handleConnectionFailure(com.relayrides.pushy.apns.FeedbackServiceConnection, java.lang.Throwable)
+	 */
+	@Override
+	public void handleConnectionFailure(final FeedbackServiceConnection connection, final Throwable cause) {
+		log.trace("Feedback connection failed: {}", connection, cause);
+
+		synchronized (this.feedbackConnectionMonitor) {
+			this.feedbackConnection = null;
+		}
+
+		synchronized (this.failedConnectionListeners) {
+			final PushManager<T> pushManager = this;
+
+			for (final FailedConnectionListener<? super T> listener : this.failedConnectionListeners) {
+
+				// Handle connection failures in a separate thread in case a handler takes a long time to run
+				this.listenerExecutorService.submit(new Runnable() {
+					@Override
+					public void run() {
+						listener.handleFailedConnection(pushManager, cause);
+					}
+				});
+			}
+		}
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see com.relayrides.pushy.apns.FeedbackServiceListener#handleExpiredToken(com.relayrides.pushy.apns.FeedbackServiceConnection, com.relayrides.pushy.apns.ExpiredToken)
+	 */
+	@Override
+	public void handleExpiredToken(final FeedbackServiceConnection connection, final ExpiredToken token) {
+		log.trace("Received expired token {} from feedback connection {}.", token, connection);
+		this.expiredTokens.add(token);
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * @see com.relayrides.pushy.apns.FeedbackServiceListener#handleConnectionClosure(com.relayrides.pushy.apns.FeedbackServiceConnection)
+	 */
+	@Override
+	public void handleConnectionClosure(final FeedbackServiceConnection connection) {
+		log.trace("Feedback connection closed: {}", connection);
+
+		final PushManager<T> pushManager = this;
+		final List<ExpiredToken> expiredTokens = new ArrayList<ExpiredToken>(this.expiredTokens);
+
+		synchronized (this.expiredTokenListeners) {
+			for (final ExpiredTokenListener<? super T> listener : this.expiredTokenListeners) {
+				this.listenerExecutorService.submit(new Runnable() {
+
+					@Override
+					public void run() {
+						listener.handleExpiredTokens(pushManager, expiredTokens);
+					}});
+			}
+		}
+
+		synchronized (this.feedbackConnectionMonitor) {
+			this.feedbackConnection = null;
+			this.expiredTokens = null;
+		}
 	}
 
 	/*
