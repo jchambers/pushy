@@ -17,7 +17,6 @@ public abstract class ApnsConnection {
 
 	private final Object channelRegistrationMonitor = new Object();
 	private ChannelFuture connectFuture;
-	private volatile boolean handshakeCompleted = false;
 	private volatile boolean closeOnRegistration;
 
 	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
@@ -65,7 +64,6 @@ public abstract class ApnsConnection {
 								if (handshakeFuture.isSuccess()) {
 									log.debug("{} successfully completed TLS handshake.", apnsConnection.name);
 
-									apnsConnection.handshakeCompleted = true;
 									apnsConnection.handleConnectionCompletion(connectFuture.channel());
 
 									final ApnsConnectionListener listener = apnsConnection.getListener();
@@ -157,7 +155,13 @@ public abstract class ApnsConnection {
 	}
 
 	protected boolean hasCompletedHandshake() {
-		return this.handshakeCompleted;
+		try {
+			return this.connectFuture.channel().pipeline().get(SslHandler.class).handshakeFuture().isSuccess();
+		} catch (NullPointerException e) {
+			// Either we don't have a connect future yet or we couldn't get the SslHandler. Either way, the handshake
+			// has not completed.
+			return false;
+		}
 	}
 
 	protected Object getChannelRegistrationMonitor() {
