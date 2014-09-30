@@ -61,7 +61,7 @@ import org.slf4j.LoggerFactory;
  * tokens haven't been reregistered since the feedback entry was generated. For each device that has not been
  * reregistered, stop sending notifications.</p></blockquote>
  *
- * <p>Generally, users of Pushy should <em>not</em> instantiate a {@code FeedbackServiceConnetion} directly, but should
+ * <p>Generally, users of Pushy should <em>not</em> instantiate a {@code FeedbackServiceConnection} directly, but should
  * instead call {@link com.relayrides.pushy.apns.PushManager#getExpiredTokens()}, which will manage the creation and
  * configuration of a {@code FeedbackServiceConnection} internally.</p>
  *
