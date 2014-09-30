@@ -64,7 +64,7 @@ public class FeedbackConnectionConfiguration {
 	 */
 	public void setReadTimeout(final int readTimeout) {
 		if (readTimeout < 1) {
-			throw new IllegalArgumentException("Read timeout must be positive.");
+			throw new IllegalArgumentException("Read timeout must be greater than zero.");
 		}
 
 		this.readTimeout = readTimeout;
