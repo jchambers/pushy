@@ -62,7 +62,7 @@ import org.slf4j.LoggerFactory;
  * reregistered, stop sending notifications.</p></blockquote>
  *
  * <p>Generally, users of Pushy should <em>not</em> instantiate a {@code FeedbackServiceConnection} directly, but should
- * instead call {@link com.relayrides.pushy.apns.PushManager#getExpiredTokens()}, which will manage the creation and
+ * instead call {@link com.relayrides.pushy.apns.PushManager#requestExpiredTokens()}, which will manage the creation and
  * configuration of a {@code FeedbackServiceConnection} internally.</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
@@ -71,7 +71,7 @@ import org.slf4j.LoggerFactory;
  * Local and Push Notification Programming Guide - Provider Communication with Apple Push Notification Service - The
  * Feedback Service</a>
  */
-class FeedbackServiceConnection {
+public class FeedbackServiceConnection {
 
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
@@ -228,17 +228,12 @@ class FeedbackServiceConnection {
 	}
 
 	/**
-	 * <p>Retrieves a list of expired tokens from the APNs feedback service. Be warned that this is a
+	 * <p>Connects to the APNs feedback service and waits for expired tokens to arrive. Be warned that this is a
 	 * <strong>destructive operation</strong>. According to Apple's documentation:</p>
 	 *
 	 * <blockquote>The feedback service's list is cleared after you read it. Each time you connect to the feedback
 	 * service, the information it returns lists only the failures that have happened since you last
 	 * connected.</blockquote>
-	 *
-	 * @return a list of tokens that have expired since the last connection to the feedback service
-	 *
-	 * @throws InterruptedException if interrupted while waiting for a response from the feedback service
-	 * @throws FeedbackConnectionException if the connection to the feedback service failed for any reason
 	 */
 	public synchronized void connect() {
 
@@ -323,6 +318,10 @@ class FeedbackServiceConnection {
 		});
 	}
 
+	/**
+	 * Closes this feedback connection as soon as possible. Calling this method when the feedback connection is not
+	 * connected has no effect.
+	 */
 	public synchronized void shutdownImmediately() {
 		if (this.connectFuture != null) {
 			synchronized (this.channelRegistrationMonitor) {

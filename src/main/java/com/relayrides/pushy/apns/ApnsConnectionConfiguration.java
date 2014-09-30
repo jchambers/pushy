@@ -62,9 +62,9 @@ public class ApnsConnectionConfiguration {
 
 	/**
 	 * Sets the sent notification buffer capacity for connections created with this configuration. The default capacity
-	 * is {@value ApnsConnection#DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY} notifications. While sent notification
-	 * buffers may have any positive capacity, it is not recommended that they be given a capacity less than the
-	 * default.
+	 * is {@value com.relayrides.pushy.apns.ApnsConnection#DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY} notifications.
+	 * While sent notification buffers may have any positive capacity, it is not recommended that they be given a
+	 * capacity less than the default.
 	 *
 	 * @param sentNotificationBufferCapacity the sent notification buffer capacity for connections created with this
 	 * configuration
