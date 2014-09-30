@@ -80,7 +80,7 @@ public class FeedbackServiceConnectionTest extends BasePushyTest {
 		}
 	}
 
-	private static final String TEST_CONNETION_NAME = "TestFeedbackConnection";
+	private static final String TEST_CONNECTION_NAME = "TestFeedbackConnection";
 
 	@Test
 	public void testGetExpiredTokens() throws Exception {
@@ -90,7 +90,7 @@ public class FeedbackServiceConnectionTest extends BasePushyTest {
 
 		final FeedbackServiceConnection feedbackConnection =
 				new FeedbackServiceConnection(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
-						this.getEventLoopGroup(), new FeedbackConnectionConfiguration(), listener, TEST_CONNETION_NAME);
+						this.getEventLoopGroup(), new FeedbackConnectionConfiguration(), listener, TEST_CONNECTION_NAME);
 
 		assertTrue(listener.expiredTokens.isEmpty());
 
