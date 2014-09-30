@@ -77,10 +77,10 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 	 * Constructs a new push notification with the given token, payload, and delivery priority. No expiration time is
 	 * set for the notification, so APNs will not attempt to store the notification for later delivery if the initial
 	 * attempt fails.
-	 * 
+	 *
 	 * @param token the device token to which this push notification should be delivered
 	 * @param payload the payload to include in this push notification
-	 * @param the priority with which this notification should be delivered to the receiving device
+	 * @param priority the priority with which this notification should be delivered to the receiving device
 	 */
 	public SimpleApnsPushNotification(final byte[] token, final String payload, final DeliveryPriority priority) {
 		this(token, payload, null, priority);
@@ -89,12 +89,12 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 	/**
 	 * Constructs a new push notification with the given token, payload, delivery expiration time, and delivery
 	 * priority.
-	 * 
+	 *
 	 * @param token the device token to which this push notification should be delivered
 	 * @param payload the payload to include in this push notification
 	 * @param invalidationTime the time at which Apple's servers should stop trying to deliver this message; if
 	 * {@code null}, no delivery attempts beyond the first will be made
-	 * @param the priority with which this notification should be delivered to the receiving device
+	 * @param priority the priority with which this notification should be delivered to the receiving device
 	 */
 	public SimpleApnsPushNotification(final byte[] token, final String payload, final Date invalidationTime, final DeliveryPriority priority) {
 		this.token = token;
