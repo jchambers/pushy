@@ -113,8 +113,8 @@ public class PushManagerConfiguration {
 	 * Sets the configuration to be used for connections to the APNs feedback service created by push managers with
 	 * this configuration.
 	 *
-	 * @param connectionConfiguration the configuration to be used for connections to the APNs feedback service created
-	 * by push managers with this configuration; must not be {@code null}
+	 * @param feedbackConnectionConfiguration the configuration to be used for connections to the APNs feedback service
+	 * created by push managers with this configuration; must not be {@code null}
 	 *
 	 * @throws NullPointerException if the given feedback connection configuration is {@code null}
 	 */

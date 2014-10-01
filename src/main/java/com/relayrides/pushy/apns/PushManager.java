@@ -580,7 +580,7 @@ public class PushManager<T extends ApnsPushNotification> implements PushNotifica
 	 *
 	 * <p>When a list of expired tokens has been gathered, registered expired token listeners will be notified
 	 * (see {@link PushManager#registerExpiredTokenListener(ExpiredTokenListener)}). If a feedback polling attempt
-	 * fails, registered failed conenction listeners will be notified.</p>
+	 * fails, registered failed connection listeners will be notified.</p>
 	 *
 	 * @see PushManager#registerExpiredTokenListener(ExpiredTokenListener)
 	 * @see PushManager#registerFailedConnectionListener(FailedConnectionListener)

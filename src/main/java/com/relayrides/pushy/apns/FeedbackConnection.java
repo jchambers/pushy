@@ -56,8 +56,8 @@ import org.slf4j.LoggerFactory;
  * tokens haven't been reregistered since the feedback entry was generated. For each device that has not been
  * reregistered, stop sending notifications.</p></blockquote>
  *
- * <p>Generally, users of Pushy should <em>not</em> instantiate a {@code FeedbackServiceConnetion} directly, but should
- * instead call {@link com.relayrides.pushy.apns.PushManager#getExpiredTokens()}, which will manage the creation and
+ * <p>Generally, users of Pushy should <em>not</em> instantiate a {@code FeedbackServiceConnection} directly, but should
+ * instead call {@link com.relayrides.pushy.apns.PushManager#requestExpiredTokens()}, which will manage the creation and
  * configuration of a {@code FeedbackServiceConnection} internally.</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
@@ -66,7 +66,7 @@ import org.slf4j.LoggerFactory;
  * Local and Push Notification Programming Guide - Provider Communication with Apple Push Notification Service - The
  * Feedback Service</a>
  */
-class FeedbackConnection extends ApnsConnection {
+public class FeedbackConnection extends ApnsConnection {
 
 	private final SSLContext sslContext;
 	private final NioEventLoopGroup eventLoopGroup;
