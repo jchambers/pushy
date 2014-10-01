@@ -141,9 +141,9 @@ private class MyExpiredTokenListener implements ExpiredTokenListener {
 	@Override
 	public void handleExpiredTokens(
 			final PushManager<? extends SimpleApnsPushNotification> pushManager,
-			final Collection<ExpiredToken> tokens) {
+			final Collection<ExpiredToken> expiredTokens) {
 
-		for (final ExpiredToken expiredToken : pushManager.getExpiredTokens()) {
+		for (final ExpiredToken expiredToken : expiredTokens) {
 		    // Stop sending push notifications to each expired token if the expiration
 		    // time is after the last time the app registered that token.
 		}
