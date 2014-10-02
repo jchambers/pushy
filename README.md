@@ -42,7 +42,7 @@ final PushManager<SimpleApnsPushNotification> pushManager =
     new PushManager<SimpleApnsPushNotification>(
         ApnsEnvironment.getSandboxEnvironment(),
         SSLContextUtil.createDefaultSSLContext("path-to-key.p12", "my-password"),
-        null, null, null, new PushManagerConfiguration()), "ExamplePushManager";
+        null, null, null, new PushManagerConfiguration(), "ExamplePushManager");
 
 pushManager.start();
 ```
