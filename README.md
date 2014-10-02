@@ -42,7 +42,7 @@ final PushManager<SimpleApnsPushNotification> pushManager =
     new PushManager<SimpleApnsPushNotification>(
         ApnsEnvironment.getSandboxEnvironment(),
         SSLContextUtil.createDefaultSSLContext("path-to-key.p12", "my-password"),
-        null, null, null, new PushManagerConfiguration()), "ExamplePushManager";
+        null, null, null, new PushManagerConfiguration(), "ExamplePushManager");
 
 pushManager.start();
 ```
@@ -136,7 +136,7 @@ Apple also provides a "feedback service" as part of APNs. The feedback service r
 To get expired device tokens with Pushy, you'll need to register an [`ExpiredTokenListener`](http://relayrides.github.io/pushy/apidocs/0.4/com/relayrides/pushy/apns/ExpiredTokenListener.html) with your `PushManager`, then call the `requestExpiredTokens` method. For example:
 
 ```java
-private class MyExpiredTokenListener implements ExpiredTokenListener {
+private class MyExpiredTokenListener implements ExpiredTokenListener<SimpleApnsPushNotification> {
 
 	@Override
 	public void handleExpiredTokens(
