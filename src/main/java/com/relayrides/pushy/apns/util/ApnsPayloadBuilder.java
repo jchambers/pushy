@@ -140,7 +140,7 @@ public class ApnsPayloadBuilder {
 	 * @param launchImageFilename the filename of an image file in the receiving app's bundle to be shown when launching
 	 * the app from the push notification
 	 */
-	public ApnsPayloadBuilder setLaunchImage(final String launchImageFilename) {
+	public ApnsPayloadBuilder setLaunchImageFileName(final String launchImageFilename) {
 		this.launchImageFileName = launchImageFilename;
 		return this;
 	}

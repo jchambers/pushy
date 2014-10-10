@@ -112,7 +112,7 @@ public class ApnsPayloadBuilderTest {
 	@Test
 	public void testSetLaunchImage() throws ParseException {
 		final String launchImageFilename = "launch.png";
-		this.builder.setLaunchImage(launchImageFilename);
+		this.builder.setLaunchImageFileName(launchImageFilename);
 
 		final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
 		final JSONObject alert = (JSONObject) aps.get("alert");
