@@ -42,10 +42,20 @@ final PushManager<SimpleApnsPushNotification> pushManager =
     new PushManager<SimpleApnsPushNotification>(
         ApnsEnvironment.getSandboxEnvironment(),
         SSLContextUtil.createDefaultSSLContext("path-to-key.p12", "my-password"),
-        null, null, null, new PushManagerConfiguration(), "ExamplePushManager");
+        null, // Optional: custom event loop group
+        null, // Optional: custom ExecutorService for calling listeners
+        null, // Optional: custom BlockingQueue implementation
+        new PushManagerConfiguration(),
+        "ExamplePushManager");
 
 pushManager.start();
 ```
+
+Many aspects of a `PushManager`'s behavior can be customized. See the [`PushManager` documentation](http://relayrides.github.io/pushy/apidocs/0.4/com/relayrides/pushy/apns/PushManager.html) for details. Some important highlights:
+
+1. If you have multiple `PushManager` instances, you may want to share an event loop group and/or listener executor service between them to keep the number of active threads at a reasonable level.
+2. By default, a `PushManager` will use an unbounded public queue; depending on your use case, you may want to use a bounded [`BlockingQueue`](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/BlockingQueue.html) implementation or even a [`SynchronousQueue`](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/SynchronousQueue.html).
+3. Many other low-level options can be configured by providing a custom [`PushManagerConfiguration`](http://relayrides.github.io/pushy/apidocs/0.4/com/relayrides/pushy/apns/PushManagerConfiguration.html).
 
 Once you have your `PushManager` constructed and started, you're ready to start constructing and sending push notifications. Pushy provides utility classes for working with APNs tokens and payloads. Here's an example:
 
