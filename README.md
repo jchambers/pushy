@@ -92,14 +92,14 @@ Push notification providers communicate with APNs by opening a long-lived connec
 ```java
 private class MyRejectedNotificationListener implements RejectedNotificationListener<SimpleApnsPushNotification> {
 
-	@Override
-	public void handleRejectedNotification(
-			final PushManager<? extends SimpleApnsPushNotification> pushManager,
-			final SimpleApnsPushNotification notification,
-			final RejectedNotificationReason reason) {
+    @Override
+    public void handleRejectedNotification(
+            final PushManager<? extends SimpleApnsPushNotification> pushManager,
+            final SimpleApnsPushNotification notification,
+            final RejectedNotificationReason reason) {
 
-		System.out.format("%s was rejected with rejection reason %s\n", notification, reason);
-	}
+        System.out.format("%s was rejected with rejection reason %s\n", notification, reason);
+    }
 }
 
 // ...
@@ -118,16 +118,16 @@ You can listen for connection failures with a [`FailedConnectionListener`](http:
 ```java
 private class MyFailedConnectionListener implements FailedConnectionListener<SimpleApnsPushNotification> {
 
-	@Override
-	public void handleFailedConnection(
-			final PushManager<? extends SimpleApnsPushNotification> pushManager,
-			final Throwable cause) {
+    @Override
+    public void handleFailedConnection(
+            final PushManager<? extends SimpleApnsPushNotification> pushManager,
+            final Throwable cause) {
 
-		if (cause instanceof SSLHandshakeException) {
-			// This is probably a permanent failure, and we should shut down
-			// the PushManager.
-		}
-	}
+        if (cause instanceof SSLHandshakeException) {
+            // This is probably a permanent failure, and we should shut down
+            // the PushManager.
+        }
+    }
 }
 
 // ...
@@ -148,16 +148,16 @@ To get expired device tokens with Pushy, you'll need to register an [`ExpiredTok
 ```java
 private class MyExpiredTokenListener implements ExpiredTokenListener<SimpleApnsPushNotification> {
 
-	@Override
-	public void handleExpiredTokens(
-			final PushManager<? extends SimpleApnsPushNotification> pushManager,
-			final Collection<ExpiredToken> expiredTokens) {
+    @Override
+    public void handleExpiredTokens(
+            final PushManager<? extends SimpleApnsPushNotification> pushManager,
+            final Collection<ExpiredToken> expiredTokens) {
 
-		for (final ExpiredToken expiredToken : expiredTokens) {
-		    // Stop sending push notifications to each expired token if the expiration
-		    // time is after the last time the app registered that token.
-		}
-	}
+        for (final ExpiredToken expiredToken : expiredTokens) {
+            // Stop sending push notifications to each expired token if the expiration
+            // time is after the last time the app registered that token.
+        }
+    }
 }
 
 // ...
