@@ -23,6 +23,7 @@ package com.relayrides.pushy.apns;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
@@ -235,4 +236,7 @@ public class FeedbackConnection extends ApnsConnection {
 	protected int getPort() {
 		return this.getEnvironment().getFeedbackPort();
 	}
+
+	@Override
+	protected void handleConnectionCompletion(final Channel channel) {}
 }

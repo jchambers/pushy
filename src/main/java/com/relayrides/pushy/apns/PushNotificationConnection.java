@@ -575,7 +575,7 @@ public class PushNotificationConnection<T extends ApnsPushNotification> extends 
 		bootstrap.channel(NioSocketChannel.class);
 		bootstrap.option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
 
-		// TODO Remove this when Netty 5 is available
+		// TODO Remove this when Netty 5 (or 4.1?) is available
 		bootstrap.option(ChannelOption.AUTO_CLOSE, false);
 
 		final PushNotificationConnection<T> pushNotificationConnection = this;
