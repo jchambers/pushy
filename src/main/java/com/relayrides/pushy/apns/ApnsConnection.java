@@ -63,8 +63,8 @@ public abstract class ApnsConnection {
 		public void channelRegistered(final ChannelHandlerContext context) throws Exception {
 			super.channelRegistered(context);
 
-			synchronized (this.apnsConnection.getChannelRegistrationMonitor()) {
-				if (this.apnsConnection.shouldCloseOnRegistration()) {
+			synchronized (this.apnsConnection.channelRegistrationMonitor) {
+				if (this.apnsConnection.closeOnRegistration) {
 					log.debug("Channel registered for {}, but shutting down immediately.", this.apnsConnection.getName());
 					context.channel().eventLoop().execute(this.apnsConnection.getImmediateShutdownRunnable());
 				}
@@ -230,14 +230,6 @@ public abstract class ApnsConnection {
 				}
 			}
 		};
-	}
-
-	private boolean shouldCloseOnRegistration() {
-		return this.closeOnRegistration;
-	}
-
-	private Object getChannelRegistrationMonitor() {
-		return this.channelRegistrationMonitor;
 	}
 
 	/**
