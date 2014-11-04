@@ -69,6 +69,7 @@ import org.slf4j.LoggerFactory;
  */
 public class FeedbackConnection extends ApnsConnection {
 
+	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
 	private final NioEventLoopGroup eventLoopGroup;
 	private final FeedbackConnectionConfiguration configuration;
@@ -154,7 +155,7 @@ public class FeedbackConnection extends ApnsConnection {
 	 * <p>Constructs a new feedback client that connects to the feedback service in the given environment with the
 	 * credentials and key/trust managers in the given SSL context.</p>
 
-	 * @param environment the environment in which this feedback client will operate
+	 * @param environment the environment in which this feedback connection will operate
 	 * @param sslContext an SSL context with the keys/certificates and trust managers this client should use when
 	 * communicating with the APNs feedback service
 	 * @param eventLoopGroup the event loop group this client should use for asynchronous network operations
@@ -167,7 +168,11 @@ public class FeedbackConnection extends ApnsConnection {
 			final NioEventLoopGroup eventLoopGroup, final FeedbackConnectionConfiguration configuration,
 			final FeedbackConnectionListener listener, final String name) {
 
-		super(environment, name);
+		super(name);
+
+		if (environment == null) {
+			throw new NullPointerException("Environment must not be null.");
+		}
 
 		if (sslContext == null) {
 			throw new NullPointerException("SSL context must not be null.");
@@ -185,6 +190,7 @@ public class FeedbackConnection extends ApnsConnection {
 			throw new NullPointerException("Feedback connection listener must not be null.");
 		}
 
+		this.environment = environment;
 		this.sslContext = sslContext;
 		this.eventLoopGroup = eventLoopGroup;
 		this.configuration = configuration;
@@ -228,13 +234,13 @@ public class FeedbackConnection extends ApnsConnection {
 	}
 
 	@Override
-	protected String getHost() {
-		return this.getEnvironment().getFeedbackHost();
+	public String getHost() {
+		return this.environment.getFeedbackHost();
 	}
 
 	@Override
-	protected int getPort() {
-		return this.getEnvironment().getFeedbackPort();
+	public int getPort() {
+		return this.environment.getFeedbackPort();
 	}
 
 	@Override

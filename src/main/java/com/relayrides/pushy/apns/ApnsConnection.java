@@ -41,8 +41,6 @@ import org.slf4j.LoggerFactory;
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
 public abstract class ApnsConnection {
-	private final ApnsEnvironment environment;
-
 	private final String name;
 
 	private final Object channelRegistrationMonitor = new Object();
@@ -91,19 +89,13 @@ public abstract class ApnsConnection {
 	/**
 	 * Constructs a new connection with the given environment and name.
 	 *
-	 * @param environment the environment in which this connection will operate
 	 * @param name a human-readable name for this connection; names must not be {@code null}
 	 */
-	public ApnsConnection(final ApnsEnvironment environment, final String name) {
-		if (environment == null) {
-			throw new NullPointerException("Environment must not be null.");
-		}
-
+	public ApnsConnection(final String name) {
 		if (name == null) {
 			throw new NullPointerException("Connection name must not be null.");
 		}
 
-		this.environment = environment;
 		this.name = name;
 	}
 
@@ -285,27 +277,18 @@ public abstract class ApnsConnection {
 	}
 
 	/**
-	 * Returns the environment in which this connection operates.
-	 *
-	 * @return the environment in which this connection operates
-	 */
-	public ApnsEnvironment getEnvironment() {
-		return this.environment;
-	}
-
-	/**
 	 * Returns the name of the server with which this connection should communicate.
 	 *
 	 * @return the name of the server with which this connection should communicate
 	 */
-	protected abstract String getHost();
+	public abstract String getHost();
 
 	/**
 	 * Returns the port on which this connection should connect to the remote server.
 	 *
 	 * @return the port on which this connection should connect to the remote server
 	 */
-	protected abstract int getPort();
+	public abstract int getPort();
 
 	/**
 	 * Returns an optional listener for lifecycle events associated with this connection.

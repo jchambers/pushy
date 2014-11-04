@@ -65,6 +65,7 @@ import org.slf4j.LoggerFactory;
  */
 public class PushNotificationConnection<T extends ApnsPushNotification> extends ApnsConnection {
 
+	private final ApnsEnvironment environment;
 	private final NioEventLoopGroup eventLoopGroup;
 	private final SSLContext sslContext;
 	private final PushNotificationConnectionConfiguration configuration;
@@ -329,7 +330,11 @@ public class PushNotificationConnection<T extends ApnsPushNotification> extends 
 			final NioEventLoopGroup eventLoopGroup, final PushNotificationConnectionConfiguration configuration,
 			final PushNotificationConnectionListener<T> listener, final String name) {
 
-		super(environment, name);
+		super(name);
+
+		if (environment == null) {
+			throw new NullPointerException("Environment must not be null.");
+		}
 
 		if (sslContext == null) {
 			throw new NullPointerException("SSL context must not be null.");
@@ -343,6 +348,7 @@ public class PushNotificationConnection<T extends ApnsPushNotification> extends 
 			throw new NullPointerException("Connection configuration must not be null.");
 		}
 
+		this.environment = environment;
 		this.sslContext = sslContext;
 		this.eventLoopGroup = eventLoopGroup;
 		this.configuration = configuration;
@@ -600,12 +606,12 @@ public class PushNotificationConnection<T extends ApnsPushNotification> extends 
 	}
 
 	@Override
-	protected String getHost() {
-		return this.getEnvironment().getApnsGatewayHost();
+	public String getHost() {
+		return this.environment.getApnsGatewayHost();
 	}
 
 	@Override
-	protected int getPort() {
-		return this.getEnvironment().getApnsGatewayPort();
+	public int getPort() {
+		return this.environment.getApnsGatewayPort();
 	}
 }
