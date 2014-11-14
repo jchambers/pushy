@@ -26,6 +26,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
@@ -207,6 +208,7 @@ public class FeedbackConnection extends ApnsConnection {
 		final Bootstrap bootstrap = new Bootstrap();
 		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioSocketChannel.class);
+		bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, this.configuration.getConnectTimeout() * 1000);
 
 		final FeedbackConnection feedbackConnection = this;
 		bootstrap.handler(new ChannelInitializer<SocketChannel>() {
@@ -218,7 +220,10 @@ public class FeedbackConnection extends ApnsConnection {
 				final SSLEngine sslEngine = feedbackConnection.sslContext.createSSLEngine();
 				sslEngine.setUseClientMode(true);
 
-				pipeline.addLast("ssl", new SslHandler(sslEngine));
+				final SslHandler sslHandler = new SslHandler(sslEngine);
+				sslHandler.setHandshakeTimeoutMillis(feedbackConnection.configuration.getSslHandshakeTimeout() * 1000);
+
+				pipeline.addLast("ssl", sslHandler);
 				pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(feedbackConnection.configuration.getReadTimeout()));
 				pipeline.addLast("decoder", new ExpiredTokenDecoder());
 				pipeline.addLast("handler", new FeedbackClientHandler(feedbackConnection));

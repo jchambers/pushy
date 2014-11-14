@@ -580,6 +580,7 @@ public class PushNotificationConnection<T extends ApnsPushNotification> extends 
 		bootstrap.group(this.eventLoopGroup);
 		bootstrap.channel(NioSocketChannel.class);
 		bootstrap.option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT);
+		bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, this.configuration.getConnectTimeout() * 1000);
 
 		// TODO Remove this when Netty 5 (or 4.1?) is available
 		bootstrap.option(ChannelOption.AUTO_CLOSE, false);
@@ -595,7 +596,10 @@ public class PushNotificationConnection<T extends ApnsPushNotification> extends 
 				final SSLEngine sslEngine = pushNotificationConnection.sslContext.createSSLEngine();
 				sslEngine.setUseClientMode(true);
 
-				pipeline.addLast("ssl", new SslHandler(sslEngine));
+				final SslHandler sslHandler = new SslHandler(sslEngine);
+				sslHandler.setHandshakeTimeoutMillis(pushNotificationConnection.configuration.getSslHandshakeTimeout() * 1000);
+
+				pipeline.addLast("ssl", sslHandler);
 				pipeline.addLast("decoder", new RejectedNotificationDecoder());
 				pipeline.addLast("encoder", new ApnsPushNotificationEncoder());
 				pipeline.addLast(PushNotificationConnection.PIPELINE_MAIN_HANDLER, new PushNotificationConnectionHandler(pushNotificationConnection));
