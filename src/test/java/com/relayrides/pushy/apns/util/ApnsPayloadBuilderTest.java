@@ -68,6 +68,20 @@ public class ApnsPayloadBuilderTest {
 		}
 	}
 
+	@Test
+	public void testSetAlertTitle() throws ParseException {
+		final String alertTitle = "This is a test alert message.";
+
+		this.builder.setAlertTitle(alertTitle);
+
+		{
+			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+			final JSONObject alert = (JSONObject) aps.get("alert");
+
+			assertEquals(alertTitle, alert.get("title"));
+		}
+	}
+
 	@SuppressWarnings("unchecked")
 	@Test
 	public void testSetLocalizedAlertMessage() throws ParseException {
@@ -107,6 +121,18 @@ public class ApnsPayloadBuilderTest {
 	public void testSetLocalizedAlertWithExistingAlertBody() {
 		this.builder.setAlertBody("Test");
 		this.builder.setLocalizedAlertMessage("Test", null);
+	}
+
+	@Test(expected = IllegalStateException.class)
+	public void testSetAlertTitleWithExistingLocalizedAlertTitle() {
+		this.builder.setLocalizedAlertTitle("Test", null);
+		this.builder.setAlertTitle("Test");
+	}
+
+	@Test(expected = IllegalStateException.class)
+	public void testSetLocalizedAlertTitleWithExistingAlertTitle() {
+		this.builder.setAlertTitle("Test");
+		this.builder.setLocalizedAlertTitle("Test", null);
 	}
 
 	@Test

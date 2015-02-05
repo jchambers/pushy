@@ -42,6 +42,9 @@ public class ApnsPayloadBuilder {
 	private String alertBody = null;
 	private String localizedAlertKey = null;
 	private String[] localizedAlertArguments = null;
+	private String alertTitle = null;
+	private String localizedAlertTitleKey = null;
+	private String[] localizedAlertTitleArguments = null;
 	private String launchImageFileName = null;
 	private boolean showActionButton = true;
 	private String localizedActionButtonKey = null;
@@ -57,7 +60,10 @@ public class ApnsPayloadBuilder {
 	private static final String CATEGORY_KEY = "category";
 	private static final String CONTENT_AVAILABLE_KEY = "content-available";
 
+	private static final String ALERT_TITLE_KEY = "title";
 	private static final String ALERT_BODY_KEY = "body";
+	private static final String ALERT_TITLE_LOC_KEY = "title-loc-key";
+	private static final String ALERT_TITLE_ARGS_KEY = "title-loc-args";
 	private static final String ACTION_LOC_KEY = "action-loc-key";
 	private static final String ALERT_LOC_KEY = "loc-key";
 	private static final String ALERT_ARGS_KEY = "loc-args";
@@ -123,6 +129,50 @@ public class ApnsPayloadBuilder {
 
 		this.localizedAlertKey = localizedAlertKey;
 		this.localizedAlertArguments = alertArguments;
+
+		return this;
+	}
+
+	/**
+	 * <p>Sets a short description of the notification purpose. The Apple Watch will display this as part of the notification.
+	 * According to Apple's documentation, this should be:</p>
+	 *
+	 *  <blockquote>A short string describing the purpose of the notification. Apple Watch displays this string as part of the notification interface.
+	 *  This string is displayed only briefly and should be crafted so that it can be understood quickly.</blockquote>
+	 *
+	 * @param alertTitle the description to be shown for this push notification
+	 *
+	 * @see ApnsPayloadBuilder#setLocalizedAlertTitle(String, String[])
+	 */
+	public ApnsPayloadBuilder setAlertTitle(final String alertTitle) {
+		if (alertTitle != null && this.localizedAlertTitleKey != null) {
+			throw new IllegalStateException("Cannot set a literal alert title when a localized alert title key has already been set.");
+		}
+
+		this.alertTitle = alertTitle;
+
+		return this;
+	}
+
+	/**
+	 * <p>Sets the key of the title string in the receiving app's localized string list to be shown for the push notification.
+	 * The message in the app's string list may optionally have placeholders, which will be populated by values from the
+	 * given {@code alertArguments}.</p>
+	 *
+	 * @param localizedAlertTitleKey a key to a string in the receiving app's localized string list
+	 * @param alertTitleArguments arguments to populate placeholders in the localized alert string; may be {@code null}
+	 */
+	public ApnsPayloadBuilder setLocalizedAlertTitle(final String localizedAlertTitleKey, final String[] alertTitleArguments) {
+		if (localizedAlertTitleKey != null && this.alertTitle != null) {
+			throw new IllegalStateException("Cannot set a localized alert key when a literal alert body has already been set.");
+		}
+
+		if (localizedAlertTitleKey == null && alertTitleArguments != null) {
+			throw new IllegalArgumentException("Cannot set localized alert arguments without a localized alert message key.");
+		}
+
+		this.localizedAlertTitleKey = localizedAlertTitleKey;
+		this.localizedAlertTitleArguments = alertTitleArguments;
 
 		return this;
 	}
@@ -390,6 +440,10 @@ public class ApnsPayloadBuilder {
 					alert.put(ALERT_BODY_KEY, this.alertBody);
 				}
 
+				if (this.alertTitle != null) {
+					alert.put(ALERT_TITLE_KEY, this.alertTitle);
+				}
+
 				if (this.showActionButton) {
 					if (this.localizedActionButtonKey != null) {
 						alert.put(ACTION_LOC_KEY, this.localizedActionButtonKey);
@@ -413,6 +467,20 @@ public class ApnsPayloadBuilder {
 					}
 				}
 
+				if (this.localizedAlertTitleKey != null) {
+					alert.put(ALERT_TITLE_LOC_KEY, this.localizedAlertTitleKey);
+
+					if (this.localizedAlertTitleArguments != null) {
+						final JSONArray alertTitleArgs = new JSONArray();
+
+						for (final String arg : this.localizedAlertTitleArguments) {
+							alertTitleArgs.add(arg);
+						}
+
+						alert.put(ALERT_TITLE_ARGS_KEY, alertTitleArgs);
+					}
+				}
+
 				if (this.launchImageFileName != null) {
 					alert.put(LAUNCH_IMAGE_KEY, this.launchImageFileName);
 				}
@@ -431,6 +499,8 @@ public class ApnsPayloadBuilder {
 	 */
 	private boolean hasAlertContent() {
 		return	this.alertBody != null ||
+				this.alertTitle != null ||
+				this.localizedAlertTitleKey != null ||
 				this.localizedAlertKey != null ||
 				this.localizedActionButtonKey != null ||
 				this.launchImageFileName != null ||
