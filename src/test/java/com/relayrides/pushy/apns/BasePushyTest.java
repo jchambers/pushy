@@ -47,7 +47,7 @@ public abstract class BasePushyTest {
 	private static NioEventLoopGroup eventLoopGroup;
 
 	private PushManager<SimpleApnsPushNotification> pushManager;
-	private MockApnsServer apnsServer;
+	private MockPushNotificationServer apnsServer;
 	private MockFeedbackServer feedbackServer;
 
 	@Rule
@@ -61,7 +61,7 @@ public abstract class BasePushyTest {
 	@Before
 	public void setUp() throws Exception {
 
-		this.apnsServer = new MockApnsServer(TEST_ENVIRONMENT.getApnsGatewayPort(), BasePushyTest.eventLoopGroup);
+		this.apnsServer = new MockPushNotificationServer(TEST_ENVIRONMENT.getApnsGatewayPort(), BasePushyTest.eventLoopGroup);
 		this.apnsServer.start();
 
 		this.feedbackServer = new MockFeedbackServer(TEST_ENVIRONMENT.getFeedbackPort(), BasePushyTest.eventLoopGroup);
@@ -91,7 +91,7 @@ public abstract class BasePushyTest {
 		return this.pushManager;
 	}
 
-	public MockApnsServer getApnsServer() {
+	public MockPushNotificationServer getApnsServer() {
 		return this.apnsServer;
 	}
 
@@ -100,7 +100,7 @@ public abstract class BasePushyTest {
 	}
 
 	public SimpleApnsPushNotification createTestNotification() {
-		final byte[] token = new byte[MockApnsServer.EXPECTED_TOKEN_SIZE];
+		final byte[] token = new byte[MockPushNotificationServer.EXPECTED_TOKEN_SIZE];
 		new Random().nextBytes(token);
 
 		return new SimpleApnsPushNotification(token, "{\"aps\":{\"alert\":\"Hello\"}}");

@@ -47,10 +47,10 @@ import java.util.concurrent.CountDownLatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.relayrides.pushy.apns.ApnsConnection.ApnsFrameItem;
+import com.relayrides.pushy.apns.PushNotificationConnection.ApnsFrameItem;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
-public class MockApnsServer {
+public class MockPushNotificationServer {
 
 	private final int port;
 	private final NioEventLoopGroup eventLoopGroup;
@@ -64,7 +64,7 @@ public class MockApnsServer {
 	public static final int EXPECTED_TOKEN_SIZE = 32;
 	public static final int MAX_PAYLOAD_SIZE = 2048;
 
-	private static final Logger log = LoggerFactory.getLogger(MockApnsServer.class);
+	private static final Logger log = LoggerFactory.getLogger(MockPushNotificationServer.class);
 
 	private class ApnsDecoderException extends Exception {
 		private static final long serialVersionUID = 1L;
@@ -267,11 +267,11 @@ public class MockApnsServer {
 
 	private class MockApnsServerHandler extends SimpleChannelInboundHandler<SendableApnsPushNotification<SimpleApnsPushNotification>> {
 
-		private final MockApnsServer server;
+		private final MockPushNotificationServer server;
 
 		private boolean rejectFutureNotifications = false;
 
-		public MockApnsServerHandler(final MockApnsServer server) {
+		public MockApnsServerHandler(final MockPushNotificationServer server) {
 			this.server = server;
 		}
 
@@ -305,7 +305,7 @@ public class MockApnsServer {
 		}
 	}
 
-	public MockApnsServer(final int port, final NioEventLoopGroup eventLoopGroup) {
+	public MockPushNotificationServer(final int port, final NioEventLoopGroup eventLoopGroup) {
 		this.port = port;
 		this.eventLoopGroup = eventLoopGroup;
 	}
@@ -317,7 +317,7 @@ public class MockApnsServer {
 		bootstrap.channel(NioServerSocketChannel.class);
 		bootstrap.childOption(ChannelOption.SO_KEEPALIVE, true);
 
-		final MockApnsServer server = this;
+		final MockPushNotificationServer server = this;
 
 		bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
 

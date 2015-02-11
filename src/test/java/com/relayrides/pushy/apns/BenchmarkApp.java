@@ -44,7 +44,7 @@ public class BenchmarkApp {
 			new ApnsEnvironment("127.0.0.1", GATEWAY_PORT, "localhost", FEEDPACK_PORT);
 
 	private NioEventLoopGroup serverEventLoopGroup;
-	private MockApnsServer server;
+	private MockPushNotificationServer server;
 
 	private final ArrayList<SimpleApnsPushNotification> notifications =
 			new ArrayList<SimpleApnsPushNotification>(NOTIFICATIONS_PER_TEST);
@@ -79,7 +79,7 @@ public class BenchmarkApp {
 
 	public void runAllBenchmarks() throws InterruptedException {
 		this.serverEventLoopGroup = new NioEventLoopGroup(2);
-		this.server = new MockApnsServer(GATEWAY_PORT, serverEventLoopGroup);
+		this.server = new MockPushNotificationServer(GATEWAY_PORT, serverEventLoopGroup);
 
 		// We want to do a dummy run first to let the JVM warm up
 		final NioEventLoopGroup warmupGroup = new NioEventLoopGroup(1);

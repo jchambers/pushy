@@ -23,7 +23,7 @@ package com.relayrides.pushy.apns;
 
 /**
  * A set of user-configurable options that affect the behavior of a {@link PushManager} and its associated
- * {@link ApnsConnection}s.
+ * {@link PushNotificationConnection}s.
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
@@ -31,7 +31,7 @@ public class PushManagerConfiguration {
 
 	private int concurrentConnectionCount = 1;
 
-	private ApnsConnectionConfiguration connectionConfiguration = new ApnsConnectionConfiguration();
+	private PushNotificationConnectionConfiguration connectionConfiguration = new PushNotificationConnectionConfiguration();
 	private FeedbackConnectionConfiguration feedbackConfiguration = new FeedbackConnectionConfiguration();
 
 	/**
@@ -48,7 +48,7 @@ public class PushManagerConfiguration {
 	public PushManagerConfiguration(final PushManagerConfiguration configuration) {
 		this.concurrentConnectionCount = configuration.getConcurrentConnectionCount();
 
-		this.connectionConfiguration = new ApnsConnectionConfiguration(configuration.getConnectionConfiguration());
+		this.connectionConfiguration = new PushNotificationConnectionConfiguration(configuration.getConnectionConfiguration());
 		this.feedbackConfiguration = new FeedbackConnectionConfiguration(configuration.getFeedbackConnectionConfiguration());
 	}
 
@@ -78,7 +78,7 @@ public class PushManagerConfiguration {
 	 *
 	 * @return the configuration to be used for connections created by push managers created with this configuration
 	 */
-	public ApnsConnectionConfiguration getConnectionConfiguration() {
+	public PushNotificationConnectionConfiguration getConnectionConfiguration() {
 		return connectionConfiguration;
 	}
 
@@ -90,7 +90,7 @@ public class PushManagerConfiguration {
 	 *
 	 * @throws NullPointerException if the given connection configuration is {@code null}
 	 */
-	public void setConnectionConfiguration(final ApnsConnectionConfiguration connectionConfiguration) {
+	public void setConnectionConfiguration(final PushNotificationConnectionConfiguration connectionConfiguration) {
 		if (connectionConfiguration == null) {
 			throw new NullPointerException("Connection configuration must not be null.");
 		}

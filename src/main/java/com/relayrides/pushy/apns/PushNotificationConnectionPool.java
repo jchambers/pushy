@@ -26,14 +26,14 @@ import java.util.Collection;
 
 /**
  * <p>A group of connections to an APNs gateway. An {@code ApnsConnectionPool} rotates through the connections in the
- * pool, acting as a simple load balancer. Additionally, the {@link ApnsConnectionPool#getNextConnection} method blocks
+ * pool, acting as a simple load balancer. Additionally, the {@link PushNotificationConnectionPool#getNextConnection} method blocks
  * until connections are available before returning a result.</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-class ApnsConnectionPool<T extends ApnsPushNotification> {
+class PushNotificationConnectionPool<T extends ApnsPushNotification> {
 
-	private final ArrayList<ApnsConnection<T>> connections = new ArrayList<ApnsConnection<T>>();
+	private final ArrayList<PushNotificationConnection<T>> connections = new ArrayList<PushNotificationConnection<T>>();
 
 	private int connectionIndex = 0;
 
@@ -42,7 +42,7 @@ class ApnsConnectionPool<T extends ApnsPushNotification> {
 	 *
 	 * @param connection the connection to add to the pool
 	 */
-	public void addConnection(final ApnsConnection<T> connection) {
+	public void addConnection(final PushNotificationConnection<T> connection) {
 		synchronized (this.connections) {
 			this.connections.add(connection);
 			this.connections.notifyAll();
@@ -54,7 +54,7 @@ class ApnsConnectionPool<T extends ApnsPushNotification> {
 	 *
 	 * @param connection the connection to remove from the pool.
 	 */
-	public void removeConnection(final ApnsConnection<T> connection) {
+	public void removeConnection(final PushNotificationConnection<T> connection) {
 		synchronized (this.connections) {
 			this.connections.remove(connection);
 		}
@@ -69,7 +69,7 @@ class ApnsConnectionPool<T extends ApnsPushNotification> {
 	 *
 	 * @throws InterruptedException if interrupted while waiting for a connection to become available
 	 */
-	public ApnsConnection<T> getNextConnection() throws InterruptedException {
+	public PushNotificationConnection<T> getNextConnection() throws InterruptedException {
 		synchronized (this.connections) {
 			while (this.connections.isEmpty()) {
 				this.connections.wait();
@@ -84,9 +84,9 @@ class ApnsConnectionPool<T extends ApnsPushNotification> {
 	 *
 	 * @return a collection of all connections in this pool
 	 */
-	protected Collection<ApnsConnection<T>> getAll() {
+	protected Collection<PushNotificationConnection<T>> getAll() {
 		synchronized (this.connections) {
-			return new ArrayList<ApnsConnection<T>>(this.connections);
+			return new ArrayList<PushNotificationConnection<T>>(this.connections);
 		}
 	}
 }
