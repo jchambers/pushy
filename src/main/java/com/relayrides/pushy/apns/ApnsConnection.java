@@ -281,13 +281,17 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 			// Regardless of the cause, we ALWAYS want to notify listeners that some sent notifications were not
 			// processed by the gateway (assuming there are some such notifications).
-			final Collection<T> unprocessedNotifications =
-					this.apnsConnection.sentNotificationBuffer.getAllNotificationsAfterSequenceNumber(
-							rejectedNotification.getSequenceNumber());
+			// Unless the sequence number was erroneously reported as 0, in which case we don't know the actual
+			// sequence number, and can't determine what was sent after the bad notification.
+			if (rejectedNotification.getSequenceNumber() != 0) {
+				final Collection<T> unprocessedNotifications =
+						this.apnsConnection.sentNotificationBuffer.getAllNotificationsAfterSequenceNumber(
+								rejectedNotification.getSequenceNumber());
 
-			if (!unprocessedNotifications.isEmpty()) {
-				if (this.apnsConnection.listener != null) {
-					this.apnsConnection.listener.handleUnprocessedNotifications(this.apnsConnection, unprocessedNotifications);
+				if (!unprocessedNotifications.isEmpty()) {
+					if (this.apnsConnection.listener != null) {
+						this.apnsConnection.listener.handleUnprocessedNotifications(this.apnsConnection, unprocessedNotifications);
+					}
 				}
 			}
 
