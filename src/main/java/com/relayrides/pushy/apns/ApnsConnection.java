@@ -255,7 +255,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 			final boolean isKnownBadRejection = this.apnsConnection.shutdownNotification != null &&
 					(rejectedNotification.getSequenceNumber() == this.apnsConnection.shutdownNotification.getSequenceNumber()
-					|| rejectedNotification.getSequenceNumber() == 0);
+					|| (rejectedNotification.getSequenceNumber() == 0 && RejectedNotificationReason.MISSING_TOKEN.equals(rejectedNotification.getReason())));
 
 			// We only want to notify listeners of an actual rejection if something actually went wrong. We don't want
 			// to notify listeners if a known-bad notification was rejected because that's an expected case, and we
