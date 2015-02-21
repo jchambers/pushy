@@ -1,15 +1,15 @@
 /* Copyright (c) 2013 RelayRides
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -30,7 +30,7 @@ import java.util.NoSuchElementException;
  * <p>A bounded-length buffer meant to store sent APNs notifications. This is necessary because the APNs protocol is
  * asynchronous, and notifications may be identified as failed or in need of retransmission after they've been
  * successfully written to the wire.</p>
- * 
+ *
  * <p>If a notification is present in the buffer, it is assumed to have been written to the outbound network buffer,
  * but its state is otherwise unknown.</p>
  *
@@ -43,7 +43,7 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 
 	/**
 	 * Constructs a new sent notification buffer with the given maximum capacity.
-	 * 
+	 *
 	 * @param capacity the capacity of the buffer
 	 */
 	public SentNotificationBuffer(final int capacity) {
@@ -57,7 +57,7 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 
 	/**
 	 * Adds a sent notification to the buffer, potentially discarding a previously-existing sent notification.
-	 * 
+	 *
 	 * @param notification the notification to add to the buffer
 	 */
 	public synchronized void addSentNotification(final SendableApnsPushNotification<E> notification) {
@@ -71,7 +71,7 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 	/**
 	 * Removes all sent notifications from the buffer if they come before the given sequence number (exclusive and
 	 * accounting for potential integer wrapping).
-	 * 
+	 *
 	 * @param sequenceNumber the sequence number (exclusive) before which to remove sent notifications
 	 */
 	public synchronized void clearNotificationsBeforeSequenceNumber(final int sequenceNumber) {
@@ -83,9 +83,9 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 
 	/**
 	 * Retrieves a notification from the buffer by its sequence number.
-	 * 
+	 *
 	 * @param sequenceNumber the sequence number of the notification to retrieve
-	 * 
+	 *
 	 * @return the notification with the given sequence number or {@code null} if no such notification was found
 	 */
 	public synchronized E getNotificationWithSequenceNumber(final int sequenceNumber) {
@@ -100,9 +100,9 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 
 	/**
 	 * Retrieves a list of all notifications received after the given notification sequence number (non-inclusive).
-	 * 
+	 *
 	 * @param sequenceNumber the sequence number of the notification (exclusive) after which to retrieve notifications
-	 * 
+	 *
 	 * @return all notifications in the buffer sent after the given sequence number
 	 */
 	public synchronized List<E> getAllNotificationsAfterSequenceNumber(final int sequenceNumber) {
@@ -127,8 +127,17 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 	}
 
 	/**
+	 * Indicates whether this buffer is empty.
+	 *
+	 * @return {@code true} if this buffer contains no notifications or {@code false} otherwise
+	 */
+	public boolean isEmpty() {
+		return this.sentNotifications.isEmpty();
+	}
+
+	/**
 	 * Returns the number of notifications currently stored in this buffer.
-	 * 
+	 *
 	 * @return the number of notifications currently stored in this buffer
 	 */
 	protected int size() {
@@ -137,7 +146,7 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 
 	/**
 	 * Returns the sequence number of the oldest item in this buffer.
-	 * 
+	 *
 	 * @return the sequence number of the oldest item in this buffer or {@code null} if this buffer is empty
 	 */
 	protected Integer getLowestSequenceNumber() {
@@ -150,7 +159,7 @@ class SentNotificationBuffer<E extends ApnsPushNotification> {
 
 	/**
 	 * Returns the sequence number of the newest item in this buffer.
-	 * 
+	 *
 	 * @return the sequence number of the newest item in this buffer or {@code null} if this buffer is empty
 	 */
 	protected Integer getHighestSequenceNumber() {
