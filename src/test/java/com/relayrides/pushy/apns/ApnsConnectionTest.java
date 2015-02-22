@@ -633,4 +633,53 @@ public class ApnsConnectionTest extends BasePushyTest {
 		this.waitForLatch(limitLatch);
 		assertEquals(notificationCount - sendAttemptLimit, totalLatch.getCount());
 	}
+
+	@Test
+	public void testHandleBogusSequenceNumber() throws Exception {
+		// This covers a weird upstream regression/behavior change where the APNs gateway will send a sequence number of
+		// zero if we send a notification with a zero-length token. See https://github.com/relayrides/pushy/issues/149
+		// for additional discussion.
+
+		this.getApnsServer().setShouldSendIncorrectSequenceNumber(true);
+
+		try {
+			final Object mutex = new Object();
+
+			final TestListener listener = new TestListener(mutex);
+			final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
+					new ApnsConnection<SimpleApnsPushNotification>(
+							TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
+							new ApnsConnectionConfiguration(), listener, TEST_CONNECTION_NAME);
+
+			final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(1);
+
+			synchronized (mutex) {
+				apnsConnection.connect();
+
+				while (!listener.connectionSucceeded) {
+					mutex.wait();
+				}
+			}
+
+			assertTrue(listener.connectionSucceeded);
+
+			apnsConnection.sendNotification(this.createTestNotification());
+			this.waitForLatch(latch);
+
+			synchronized (mutex) {
+				apnsConnection.shutdownGracefully();
+
+				while (!listener.connectionClosed) {
+					mutex.wait();
+				}
+			}
+
+			assertTrue(listener.connectionClosed);
+			assertNull(listener.rejectedNotification);
+			assertNull(listener.rejectionReason);
+			assertTrue(listener.unprocessedNotifications.isEmpty());
+		} finally {
+			this.getApnsServer().setShouldSendIncorrectSequenceNumber(false);
+		}
+	}
 }

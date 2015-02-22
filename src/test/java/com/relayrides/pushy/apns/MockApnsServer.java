@@ -60,6 +60,7 @@ public class MockApnsServer {
 	private Channel channel;
 
 	private boolean shouldSendErrorResponses = true;
+	private boolean shouldSendIncorrectSequenceNumber = false;
 
 	public static final int EXPECTED_TOKEN_SIZE = 32;
 	public static final int MAX_PAYLOAD_SIZE = 2048;
@@ -292,8 +293,10 @@ public class MockApnsServer {
 				if (decoderException.getCause() instanceof ApnsDecoderException) {
 					if (this.server.shouldSendErrorResponses()) {
 						final ApnsDecoderException apnsDecoderException = (ApnsDecoderException)decoderException.getCause();
+						final int sequenceNumber = this.server.shouldSendIncorrectSequenceNumber ? 0 : apnsDecoderException.sequenceNumber;
+
 						final RejectedNotification rejectedNotification =
-								new RejectedNotification(apnsDecoderException.sequenceNumber, apnsDecoderException.reason);
+								new RejectedNotification(sequenceNumber, apnsDecoderException.reason);
 
 						context.writeAndFlush(rejectedNotification).addListener(ChannelFutureListener.CLOSE);
 					}
@@ -347,6 +350,14 @@ public class MockApnsServer {
 
 	public boolean shouldSendErrorResponses() {
 		return this.shouldSendErrorResponses;
+	}
+
+	public boolean shouldSendIncorrectSequenceNumber() {
+		return shouldSendIncorrectSequenceNumber;
+	}
+
+	public void setShouldSendIncorrectSequenceNumber(boolean shouldSendIncorrectSequenceNumber) {
+		this.shouldSendIncorrectSequenceNumber = shouldSendIncorrectSequenceNumber;
 	}
 
 	private void acceptNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
