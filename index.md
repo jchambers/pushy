@@ -21,7 +21,7 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 <dependency>
     <groupId>com.relayrides</groupId>
     <artifactId>pushy</artifactId>
-    <version>0.4.2</version>
+    <version>0.4.1</version>
 </dependency>
 ```
 
@@ -44,20 +44,10 @@ final PushManager<SimpleApnsPushNotification> pushManager =
     new PushManager<SimpleApnsPushNotification>(
         ApnsEnvironment.getSandboxEnvironment(),
         SSLContextUtil.createDefaultSSLContext("path-to-key.p12", "my-password"),
-        null, // Optional: custom event loop group
-        null, // Optional: custom ExecutorService for calling listeners
-        null, // Optional: custom BlockingQueue implementation
-        new PushManagerConfiguration(),
-        "ExamplePushManager");
+        null, null, null, new PushManagerConfiguration(), "ExamplePushManager");
 
 pushManager.start();
 ```
-
-Many aspects of a `PushManager`'s behavior can be customized. See the [`PushManager` documentation](http://relayrides.github.io/pushy/apidocs/0.4/com/relayrides/pushy/apns/PushManager.html) for details. Some important highlights:
-
-1. If you have multiple `PushManager` instances, you may want to share an event loop group and/or listener executor service between them to keep the number of active threads at a reasonable level.
-2. By default, a `PushManager` will use an unbounded public queue; depending on your use case, you may want to use a bounded [`BlockingQueue`](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/BlockingQueue.html) implementation or even a [`SynchronousQueue`](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/SynchronousQueue.html).
-3. Many other low-level options can be configured by providing a custom [`PushManagerConfiguration`](http://relayrides.github.io/pushy/apidocs/0.4/com/relayrides/pushy/apns/PushManagerConfiguration.html).
 
 Once you have your `PushManager` constructed and started, you're ready to start constructing and sending push notifications. Pushy provides utility classes for working with APNs tokens and payloads. Here's an example:
 
@@ -94,14 +84,14 @@ Push notification providers communicate with APNs by opening a long-lived connec
 ```java
 private class MyRejectedNotificationListener implements RejectedNotificationListener<SimpleApnsPushNotification> {
 
-    @Override
-    public void handleRejectedNotification(
-            final PushManager<? extends SimpleApnsPushNotification> pushManager,
-            final SimpleApnsPushNotification notification,
-            final RejectedNotificationReason reason) {
+	@Override
+	public void handleRejectedNotification(
+			final PushManager<? extends SimpleApnsPushNotification> pushManager,
+			final SimpleApnsPushNotification notification,
+			final RejectedNotificationReason reason) {
 
-        System.out.format("%s was rejected with rejection reason %s\n", notification, reason);
-    }
+		System.out.format("%s was rejected with rejection reason %s\n", notification, reason);
+	}
 }
 
 // ...
@@ -120,16 +110,16 @@ You can listen for connection failures with a [`FailedConnectionListener`](http:
 ```java
 private class MyFailedConnectionListener implements FailedConnectionListener<SimpleApnsPushNotification> {
 
-    @Override
-    public void handleFailedConnection(
-            final PushManager<? extends SimpleApnsPushNotification> pushManager,
-            final Throwable cause) {
+	@Override
+	public void handleFailedConnection(
+			final PushManager<? extends SimpleApnsPushNotification> pushManager,
+			final Throwable cause) {
 
-        if (cause instanceof SSLHandshakeException) {
-            // This is probably a permanent failure, and we should shut down
-            // the PushManager.
-        }
-    }
+		if (cause instanceof SSLHandshakeException) {
+			// This is probably a permanent failure, and we should shut down
+			// the PushManager.
+		}
+	}
 }
 
 // ...
@@ -150,16 +140,16 @@ To get expired device tokens with Pushy, you'll need to register an [`ExpiredTok
 ```java
 private class MyExpiredTokenListener implements ExpiredTokenListener<SimpleApnsPushNotification> {
 
-    @Override
-    public void handleExpiredTokens(
-            final PushManager<? extends SimpleApnsPushNotification> pushManager,
-            final Collection<ExpiredToken> expiredTokens) {
+	@Override
+	public void handleExpiredTokens(
+			final PushManager<? extends SimpleApnsPushNotification> pushManager,
+			final Collection<ExpiredToken> expiredTokens) {
 
-        for (final ExpiredToken expiredToken : expiredTokens) {
-            // Stop sending push notifications to each expired token if the expiration
-            // time is after the last time the app registered that token.
-        }
-    }
+		for (final ExpiredToken expiredToken : expiredTokens) {
+		    // Stop sending push notifications to each expired token if the expiration
+		    // time is after the last time the app registered that token.
+		}
+	}
 }
 
 // ...
@@ -204,4 +194,4 @@ Although we make every effort to fix bugs and work around issues outside of our 
 
 Pushy is available to the public under the [MIT License](http://opensource.org/licenses/MIT).
 
-The current version of Pushy is 0.4.2. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
+The current version of Pushy is 0.4.1. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
