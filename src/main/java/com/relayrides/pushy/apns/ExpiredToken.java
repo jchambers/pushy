@@ -24,6 +24,8 @@ package com.relayrides.pushy.apns;
 import java.util.Arrays;
 import java.util.Date;
 
+import com.relayrides.pushy.apns.util.TokenUtil;
+
 /**
  * <p>Represents a device token that the APN Feedback Service has reported as expired. According to Apple's
  * documentation:</p>
@@ -110,7 +112,7 @@ public class ExpiredToken {
 	 */
 	@Override
 	public String toString() {
-		return "ExpiredToken [token=" + Arrays.toString(token)
+		return "ExpiredToken [token=" + TokenUtil.tokenBytesToString(token)
 				+ ", expiration=" + expiration + "]";
 	}
 }
