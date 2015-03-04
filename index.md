@@ -21,13 +21,13 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 <dependency>
     <groupId>com.relayrides</groupId>
     <artifactId>pushy</artifactId>
-    <version>0.4.2</version>
+    <version>0.4.3</version>
 </dependency>
 ```
 
 If you don't use Maven, you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.4/pushy-0.4.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
-- [netty 4.0.24.Final](http://netty.io/)
+- [netty 4.0.26.Final](http://netty.io/)
 - [slf4j 1.7.6](http://www.slf4j.org/)
 - [json.simple 1.1.1](https://code.google.com/p/json-simple/)
 
@@ -204,4 +204,4 @@ Although we make every effort to fix bugs and work around issues outside of our 
 
 Pushy is available to the public under the [MIT License](http://opensource.org/licenses/MIT).
 
-The current version of Pushy is 0.4.2. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
+The current version of Pushy is 0.4.3. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
