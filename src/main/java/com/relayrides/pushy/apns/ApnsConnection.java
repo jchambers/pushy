@@ -290,9 +290,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			// bug where the sequence number will be incorrectly reported as zero when sending a zero-length token (i.e.
 			// a known-bad shutdown token). In that case we don't know the actual sequence number, and can't determine
 			// what was sent after the bad notification.
-			if (rejectedNotification.getSequenceNumber() != 0 &&
-					RejectedNotificationReason.MISSING_TOKEN.equals(rejectedNotification.getReason())) {
-
+			if (rejectedNotification.getSequenceNumber() != 0) {
 				final Collection<T> unprocessedNotifications =
 						this.apnsConnection.sentNotificationBuffer.getAllNotificationsAfterSequenceNumber(
 								rejectedNotification.getSequenceNumber());
