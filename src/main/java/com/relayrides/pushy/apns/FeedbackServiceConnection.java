@@ -93,7 +93,7 @@ public class FeedbackServiceConnection {
 		TOKEN
 	}
 
-	private class ExpiredTokenDecoder extends ReplayingDecoder<ExpiredTokenDecoderState> {
+	private static class ExpiredTokenDecoder extends ReplayingDecoder<ExpiredTokenDecoderState> {
 
 		private Date expiration;
 		private byte[] token;
@@ -133,7 +133,7 @@ public class FeedbackServiceConnection {
 		}
 	}
 
-	private class FeedbackClientHandler extends SimpleChannelInboundHandler<ExpiredToken> {
+	private static class FeedbackClientHandler extends SimpleChannelInboundHandler<ExpiredToken> {
 
 		private final FeedbackServiceConnection feedbackClient;
 
