@@ -46,6 +46,7 @@ import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
@@ -86,8 +87,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	// having an expired token) is vanishingly small.
 	private int sequenceNumber = 1;
 
-	private final Object pendingWriteMonitor = new Object();
-	private int pendingWriteCount = 0;
+	private final AtomicInteger pendingWriteCount = new AtomicInteger(0);
 	private int sendAttempts = 0;
 
 	private SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
@@ -131,7 +131,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		}
 	}
 
-	private class RejectedNotificationDecoder extends ByteToMessageDecoder {
+	private static class RejectedNotificationDecoder extends ByteToMessageDecoder {
 
 		// Per Apple's docs, APNS errors will have a one-byte "command", a one-byte status, and a 4-byte notification ID
 		private static final int EXPECTED_BYTES = 6;
@@ -539,7 +539,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 					log.trace("{} sending {}", apnsConnection.name, sendableNotification);
 
-					apnsConnection.pendingWriteCount += 1;
+					apnsConnection.pendingWriteCount.incrementAndGet();
 
 					apnsConnection.connectFuture.channel().writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
@@ -570,12 +570,12 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 								}
 							}
 
-							apnsConnection.pendingWriteCount -= 1;
-							assert apnsConnection.pendingWriteCount >= 0;
+							final int currentPendingWriteCount = apnsConnection.pendingWriteCount.decrementAndGet();
+							assert currentPendingWriteCount >= 0;
 
-							if (apnsConnection.pendingWriteCount == 0) {
-								synchronized (apnsConnection.pendingWriteMonitor) {
-									apnsConnection.pendingWriteMonitor.notifyAll();
+							if (currentPendingWriteCount == 0) {
+								synchronized (apnsConnection.pendingWriteCount) {
+									apnsConnection.pendingWriteCount.notifyAll();
 								}
 							}
 						}
@@ -608,9 +608,9 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * @throws InterruptedException if interrupted while waiting for pending read/write operations to finish
 	 */
 	public void waitForPendingWritesToFinish() throws InterruptedException {
-		synchronized (this.pendingWriteMonitor) {
-			while (this.pendingWriteCount > 0) {
-				this.pendingWriteMonitor.wait();
+		synchronized (this.pendingWriteCount) {
+			while (this.pendingWriteCount.intValue() > 0) {
+				this.pendingWriteCount.wait();
 			}
 		}
 	}
@@ -667,7 +667,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 						}
 
 
-						apnsConnection.pendingWriteCount += 1;
+						apnsConnection.pendingWriteCount.incrementAndGet();
 
 						apnsConnection.connectFuture.channel().writeAndFlush(apnsConnection.shutdownNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
@@ -685,12 +685,12 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 									apnsConnection.shutdownGracefully();
 								}
 
-								apnsConnection.pendingWriteCount -= 1;
-								assert apnsConnection.pendingWriteCount >= 0;
+								final int currentPendingWriteCount = apnsConnection.pendingWriteCount.decrementAndGet();
+								assert currentPendingWriteCount >= 0;
 
-								if (apnsConnection.pendingWriteCount == 0) {
-									synchronized (apnsConnection.pendingWriteMonitor) {
-										apnsConnection.pendingWriteMonitor.notifyAll();
+								if (currentPendingWriteCount == 0) {
+									synchronized (apnsConnection.pendingWriteCount) {
+										apnsConnection.pendingWriteCount.notifyAll();
 									}
 								}
 							}
