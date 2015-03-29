@@ -24,13 +24,7 @@ package com.relayrides.pushy.apns;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.PooledByteBufAllocator;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -41,18 +35,16 @@ import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
 import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLEngine;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * <p>A connection to an APNs gateway. An {@code ApnsConnection} is responsible for sending push notifications to the
@@ -443,12 +435,22 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 				final SSLEngine sslEngine = apnsConnection.sslContext.createSSLEngine();
 				sslEngine.setUseClientMode(true);
 
+				if(apnsConnection.configuration.getProxyHandler() != null) {
+					log.debug("adding proxy to pipeline");
+					pipeline.addFirst("proxy", apnsConnection.configuration.getProxyHandler());
+				}
+
 				pipeline.addLast("ssl", new SslHandler(sslEngine));
 				pipeline.addLast("decoder", new RejectedNotificationDecoder());
 				pipeline.addLast("encoder", new ApnsPushNotificationEncoder());
 				pipeline.addLast(ApnsConnection.PIPELINE_MAIN_HANDLER, new ApnsConnectionHandler(apnsConnection));
 			}
 		});
+
+		if(apnsConnection.configuration.getCustomBootstrapConfiguration() != null) {
+			log.debug("applying custom bootstrap configuration");
+			apnsConnection.configuration.getCustomBootstrapConfiguration().customConfiguration(bootstrap);
+		}
 
 		log.debug("{} beginning connection process.", apnsConnection.name);
 		this.connectFuture = bootstrap.connect(this.environment.getApnsGatewayHost(), this.environment.getApnsGatewayPort());

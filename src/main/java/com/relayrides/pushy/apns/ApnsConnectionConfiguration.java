@@ -21,6 +21,9 @@
 
 package com.relayrides.pushy.apns;
 
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.ChannelHandler;
+
 /**
  * A set of user-configurable options that affect the behavior of an {@link ApnsConnection}.
  *
@@ -28,6 +31,8 @@ package com.relayrides.pushy.apns;
  */
 public class ApnsConnectionConfiguration {
 
+	private ChannelHandler proxyHandler;
+	private CustomBootstrapConfiguration customBootstrapConfiguration;
 	private int sentNotificationBufferCapacity = ApnsConnection.DEFAULT_SENT_NOTIFICATION_BUFFER_CAPACITY;
 	private Integer closeAfterInactivityTime = null;
 	private Integer gracefulShutdownTimeout = null;
@@ -49,6 +54,8 @@ public class ApnsConnectionConfiguration {
 		this.closeAfterInactivityTime = configuration.closeAfterInactivityTime;
 		this.gracefulShutdownTimeout = configuration.gracefulShutdownTimeout;
 		this.sendAttemptLimit = configuration.sendAttemptLimit;
+		this.proxyHandler = configuration.proxyHandler;
+		this.customBootstrapConfiguration =configuration.customBootstrapConfiguration;
 	}
 
 	/**
@@ -145,6 +152,46 @@ public class ApnsConnectionConfiguration {
 		this.sendAttemptLimit = sendAttemptLimit;
 	}
 
+	/**
+	 * <p>Set a channel handler that will be used as proxy handler. It will be added at first position
+	 * in the channel pipeline.</p>
+	 * <p>
+	 *     Example:
+	 * <pre>
+	 *   config.setProxyHandler(new Socks5ProxyHandler(new InetSocketAddress(&lt;sock5.proxy.host&gt;, &lt;sock5.proxy.port&gt;)));
+	 * </pre>
+	 * </p>
+	 * @param proxyHandler The proxy handler to add to the pipeline.
+	 */
+	public void setProxyHandler(ChannelHandler proxyHandler) {
+		this.proxyHandler = proxyHandler;
+	}
+
+	/**
+	 * Returns the channel handler that must be used to connect to a proxy.
+	 * Returns {@code null} when no proxy are configured.
+	 * @return Returns the channel handler that must be used to connect to a proxy.
+	 */
+	public ChannelHandler getProxyHandler() {
+		return proxyHandler;
+	}
+
+	/**
+	 * Returns the custom bootstrap configuration callback.
+	 * @return Returns the custom bootstrap configuration callback.
+	 */
+	public CustomBootstrapConfiguration getCustomBootstrapConfiguration() {
+		return customBootstrapConfiguration;
+	}
+
+	/**
+	 * Set the custom bootstrap configuration callback.
+	 * @param customBootstrapConfiguration The custom bootstrap configuration callback to set.
+	 */
+	public void setCustomBootstrapConfiguration(CustomBootstrapConfiguration customBootstrapConfiguration) {
+		this.customBootstrapConfiguration = customBootstrapConfiguration;
+	}
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;
@@ -160,6 +207,12 @@ public class ApnsConnectionConfiguration {
 		result = prime
 				* result
 				+ ((sendAttemptLimit == null) ? 0 : sendAttemptLimit.hashCode());
+		result = prime
+				* result
+				+ ((customBootstrapConfiguration == null) ? 0 : customBootstrapConfiguration.hashCode());
+		result = prime
+				* result
+				+ ((proxyHandler == null) ? 0 : proxyHandler.hashCode());
 		result = prime * result + sentNotificationBufferCapacity;
 		return result;
 	}
@@ -178,17 +231,27 @@ public class ApnsConnectionConfiguration {
 				return false;
 		} else if (!closeAfterInactivityTime
 				.equals(other.closeAfterInactivityTime))
-			return false;
+            return false;
 		if (gracefulShutdownTimeout == null) {
 			if (other.gracefulShutdownTimeout != null)
 				return false;
 		} else if (!gracefulShutdownTimeout
 				.equals(other.gracefulShutdownTimeout))
-			return false;
+            return false;
 		if (sendAttemptLimit == null) {
 			if (other.sendAttemptLimit != null)
 				return false;
 		} else if (!sendAttemptLimit.equals(other.sendAttemptLimit))
+			return false;
+		if (proxyHandler == null) {
+			if (other.proxyHandler != null)
+				return false;
+		} else if (!proxyHandler.equals(other.proxyHandler))
+			return false;
+		if (customBootstrapConfiguration == null) {
+			if (other.customBootstrapConfiguration != null)
+				return false;
+		} else if (!customBootstrapConfiguration.equals(other.customBootstrapConfiguration))
 			return false;
 		if (sentNotificationBufferCapacity != other.sentNotificationBufferCapacity)
 			return false;

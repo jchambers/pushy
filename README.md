@@ -190,6 +190,68 @@ Pushy uses logging levels as follows:
 | `debug`   | Minor lifecycle events; expected exceptions                                           |
 | `trace`   | Individual IO operations                                                              |
 
+## Proxy
+
+Here are the instructions if you need to use pushy behind a socks proxy:
+
+First, you need to upgrade `netty-all` dependency to use a version greater than or equal to 4.1.
+So you need to add the following lines in your pom.xml (as of this writing, `netty-all.4.1.0.Beta4` is the last 
+4.1 version available):
+```
+  	<dependency>
+  		<groupId>io.netty</groupId>
+  		<artifactId>netty-all</artifactId>
+        <version>4.1.0.Beta4</version>
+  	</dependency>
+```
+
+Then, you need to configure pushy to use the socks5 proxy:
+```java
+final config = new PushManagerConfiguration();
+final connectionConfig = new ApnsConnectionConfiguration();
+config.setConnectionConfiguration(connectionConfig);
+
+//proxy settings
+connectionConfig.setProxyHandler(new Socks5ProxyHandler(new InetSocketAddress(<sock5.proxy.host>, <sock5.proxy.port>)));
+
+//ensure the domain name apple.com is NOT resolved
+CustomBootstrapConfiguration customConfig = new ApnsConnectionConfiguration.CustomBootstrapConfiguration() {
+   @Override
+   public void customConfiguration(Bootstrap bootstrap) {
+     bootstrap.resolver(new NameResolverGroup<InetSocketAddress>() {
+	   @Override
+	   protected NameResolver<InetSocketAddress> newResolver(EventExecutor executor) throws Exception {
+	     return (NameResolver<InetSocketAddress>) new DefaultNameResolver(executor) {
+		    @Override
+		    public boolean isSupported(SocketAddress address) {
+		       InetSocketAddress add = (InetSocketAddress) address;
+		       return add.getHostName().contains("apple.com") == false;
+		    }
+	     };
+	   }
+     });
+   }
+}
+connectionConfig.setCustomBootstrapConfiguration(customConfig);
+
+//then, just initialize PushManager using the config.
+final PushManager<SimpleApnsPushNotification> pushManager =
+    new PushManager<SimpleApnsPushNotification>(
+        ApnsEnvironment.getSandboxEnvironment(),
+        SSLContextUtil.createDefaultSSLContext("path-to-key.p12", "my-password"),
+        null, // Optional: custom event loop group
+        null, // Optional: custom ExecutorService for calling listeners
+        null, // Optional: custom BlockingQueue implementation
+        config,
+        "ExamplePushManager");
+
+pushManager.start();
+```
+ 
+Since usually, the `apple.com` domain name is not reachable from your corporate network, we added a nameresolver strategy
+so that the `apple.com` domain won't be resolved until the socks5 proxy is reached.
+ 
+
 ## Limitations and known issues
 
 Although we make every effort to fix bugs and work around issues outside of our control, some problems appear to be unavoidable. The issues we know about at this time are:
