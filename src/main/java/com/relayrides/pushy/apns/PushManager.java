@@ -102,7 +102,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private int feedbackConnectionCounter = 0;
 
 	private final HashSet<ApnsConnection<T>> activeConnections = new HashSet<ApnsConnection<T>>();
-	private final ApnsConnectionPool<T> writableConnectionPool = new ApnsConnectionPool<T>();
+	private final LinkedBlockingQueue<ApnsConnection<T>> writableConnections = new LinkedBlockingQueue<ApnsConnection<T>>();
 
 	private final Object feedbackConnectionMonitor = new Object();
 	private FeedbackServiceConnection feedbackConnection;
@@ -270,7 +270,12 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			public void run() {
 				while (dispatchThreadShouldContinue) {
 					try {
-						final ApnsConnection<T> connection = writableConnectionPool.getNextConnection();
+						final ApnsConnection<T> connection = writableConnections.take();
+
+						// Immediately put this connection back at the tail of the pool of writable connections; this
+						// helps us rotate through our connections and distribute load.
+						writableConnections.add(connection);
+
 						final T notificationToRetry = retryQueue.poll();
 
 						if (notificationToRetry != null) {
@@ -278,9 +283,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 						} else {
 							if (shutDownStarted) {
 								// We're trying to drain the retry queue before shutting down, and the retry queue is
-								// now empty. Close the connection and see if it stays that way.
+								// now empty. Close the connection and see if it stays closed.
 								connection.shutdownGracefully();
-								writableConnectionPool.removeConnection(connection);
+								writableConnections.remove(connection);
 							} else {
 								// We'll park here either until a new notification is available from the outside or until
 								// something shows up in the retry queue, at which point we'll be interrupted.
@@ -693,7 +698,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		log.trace("Connection succeeded: {}", connection);
 
 		if (this.dispatchThreadShouldContinue) {
-			this.writableConnectionPool.addConnection(connection);
+			this.writableConnections.add(connection);
 		} else {
 			// There's no dispatch thread to use this connection, so shut it down immediately
 			connection.shutdownImmediately();
@@ -742,9 +747,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		log.trace("Writability for {} changed to {}", connection, writable);
 
 		if (writable) {
-			this.writableConnectionPool.addConnection(connection);
+			this.writableConnections.add(connection);
 		} else {
-			this.writableConnectionPool.removeConnection(connection);
+			this.writableConnections.remove(connection);
 			this.dispatchThread.interrupt();
 		}
 	}
@@ -758,7 +763,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		log.trace("Connection closed: {}", connection);
 
-		this.writableConnectionPool.removeConnection(connection);
+		this.writableConnections.remove(connection);
 		this.dispatchThread.interrupt();
 
 		final PushManager<T> pushManager = this;
