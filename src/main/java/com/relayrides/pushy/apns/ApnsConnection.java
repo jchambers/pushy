@@ -91,7 +91,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private final AtomicInteger pendingWriteCount = new AtomicInteger(0);
 	private int sendAttempts = 0;
 
-	private SendableApnsPushNotification<KnownBadPushNotification> shutdownNotification;
+	private SendableApnsPushNotification<KnownBadPushNotification> disconnectNotification;
 
 	private boolean rejectionReceived = false;
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
@@ -241,7 +241,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			synchronized (this.apnsConnection.channelRegistrationMonitor) {
 				if (this.apnsConnection.closeOnRegistration) {
 					log.debug("Channel registered for {}, but shutting down immediately.", this.apnsConnection.name);
-					context.channel().eventLoop().execute(this.apnsConnection.getImmediateShutdownRunnable());
+					context.channel().eventLoop().execute(this.apnsConnection.getImmediateDisconnectionRunnable());
 				}
 			}
 		}
@@ -254,13 +254,13 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			this.apnsConnection.rejectionReceived = true;
 			this.apnsConnection.sentNotificationBuffer.clearNotificationsBeforeSequenceNumber(rejectedNotification.getSequenceNumber());
 
-			final boolean isKnownBadRejection = this.apnsConnection.shutdownNotification != null &&
-					(rejectedNotification.getSequenceNumber() == this.apnsConnection.shutdownNotification.getSequenceNumber()
+			final boolean isKnownBadRejection = this.apnsConnection.disconnectNotification != null &&
+					(rejectedNotification.getSequenceNumber() == this.apnsConnection.disconnectNotification.getSequenceNumber()
 					|| (rejectedNotification.getSequenceNumber() == 0 && RejectedNotificationReason.MISSING_TOKEN.equals(rejectedNotification.getReason())));
 
 			// We only want to notify listeners of an actual rejection if something actually went wrong. We don't want
 			// to notify listeners if a known-bad notification was rejected because that's an expected case, and we
-			// don't want to notify listeners if the gateway is shutting down the connection, but still processed the
+			// don't want to notify listeners if the gateway is closing the connection, but still processed the
 			// named notification successfully.
 			if (!isKnownBadRejection && !RejectedNotificationReason.SHUTDOWN.equals(rejectedNotification.getReason())) {
 				final T notification = this.apnsConnection.sentNotificationBuffer.getNotificationWithSequenceNumber(
@@ -289,8 +289,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			// Regardless of the cause, we ALWAYS want to notify listeners that some sent notifications were not
 			// processed by the gateway (assuming there are some such notifications). The exception here is an upstream
 			// bug where the sequence number will be incorrectly reported as zero when sending a zero-length token (i.e.
-			// a known-bad shutdown token). In that case we don't know the actual sequence number, and can't determine
-			// what was sent after the bad notification.
+			// a known-bad disconnection notification). In that case we don't know the actual sequence number, and can't
+			// determine what was sent after the bad notification.
 			if (rejectedNotification.getSequenceNumber() != 0) {
 				final Collection<T> unprocessedNotifications =
 						this.apnsConnection.sentNotificationBuffer.getAllNotificationsAfterSequenceNumber(
@@ -341,16 +341,16 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		@Override
 		public void userEventTriggered(final ChannelHandlerContext context, final Object event) throws Exception {
 			if (event instanceof IdleStateEvent) {
-				// The IdleStateHandler for connection inactivity is removed by shutdownGracefully, which also populates
-				// shutdownNotification. If we get an IdleStateEvent without a shutdownNotification, we know that the
+				// The IdleStateHandler for connection inactivity is removed by disconnectGracefully, which also populates
+				// disconnectNotification. If we get an IdleStateEvent without a disconnectNotification, we know that the
 				// event came from the connection inactivity handler. Otherwise, we know it came from the graceful
-				// shutdown timeout handler.
-				if (this.apnsConnection.shutdownNotification == null) {
-					log.debug("{} will shut down gracefully due to inactivity.", this.apnsConnection.name);
-					this.apnsConnection.shutdownGracefully();
+				// disconnection timeout handler.
+				if (this.apnsConnection.disconnectNotification == null) {
+					log.debug("{} will disconnect gracefully due to inactivity.", this.apnsConnection.name);
+					this.apnsConnection.disconnectGracefully();
 				} else {
-					log.debug("Graceful shutdown attempt for {} timed out; shutting down immediately.", this.apnsConnection.name);
-					this.apnsConnection.shutdownImmediately();
+					log.debug("Graceful disconnection attempt for {} timed out; disconnecting immediately.", this.apnsConnection.name);
+					this.apnsConnection.disconnectImmediately();
 				}
 			} else {
 				super.userEventTriggered(context, event);
@@ -530,7 +530,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			throw new IllegalStateException(String.format("%s has not completed handshake.", this.name));
 		}
 
-		if (this.shutdownNotification == null) {
+		if (this.disconnectNotification == null) {
 			this.connectFuture.channel().eventLoop().execute(new Runnable() {
 
 				@Override
@@ -585,19 +585,19 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			});
 		} else {
 			if (this.listener != null) {
-				this.listener.handleWriteFailure(this, notification, new IllegalStateException("Connection is shutting down."));
+				this.listener.handleWriteFailure(this, notification, new IllegalStateException("Connection is disconnecting."));
 			}
 		}
 
 		if (this.configuration.getSendAttemptLimit() != null && ++this.sendAttempts >= this.configuration.getSendAttemptLimit()) {
-			log.debug("{} reached send attempt limit and will shut down gracefully.", this.name);
-			this.shutdownGracefully();
+			log.debug("{} reached send attempt limit and will disconnect gracefully.", this.name);
+			this.disconnectGracefully();
 		}
 	}
 
 	/**
 	 * <p>Waits for all pending write operations to finish. When this method exits normally (i.e. when it does
-	 * not throw an {@code InterruptedException}), All pending writes will have either finished successfully or failed
+	 * not throw an {@code InterruptedException}), all pending writes will have either finished successfully or failed
 	 * and passed to this connection's listener via the
 	 * {@link ApnsConnectionListener#handleWriteFailure(ApnsConnection, ApnsPushNotification, Throwable)} method.</p>
 	 *
@@ -617,7 +617,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	}
 
 	/**
-	 * <p>Gracefully and asynchronously shuts down this connection. Graceful disconnection is triggered by sending a
+	 * <p>Gracefully and asynchronously closes this connection. Graceful disconnection is triggered by sending a
 	 * known-bad notification to the APNs gateway; when the gateway rejects the notification, it is guaranteed that
 	 * preceding notifications were processed successfully and that all following notifications were not processed at
 	 * all. The gateway will close the connection after rejecting the notification, and this connection's listener will
@@ -626,13 +626,16 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * <p>Note that if/when the known-bad notification is rejected by the APNs gateway, this connection's listener will
 	 * <em>not</em> be notified of the rejection.</p>
 	 *
-	 * <p>Calling this method before establishing a connection with the APNs gateway or while a graceful shutdown
+	 * <p>Calling this method before establishing a connection with the APNs gateway or while a graceful disconnection
 	 * attempt is already in progress has no effect.</p>
 	 *
 	 * @see ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason)
 	 * @see ApnsConnectionListener#handleConnectionClosure(ApnsConnection)
+	 *
+	 * @return {@code true} if this connection started a graceful disconnection attempt or {@code false} otherwise (i.e.
+	 * because no connection was ever established or the connection is already closed).
 	 */
-	public synchronized void shutdownGracefully() {
+	public synchronized boolean disconnectGracefully() {
 
 		if (this.connectFuture != null && this.connectFuture.channel() != null) {
 			try {
@@ -652,12 +655,12 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 				@Override
 				public void run() {
-					// Don't send a second shutdown notification if we've already started the graceful shutdown process.
-					if (apnsConnection.shutdownNotification == null) {
+					// Don't send a second disconnection notification if we've already started the graceful disconnection process.
+					if (apnsConnection.disconnectNotification == null) {
 
-						log.debug("{} sending known-bad notification to shut down.", apnsConnection.name);
+						log.debug("{} sending known-bad notification to disconnect.", apnsConnection.name);
 
-						apnsConnection.shutdownNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
+						apnsConnection.disconnectNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
 								new KnownBadPushNotification(), apnsConnection.sequenceNumber++);
 
 						if (apnsConnection.configuration.getGracefulShutdownTimeout() != null &&
@@ -672,20 +675,20 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 						apnsConnection.pendingWriteCount.incrementAndGet();
 
-						apnsConnection.connectFuture.channel().writeAndFlush(apnsConnection.shutdownNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+						apnsConnection.connectFuture.channel().writeAndFlush(apnsConnection.disconnectNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
 							@Override
 							public void operationComplete(final ChannelFuture future) {
 								if (future.isSuccess()) {
 									log.trace("{} successfully wrote known-bad notification {}",
-											apnsConnection.name, apnsConnection.shutdownNotification.getSequenceNumber());
+											apnsConnection.name, apnsConnection.disconnectNotification.getSequenceNumber());
 								} else {
 									log.trace("{} failed to write known-bad notification {}",
-											apnsConnection.name, apnsConnection.shutdownNotification, future.cause());
+											apnsConnection.name, apnsConnection.disconnectNotification, future.cause());
 
 									// Try again!
-									apnsConnection.shutdownNotification = null;
-									apnsConnection.shutdownGracefully();
+									apnsConnection.disconnectNotification = null;
+									apnsConnection.disconnectGracefully();
 								}
 
 								final int currentPendingWriteCount = apnsConnection.pendingWriteCount.decrementAndGet();
@@ -701,16 +704,20 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 					}
 				}
 			});
+
+			return true;
 		} else {
 			// While we can't guarantee that the handshake won't complete in another thread, we CAN guarantee that no
-			// new notifications will be sent until shutdownImmediately happens because everything is synchronized.
-			this.shutdownImmediately();
+			// new notifications will be sent until disconnectImmediately happens because everything is synchronized.
+			this.disconnectImmediately();
+
+			return false;
 		}
 	}
 
 	/**
 	 * <p>Immediately closes this connection (assuming it was ever open). No guarantees are made with regard to the
-	 * state of sent notifications, and callers should generally prefer {@link ApnsConnection#shutdownGracefully} to
+	 * state of sent notifications, and callers should generally prefer {@link ApnsConnection#disconnectGracefully} to
 	 * this method. If the connection was previously open, the connection's listener will be notified of the
 	 * connection's closure. If a connection attempt was in progress, the listener will be notified of a connection
 	 * failure. If the connection was never open, this method has no effect.</p>
@@ -719,11 +726,11 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 *
 	 * @see ApnsConnectionListener#handleConnectionClosure(ApnsConnection)
 	 */
-	public synchronized void shutdownImmediately() {
+	public synchronized void disconnectImmediately() {
 		if (this.connectFuture != null) {
 			synchronized (this.channelRegistrationMonitor) {
 				if (this.connectFuture.channel().isRegistered()) {
-					this.connectFuture.channel().eventLoop().execute(this.getImmediateShutdownRunnable());
+					this.connectFuture.channel().eventLoop().execute(this.getImmediateDisconnectionRunnable());
 				} else {
 					this.closeOnRegistration = true;
 				}
@@ -731,7 +738,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		}
 	}
 
-	private Runnable getImmediateShutdownRunnable() {
+	private Runnable getImmediateDisconnectionRunnable() {
 		final ApnsConnection<T> apnsConnection = this;
 
 		return new Runnable() {

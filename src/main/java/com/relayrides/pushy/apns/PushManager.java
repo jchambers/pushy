@@ -284,7 +284,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 							if (shutDownStarted) {
 								// We're trying to drain the retry queue before shutting down, and the retry queue is
 								// now empty. Close the connection and see if it stays closed.
-								connection.shutdownGracefully();
+								connection.disconnectGracefully();
 								writableConnections.remove(connection);
 							} else {
 								// We'll park here either until a new notification is available from the outside or until
@@ -412,7 +412,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		synchronized (this.activeConnections) {
 			for (final ApnsConnection<T> connection : this.activeConnections) {
-				connection.shutdownImmediately();
+				connection.disconnectImmediately();
 			}
 		}
 
@@ -701,7 +701,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.writableConnections.add(connection);
 		} else {
 			// There's no dispatch thread to use this connection, so shut it down immediately
-			connection.shutdownImmediately();
+			connection.disconnectImmediately();
 		}
 	}
 
