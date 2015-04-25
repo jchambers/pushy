@@ -46,7 +46,6 @@ import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -96,8 +95,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 	private boolean rejectionReceived = false;
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
-
-	private static final String PIPELINE_IDLE_STATE_HANDLER = "idleStateHandler";
 
 	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
 
@@ -439,7 +436,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 				pipeline.addLast("encoder", new ApnsPushNotificationEncoder());
 
 				if (ApnsConnection.this.configuration.getCloseAfterInactivityTime() != null) {
-					pipeline.addLast(PIPELINE_IDLE_STATE_HANDLER, new IdleStateHandler(0, 0, apnsConnection.configuration.getCloseAfterInactivityTime()));
+					pipeline.addLast("idleStateHandler", new IdleStateHandler(0, 0, apnsConnection.configuration.getCloseAfterInactivityTime()));
 				}
 
 				pipeline.addLast("handler", new ApnsConnectionHandler(apnsConnection));
@@ -624,14 +621,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * because no connection was ever established or the connection is already closed).
 	 */
 	public synchronized boolean disconnectGracefully() {
-
-		if (this.connectFuture != null && this.connectFuture.channel() != null) {
-			try {
-				this.connectFuture.channel().pipeline().remove(ApnsConnection.PIPELINE_IDLE_STATE_HANDLER);
-			} catch (NoSuchElementException ignored) {
-				log.debug("Failed to remove idle state handler from pipeline for {}.", this.name);
-			}
-		}
 
 		final ApnsConnection<T> apnsConnection = this;
 
