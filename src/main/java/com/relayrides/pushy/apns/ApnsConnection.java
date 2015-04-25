@@ -46,6 +46,7 @@ import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -92,6 +93,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private int sendAttempts = 0;
 
 	private SendableApnsPushNotification<KnownBadPushNotification> disconnectNotification;
+	private ScheduledFuture<?> gracefulShutdownTimeoutFuture;
 
 	private boolean rejectionReceived = false;
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
@@ -321,6 +323,10 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 				if (this.apnsConnection.listener != null) {
 					this.apnsConnection.listener.handleConnectionClosure(this.apnsConnection);
 				}
+			}
+
+			if (this.apnsConnection.gracefulShutdownTimeoutFuture != null) {
+				this.apnsConnection.gracefulShutdownTimeoutFuture.cancel(false);
 			}
 		}
 
@@ -641,8 +647,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 								new KnownBadPushNotification(), apnsConnection.sequenceNumber++);
 
 						if (apnsConnection.configuration.getGracefulDisconnectionTimeout() != null) {
-							ApnsConnection.this.connectFuture.channel().eventLoop().schedule(new Runnable() {
-
+							ApnsConnection.this.gracefulShutdownTimeoutFuture = ApnsConnection.this.connectFuture.channel().eventLoop().schedule(new Runnable() {
 								@Override
 								public void run() {
 									ApnsConnection.this.disconnectImmediately();
