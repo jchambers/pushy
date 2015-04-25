@@ -46,6 +46,7 @@ import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
@@ -634,8 +635,10 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	public synchronized void shutdownGracefully() {
 
 		if (this.connectFuture != null && this.connectFuture.channel() != null) {
-			if (this.connectFuture.channel().pipeline().get(ApnsConnection.PIPELINE_IDLE_STATE_HANDLER) != null) {
+			try {
 				this.connectFuture.channel().pipeline().remove(ApnsConnection.PIPELINE_IDLE_STATE_HANDLER);
+			} catch (NoSuchElementException ignored) {
+				log.debug("Failed to remove idle state handler from pipeline for {}.", this.name);
 			}
 		}
 
