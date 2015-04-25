@@ -47,6 +47,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
@@ -96,9 +97,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private boolean rejectionReceived = false;
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
 
-	private static final String PIPELINE_MAIN_HANDLER = "handler";
 	private static final String PIPELINE_IDLE_STATE_HANDLER = "idleStateHandler";
-	private static final String PIPELINE_GRACEFUL_SHUTDOWN_TIMEOUT_HANDLER = "gracefulShutdownTimeoutHandler";
 
 	private static final Logger log = LoggerFactory.getLogger(ApnsConnection.class);
 
@@ -341,17 +340,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		@Override
 		public void userEventTriggered(final ChannelHandlerContext context, final Object event) throws Exception {
 			if (event instanceof IdleStateEvent) {
-				// The IdleStateHandler for connection inactivity is removed by disconnectGracefully, which also populates
-				// disconnectNotification. If we get an IdleStateEvent without a disconnectNotification, we know that the
-				// event came from the connection inactivity handler. Otherwise, we know it came from the graceful
-				// disconnection timeout handler.
-				if (this.apnsConnection.disconnectNotification == null) {
-					log.debug("{} will disconnect gracefully due to inactivity.", this.apnsConnection.name);
-					this.apnsConnection.disconnectGracefully();
-				} else {
-					log.debug("Graceful disconnection attempt for {} timed out; disconnecting immediately.", this.apnsConnection.name);
-					this.apnsConnection.disconnectImmediately();
-				}
+				log.debug("{} will disconnect gracefully due to inactivity.", this.apnsConnection.name);
+				this.apnsConnection.disconnectGracefully();
 			} else {
 				super.userEventTriggered(context, event);
 			}
@@ -447,7 +437,12 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 				pipeline.addLast("ssl", new SslHandler(sslEngine));
 				pipeline.addLast("decoder", new RejectedNotificationDecoder());
 				pipeline.addLast("encoder", new ApnsPushNotificationEncoder());
-				pipeline.addLast(ApnsConnection.PIPELINE_MAIN_HANDLER, new ApnsConnectionHandler(apnsConnection));
+
+				if (ApnsConnection.this.configuration.getCloseAfterInactivityTime() != null) {
+					pipeline.addLast(PIPELINE_IDLE_STATE_HANDLER, new IdleStateHandler(0, 0, apnsConnection.configuration.getCloseAfterInactivityTime()));
+				}
+
+				pipeline.addLast("handler", new ApnsConnectionHandler(apnsConnection));
 			}
 		});
 
@@ -475,13 +470,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 									if (apnsConnection.listener != null) {
 										apnsConnection.listener.handleConnectionSuccess(apnsConnection);
 									}
-
-									if (apnsConnection.configuration.getCloseAfterInactivityTime() != null) {
-										connectFuture.channel().pipeline().addBefore(ApnsConnection.PIPELINE_MAIN_HANDLER,
-												ApnsConnection.PIPELINE_IDLE_STATE_HANDLER,
-												new IdleStateHandler(0, 0, apnsConnection.configuration.getCloseAfterInactivityTime()));
-									}
-
 								} else {
 									log.debug("{} failed to complete TLS handshake with APNs gateway.",
 											apnsConnection.name, handshakeFuture.cause());
@@ -663,15 +651,15 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 						apnsConnection.disconnectNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
 								new KnownBadPushNotification(), apnsConnection.sequenceNumber++);
 
-						if (apnsConnection.configuration.getGracefulShutdownTimeout() != null &&
-								apnsConnection.connectFuture.channel().pipeline().get(PIPELINE_GRACEFUL_SHUTDOWN_TIMEOUT_HANDLER) == null) {
-							// We should time out, but haven't added an idle state handler yet.
-							apnsConnection.connectFuture.channel().pipeline().addBefore(
-									PIPELINE_MAIN_HANDLER,
-									PIPELINE_GRACEFUL_SHUTDOWN_TIMEOUT_HANDLER,
-									new IdleStateHandler(apnsConnection.configuration.getGracefulShutdownTimeout(), 0, 0));
-						}
+						if (apnsConnection.configuration.getGracefulDisconnectionTimeout() != null) {
+							ApnsConnection.this.connectFuture.channel().eventLoop().schedule(new Runnable() {
 
+								@Override
+								public void run() {
+									ApnsConnection.this.disconnectImmediately();
+								}
+							}, ApnsConnection.this.configuration.getGracefulDisconnectionTimeout(), TimeUnit.SECONDS);
+						}
 
 						apnsConnection.pendingWriteCount.incrementAndGet();
 

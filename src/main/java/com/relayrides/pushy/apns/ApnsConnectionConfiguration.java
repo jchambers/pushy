@@ -95,25 +95,25 @@ public class ApnsConnectionConfiguration {
 	}
 
 	/**
-	 * Returns the time, in seconds, after which a graceful shutdown attempt should be abandoned and the connection
+	 * Returns the time, in seconds, after which a graceful disconnection attempt should be abandoned and the connection
 	 * should be closed immediately.
 	 *
-	 * @return the time, in seconds, after which a graceful shutdown attempt should be abandoned and the connection
+	 * @return the time, in seconds, after which a graceful disconnection attempt should be abandoned and the connection
 	 * should be closed immediately
 	 */
-	public Integer getGracefulShutdownTimeout() {
+	public Integer getGracefulDisconnectionTimeout() {
 		return this.gracefulShutdownTimeout;
 	}
 
 	/**
-	 * Sets the time, in seconds, after which a graceful shutdown attempt should be abandoned and the connection should
-	 * be closed immediately. If {@code null} (the default) graceful shutdown attempts will never time out. Note that,
-	 * if a graceful shutdown attempt times out, no guarantees are made as to the state of notifications sent by the
+	 * Sets the time, in seconds, after which a graceful disconnection attempt should be abandoned and the connection should
+	 * be closed immediately. If {@code null} (the default) graceful disconnection attempts will never time out. Note that,
+	 * if a graceful disconnection attempt times out, no guarantees are made as to the state of notifications sent by the
 	 * connection.
 	 *
-	 * @param gracefulShutdownTimeout the time, in seconds, after which a graceful shutdown attempt should be abandoned
+	 * @param gracefulShutdownTimeout the time, in seconds, after which a graceful disconnection attempt should be abandoned
 	 */
-	public void setGracefulShutdownTimeout(final Integer gracefulShutdownTimeout) {
+	public void setGracefulDisconnectionTimeout(final Integer gracefulShutdownTimeout) {
 		this.gracefulShutdownTimeout = gracefulShutdownTimeout;
 	}
 

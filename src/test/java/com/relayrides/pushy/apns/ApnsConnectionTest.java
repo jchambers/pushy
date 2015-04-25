@@ -563,7 +563,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		final TestListener listener = new TestListener(mutex);
 
 		final ApnsConnectionConfiguration gracefulShutdownTimeoutConfiguration = new ApnsConnectionConfiguration();
-		gracefulShutdownTimeoutConfiguration.setGracefulShutdownTimeout(1);
+		gracefulShutdownTimeoutConfiguration.setGracefulDisconnectionTimeout(1);
 
 		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
 				new ApnsConnection<SimpleApnsPushNotification>(
