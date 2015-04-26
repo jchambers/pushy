@@ -772,7 +772,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			@Override
 			public void run() {
 				try {
-					connection.waitForPendingWritesToFinish();
+					connection.waitForLastWriteToFinish();
 
 					if (pushManager.shouldReplaceClosedConnection()) {
 						pushManager.startNewConnection();
