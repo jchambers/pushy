@@ -127,15 +127,27 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 		}
 	}
 
-	public void sendNotification(final T notification) throws InterruptedException {
-		// Get a connection, then immediately rotate it to the tail of the queue
-		final ApnsConnection<T> connection = this.writableConnections.take();
+	public boolean sendNotification(final T notification) throws InterruptedException {
+		return this.sendNotification(notification, Long.MAX_VALUE);
+	}
 
-		// TODO Figure out what to do if the connection's writabiliy changes after we get it, but before we return it
-		// to the queue
-		this.writableConnections.add(connection);
+	public boolean sendNotification(final T notification, final long timeoutMillis) throws InterruptedException {
+		final boolean notificationSent;
+		final ApnsConnection<T> connection = this.writableConnections.poll(timeoutMillis, TimeUnit.MILLISECONDS);
 
-		connection.sendNotification(notification);
+		if (connection != null) {
+			// TODO Figure out what to do if the connection's writabiliy changes after we get it, but before we return it
+			// to the queue
+			this.writableConnections.add(connection);
+
+			connection.sendNotification(notification);
+
+			notificationSent = true;
+		} else {
+			notificationSent = false;
+		}
+
+		return notificationSent;
 	}
 
 	@Override
@@ -156,6 +168,7 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 		}
 
 		this.removeConnection(connection);
+		this.listener.handleConnectionFailure(this, cause);
 	}
 
 	@Override

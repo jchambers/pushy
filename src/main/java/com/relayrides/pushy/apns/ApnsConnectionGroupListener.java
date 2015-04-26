@@ -4,6 +4,14 @@ import java.util.Collection;
 
 public interface ApnsConnectionGroupListener<T extends ApnsPushNotification> {
 	/**
+	 * Indicates that the given connection group attempted to open a connection to an APNs gateway, but failed.
+	 *
+	 * @param group the connection group that failed to connect to an APNs gateway
+	 * @param cause the cause of the failure
+	 */
+	void handleConnectionFailure(ApnsConnectionGroup<T> group, Throwable cause);
+
+	/**
 	 * Indicates that the given connection group failed to send a push notification to an APNs gateway. This indicates a
 	 * local failure; notifications passed to this method were never transmitted to the APNs gateway, and failures of
 	 * this kind generally represent temporary I/O problems (rather than permanent rejection by the gateway), and it is

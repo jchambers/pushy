@@ -27,7 +27,6 @@ import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -87,7 +86,7 @@ import org.slf4j.LoggerFactory;
  *
  * @see PushManager#getQueue()
  */
-public class PushManager<T extends ApnsPushNotification> implements ApnsConnectionListener<T>, FeedbackServiceListener {
+public class PushManager<T extends ApnsPushNotification> implements ApnsConnectionGroupListener<T>, FeedbackServiceListener {
 	private final BlockingQueue<T> queue;
 	private final LinkedBlockingQueue<T> retryQueue = new LinkedBlockingQueue<T>();;
 
@@ -98,11 +97,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private final String name;
 	private static final AtomicInteger pushManagerCounter = new AtomicInteger(0);
-	private int connectionCounter = 0;
 	private int feedbackConnectionCounter = 0;
 
-	private final HashSet<ApnsConnection<T>> activeConnections = new HashSet<ApnsConnection<T>>();
-	private final LinkedBlockingQueue<ApnsConnection<T>> writableConnections = new LinkedBlockingQueue<ApnsConnection<T>>();
+	private final ApnsConnectionGroup<T> connectionGroup;
 
 	private final Object feedbackConnectionMonitor = new Object();
 	private FeedbackServiceConnection feedbackConnection;
@@ -229,6 +226,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.listenerExecutorService = Executors.newSingleThreadExecutor();
 			this.shouldShutDownListenerExecutorService = true;
 		}
+
+		this.connectionGroup = new ApnsConnectionGroup<T>(this.environment, this.sslContext, this.eventLoopGroup,
+				this.configuration.getConnectionConfiguration(), this, this.name,
+				this.configuration.getConcurrentConnectionCount());
 	}
 
 	/**
@@ -250,10 +251,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		log.info("{} starting.", this.name);
 
-		for (int i = 0; i < this.configuration.getConcurrentConnectionCount(); i++) {
-			this.startNewConnection();
-		}
-
+		this.connectionGroup.connectAll();
 		this.createAndStartDispatchThread();
 	}
 
@@ -268,36 +266,22 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 			@Override
 			public void run() {
-				while (dispatchThreadShouldContinue) {
+				while (PushManager.this.dispatchThreadShouldContinue) {
 					try {
-						final ApnsConnection<T> connection = writableConnections.take();
-
-						// Immediately put this connection back at the tail of the pool of writable connections; this
-						// helps us rotate through our connections and distribute load.
-						writableConnections.add(connection);
-
-						final T notificationToRetry = retryQueue.poll();
+						final T notificationToRetry = PushManager.this.retryQueue.poll();
 
 						if (notificationToRetry != null) {
-							connection.sendNotification(notificationToRetry);
+							PushManager.this.connectionGroup.sendNotification(notificationToRetry);
 						} else {
-							if (shutDownStarted) {
-								// We're trying to drain the retry queue before shutting down, and the retry queue is
-								// now empty. Close the connection and see if it stays closed.
-								connection.disconnectGracefully();
-								writableConnections.remove(connection);
-							} else {
-								// We'll park here either until a new notification is available from the outside or until
-								// something shows up in the retry queue, at which point we'll be interrupted.
-								connection.sendNotification(queue.take());
-							}
+							// We'll park here either until a new notification is available from the outside or until
+							// something shows up in the retry queue, at which point we'll be interrupted.
+							PushManager.this.connectionGroup.sendNotification(PushManager.this.queue.take());
 						}
 					} catch (InterruptedException e) {
 						continue;
 					}
 				}
 			}
-
 		});
 	}
 
@@ -394,27 +378,38 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			}
 		}
 
-		this.dispatchThread.interrupt();
-
 		final Date deadline = timeout > 0 ? new Date(System.currentTimeMillis() + timeout) : null;
-
-		// The dispatch thread will close connections when the retry queue is empty
-		this.waitForAllConnectionsToFinish(deadline);
 
 		this.dispatchThreadShouldContinue = false;
 		this.dispatchThread.interrupt();
 		this.dispatchThread.join();
 
-		if (deadline == null) {
-			assert this.retryQueue.isEmpty();
-			assert this.activeConnections.isEmpty();
+		this.connectionGroup.disconnectAllGracefuly();
+		this.connectionGroup.waitForAllConnectionsToClose();
+
+		while (!this.retryQueue.isEmpty() && !hasDeadlineExpired(deadline)) {
+			this.connectionGroup.connectAll();
+
+			while (!this.retryQueue.isEmpty()) {
+				final T notification = this.retryQueue.poll();
+
+				if (notification != null) {
+					this.connectionGroup.sendNotification(notification, getMillisToWaitForDeadline(deadline));
+				}
+			}
+
+			// TODO Need timeouts here
+			this.connectionGroup.disconnectAllGracefuly();
+
+			// TODO Need timeouts here
+			this.connectionGroup.waitForAllConnectionsToClose();
 		}
 
-		synchronized (this.activeConnections) {
-			for (final ApnsConnection<T> connection : this.activeConnections) {
-				connection.disconnectImmediately();
-			}
+		if (deadline == null) {
+			assert this.retryQueue.isEmpty();
 		}
+
+		// TODO Figure out what to do if the deadline expired without emptying the queue first
 
 		synchronized (this.rejectedNotificationListeners) {
 			this.rejectedNotificationListeners.clear();
@@ -689,125 +684,41 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 	}
 
-	/*
-	 * (non-Javadoc)
-	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionSuccess(com.relayrides.pushy.apns.ApnsConnection)
-	 */
 	@Override
-	public void handleConnectionSuccess(final ApnsConnection<T> connection) {
-		log.trace("Connection succeeded: {}", connection);
-
-		if (this.dispatchThreadShouldContinue) {
-			this.writableConnections.add(connection);
-		} else {
-			// There's no dispatch thread to use this connection, so shut it down immediately
-			connection.disconnectImmediately();
-		}
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionFailure(com.relayrides.pushy.apns.ApnsConnection, java.lang.Throwable)
-	 */
-	@Override
-	public void handleConnectionFailure(final ApnsConnection<T> connection, final Throwable cause) {
-
-		log.trace("Connection failed: {}", connection, cause);
-
-		this.removeActiveConnection(connection);
-
+	public void handleConnectionFailure(final ApnsConnectionGroup<T> group, final Throwable cause) {
 		synchronized (this.failedConnectionListeners) {
-			final PushManager<T> pushManager = this;
-
 			for (final FailedConnectionListener<? super T> listener : this.failedConnectionListeners) {
-
+	
 				// Handle connection failures in a separate thread in case a handler takes a long time to run
 				this.listenerExecutorService.submit(new Runnable() {
 					@Override
 					public void run() {
-						listener.handleFailedConnection(pushManager, cause);
+						listener.handleFailedConnection(PushManager.this, cause);
 					}
 				});
 			}
 		}
-
-		// As long as we're not shut down, try to open a replacement connection.
-		if (this.shouldReplaceClosedConnection()) {
-			this.startNewConnection();
-		}
 	}
 
 	/*
 	 * (non-Javadoc)
-	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionWritabilityChange(com.relayrides.pushy.apns.ApnsConnection, boolean)
+	 * @see com.relayrides.pushy.apns.ApnsConnectionGroupListener#handleWriteFailure(com.relayrides.pushy.apns.ApnsConnectionGroup, com.relayrides.pushy.apns.ApnsPushNotification, java.lang.Throwable)
 	 */
 	@Override
-	public void handleConnectionWritabilityChange(final ApnsConnection<T> connection, final boolean writable) {
-
-		log.trace("Writability for {} changed to {}", connection, writable);
-
-		if (writable) {
-			this.writableConnections.add(connection);
-		} else {
-			this.writableConnections.remove(connection);
-			this.dispatchThread.interrupt();
-		}
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleConnectionClosure(com.relayrides.pushy.apns.ApnsConnection)
-	 */
-	@Override
-	public void handleConnectionClosure(final ApnsConnection<T> connection) {
-
-		log.trace("Connection closed: {}", connection);
-
-		this.writableConnections.remove(connection);
-		this.dispatchThread.interrupt();
-
-		final PushManager<T> pushManager = this;
-
-		this.listenerExecutorService.execute(new Runnable() {
-			@Override
-			public void run() {
-				try {
-					connection.waitForPendingWritesToFinish();
-
-					if (pushManager.shouldReplaceClosedConnection()) {
-						pushManager.startNewConnection();
-					}
-
-					removeActiveConnection(connection);
-				} catch (InterruptedException e) {
-					log.warn("{} interrupted while waiting for closed connection's pending operations to finish.",
-							pushManager.name);
-				}
-			}
-		});
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleWriteFailure(com.relayrides.pushy.apns.ApnsConnection, com.relayrides.pushy.apns.ApnsPushNotification, java.lang.Throwable)
-	 */
-	@Override
-	public void handleWriteFailure(ApnsConnection<T> connection, T notification, Throwable cause) {
+	public void handleWriteFailure(ApnsConnectionGroup<T> group, T notification, Throwable cause) {
 		this.retryQueue.add(notification);
 		this.dispatchThread.interrupt();
 	}
 
 	/*
 	 * (non-Javadoc)
-	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleRejectedNotification(com.relayrides.pushy.apns.ApnsConnection, com.relayrides.pushy.apns.ApnsPushNotification, com.relayrides.pushy.apns.RejectedNotificationReason)
+	 * @see com.relayrides.pushy.apns.ApnsConnectionGroupListener#handleRejectedNotification(com.relayrides.pushy.apns.ApnsConnectionGroup, com.relayrides.pushy.apns.ApnsPushNotification, com.relayrides.pushy.apns.RejectedNotificationReason)
 	 */
 	@Override
-	public void handleRejectedNotification(final ApnsConnection<T> connection, final T rejectedNotification,
+	public void handleRejectedNotification(final ApnsConnectionGroup<T> group, final T rejectedNotification,
 			final RejectedNotificationReason reason) {
 
-		log.trace("{} rejected {}: {}", connection, rejectedNotification, reason);
-
-		final PushManager<T> pushManager = this;
+		log.trace("{} rejected {}: {}", group, rejectedNotification, reason);
 
 		synchronized (this.rejectedNotificationListeners) {
 			for (final RejectedNotificationListener<? super T> listener : this.rejectedNotificationListeners) {
@@ -816,7 +727,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 				this.listenerExecutorService.execute(new Runnable() {
 					@Override
 					public void run() {
-						listener.handleRejectedNotification(pushManager, rejectedNotification, reason);
+						listener.handleRejectedNotification(PushManager.this, rejectedNotification, reason);
 					}
 				});
 			}
@@ -825,55 +736,26 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	/*
 	 * (non-Javadoc)
-	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleUnprocessedNotifications(com.relayrides.pushy.apns.ApnsConnection, java.util.Collection)
+	 * @see com.relayrides.pushy.apns.ApnsConnectionGroupListener#handleUnprocessedNotifications(com.relayrides.pushy.apns.ApnsConnectionGroup, java.util.Collection)
 	 */
 	@Override
-	public void handleUnprocessedNotifications(ApnsConnection<T> connection, Collection<T> unprocessedNotifications) {
-
-		log.trace("{} returned {} unprocessed notifications", connection, unprocessedNotifications.size());
+	public void handleUnprocessedNotifications(ApnsConnectionGroup<T> group, Collection<T> unprocessedNotifications) {
+		log.trace("{} returned {} unprocessed notifications", group, unprocessedNotifications.size());
 
 		this.retryQueue.addAll(unprocessedNotifications);
-
 		this.dispatchThread.interrupt();
 	}
 
-	private void startNewConnection() {
-		synchronized (this.activeConnections) {
-			final ApnsConnection<T> connection = new ApnsConnection<T>(this.environment, this.sslContext,
-					this.eventLoopGroup, this.configuration.getConnectionConfiguration(), this,
-					String.format("%s-connection-%d", this.name, this.connectionCounter++));
-
-			connection.connect();
-
-			this.activeConnections.add(connection);
-		}
-	}
-
-	private void removeActiveConnection(final ApnsConnection<T> connection) {
-		synchronized (this.activeConnections) {
-			final boolean removedConnection = this.activeConnections.remove(connection);
-			assert removedConnection;
-
-			if (this.activeConnections.isEmpty()) {
-				this.activeConnections.notifyAll();
-			}
-		}
-	}
-
-	private void waitForAllConnectionsToFinish(final Date deadline) throws InterruptedException {
-		synchronized (this.activeConnections) {
-			while (!this.activeConnections.isEmpty() && !PushManager.hasDeadlineExpired(deadline)) {
-				if (deadline != null) {
-					this.activeConnections.wait(PushManager.getMillisToWaitForDeadline(deadline));
-				} else {
-					this.activeConnections.wait();
-				}
-			}
-		}
-	}
-
 	private static long getMillisToWaitForDeadline(final Date deadline) {
-		return Math.max(deadline.getTime() - System.currentTimeMillis(), 1);
+		final long millisToWaitForDeadline;
+
+		if (deadline != null) {
+			millisToWaitForDeadline = Math.max(deadline.getTime() - System.currentTimeMillis(), 1);
+		} else {
+			millisToWaitForDeadline = Long.MAX_VALUE;
+		}
+
+		return millisToWaitForDeadline;
 	}
 
 	private static boolean hasDeadlineExpired(final Date deadline) {
@@ -881,22 +763,6 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			return System.currentTimeMillis() > deadline.getTime();
 		} else {
 			return false;
-		}
-	}
-
-	private boolean shouldReplaceClosedConnection() {
-		if (this.shutDownStarted) {
-			if (this.dispatchThreadShouldContinue) {
-				// We're shutting down, but the dispatch thread is still working to drain the retry queue. Replace
-				// closed connections until the retry queue is empty.
-				return !this.retryQueue.isEmpty();
-			} else {
-				// If this dispatch thread should stop, there's nothing to make use of the connections
-				return false;
-			}
-		} else {
-			// We always want to replace closed connections if we're running normally
-			return true;
 		}
 	}
 }
