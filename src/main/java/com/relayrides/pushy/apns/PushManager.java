@@ -766,25 +766,11 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		this.writableConnections.remove(connection);
 		this.dispatchThread.interrupt();
 
-		final PushManager<T> pushManager = this;
+		if (this.shouldReplaceClosedConnection()) {
+			this.startNewConnection();
+		}
 
-		this.listenerExecutorService.execute(new Runnable() {
-			@Override
-			public void run() {
-				try {
-					connection.waitForLastWriteToFinish();
-
-					if (pushManager.shouldReplaceClosedConnection()) {
-						pushManager.startNewConnection();
-					}
-
-					removeActiveConnection(connection);
-				} catch (InterruptedException e) {
-					log.warn("{} interrupted while waiting for closed connection's pending operations to finish.",
-							pushManager.name);
-				}
-			}
-		});
+		removeActiveConnection(connection);
 	}
 
 	/*

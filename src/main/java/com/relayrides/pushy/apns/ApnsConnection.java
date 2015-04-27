@@ -306,7 +306,12 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			// listeners if the handshake has completed. Otherwise, we'll notify listeners of a connection failure (as
 			// opposed to closure) elsewhere.
 			if (this.apnsConnection.handshakeCompleted) {
-				if (this.apnsConnection.listener != null) {
+				// If we're still waiting for a write to finish, we'll let the listener for the write operation itself
+				// announce closure.
+				final boolean hasOutstandingWriteOperation =
+						(this.apnsConnection.lastWriteFuture != null && !this.apnsConnection.lastWriteFuture.isDone());
+
+				if (this.apnsConnection.listener != null && !hasOutstandingWriteOperation) {
 					this.apnsConnection.listener.handleConnectionClosure(this.apnsConnection);
 				}
 			}
@@ -539,6 +544,14 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 							ApnsConnection.this.listener.handleWriteFailure(ApnsConnection.this, notification, writeFuture.cause());
 						}
 					}
+
+					// The connection has already closed, and we're the last write operation; let listeners know that
+					// everything is finished.
+					if (writeFuture == ApnsConnection.this.lastWriteFuture && !writeFuture.channel().isOpen()) {
+						if (ApnsConnection.this.listener != null) {
+							ApnsConnection.this.listener.handleConnectionClosure(ApnsConnection.this);
+						}
+					}
 				}
 			});
 		} else {
@@ -550,25 +563,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		if (this.configuration.getSendAttemptLimit() != null && ++this.sendAttempts >= this.configuration.getSendAttemptLimit()) {
 			log.debug("{} reached send attempt limit and will disconnect gracefully.", this.name);
 			this.disconnectGracefully();
-		}
-	}
-
-	/**
-	 * <p>Waits for the most recent write operation to finish. When this method exits normally (i.e. when it does
-	 * not throw an {@code InterruptedException}), the most recent write operation will have either succeeded or failed
-	 * and triggered a call to this connection's listener's
-	 * {@link ApnsConnectionListener#handleWriteFailure(ApnsConnection, ApnsPushNotification, Throwable)} method.</p>
-	 *
-	 * <p>It is <em>not</em> guaranteed that all write operations will have finished by the time a connection has
-	 * closed. Applications that need to know when all writes have finished should call this method after a connection
-	 * closes, but must not do so in an IO thread (i.e. the thread that called the
-	 * {@link ApnsConnectionListener#handleConnectionClosure(ApnsConnection)} method.</p>
-	 *
-	 * @throws InterruptedException if interrupted while waiting for pending read/write operations to finish
-	 */
-	public void waitForLastWriteToFinish() throws InterruptedException {
-		if (this.lastWriteFuture != null) {
-			this.lastWriteFuture.await();
 		}
 	}
 
@@ -617,17 +611,25 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 				this.lastWriteFuture = this.connectFuture.channel().writeAndFlush(this.disconnectNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
 					@Override
-					public void operationComplete(final ChannelFuture future) {
-						if (future.isSuccess()) {
+					public void operationComplete(final ChannelFuture writeFuture) {
+						if (writeFuture.isSuccess()) {
 							log.trace("{} successfully wrote known-bad notification {}",
 									ApnsConnection.this.name, ApnsConnection.this.disconnectNotification.getSequenceNumber());
 						} else {
 							log.trace("{} failed to write known-bad notification {}",
-									ApnsConnection.this.name, ApnsConnection.this.disconnectNotification, future.cause());
+									ApnsConnection.this.name, ApnsConnection.this.disconnectNotification, writeFuture.cause());
 
 							// Try again!
 							ApnsConnection.this.disconnectNotification = null;
 							ApnsConnection.this.disconnectGracefully();
+						}
+
+						// The connection has already closed, and we're the last write operation; let listeners know
+						// that everything is finished.
+						if (writeFuture == ApnsConnection.this.lastWriteFuture && !writeFuture.channel().isOpen()) {
+							if (ApnsConnection.this.listener != null) {
+								ApnsConnection.this.listener.handleConnectionClosure(ApnsConnection.this);
+							}
 						}
 					}
 				});

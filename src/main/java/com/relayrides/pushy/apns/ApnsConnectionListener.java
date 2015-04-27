@@ -61,7 +61,9 @@ public interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	 * Indicates that the given connection has disconnected from the previously-connected APNs gateway and can no
 	 * longer send push notifications. This may happen either when the connection is closed locally or when the APNs
 	 * gateway closes the connection remotely. This method will only be called if the connection had previously
-	 * succeeded and completed a TLS handshake.
+	 * succeeded and completed a TLS handshake. By the time this method is called, all write operations for the given
+	 * channel are guaranteed to have succeed or failed and triggered a call to the listener's
+	 * {@link ApnsConnectionListener#handleWriteFailure(ApnsConnection, ApnsPushNotification, Throwable)} method.
 	 *
 	 * @param connection the connection that has been disconnected and is no longer active
 	 */
