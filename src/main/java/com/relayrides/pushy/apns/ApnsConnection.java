@@ -78,10 +78,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 	private final String name;
 
-	private final Object channelRegistrationMonitor = new Object();
 	private ChannelFuture connectFuture;
 	private volatile boolean handshakeCompleted = false;
-	private volatile boolean closeOnRegistration;
 
 	// We want to start the count at 1 here because the gateway will send back a sequence number of 0 if it doesn't know
 	// which notification failed. This isn't 100% bulletproof (we'll legitimately get back to 0 after 2^32
@@ -230,18 +228,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 		public ApnsConnectionHandler(final ApnsConnection<T> apnsConnection) {
 			this.apnsConnection = apnsConnection;
-		}
-
-		@Override
-		public void channelRegistered(final ChannelHandlerContext context) throws Exception {
-			super.channelRegistered(context);
-
-			synchronized (this.apnsConnection.channelRegistrationMonitor) {
-				if (this.apnsConnection.closeOnRegistration) {
-					log.debug("Channel registered for {}, but shutting down immediately.", this.apnsConnection.name);
-					context.channel().eventLoop().execute(this.apnsConnection.getImmediateDisconnectionRunnable());
-				}
-			}
 		}
 
 		@Override
@@ -710,33 +696,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 */
 	public synchronized void disconnectImmediately() {
 		if (this.connectFuture != null) {
-			synchronized (this.channelRegistrationMonitor) {
-				if (this.connectFuture.channel().isRegistered()) {
-					this.connectFuture.channel().eventLoop().execute(this.getImmediateDisconnectionRunnable());
-				} else {
-					this.closeOnRegistration = true;
-				}
-			}
+			this.connectFuture.channel().close();
 		}
-	}
-
-	private Runnable getImmediateDisconnectionRunnable() {
-		final ApnsConnection<T> apnsConnection = this;
-
-		return new Runnable() {
-			@Override
-			public void run() {
-				final SslHandler sslHandler = apnsConnection.connectFuture.channel().pipeline().get(SslHandler.class);
-
-				if (apnsConnection.connectFuture.isCancellable()) {
-					apnsConnection.connectFuture.cancel(true);
-				} else if (sslHandler != null && sslHandler.handshakeFuture().isCancellable()) {
-					sslHandler.handshakeFuture().cancel(true);
-				} else {
-					apnsConnection.connectFuture.channel().close();
-				}
-			}
-		};
 	}
 
 	@Override
