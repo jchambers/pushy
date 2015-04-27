@@ -91,7 +91,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private int sendAttempts = 0;
 
 	private SendableApnsPushNotification<KnownBadPushNotification> disconnectNotification;
-	private ScheduledFuture<?> gracefulShutdownTimeoutFuture;
+	private ScheduledFuture<?> gracefulDisconnectionTimeoutFuture;
 
 	private boolean rejectionReceived = false;
 	private final SentNotificationBuffer<T> sentNotificationBuffer;
@@ -316,8 +316,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 				}
 			}
 
-			if (this.apnsConnection.gracefulShutdownTimeoutFuture != null) {
-				this.apnsConnection.gracefulShutdownTimeoutFuture.cancel(false);
+			if (this.apnsConnection.gracefulDisconnectionTimeoutFuture != null) {
+				this.apnsConnection.gracefulDisconnectionTimeoutFuture.cancel(false);
 			}
 		}
 
@@ -600,7 +600,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 						new KnownBadPushNotification(), this.sequenceNumber++);
 
 				if (this.configuration.getGracefulDisconnectionTimeout() != null) {
-					ApnsConnection.this.gracefulShutdownTimeoutFuture = ApnsConnection.this.connectFuture.channel().eventLoop().schedule(new Runnable() {
+					ApnsConnection.this.gracefulDisconnectionTimeoutFuture = ApnsConnection.this.connectFuture.channel().eventLoop().schedule(new Runnable() {
 						@Override
 						public void run() {
 							ApnsConnection.this.disconnectImmediately();
