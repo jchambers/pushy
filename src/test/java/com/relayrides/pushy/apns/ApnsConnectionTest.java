@@ -380,7 +380,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		assertTrue(listener.connectionSucceeded);
 
 		synchronized (mutex) {
-			apnsConnection.shutdownGracefully();
+			apnsConnection.disconnectGracefully();
 
 			while (!listener.connectionClosed) {
 				mutex.wait();
@@ -414,8 +414,8 @@ public class ApnsConnectionTest extends BasePushyTest {
 		assertTrue(listener.connectionSucceeded);
 
 		synchronized (mutex) {
-			apnsConnection.shutdownGracefully();
-			apnsConnection.shutdownGracefully();
+			apnsConnection.disconnectGracefully();
+			apnsConnection.disconnectGracefully();
 
 			while (!listener.connectionClosed) {
 				mutex.wait();
@@ -438,7 +438,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
 						new ApnsConnectionConfiguration(), listener, TEST_CONNECTION_NAME);
 
-		apnsConnection.shutdownGracefully();
+		apnsConnection.disconnectGracefully();
 	}
 
 	@Test
@@ -462,7 +462,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		assertTrue(listener.connectionSucceeded);
 
 		synchronized (mutex) {
-			apnsConnection.shutdownImmediately();
+			apnsConnection.disconnectImmediately();
 
 			while (!listener.connectionClosed) {
 				mutex.wait();
@@ -482,7 +482,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
 						new ApnsConnectionConfiguration(), listener, TEST_CONNECTION_NAME);
 
-		apnsConnection.shutdownImmediately();
+		apnsConnection.disconnectImmediately();
 	}
 
 	@Test
@@ -499,7 +499,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 							new ApnsConnectionConfiguration(), listener, TEST_CONNECTION_NAME);
 
 			apnsConnection.waitForPendingWritesToFinish();
-			apnsConnection.shutdownImmediately();
+			apnsConnection.disconnectImmediately();
 		}
 
 		{
@@ -526,7 +526,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 			}
 
 			apnsConnection.waitForPendingWritesToFinish();
-			apnsConnection.shutdownGracefully();
+			apnsConnection.disconnectGracefully();
 		}
 	}
 
@@ -563,7 +563,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		final TestListener listener = new TestListener(mutex);
 
 		final ApnsConnectionConfiguration gracefulShutdownTimeoutConfiguration = new ApnsConnectionConfiguration();
-		gracefulShutdownTimeoutConfiguration.setGracefulShutdownTimeout(1);
+		gracefulShutdownTimeoutConfiguration.setGracefulDisconnectionTimeout(1);
 
 		final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
 				new ApnsConnection<SimpleApnsPushNotification>(
@@ -585,7 +585,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 		assertTrue(listener.connectionSucceeded);
 
 		synchronized (mutex) {
-			apnsConnection.shutdownGracefully();
+			apnsConnection.disconnectGracefully();
 
 			while (!listener.connectionClosed) {
 				mutex.wait();
@@ -667,7 +667,7 @@ public class ApnsConnectionTest extends BasePushyTest {
 			this.waitForLatch(latch);
 
 			synchronized (mutex) {
-				apnsConnection.shutdownGracefully();
+				apnsConnection.disconnectGracefully();
 
 				while (!listener.connectionClosed) {
 					mutex.wait();
