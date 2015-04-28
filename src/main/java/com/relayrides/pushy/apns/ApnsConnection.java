@@ -48,7 +48,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
@@ -87,7 +86,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	// having an expired token) is vanishingly small.
 	private int sequenceNumber = 1;
 
-	private final AtomicInteger pendingWriteCount = new AtomicInteger(0);
+	private volatile ChannelFuture lastWriteFuture;
+
 	private int sendAttempts = 0;
 
 	private SendableApnsPushNotification<KnownBadPushNotification> disconnectNotification;
@@ -306,7 +306,12 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			// listeners if the handshake has completed. Otherwise, we'll notify listeners of a connection failure (as
 			// opposed to closure) elsewhere.
 			if (this.apnsConnection.handshakeCompleted) {
-				if (this.apnsConnection.listener != null) {
+				// If we're still waiting for a write to finish, we'll let the listener for the write operation itself
+				// announce closure.
+				final boolean hasOutstandingWriteOperation =
+						(this.apnsConnection.lastWriteFuture != null && !this.apnsConnection.lastWriteFuture.isDone());
+
+				if (this.apnsConnection.listener != null && !hasOutstandingWriteOperation) {
 					this.apnsConnection.listener.handleConnectionClosure(this.apnsConnection);
 				}
 			}
@@ -501,63 +506,52 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * @see ApnsConnectionListener#handleRejectedNotification(ApnsConnection, ApnsPushNotification, RejectedNotificationReason)
 	 */
 	public synchronized void sendNotification(final T notification) {
-		final ApnsConnection<T> apnsConnection = this;
-
 		if (!this.handshakeCompleted) {
 			throw new IllegalStateException(String.format("%s has not completed handshake.", this.name));
 		}
 
 		if (this.disconnectNotification == null) {
-			this.connectFuture.channel().eventLoop().execute(new Runnable() {
+			final SendableApnsPushNotification<T> sendableNotification =
+					new SendableApnsPushNotification<T>(notification, this.sequenceNumber++);
+
+			log.trace("{} sending {}", this.name, sendableNotification);
+
+			this.lastWriteFuture = this.connectFuture.channel().writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
 				@Override
-				public void run() {
-					final SendableApnsPushNotification<T> sendableNotification =
-							new SendableApnsPushNotification<T>(notification, apnsConnection.sequenceNumber++);
+				public void operationComplete(final ChannelFuture writeFuture) {
+					if (writeFuture.isSuccess()) {
+						log.trace("{} successfully wrote notification {}", ApnsConnection.this.name,
+								sendableNotification.getSequenceNumber());
 
-					log.trace("{} sending {}", apnsConnection.name, sendableNotification);
-
-					apnsConnection.pendingWriteCount.incrementAndGet();
-
-					apnsConnection.connectFuture.channel().writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
-
-						@Override
-						public void operationComplete(final ChannelFuture writeFuture) {
-							if (writeFuture.isSuccess()) {
-								log.trace("{} successfully wrote notification {}", apnsConnection.name,
-										sendableNotification.getSequenceNumber());
-
-								if (apnsConnection.rejectionReceived) {
-									// Even though the write succeeded, we know for sure that this notification was never
-									// processed by the gateway because it had already rejected another notification from
-									// this connection.
-									if (apnsConnection.listener != null) {
-										apnsConnection.listener.handleUnprocessedNotifications(apnsConnection, java.util.Collections.singletonList(notification));
-									}
-								} else {
-									apnsConnection.sentNotificationBuffer.addSentNotification(sendableNotification);
-								}
-							} else {
-								log.trace("{} failed to write notification {}",
-										apnsConnection.name, sendableNotification, writeFuture.cause());
-
-								// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
-								// even manage to write the notification to the wire) and re-enqueue for another send attempt.
-								if (apnsConnection.listener != null) {
-									apnsConnection.listener.handleWriteFailure(apnsConnection, notification, writeFuture.cause());
-								}
+						if (ApnsConnection.this.rejectionReceived) {
+							// Even though the write succeeded, we know for sure that this notification was never
+							// processed by the gateway because it had already rejected another notification from
+							// this connection.
+							if (ApnsConnection.this.listener != null) {
+								ApnsConnection.this.listener.handleUnprocessedNotifications(ApnsConnection.this, java.util.Collections.singletonList(notification));
 							}
-
-							final int currentPendingWriteCount = apnsConnection.pendingWriteCount.decrementAndGet();
-							assert currentPendingWriteCount >= 0;
-
-							if (currentPendingWriteCount == 0) {
-								synchronized (apnsConnection.pendingWriteCount) {
-									apnsConnection.pendingWriteCount.notifyAll();
-								}
-							}
+						} else {
+							ApnsConnection.this.sentNotificationBuffer.addSentNotification(sendableNotification);
 						}
-					});
+					} else {
+						log.trace("{} failed to write notification {}",
+								ApnsConnection.this.name, sendableNotification, writeFuture.cause());
+
+						// Assume this is a temporary failure (we know it's not a permanent rejection because we didn't
+						// even manage to write the notification to the wire) and re-enqueue for another send attempt.
+						if (ApnsConnection.this.listener != null) {
+							ApnsConnection.this.listener.handleWriteFailure(ApnsConnection.this, notification, writeFuture.cause());
+						}
+					}
+
+					// The connection has already closed, and we're the last write operation; let listeners know that
+					// everything is finished.
+					if (writeFuture == ApnsConnection.this.lastWriteFuture && !writeFuture.channel().isOpen()) {
+						if (ApnsConnection.this.listener != null) {
+							ApnsConnection.this.listener.handleConnectionClosure(ApnsConnection.this);
+						}
+					}
 				}
 			});
 		} else {
@@ -569,27 +563,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 		if (this.configuration.getSendAttemptLimit() != null && ++this.sendAttempts >= this.configuration.getSendAttemptLimit()) {
 			log.debug("{} reached send attempt limit and will disconnect gracefully.", this.name);
 			this.disconnectGracefully();
-		}
-	}
-
-	/**
-	 * <p>Waits for all pending write operations to finish. When this method exits normally (i.e. when it does
-	 * not throw an {@code InterruptedException}), all pending writes will have either finished successfully or failed
-	 * and passed to this connection's listener via the
-	 * {@link ApnsConnectionListener#handleWriteFailure(ApnsConnection, ApnsPushNotification, Throwable)} method.</p>
-	 *
-	 * <p>It is <em>not</em> guaranteed that all write operations will have finished by the time a connection has
-	 * closed. Applications that need to know when all writes have finished should call this method after a connection
-	 * closes, but must not do so in an IO thread (i.e. the thread that called the
-	 * {@link ApnsConnectionListener#handleConnectionClosure(ApnsConnection)} method.</p>
-	 *
-	 * @throws InterruptedException if interrupted while waiting for pending read/write operations to finish
-	 */
-	public void waitForPendingWritesToFinish() throws InterruptedException {
-		synchronized (this.pendingWriteCount) {
-			while (this.pendingWriteCount.intValue() > 0) {
-				this.pendingWriteCount.wait();
-			}
 		}
 	}
 
@@ -614,64 +587,53 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 */
 	public synchronized boolean disconnectGracefully() {
 
-		final ApnsConnection<T> apnsConnection = this;
-
 		// We only need to send a known-bad notification if we were ever connected in the first place and if we're
 		// still connected.
 		if (this.handshakeCompleted && this.connectFuture.channel().isActive()) {
 
-			this.connectFuture.channel().eventLoop().execute(new Runnable() {
+			// Don't send a second disconnection notification if we've already started the graceful disconnection process.
+			if (this.disconnectNotification == null) {
 
-				@Override
-				public void run() {
-					// Don't send a second disconnection notification if we've already started the graceful disconnection process.
-					if (apnsConnection.disconnectNotification == null) {
+				log.debug("{} sending known-bad notification to disconnect.", this.name);
 
-						log.debug("{} sending known-bad notification to disconnect.", apnsConnection.name);
+				this.disconnectNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
+						new KnownBadPushNotification(), this.sequenceNumber++);
 
-						apnsConnection.disconnectNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
-								new KnownBadPushNotification(), apnsConnection.sequenceNumber++);
+				if (this.configuration.getGracefulDisconnectionTimeout() != null) {
+					ApnsConnection.this.gracefulDisconnectionTimeoutFuture = ApnsConnection.this.connectFuture.channel().eventLoop().schedule(new Runnable() {
+						@Override
+						public void run() {
+							ApnsConnection.this.disconnectImmediately();
+						}
+					}, ApnsConnection.this.configuration.getGracefulDisconnectionTimeout(), TimeUnit.SECONDS);
+				}
 
-						if (apnsConnection.configuration.getGracefulDisconnectionTimeout() != null) {
-							ApnsConnection.this.gracefulDisconnectionTimeoutFuture = ApnsConnection.this.connectFuture.channel().eventLoop().schedule(new Runnable() {
-								@Override
-								public void run() {
-									ApnsConnection.this.disconnectImmediately();
-								}
-							}, ApnsConnection.this.configuration.getGracefulDisconnectionTimeout(), TimeUnit.SECONDS);
+				this.lastWriteFuture = this.connectFuture.channel().writeAndFlush(this.disconnectNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+
+					@Override
+					public void operationComplete(final ChannelFuture writeFuture) {
+						if (writeFuture.isSuccess()) {
+							log.trace("{} successfully wrote known-bad notification {}",
+									ApnsConnection.this.name, ApnsConnection.this.disconnectNotification.getSequenceNumber());
+						} else {
+							log.trace("{} failed to write known-bad notification {}",
+									ApnsConnection.this.name, ApnsConnection.this.disconnectNotification, writeFuture.cause());
+
+							// Try again!
+							ApnsConnection.this.disconnectNotification = null;
+							ApnsConnection.this.disconnectGracefully();
 						}
 
-						apnsConnection.pendingWriteCount.incrementAndGet();
-
-						apnsConnection.connectFuture.channel().writeAndFlush(apnsConnection.disconnectNotification).addListener(new GenericFutureListener<ChannelFuture>() {
-
-							@Override
-							public void operationComplete(final ChannelFuture future) {
-								if (future.isSuccess()) {
-									log.trace("{} successfully wrote known-bad notification {}",
-											apnsConnection.name, apnsConnection.disconnectNotification.getSequenceNumber());
-								} else {
-									log.trace("{} failed to write known-bad notification {}",
-											apnsConnection.name, apnsConnection.disconnectNotification, future.cause());
-
-									// Try again!
-									apnsConnection.disconnectNotification = null;
-									apnsConnection.disconnectGracefully();
-								}
-
-								final int currentPendingWriteCount = apnsConnection.pendingWriteCount.decrementAndGet();
-								assert currentPendingWriteCount >= 0;
-
-								if (currentPendingWriteCount == 0) {
-									synchronized (apnsConnection.pendingWriteCount) {
-										apnsConnection.pendingWriteCount.notifyAll();
-									}
-								}
+						// The connection has already closed, and we're the last write operation; let listeners know
+						// that everything is finished.
+						if (writeFuture == ApnsConnection.this.lastWriteFuture && !writeFuture.channel().isOpen()) {
+							if (ApnsConnection.this.listener != null) {
+								ApnsConnection.this.listener.handleConnectionClosure(ApnsConnection.this);
 							}
-						});
+						}
 					}
-				}
-			});
+				});
+			}
 
 			return true;
 		} else {

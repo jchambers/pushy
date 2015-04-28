@@ -87,11 +87,6 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		@Override
 		public void handleConnectionClosure(final ApnsConnection<SimpleApnsPushNotification> connection) {
-			try {
-				connection.waitForPendingWritesToFinish();
-			} catch (InterruptedException ignored) {
-			}
-
 			synchronized (mutex) {
 				this.connectionClosed = true;
 				this.mutex.notifyAll();
@@ -483,51 +478,6 @@ public class ApnsConnectionTest extends BasePushyTest {
 						new ApnsConnectionConfiguration(), listener, TEST_CONNECTION_NAME);
 
 		apnsConnection.disconnectImmediately();
-	}
-
-	@Test
-	public void testWaitForPendingOperationsToFinish() throws Exception {
-		// For the purposes of this test, we're happy just as long as we don't time out waiting for writes to finish.
-
-		{
-			final Object mutex = new Object();
-
-			final TestListener listener = new TestListener(mutex);
-			final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
-					new ApnsConnection<SimpleApnsPushNotification>(
-							TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-							new ApnsConnectionConfiguration(), listener, TEST_CONNECTION_NAME);
-
-			apnsConnection.waitForPendingWritesToFinish();
-			apnsConnection.disconnectImmediately();
-		}
-
-		{
-			final Object mutex = new Object();
-
-			final TestListener listener = new TestListener(mutex);
-			final ApnsConnection<SimpleApnsPushNotification> apnsConnection =
-					new ApnsConnection<SimpleApnsPushNotification>(
-							TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-							new ApnsConnectionConfiguration(), listener, TEST_CONNECTION_NAME);
-
-			synchronized (mutex) {
-				apnsConnection.connect();
-
-				while (!listener.connectionSucceeded) {
-					mutex.wait();
-				}
-			}
-
-			assertTrue(listener.connectionSucceeded);
-
-			for (int i = 0; i < 1000; i++) {
-				apnsConnection.sendNotification(this.createTestNotification());
-			}
-
-			apnsConnection.waitForPendingWritesToFinish();
-			apnsConnection.disconnectGracefully();
-		}
 	}
 
 	@Test
