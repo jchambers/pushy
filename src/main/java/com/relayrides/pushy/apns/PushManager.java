@@ -824,13 +824,13 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	private void startNewConnection() {
+		final ApnsConnection<T> connection = new ApnsConnection<T>(this.environment, this.sslContext,
+				this.eventLoopGroup, this.configuration.getConnectionConfiguration(), this,
+				String.format("%s-connection-%d", this.name, this.connectionCounter++));
+
+		connection.connect();
+
 		synchronized (this.activeConnections) {
-			final ApnsConnection<T> connection = new ApnsConnection<T>(this.environment, this.sslContext,
-					this.eventLoopGroup, this.configuration.getConnectionConfiguration(), this,
-					String.format("%s-connection-%d", this.name, this.connectionCounter++));
-
-			connection.connect();
-
 			this.activeConnections.add(connection);
 		}
 	}
