@@ -32,10 +32,10 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	private final Map<ApnsConnection<T>, ScheduledFuture<?>> connectionFutures = new HashMap<ApnsConnection<T>, ScheduledFuture<?>>();
 	private final BlockingQueue<ApnsConnection<T>> writableConnections = new LinkedBlockingQueue<ApnsConnection<T>>();
 
+	private final AtomicInteger connectionCounter = new AtomicInteger(0);
 	private long reconnectDelay = 0;
 
 	private static final AtomicInteger GROUP_COUNTER = new AtomicInteger(0);
-	private static final AtomicInteger CONNECTION_COUNTER = new AtomicInteger(0);
 
 	private static final long INITIAL_RECONNECT_DELAY = 100;
 	private static final long MAX_RECONNECT_DELAY = INITIAL_RECONNECT_DELAY * 512;
@@ -98,7 +98,7 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 
 	private void addConnectionWithDelay(final long delayMillis) {
 		synchronized (this.connectionFutures) {
-			final String connectionName = String.format("%s-%d", this.name, CONNECTION_COUNTER.getAndIncrement());
+			final String connectionName = String.format("%s-%d", this.name, this.connectionCounter.getAndIncrement());
 
 			final ApnsConnection<T> connection =
 					new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this.connectionConfiguration, this, connectionName);
