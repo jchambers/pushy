@@ -105,20 +105,20 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 			final ScheduledFuture<?> future = this.eventLoopGroup.schedule(new Runnable() {
 				@Override
 				public void run() {
-					synchronized (ApnsConnectionGroup.this.connectionFutures) {
-						synchronized (ApnsConnectionGroup.this.connections) {
-							if (ApnsConnectionGroup.this.shouldMaintainConnections) {
-								final String connectionName = String.format("%s-%d", ApnsConnectionGroup.this.name, ApnsConnectionGroup.this.connectionCounter.getAndIncrement());
+					synchronized (ApnsConnectionGroup.this.connections) {
+						if (ApnsConnectionGroup.this.shouldMaintainConnections) {
+							final String connectionName = String.format("%s-%d", ApnsConnectionGroup.this.name, ApnsConnectionGroup.this.connectionCounter.getAndIncrement());
 
-								final ApnsConnection<T> connection =
-										new ApnsConnection<T>(ApnsConnectionGroup.this.environment, ApnsConnectionGroup.this.sslContext, ApnsConnectionGroup.this.eventLoopGroup, ApnsConnectionGroup.this.connectionConfiguration, ApnsConnectionGroup.this, connectionName);
+							final ApnsConnection<T> connection =
+									new ApnsConnection<T>(ApnsConnectionGroup.this.environment, ApnsConnectionGroup.this.sslContext, ApnsConnectionGroup.this.eventLoopGroup, ApnsConnectionGroup.this.connectionConfiguration, ApnsConnectionGroup.this, connectionName);
 
-								ApnsConnectionGroup.this.connections.add(connection);
-								connection.connect();
-							}
-
-							ApnsConnectionGroup.this.connectionFutures.remove(this);
+							ApnsConnectionGroup.this.connections.add(connection);
+							connection.connect();
 						}
+					}
+
+					synchronized (ApnsConnectionGroup.this.connectionFutures) {
+						ApnsConnectionGroup.this.connectionFutures.remove(this);
 					}
 				}
 			}, delayMillis, TimeUnit.MILLISECONDS);
