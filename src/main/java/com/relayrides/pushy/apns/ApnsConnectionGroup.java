@@ -158,12 +158,12 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	}
 
 	@Override
-	public void handleConnectionFailure(ApnsConnection<T> connection, Throwable cause) {
+	public void handleConnectionFailure(final ApnsConnection<T> connection, final Throwable cause) {
 		if (this.shouldMaintainConnections) {
 			addConnectionWithDelay(this.reconnectDelay);
 
-			// This isn't really thread-safe, but the consequences of a screw-up are pretty mild, so we don't worry about
-			// it too much.
+			// This isn't really thread-safe, but the consequences of a screw-up are pretty mild, so we don't worry
+			// about it too much.
 			this.reconnectDelay = this.reconnectDelay == 0 ? INITIAL_RECONNECT_DELAY :
 				Math.min(this.reconnectDelay * 2, MAX_RECONNECT_DELAY);
 		}
@@ -173,7 +173,7 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	}
 
 	@Override
-	public void handleConnectionWritabilityChange(ApnsConnection<T> connection, boolean writable) {
+	public void handleConnectionWritabilityChange(final ApnsConnection<T> connection, final boolean writable) {
 		if (writable) {
 			this.writableConnections.add(connection);
 		} else {
@@ -182,7 +182,7 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	}
 
 	@Override
-	public void handleConnectionClosure(ApnsConnection<T> connection) {
+	public void handleConnectionClosure(final ApnsConnection<T> connection) {
 		this.writableConnections.remove(connection);
 
 		if (this.shouldMaintainConnections) {
