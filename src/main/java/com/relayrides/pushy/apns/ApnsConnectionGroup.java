@@ -144,8 +144,7 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	public ApnsConnection<T> getNextConnection(final long timeoutMillis) throws InterruptedException {
 		final ApnsConnection<T> connection = this.writableConnections.poll(timeoutMillis, TimeUnit.MILLISECONDS);
 
-		if (connection != null) {
-			// TODO Synchronize to avoid writability change goofiness
+		if (connection != null && connection.isWritable()) {
 			this.writableConnections.add(connection);
 		}
 

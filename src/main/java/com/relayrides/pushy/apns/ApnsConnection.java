@@ -496,6 +496,21 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	}
 
 	/**
+	 * Indicates whether this connection will write a push notification immediately. Any notifications sent when this
+	 * method returns {@code false} will be enqueued internally.
+	 *
+	 * @return {@code true} if this connection will write a push notification immediately or {@code false} if attempts
+	 * to send push notifications will be deferred
+	 */
+	public boolean isWritable() {
+		if (this.connectFuture == null || this.connectFuture.channel() == null) {
+			return false;
+		} else {
+			return this.connectFuture.channel().isWritable();
+		}
+	}
+
+	/**
 	 * Asynchronously sends a push notification to the connected APNs gateway. Successful notifications are
 	 * <strong>not</strong> acknowledged by the APNs gateway; failed attempts to write push notifications to the
 	 * outbound buffer and notification rejections are reported via this connection's listener.
