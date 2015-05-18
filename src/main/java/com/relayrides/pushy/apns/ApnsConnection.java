@@ -658,6 +658,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 */
 	public synchronized void disconnectImmediately() {
 		if (this.connectFuture != null) {
+			this.connectFuture.cancel(false);
 			this.connectFuture.channel().close();
 		}
 	}

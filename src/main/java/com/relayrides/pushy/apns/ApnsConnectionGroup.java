@@ -4,9 +4,7 @@ import io.netty.channel.EventLoopGroup;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledFuture;
@@ -29,7 +27,7 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	private volatile boolean shouldMaintainConnections = false;
 
 	private final List<ApnsConnection<T>> connections = new ArrayList<ApnsConnection<T>>();
-	private final Map<ApnsConnection<T>, ScheduledFuture<?>> connectionFutures = new HashMap<ApnsConnection<T>, ScheduledFuture<?>>();
+	private final List<ScheduledFuture<?>> connectionFutures = new ArrayList<ScheduledFuture<?>>();
 	private final BlockingQueue<ApnsConnection<T>> writableConnections = new LinkedBlockingQueue<ApnsConnection<T>>();
 
 	private final AtomicInteger connectionCounter = new AtomicInteger(0);
@@ -70,20 +68,26 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 		this.shouldMaintainConnections = false;
 
 		synchronized (this.connectionFutures) {
-			for (final Map.Entry<ApnsConnection<T>, ScheduledFuture<?>> entry : this.connectionFutures.entrySet()) {
-				if (entry.getValue().cancel(false)) {
-					// If we successfully cancelled the connection future, we can just remove the connection immediately.
-					// Otherwise, we'll have to wait for it to fail/close on its own.
-					this.removeConnection(entry.getKey());
-				}
+			for (final ScheduledFuture<?> future : this.connectionFutures) {
+				future.cancel(false);
 			}
 
 			this.connectionFutures.clear();
 		}
 
 		synchronized (this.connections) {
+			final ArrayList<ApnsConnection<T>> connectionsToRemove = new ArrayList<ApnsConnection<T>>();
+
 			for (final ApnsConnection<T> connection : this.connections) {
-				connection.disconnectGracefully();
+				if (!connection.disconnectGracefully()) {
+					// The connection couldn't be shut down gracefully either because it was already closed or had not
+					// yet connected; either way, we can remove it immediately.
+					connectionsToRemove.add(connection);
+				}
+			}
+
+			for (final ApnsConnection<T> connection : connectionsToRemove) {
+				this.removeConnection(connection);
 			}
 		}
 	}
@@ -98,22 +102,28 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 
 	private void addConnectionWithDelay(final long delayMillis) {
 		synchronized (this.connectionFutures) {
-			final String connectionName = String.format("%s-%d", this.name, this.connectionCounter.getAndIncrement());
-
-			final ApnsConnection<T> connection =
-					new ApnsConnection<T>(this.environment, this.sslContext, this.eventLoopGroup, this.connectionConfiguration, this, connectionName);
-
 			final ScheduledFuture<?> future = this.eventLoopGroup.schedule(new Runnable() {
 				@Override
 				public void run() {
 					synchronized (ApnsConnectionGroup.this.connectionFutures) {
-						connection.connect();
-						ApnsConnectionGroup.this.connectionFutures.remove(connection);
+						synchronized (ApnsConnectionGroup.this.connections) {
+							if (ApnsConnectionGroup.this.shouldMaintainConnections) {
+								final String connectionName = String.format("%s-%d", ApnsConnectionGroup.this.name, ApnsConnectionGroup.this.connectionCounter.getAndIncrement());
+
+								final ApnsConnection<T> connection =
+										new ApnsConnection<T>(ApnsConnectionGroup.this.environment, ApnsConnectionGroup.this.sslContext, ApnsConnectionGroup.this.eventLoopGroup, ApnsConnectionGroup.this.connectionConfiguration, ApnsConnectionGroup.this, connectionName);
+
+								ApnsConnectionGroup.this.connections.add(connection);
+								connection.connect();
+							}
+
+							ApnsConnectionGroup.this.connectionFutures.remove(this);
+						}
 					}
 				}
 			}, delayMillis, TimeUnit.MILLISECONDS);
 
-			this.connectionFutures.put(connection, future);
+			this.connectionFutures.add(future);
 		}
 	}
 
