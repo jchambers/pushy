@@ -137,27 +137,19 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 		}
 	}
 
-	public boolean sendNotification(final T notification) throws InterruptedException {
-		return this.sendNotification(notification, Long.MAX_VALUE);
+	public ApnsConnection<T> getNextConnection() throws InterruptedException {
+		return this.getNextConnection(Long.MAX_VALUE);
 	}
 
-	public boolean sendNotification(final T notification, final long timeoutMillis) throws InterruptedException {
-		final boolean notificationSent;
+	public ApnsConnection<T> getNextConnection(final long timeoutMillis) throws InterruptedException {
 		final ApnsConnection<T> connection = this.writableConnections.poll(timeoutMillis, TimeUnit.MILLISECONDS);
 
 		if (connection != null) {
-			// TODO Figure out what to do if the connection's writabiliy changes after we get it, but before we return it
-			// to the queue
+			// TODO Synchronize to avoid writability change goofiness
 			this.writableConnections.add(connection);
-
-			connection.sendNotification(notification);
-
-			notificationSent = true;
-		} else {
-			notificationSent = false;
 		}
 
-		return notificationSent;
+		return connection;
 	}
 
 	@Override

@@ -32,6 +32,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
@@ -268,14 +269,15 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			public void run() {
 				while (PushManager.this.dispatchThreadShouldContinue) {
 					try {
+						final ApnsConnection<T> connection = PushManager.this.connectionGroup.getNextConnection();
 						final T notificationToRetry = PushManager.this.retryQueue.poll();
 
 						if (notificationToRetry != null) {
-							PushManager.this.connectionGroup.sendNotification(notificationToRetry);
+							connection.sendNotification(notificationToRetry);
 						} else {
 							// We'll park here either until a new notification is available from the outside or until
 							// something shows up in the retry queue, at which point we'll be interrupted.
-							PushManager.this.connectionGroup.sendNotification(PushManager.this.queue.take());
+							connection.sendNotification(PushManager.this.queue.take());
 						}
 					} catch (InterruptedException e) {
 						continue;
@@ -391,10 +393,14 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.connectionGroup.connectAll();
 
 			while (!this.retryQueue.isEmpty()) {
-				final T notification = this.retryQueue.poll();
+				final ApnsConnection<T> connection = this.connectionGroup.getNextConnection(getMillisToWaitForDeadline(deadline));
 
-				if (notification != null) {
-					this.connectionGroup.sendNotification(notification, getMillisToWaitForDeadline(deadline));
+				if (connection != null) {
+					final T notification = this.retryQueue.poll(getMillisToWaitForDeadline(deadline), TimeUnit.MILLISECONDS);
+
+					if (notification != null) {
+						connection.sendNotification(notification);
+					}
 				}
 			}
 
@@ -688,7 +694,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	public void handleConnectionFailure(final ApnsConnectionGroup<T> group, final Throwable cause) {
 		synchronized (this.failedConnectionListeners) {
 			for (final FailedConnectionListener<? super T> listener : this.failedConnectionListeners) {
-	
+
 				// Handle connection failures in a separate thread in case a handler takes a long time to run
 				this.listenerExecutorService.submit(new Runnable() {
 					@Override
