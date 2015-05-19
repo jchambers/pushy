@@ -82,6 +82,23 @@ public class ApnsPayloadBuilderTest {
 		}
 	}
 
+	@Test
+	public void testSetAlertTitleAndBody() throws ParseException {
+		final String alertTitle = "This is a short alert title";
+		final String alertBody = "This is a longer alert body";
+
+		this.builder.setAlertBody(alertBody);
+		this.builder.setAlertTitle(alertTitle);
+
+		{
+			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+			final JSONObject alert = (JSONObject) aps.get("alert");
+
+			assertEquals(alertTitle, alert.get("title"));
+			assertEquals(alertBody, alert.get("body"));
+		}
+	}
+
 	@SuppressWarnings("unchecked")
 	@Test
 	public void testSetLocalizedAlertMessage() throws ParseException {
