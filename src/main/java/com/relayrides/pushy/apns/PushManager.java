@@ -89,7 +89,7 @@ import org.slf4j.LoggerFactory;
  */
 public class PushManager<T extends ApnsPushNotification> implements ApnsConnectionGroupListener<T>, FeedbackServiceListener {
 	private final BlockingQueue<T> queue;
-	private final LinkedBlockingQueue<T> retryQueue = new LinkedBlockingQueue<T>();;
+	private final LinkedBlockingQueue<T> retryQueue = new LinkedBlockingQueue<T>();
 
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;

@@ -519,6 +519,12 @@ public class ApnsPayloadBuilder {
 	 * should be represented as a dictionary
 	 */
 	private boolean shouldRepresentAlertAsString() {
-		return this.alertBody != null && this.launchImageFileName == null && this.showActionButton && this.localizedActionButtonKey == null;
+		return this.alertBody != null && this.launchImageFileName == null && this.showActionButton
+				&& this.localizedActionButtonKey == null
+				&& this.alertTitle == null
+				&& this.localizedAlertTitleKey == null
+				&& this.localizedAlertKey == null
+				&& this.localizedAlertArguments == null
+				&& this.localizedAlertTitleArguments == null;
 	}
 }
