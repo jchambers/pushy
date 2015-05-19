@@ -58,8 +58,10 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 		this.shouldMaintainConnections = true;
 
 		synchronized (this.connections) {
-			for (int i = this.connections.size(); i < this.connectionCount; i++) {
-				this.addConnectionWithDelay(0);
+			synchronized (this.connectionFutures) {
+				for (int i = this.connections.size() + this.connectionFutures.size(); i < this.connectionCount; i++) {
+					this.addConnectionWithDelay(0);
+				}
 			}
 		}
 	}
