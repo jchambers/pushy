@@ -89,7 +89,7 @@ import org.slf4j.LoggerFactory;
  */
 public class PushManager<T extends ApnsPushNotification> implements ApnsConnectionListener<T>, FeedbackServiceListener {
 	private final BlockingQueue<T> queue;
-	private final LinkedBlockingQueue<T> retryQueue = new LinkedBlockingQueue<T>();;
+	private final LinkedBlockingQueue<T> retryQueue = new LinkedBlockingQueue<T>();
 
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
@@ -98,7 +98,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private final String name;
 	private static final AtomicInteger pushManagerCounter = new AtomicInteger(0);
-	private int connectionCounter = 0;
+	private AtomicInteger connectionCounter = new AtomicInteger(0);
 	private int feedbackConnectionCounter = 0;
 
 	private final HashSet<ApnsConnection<T>> activeConnections = new HashSet<ApnsConnection<T>>();
@@ -824,13 +824,13 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	}
 
 	private void startNewConnection() {
+		final ApnsConnection<T> connection = new ApnsConnection<T>(this.environment, this.sslContext,
+				this.eventLoopGroup, this.configuration.getConnectionConfiguration(), this,
+				String.format("%s-connection-%d", this.name, this.connectionCounter.getAndIncrement()));
+
+		connection.connect();
+
 		synchronized (this.activeConnections) {
-			final ApnsConnection<T> connection = new ApnsConnection<T>(this.environment, this.sslContext,
-					this.eventLoopGroup, this.configuration.getConnectionConfiguration(), this,
-					String.format("%s-connection-%d", this.name, this.connectionCounter++));
-
-			connection.connect();
-
 			this.activeConnections.add(connection);
 		}
 	}
