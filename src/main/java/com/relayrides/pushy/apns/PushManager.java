@@ -41,6 +41,8 @@ import javax.net.ssl.SSLHandshakeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.relayrides.pushy.apns.util.DeadlineUtil;
+
 /**
  * <p>Push managers manage connections to the APNs gateway and send notifications from their queue. Push managers are
  * the main public-facing point of interaction with Pushy.</p>
@@ -389,14 +391,14 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		this.connectionGroup.disconnectAllGracefuly();
 		this.connectionGroup.waitForAllConnectionsToClose();
 
-		while (!this.retryQueue.isEmpty() && !hasDeadlineExpired(deadline)) {
+		while (!this.retryQueue.isEmpty() && !DeadlineUtil.hasDeadlineExpired(deadline)) {
 			this.connectionGroup.connectAll();
 
 			while (!this.retryQueue.isEmpty()) {
-				final ApnsConnection<T> connection = this.connectionGroup.getNextConnection(getMillisToWaitForDeadline(deadline));
+				final ApnsConnection<T> connection = this.connectionGroup.getNextConnection(DeadlineUtil.getMillisToWaitForDeadline(deadline));
 
 				if (connection != null) {
-					final T notification = this.retryQueue.poll(getMillisToWaitForDeadline(deadline), TimeUnit.MILLISECONDS);
+					final T notification = this.retryQueue.poll(DeadlineUtil.getMillisToWaitForDeadline(deadline), TimeUnit.MILLISECONDS);
 
 					if (notification != null) {
 						connection.sendNotification(notification);
@@ -404,18 +406,17 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 				}
 			}
 
-			// TODO Need timeouts here
 			this.connectionGroup.disconnectAllGracefuly();
-
-			// TODO Need timeouts here
-			this.connectionGroup.waitForAllConnectionsToClose();
+			this.connectionGroup.waitForAllConnectionsToClose(deadline);
 		}
+
+		// If all connections closed gracefully, this will have no effect. If we timed out, though, this will make sure
+		// everything gets cleaned up propertly.
+		this.connectionGroup.disconnectAllImmediately();
 
 		if (deadline == null) {
 			assert this.retryQueue.isEmpty();
 		}
-
-		// TODO Figure out what to do if the deadline expired without emptying the queue first
 
 		synchronized (this.rejectedNotificationListeners) {
 			this.rejectedNotificationListeners.clear();
@@ -750,25 +751,5 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		this.retryQueue.addAll(unprocessedNotifications);
 		this.dispatchThread.interrupt();
-	}
-
-	private static long getMillisToWaitForDeadline(final Date deadline) {
-		final long millisToWaitForDeadline;
-
-		if (deadline != null) {
-			millisToWaitForDeadline = Math.max(deadline.getTime() - System.currentTimeMillis(), 1);
-		} else {
-			millisToWaitForDeadline = Long.MAX_VALUE;
-		}
-
-		return millisToWaitForDeadline;
-	}
-
-	private static boolean hasDeadlineExpired(final Date deadline) {
-		if (deadline != null) {
-			return System.currentTimeMillis() > deadline.getTime();
-		} else {
-			return false;
-		}
 	}
 }

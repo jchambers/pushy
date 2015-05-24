@@ -4,6 +4,7 @@ import io.netty.channel.EventLoopGroup;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -12,6 +13,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
+
+import com.relayrides.pushy.apns.util.DeadlineUtil;
 
 /**
  * A connection group maintains a pool of connections to the APNs gateway. Callers can retrieve connections from the
@@ -79,8 +82,8 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 
 	/**
 	 * Opens and begins maintaining connections to the APNs gateway. After this method has been called, connections in
-	 * this group will be replaced when they close until the {@link ApnsConnectionGroup#disconnectAllGracefuly()} method
-	 * is called.
+	 * this group will be replaced when they close until the {@link ApnsConnectionGroup#disconnectAllGracefuly()} or
+	 * {@link ApnsConnectionGroup#disconnectAllImmediately()} methods are called.
 	 */
 	public void connectAll() {
 		this.shouldMaintainConnections = true;
@@ -95,8 +98,8 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	}
 
 	/**
-	 * Gracefully disconnects all connections in this group. After this method is called, connections will not be
-	 * restored when they close.
+	 * Begins a graceful disconnection attempt for all connections in this group. After this method is called, this
+	 * group will no longer restore connections when they close.
 	 */
 	public void disconnectAllGracefuly() {
 		this.shouldMaintainConnections = false;
@@ -127,15 +130,54 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	}
 
 	/**
+	 * Immediately disconnects all connections in this group. After this method is called, this group will no longer
+	 * restore connections when they close.
+	 */
+	public void disconnectAllImmediately() {
+		this.shouldMaintainConnections = false;
+
+		synchronized (this.connectionFutures) {
+			for (final ScheduledFuture<?> future : this.connectionFutures) {
+				future.cancel(false);
+			}
+
+			this.connectionFutures.clear();
+		}
+
+		synchronized (this.connections) {
+			for (final ApnsConnection<T> connection : this.connections) {
+				connection.disconnectImmediately();
+			}
+
+			this.connections.clear();
+		}
+	}
+
+	/**
 	 * Wait until all connections in this group have closed completely.
 	 *
 	 * @throws InterruptedException if interrupted while waiting for all connections to close
 	 */
 	public void waitForAllConnectionsToClose() throws InterruptedException {
+		this.waitForAllConnectionsToClose(null);
+	}
+
+	/**
+	 * Wait until all connections in this group have closed completely or the given deadline has passed.
+	 *
+	 * @param deadline the time by which this method should return; if {@code null} this method will wait indefinitely
+	 *
+	 * @return {@code true} if all connections closed successfully or {@code false} if the given deadline elapsed before
+	 * all connections closed
+	 * @throws InterruptedException if interrupted while waiting for all connections to close
+	 */
+	public boolean waitForAllConnectionsToClose(final Date deadline) throws InterruptedException {
 		synchronized (this.connections) {
-			while (!this.connections.isEmpty()) {
-				this.connections.wait();
+			while (!this.connections.isEmpty() && !DeadlineUtil.hasDeadlineExpired(deadline)) {
+				this.connections.wait(DeadlineUtil.getMillisToWaitForDeadline(deadline));
 			}
+
+			return this.connections.isEmpty();
 		}
 	}
 
