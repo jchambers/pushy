@@ -80,10 +80,7 @@ public class FeedbackServiceConnection {
 	private final FeedbackServiceListener listener;
 	private final String name;
 
-	private final Object channelRegistrationMonitor = new Object();
 	private ChannelFuture connectFuture;
-	private volatile boolean handshakeCompleted = false;
-	private volatile boolean closeOnRegistration;
 
 	private static final Logger log = LoggerFactory.getLogger(FeedbackServiceConnection.class);
 
@@ -142,18 +139,6 @@ public class FeedbackServiceConnection {
 		}
 
 		@Override
-		public void channelRegistered(final ChannelHandlerContext context) throws Exception {
-			super.channelRegistered(context);
-
-			synchronized (this.feedbackClient.channelRegistrationMonitor) {
-				if (this.feedbackClient.closeOnRegistration) {
-					log.debug("Channel registered for {}, but shutting down immediately.", this.feedbackClient.name);
-					context.channel().eventLoop().execute(this.feedbackClient.getImmediateShutdownRunnable());
-				}
-			}
-		}
-
-		@Override
 		protected void channelRead0(final ChannelHandlerContext context, final ExpiredToken expiredToken) {
 			if (this.feedbackClient.listener != null) {
 				this.feedbackClient.listener.handleExpiredToken(feedbackClient, expiredToken);
@@ -177,7 +162,9 @@ public class FeedbackServiceConnection {
 			// Channel closure implies that the connection attempt had fully succeeded, so we only want to notify
 			// listeners if the handshake has completed. Otherwise, we'll notify listeners of a connection failure (as
 			// opposed to closure) elsewhere.
-			if (this.feedbackClient.handshakeCompleted) {
+			final SslHandler sslHandler = context.pipeline().get(SslHandler.class);
+
+			if (sslHandler != null && sslHandler.handshakeFuture().isSuccess()) {
 				if (this.feedbackClient.listener != null) {
 					this.feedbackClient.listener.handleConnectionClosure(this.feedbackClient);
 				}
@@ -281,8 +268,6 @@ public class FeedbackServiceConnection {
 								if (handshakeFuture.isSuccess()) {
 									log.debug("{} successfully completed TLS handshake.", feedbackConnection.name);
 
-									feedbackConnection.handshakeCompleted = true;
-
 									if (feedbackConnection.listener != null) {
 										feedbackConnection.listener.handleConnectionSuccess(feedbackConnection);
 									}
@@ -324,33 +309,9 @@ public class FeedbackServiceConnection {
 	 */
 	public synchronized void shutdownImmediately() {
 		if (this.connectFuture != null) {
-			synchronized (this.channelRegistrationMonitor) {
-				if (this.connectFuture.channel().isRegistered()) {
-					this.connectFuture.channel().eventLoop().execute(this.getImmediateShutdownRunnable());
-				} else {
-					this.closeOnRegistration = true;
-				}
-			}
+			this.connectFuture.channel().close();
+			this.connectFuture.cancel(false);
 		}
-	}
-
-	private Runnable getImmediateShutdownRunnable() {
-		final FeedbackServiceConnection feedbackConnection = this;
-
-		return new Runnable() {
-			@Override
-			public void run() {
-				final SslHandler sslHandler = feedbackConnection.connectFuture.channel().pipeline().get(SslHandler.class);
-
-				if (feedbackConnection.connectFuture.isCancellable()) {
-					feedbackConnection.connectFuture.cancel(true);
-				} else if (sslHandler != null && sslHandler.handshakeFuture().isCancellable()) {
-					sslHandler.handshakeFuture().cancel(true);
-				} else {
-					feedbackConnection.connectFuture.channel().close();
-				}
-			}
-		};
 	}
 
 	@Override
