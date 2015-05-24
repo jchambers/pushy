@@ -22,8 +22,10 @@
 package com.relayrides.pushy.apns;
 
 import static org.junit.Assert.*;
+import io.netty.util.concurrent.Future;
 
 import java.util.Date;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 
 import org.junit.Before;
@@ -148,12 +150,25 @@ public class ApnsConnectionGroupTest extends BasePushyTest {
 		testGroup.connectAll();
 		waitForLatch(connectionLatch);
 
-		final ApnsConnection<SimpleApnsPushNotification> firstConnection = testGroup.getNextConnection();
-		final ApnsConnection<SimpleApnsPushNotification> secondConnection = testGroup.getNextConnection();
+		// This is a little hacky, but we want to make sure all of the listeners have fired before we start getting
+		// connections. Otherwise, we might run into a race condition where we're getting connections before all of them
+		// have been added to the writable connection pool.
+		final Future<Void> getConnectionFuture = this.getEventLoopGroup().submit(new Callable<Void>() {
 
-		assertNotNull(firstConnection);
-		assertNotNull(secondConnection);
-		assertNotEquals(firstConnection, secondConnection);
+			@Override
+			public Void call() throws Exception {
+				final ApnsConnection<SimpleApnsPushNotification> firstConnection = testGroup.getNextConnection();
+				final ApnsConnection<SimpleApnsPushNotification> secondConnection = testGroup.getNextConnection();
+
+				assertNotNull(firstConnection);
+				assertNotNull(secondConnection);
+				assertNotEquals(firstConnection, secondConnection);
+
+				return null;
+			}
+		});
+
+		getConnectionFuture.await();
 
 		testGroup.disconnectAllGracefully();
 		testGroup.waitForAllConnectionsToClose(null);
