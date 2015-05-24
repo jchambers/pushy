@@ -68,8 +68,6 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 
 	private long reconnectDelay = 0;
 
-	private static final AtomicInteger GROUP_COUNTER = new AtomicInteger(0);
-
 	public static final long INITIAL_RECONNECT_DELAY = 100;
 	public static final long MAX_RECONNECT_DELAY = INITIAL_RECONNECT_DELAY * 512;
 
@@ -87,21 +85,17 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	 * configuration object is copied and changes to the original object will not propagate to the connection after
 	 * creation. Must not be {@code null}.
 	 * @param listener the listener to which this group will report connection lifecycle events; may be {@code null}
-	 * @param name a human-readable name for this group; if {@code null}, a default name will be used. Individual
-	 * connection names are derived from the group's name.
+	 * @param name a human-readable name for this group; must not be {@code null}
 	 * @param connectionCount the number of concurrent connections to maintain to the APNs gateway
 	 */
-	public ApnsConnectionGroup(final ApnsEnvironment environment, final SSLContext sslContext, final EventLoopGroup eventLoopGroup, final ApnsConnectionConfiguration connectionConfiguration, final ApnsConnectionGroupListener<T> listener, final String name, final int connectionCount) {
+	public ApnsConnectionGroup(final ApnsEnvironment environment, final SSLContext sslContext,
+			final EventLoopGroup eventLoopGroup, final ApnsConnectionConfiguration connectionConfiguration,
+			final ApnsConnectionGroupListener<T> listener, final String name, final int connectionCount) {
 		this.environment = environment;
 		this.sslContext = sslContext;
 		this.eventLoopGroup = eventLoopGroup;
 		this.connectionConfiguration = connectionConfiguration;
-
-		if (name != null) {
-			this.name = name;
-		} else {
-			this.name = String.format("ApnsConnectionGroup-%d", GROUP_COUNTER.getAndIncrement());
-		}
+		this.name = name;
 
 		this.listener = listener;
 		this.connectionCount = connectionCount;

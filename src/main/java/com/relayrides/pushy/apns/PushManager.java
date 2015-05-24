@@ -231,7 +231,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		this.connectionGroup = new ApnsConnectionGroup<T>(this.environment, this.sslContext, this.eventLoopGroup,
-				this.configuration.getConnectionConfiguration(), this, this.name,
+				this.configuration.getConnectionConfiguration(), this, String.format("%s-ConnectionGroup", this.name),
 				this.configuration.getConcurrentConnectionCount());
 	}
 
