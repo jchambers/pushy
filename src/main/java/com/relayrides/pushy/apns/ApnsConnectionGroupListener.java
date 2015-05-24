@@ -2,6 +2,14 @@ package com.relayrides.pushy.apns;
 
 import java.util.Collection;
 
+/**
+ * An {@code ApnsConnectionGroupListener} receives lifecycle events from {@link ApnsConnection} instances in an
+ * {@link ApnsConnectionGroup}. Handler methods are called from IO threads in the connection's event loop, and as such
+ * handler method implementations <em>must not</em> perform blocking operations. Blocking operations should be
+ * dispatched in separate threads.
+ *
+ * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
+ */
 public interface ApnsConnectionGroupListener<T extends ApnsPushNotification> {
 	/**
 	 * Indicates that the given connection group attempted to open a connection to an APNs gateway, but failed.
@@ -12,10 +20,10 @@ public interface ApnsConnectionGroupListener<T extends ApnsPushNotification> {
 	void handleConnectionFailure(ApnsConnectionGroup<T> group, Throwable cause);
 
 	/**
-	 * Indicates that the given connection group failed to send a push notification to an APNs gateway. This indicates a
-	 * local failure; notifications passed to this method were never transmitted to the APNs gateway, and failures of
-	 * this kind generally represent temporary I/O problems (rather than permanent rejection by the gateway), and it is
-	 * generally safe to try to send the failed notifications again later.
+	 * Indicates that a connection in the given connection group failed to send a push notification to an APNs gateway.
+	 * This indicates a local failure; notifications passed to this method were never transmitted to the APNs gateway,
+	 * and failures of this kind generally represent temporary I/O problems (rather than permanent rejection by the
+	 * gateway), and it is generally safe to try to send the failed notifications again later.
 	 *
 	 * @param group the connection group that attempted to deliver the notification
 	 * @param notification the notification that could not be written
