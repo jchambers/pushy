@@ -36,6 +36,8 @@ import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.MessageToByteEncoder;
 import io.netty.handler.codec.ReplayingDecoder;
 import io.netty.handler.ssl.SslHandler;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -55,7 +57,8 @@ public class MockApnsServer {
 	private final int port;
 	private final NioEventLoopGroup eventLoopGroup;
 
-	private final ArrayList<CountDownLatch> countdownLatches = new ArrayList<CountDownLatch>();
+	private final ArrayList<CountDownLatch> acceptedNotificationCountdownLatches = new ArrayList<CountDownLatch>();
+	private final ArrayList<CountDownLatch> successfulConnectionCountdownLatches = new ArrayList<CountDownLatch>();
 
 	private Channel channel;
 
@@ -277,9 +280,29 @@ public class MockApnsServer {
 		}
 
 		@Override
+		public void channelActive(final ChannelHandlerContext context) {
+			context.pipeline().get(SslHandler.class).handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
+				@Override
+				public void operationComplete(final Future<Channel> future) throws Exception {
+					if (future.isSuccess()) {
+						synchronized (MockApnsServerHandler.this.server.successfulConnectionCountdownLatches) {
+							for (final CountDownLatch latch : MockApnsServerHandler.this.server.successfulConnectionCountdownLatches) {
+								latch.countDown();
+							}
+						}
+					}
+				}
+			});
+		}
+
+		@Override
 		protected void channelRead0(final ChannelHandlerContext context, final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
 			if (!this.rejectFutureNotifications) {
-				this.server.acceptNotification(receivedNotification);
+				synchronized (this.server.acceptedNotificationCountdownLatches) {
+					for (final CountDownLatch latch : this.server.acceptedNotificationCountdownLatches) {
+						latch.countDown();
+					}
+				}
 			}
 		}
 
@@ -360,18 +383,19 @@ public class MockApnsServer {
 		this.shouldSendIncorrectSequenceNumber = shouldSendIncorrectSequenceNumber;
 	}
 
-	private void acceptNotification(final SendableApnsPushNotification<SimpleApnsPushNotification> receivedNotification) {
-		synchronized (this.countdownLatches) {
-			for (final CountDownLatch latch : this.countdownLatches) {
-				latch.countDown();
-			}
+	public CountDownLatch getAcceptedNotificationCountDownLatch(final int acceptedNotificationCount) {
+		synchronized (this.acceptedNotificationCountdownLatches) {
+			final CountDownLatch latch = new CountDownLatch(acceptedNotificationCount);
+			this.acceptedNotificationCountdownLatches.add(latch);
+
+			return latch;
 		}
 	}
 
-	public CountDownLatch getAcceptedNotificationCountDownLatch(final int acceptedNotificationCount) {
-		synchronized (this.countdownLatches) {
-			final CountDownLatch latch = new CountDownLatch(acceptedNotificationCount);
-			this.countdownLatches.add(latch);
+	public CountDownLatch getSuccessfulConnectionCountDownLatch(final int connectionCount) {
+		synchronized (this.successfulConnectionCountdownLatches) {
+			final CountDownLatch latch = new CountDownLatch(connectionCount);
+			this.successfulConnectionCountdownLatches.add(latch);
 
 			return latch;
 		}

@@ -388,7 +388,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		this.dispatchThread.interrupt();
 		this.dispatchThread.join();
 
-		this.connectionGroup.disconnectAllGracefuly();
+		this.connectionGroup.disconnectAllGracefully();
 		this.connectionGroup.waitForAllConnectionsToClose();
 
 		while (!this.retryQueue.isEmpty() && !DeadlineUtil.hasDeadlineExpired(deadline)) {
@@ -406,7 +406,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 				}
 			}
 
-			this.connectionGroup.disconnectAllGracefuly();
+			this.connectionGroup.disconnectAllGracefully();
 			this.connectionGroup.waitForAllConnectionsToClose(deadline);
 		}
 

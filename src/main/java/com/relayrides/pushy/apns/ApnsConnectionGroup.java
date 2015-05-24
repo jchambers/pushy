@@ -44,12 +44,13 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	private final BlockingQueue<ApnsConnection<T>> writableConnections = new LinkedBlockingQueue<ApnsConnection<T>>();
 
 	private final AtomicInteger connectionCounter = new AtomicInteger(0);
+
 	private long reconnectDelay = 0;
 
 	private static final AtomicInteger GROUP_COUNTER = new AtomicInteger(0);
 
-	private static final long INITIAL_RECONNECT_DELAY = 100;
-	private static final long MAX_RECONNECT_DELAY = INITIAL_RECONNECT_DELAY * 512;
+	public static final long INITIAL_RECONNECT_DELAY = 100;
+	public static final long MAX_RECONNECT_DELAY = INITIAL_RECONNECT_DELAY * 512;
 
 	private static final Logger log = LoggerFactory.getLogger(ApnsConnectionGroup.class);
 
@@ -87,7 +88,7 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 
 	/**
 	 * Opens and begins maintaining connections to the APNs gateway. After this method has been called, connections in
-	 * this group will be replaced when they close until the {@link ApnsConnectionGroup#disconnectAllGracefuly()} or
+	 * this group will be replaced when they close until the {@link ApnsConnectionGroup#disconnectAllGracefully()} or
 	 * {@link ApnsConnectionGroup#disconnectAllImmediately()} methods are called.
 	 */
 	public void connectAll() {
@@ -106,7 +107,7 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	 * Begins a graceful disconnection attempt for all connections in this group. After this method is called, this
 	 * group will no longer restore connections when they close.
 	 */
-	public void disconnectAllGracefuly() {
+	public void disconnectAllGracefully() {
 		this.shouldMaintainConnections = false;
 
 		synchronized (this.connectionFutures) {
@@ -168,7 +169,8 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	}
 
 	/**
-	 * Exponentially increases the delay before opening the next new connection.
+	 * Exponentially increases the delay before opening the next new connection. This method will not increase the delay
+	 * beyond {@value ApnsConnectionGroup#MAX_RECONNECT_DELAY} milliseconds.
 	 */
 	protected synchronized void increaseConnectionDelay() {
 		this.reconnectDelay = this.reconnectDelay == 0 ? INITIAL_RECONNECT_DELAY :
@@ -176,7 +178,7 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	}
 
 	/**
-	 * Resets the delay before opening the next new connection.
+	 * Resets the delay before opening the next new connection to zero.
 	 */
 	protected synchronized void resetConnectionDelay() {
 		this.reconnectDelay = 0;
@@ -317,7 +319,10 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 		}
 
 		this.removeConnection(connection);
-		this.listener.handleConnectionFailure(this, cause);
+
+		if (this.listener != null) {
+			this.listener.handleConnectionFailure(this, cause);
+		}
 	}
 
 	/*
