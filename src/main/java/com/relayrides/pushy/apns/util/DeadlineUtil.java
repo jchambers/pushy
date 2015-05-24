@@ -3,7 +3,7 @@ package com.relayrides.pushy.apns.util;
 import java.util.Date;
 
 /**
- * A utility class for working with deadlines and timeouts.
+ * Contains utility methods for working with deadlines and timeouts.
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
