@@ -21,10 +21,12 @@
 
 package com.relayrides.pushy.apns;
 
+import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertThat;
 import io.netty.channel.nio.NioEventLoopGroup;
 
 import java.util.ArrayList;
@@ -534,4 +536,74 @@ public class PushManagerTest extends BasePushyTest {
 		// timed shutdown with a very short fuse.
 		testManager.shutdown(1);
 	}
+
+    @Test
+    public void testHasZeroActiveConnectionsWhenAPushManagerIsCreated() throws Exception {
+        PushManager pushManager = this.getPushManager();
+        assertThat(pushManager.getNumberOfWritableConnections(), is(0));
+    }
+
+    @Test
+    public void testHasWritableConnectionAfterPushNotificationIsSent() throws Exception {
+        final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(1);
+
+        PushManager pushManager = getPushManager();
+        pushManager.getQueue().add(this.createTestNotification());
+
+        pushManager.start();
+        this.waitForLatch(latch);
+
+        assertThat(pushManager.getNumberOfWritableConnections(), is(1));
+        this.getPushManager().shutdown();
+        assertThat(pushManager.getNumberOfWritableConnections(), is(0));
+    }
+
+    @Test
+    public void testReturnsCorrectNumberOfWritableConnectionsWhenThereAreConcurrentConnections() throws Exception {
+        final PushManagerConfiguration configuration = new PushManagerConfiguration();
+        		configuration.setConcurrentConnectionCount(4);
+
+        final PushManager<SimpleApnsPushNotification> parallelPushManager =
+                new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(), null, null, configuration);
+
+        final int iterations = 10;
+        final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(iterations);
+
+        for (int i = 0; i < iterations; i++) {
+            parallelPushManager.getQueue().add(this.createTestNotification());
+        }
+
+        parallelPushManager.start();
+
+        this.waitForLatch(latch);
+        assertThat(parallelPushManager.getNumberOfWritableConnections() > 0, is(true));
+        assertThat(parallelPushManager.getNumberOfWritableConnections() <= 4, is(true));
+        parallelPushManager.shutdown();
+        assertThat(parallelPushManager.getNumberOfWritableConnections(), is(0));
+    }
+
+    @Test
+    public void testWritableCountNotIncrementedForFailedConnection() throws Exception {
+        final PushManager<SimpleApnsPushNotification> badCredentialManager =
+        				new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
+        						SSLTestUtil.createSSLContextForTestClient("/pushy-test-client-untrusted.jks"), null,
+        						null, null, new PushManagerConfiguration());
+
+        final Object monitor = new Object();
+        final TestFailedConnectionListener listener = new TestFailedConnectionListener(monitor);
+
+        badCredentialManager.registerFailedConnectionListener(listener);
+
+        synchronized (monitor) {
+            badCredentialManager.start();
+
+            while (listener.cause == null) {
+                monitor.wait();
+            }
+
+            assertThat(badCredentialManager.getNumberOfWritableConnections(), is(0));
+        }
+
+        badCredentialManager.shutdown();
+    }
 }
