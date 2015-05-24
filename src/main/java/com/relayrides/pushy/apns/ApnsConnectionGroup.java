@@ -107,8 +107,8 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 			final ScheduledFuture<?> future = this.eventLoopGroup.schedule(new Runnable() {
 				@Override
 				public void run() {
-					synchronized (ApnsConnectionGroup.this.connections) {
-						if (ApnsConnectionGroup.this.shouldMaintainConnections) {
+					if (ApnsConnectionGroup.this.shouldMaintainConnections) {
+						synchronized (ApnsConnectionGroup.this.connections) {
 							final String connectionName = String.format("%s-%d", ApnsConnectionGroup.this.name, ApnsConnectionGroup.this.connectionCounter.getAndIncrement());
 
 							final ApnsConnection<T> connection =
