@@ -14,6 +14,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.relayrides.pushy.apns.util.DeadlineUtil;
 
 /**
@@ -47,6 +50,8 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 
 	private static final long INITIAL_RECONNECT_DELAY = 100;
 	private static final long MAX_RECONNECT_DELAY = INITIAL_RECONNECT_DELAY * 512;
+
+	private static final Logger log = LoggerFactory.getLogger(ApnsConnectionGroup.class);
 
 	/**
 	 * Constructs a new connection group that will maintain connections to the APNs gateway in the given environment.
@@ -163,6 +168,30 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	}
 
 	/**
+	 * Exponentially increases the delay before opening the next new connection.
+	 */
+	protected synchronized void increaseConnectionDelay() {
+		this.reconnectDelay = this.reconnectDelay == 0 ? INITIAL_RECONNECT_DELAY :
+			Math.min(this.reconnectDelay * 2, MAX_RECONNECT_DELAY);
+	}
+
+	/**
+	 * Resets the delay before opening the next new connection.
+	 */
+	protected synchronized void resetConnectionDelay() {
+		this.reconnectDelay = 0;
+	}
+
+	/**
+	 * Returns the delay that must pass before opening the next new connection.
+	 *
+	 * @return the delay that must pass before opening the next new connection
+	 */
+	protected synchronized long getConnectionDelay() {
+		return this.reconnectDelay;
+	}
+
+	/**
 	 * Wait until all connections in this group have closed completely or the given deadline has passed.
 	 *
 	 * @param deadline the time by which this method should return; if {@code null} this method will wait indefinitely
@@ -187,6 +216,8 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	 * @param delayMillis the delay, in milliseconds, after which the connection should open
 	 */
 	private void addConnectionWithDelay(final long delayMillis) {
+		log.trace("{} will open a new connection after {} milliseconds.", this, delayMillis);
+
 		synchronized (this.connectionFutures) {
 			final ScheduledFuture<?> future = this.eventLoopGroup.schedule(new Runnable() {
 				@Override
@@ -219,6 +250,8 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	 * @param connection the connection to remove from this group
 	 */
 	private void removeConnection(final ApnsConnection<T> connection) {
+		log.trace("{} will remove connection {}.", this, connection);
+
 		synchronized (this.connections) {
 			this.connections.remove(connection);
 
@@ -264,8 +297,10 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	 */
 	@Override
 	public void handleConnectionSuccess(final ApnsConnection<T> connection) {
+		log.trace("{} successfully opened connection {}.", this, connection);
+
 		this.writableConnections.add(connection);
-		this.reconnectDelay = 0;
+		this.resetConnectionDelay();
 	}
 
 	/*
@@ -274,13 +309,11 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	 */
 	@Override
 	public void handleConnectionFailure(final ApnsConnection<T> connection, final Throwable cause) {
-		if (this.shouldMaintainConnections) {
-			addConnectionWithDelay(this.reconnectDelay);
+		log.trace("{} failed to open connection {}.", this, connection);
 
-			// This isn't really thread-safe, but the consequences of a screw-up are pretty mild, so we don't worry
-			// about it too much.
-			this.reconnectDelay = this.reconnectDelay == 0 ? INITIAL_RECONNECT_DELAY :
-				Math.min(this.reconnectDelay * 2, MAX_RECONNECT_DELAY);
+		if (this.shouldMaintainConnections) {
+			addConnectionWithDelay(this.getConnectionDelay());
+			this.increaseConnectionDelay();
 		}
 
 		this.removeConnection(connection);
@@ -293,6 +326,8 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	 */
 	@Override
 	public void handleConnectionWritabilityChange(final ApnsConnection<T> connection, final boolean writable) {
+		log.trace("Writability for {} changed to {}", connection, writable);
+
 		if (writable) {
 			this.writableConnections.add(connection);
 		} else {
@@ -306,10 +341,12 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	 */
 	@Override
 	public void handleConnectionClosure(final ApnsConnection<T> connection) {
+		log.trace("Connection closed: {}", connection);
+
 		this.writableConnections.remove(connection);
 
 		if (this.shouldMaintainConnections) {
-			this.addConnectionWithDelay(0);
+			this.addConnectionWithDelay(this.getConnectionDelay());
 		}
 
 		this.removeConnection(connection);
@@ -332,6 +369,8 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	 */
 	@Override
 	public void handleRejectedNotification(final ApnsConnection<T> connection, final T rejectedNotification, final RejectedNotificationReason reason) {
+		log.trace("{} rejected {}: {}", connection, rejectedNotification, reason);
+
 		if (this.listener != null) {
 			this.listener.handleRejectedNotification(this, rejectedNotification, reason);
 		}
@@ -343,8 +382,22 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	 */
 	@Override
 	public void handleUnprocessedNotifications(final ApnsConnection<T> connection, final Collection<T> unprocessedNotifications) {
+		log.trace("{} returned {} unprocessed notifications", connection, unprocessedNotifications.size());
+
 		if (this.listener != null) {
 			this.listener.handleUnprocessedNotifications(this, unprocessedNotifications);
 		}
+	}
+
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		final StringBuilder builder = new StringBuilder();
+		builder.append("ApnsConnectionGroup [name=");
+		builder.append(name);
+		builder.append("]");
+		return builder.toString();
 	}
 }
