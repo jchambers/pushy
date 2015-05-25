@@ -111,15 +111,19 @@ public class BenchmarkApp {
 	}
 
 	private double runBenchmark(final NioEventLoopGroup eventLoopGroup, final int concurrentConnectionCount, final List<SimpleApnsPushNotification> notifications) throws InterruptedException {
-		final PushManagerConfiguration configuration = new PushManagerConfiguration();
-		configuration.setConcurrentConnectionCount(concurrentConnectionCount);
-
 		final PushManager<SimpleApnsPushNotification> pushManager;
 
 		try {
-			pushManager = new PushManager<SimpleApnsPushNotification>(BENCHMARK_ENVIRONMENT,
-					SSLTestUtil.createSSLContextForTestClient(), eventLoopGroup, null, null, configuration,
-					"Benchmark push manager");
+			final ApnsConnectionFactory<SimpleApnsPushNotification> apnsConnectionFactory =
+					new DefaultApnsConnectionFactory<SimpleApnsPushNotification>(BENCHMARK_ENVIRONMENT,
+							SSLTestUtil.createSSLContextForTestClient(), eventLoopGroup, "BenchmarkConnection");
+
+			final FeedbackServiceConnectionFactory feedbackConnectionFactory =
+					new DefaultFeedbackServiceConnectionFactory(BENCHMARK_ENVIRONMENT,
+							SSLTestUtil.createSSLContextForTestClient(), eventLoopGroup, "BenchmarkFeedbackConnection");
+
+			pushManager = new PushManager<SimpleApnsPushNotification>(null, null, apnsConnectionFactory,
+					feedbackConnectionFactory, concurrentConnectionCount, "BenchmarkPushManager");
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to create push manager.", e);
 		}

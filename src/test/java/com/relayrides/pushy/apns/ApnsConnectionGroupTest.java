@@ -35,96 +35,79 @@ import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class ApnsConnectionGroupTest extends BasePushyTest {
 
+	private ApnsConnectionGroup<SimpleApnsPushNotification> testGroup;
+
+	private static final int CONNECTION_COUNT = 4;
+
 	@Override
 	@Before
 	public void setUp() throws Exception {
 		super.setUp();
+
+		final DefaultApnsConnectionFactory<SimpleApnsPushNotification> connectionFactory =
+				new DefaultApnsConnectionFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
+						SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(), "TestConnection");
+
+		this.testGroup = new ApnsConnectionGroup<SimpleApnsPushNotification>(this.getEventLoopGroup(), connectionFactory,
+				null, "TestGroup", CONNECTION_COUNT);
 	}
 
 	@Test
 	public void testConnectAllAndDisconnectAllGracefully() throws Exception {
-		final int connectionCount = 4;
+		final CountDownLatch connectionLatch =
+				this.getApnsServer().getSuccessfulConnectionCountDownLatch(ApnsConnectionGroupTest.CONNECTION_COUNT);
 
-		final ApnsConnectionGroup<SimpleApnsPushNotification> testGroup =
-				new ApnsConnectionGroup<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
-						SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-						new ApnsConnectionConfiguration(), null, "TestGroup", 4);
-
-		final CountDownLatch connectionLatch = this.getApnsServer().getSuccessfulConnectionCountDownLatch(connectionCount);
-
-		testGroup.connectAll();
+		this.testGroup.connectAll();
 		waitForLatch(connectionLatch);
 
-		testGroup.disconnectAllGracefully();
-		testGroup.waitForAllConnectionsToClose();
+		this.testGroup.disconnectAllGracefully();
+		this.testGroup.waitForAllConnectionsToClose();
 	}
 
 	@Test
 	public void testConnectAllAndDisconnectAllImmediately() throws Exception {
-		final int connectionCount = 4;
+		final CountDownLatch connectionLatch =
+				this.getApnsServer().getSuccessfulConnectionCountDownLatch(ApnsConnectionGroupTest.CONNECTION_COUNT);
 
-		final ApnsConnectionGroup<SimpleApnsPushNotification> testGroup =
-				new ApnsConnectionGroup<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
-						SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-						new ApnsConnectionConfiguration(), null, "TestGroup", 4);
-
-		final CountDownLatch connectionLatch = this.getApnsServer().getSuccessfulConnectionCountDownLatch(connectionCount);
-
-		testGroup.connectAll();
+		this.testGroup.connectAll();
 		waitForLatch(connectionLatch);
 
-		testGroup.disconnectAllImmediately();
-		testGroup.waitForAllConnectionsToClose();
+		this.testGroup.disconnectAllImmediately();
+		this.testGroup.waitForAllConnectionsToClose();
 	}
 
 	@Test
 	public void testIncreaseConnectionDelay() throws Exception {
-		final ApnsConnectionGroup<SimpleApnsPushNotification> testGroup =
-				new ApnsConnectionGroup<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
-						SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-						new ApnsConnectionConfiguration(), null, "TestGroup", 1);
-
 		assertEquals(0, testGroup.getConnectionDelay());
 
-		testGroup.increaseConnectionDelay();
-		assertEquals(ApnsConnectionGroup.INITIAL_RECONNECT_DELAY, testGroup.getConnectionDelay());
+		this.testGroup.increaseConnectionDelay();
+		assertEquals(ApnsConnectionGroup.INITIAL_RECONNECT_DELAY, this.testGroup.getConnectionDelay());
 
-		while (testGroup.getConnectionDelay() < ApnsConnectionGroup.MAX_RECONNECT_DELAY) {
-			testGroup.increaseConnectionDelay();
+		while (this.testGroup.getConnectionDelay() < ApnsConnectionGroup.MAX_RECONNECT_DELAY) {
+			this.testGroup.increaseConnectionDelay();
 		}
 
-		testGroup.increaseConnectionDelay();
-		assertEquals(ApnsConnectionGroup.MAX_RECONNECT_DELAY, testGroup.getConnectionDelay());
+		this.testGroup.increaseConnectionDelay();
+		assertEquals(ApnsConnectionGroup.MAX_RECONNECT_DELAY, this.testGroup.getConnectionDelay());
 	}
 
 	@Test
 	public void testResetConnectionDelay() throws Exception {
-		final ApnsConnectionGroup<SimpleApnsPushNotification> testGroup =
-				new ApnsConnectionGroup<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
-						SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-						new ApnsConnectionConfiguration(), null, "TestGroup", 1);
+		assertEquals(0, this.testGroup.getConnectionDelay());
 
-		assertEquals(0, testGroup.getConnectionDelay());
+		this.testGroup.increaseConnectionDelay();
+		assertTrue(this.testGroup.getConnectionDelay() > 0);
 
-		testGroup.increaseConnectionDelay();
-		assertTrue(testGroup.getConnectionDelay() > 0);
-
-		testGroup.resetConnectionDelay();
-		assertEquals(0, testGroup.getConnectionDelay());
+		this.testGroup.resetConnectionDelay();
+		assertEquals(0, this.testGroup.getConnectionDelay());
 	}
 
 	@Test
 	public void testWaitForAllConnectionsToCloseDate() throws Exception {
-		final int connectionCount = 4;
+		final CountDownLatch connectionLatch =
+				this.getApnsServer().getSuccessfulConnectionCountDownLatch(ApnsConnectionGroupTest.CONNECTION_COUNT);
 
-		final ApnsConnectionGroup<SimpleApnsPushNotification> testGroup =
-				new ApnsConnectionGroup<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
-						SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-						new ApnsConnectionConfiguration(), null, "TestGroup", 4);
-
-		final CountDownLatch connectionLatch = this.getApnsServer().getSuccessfulConnectionCountDownLatch(connectionCount);
-
-		testGroup.connectAll();
+		this.testGroup.connectAll();
 		waitForLatch(connectionLatch);
 
 		final Date deadline = new Date(System.currentTimeMillis() + 1000);
@@ -132,22 +115,15 @@ public class ApnsConnectionGroupTest extends BasePushyTest {
 		assertFalse("Waiting for connections to close should timeout if closure has not been requested.",
 				testGroup.waitForAllConnectionsToClose(deadline));
 
-		testGroup.disconnectAllGracefully();
-		testGroup.waitForAllConnectionsToClose(null);
+		this.testGroup.disconnectAllGracefully();
+		this.testGroup.waitForAllConnectionsToClose(null);
 	}
 
 	@Test
 	public void testGetNextConnection() throws Exception {
-		final int connectionCount = 4;
+		final CountDownLatch connectionLatch = this.getApnsServer().getSuccessfulConnectionCountDownLatch(ApnsConnectionGroupTest.CONNECTION_COUNT);
 
-		final ApnsConnectionGroup<SimpleApnsPushNotification> testGroup =
-				new ApnsConnectionGroup<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
-						SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-						new ApnsConnectionConfiguration(), null, "TestGroup", 4);
-
-		final CountDownLatch connectionLatch = this.getApnsServer().getSuccessfulConnectionCountDownLatch(connectionCount);
-
-		testGroup.connectAll();
+		this.testGroup.connectAll();
 		waitForLatch(connectionLatch);
 
 		// This is a little hacky, but we want to make sure all of the listeners have fired before we start getting
@@ -157,8 +133,11 @@ public class ApnsConnectionGroupTest extends BasePushyTest {
 
 			@Override
 			public Void call() throws Exception {
-				final ApnsConnection<SimpleApnsPushNotification> firstConnection = testGroup.getNextConnection();
-				final ApnsConnection<SimpleApnsPushNotification> secondConnection = testGroup.getNextConnection();
+				final ApnsConnection<SimpleApnsPushNotification> firstConnection =
+						ApnsConnectionGroupTest.this.testGroup.getNextConnection();
+
+				final ApnsConnection<SimpleApnsPushNotification> secondConnection =
+						ApnsConnectionGroupTest.this.testGroup.getNextConnection();
 
 				assertNotNull(firstConnection);
 				assertNotNull(secondConnection);
@@ -170,30 +149,24 @@ public class ApnsConnectionGroupTest extends BasePushyTest {
 
 		getConnectionFuture.await();
 
-		testGroup.disconnectAllGracefully();
-		testGroup.waitForAllConnectionsToClose(null);
+		this.testGroup.disconnectAllGracefully();
+		this.testGroup.waitForAllConnectionsToClose(null);
 	}
 
 	@Test
 	public void testGetNextConnectionLong() throws Exception {
-		final int connectionCount = 4;
-
-		final ApnsConnectionGroup<SimpleApnsPushNotification> testGroup =
-				new ApnsConnectionGroup<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
-						SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-						new ApnsConnectionConfiguration(), null, "TestGroup", 4);
-
 		final long timeoutMillis = 1000;
 		assertNull(testGroup.getNextConnection(timeoutMillis));
 
-		final CountDownLatch connectionLatch = this.getApnsServer().getSuccessfulConnectionCountDownLatch(connectionCount);
+		final CountDownLatch connectionLatch =
+				this.getApnsServer().getSuccessfulConnectionCountDownLatch(ApnsConnectionGroupTest.CONNECTION_COUNT);
 
-		testGroup.connectAll();
+		this.testGroup.connectAll();
 		waitForLatch(connectionLatch);
 
-		assertNotNull(testGroup.getNextConnection(timeoutMillis));
+		assertNotNull(this.testGroup.getNextConnection(timeoutMillis));
 
-		testGroup.disconnectAllGracefully();
-		testGroup.waitForAllConnectionsToClose(null);
+		this.testGroup.disconnectAllGracefully();
+		this.testGroup.waitForAllConnectionsToClose(null);
 	}
 }

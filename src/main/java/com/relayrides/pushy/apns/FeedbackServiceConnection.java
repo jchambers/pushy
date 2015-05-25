@@ -41,6 +41,7 @@ import io.netty.util.concurrent.GenericFutureListener;
 
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
@@ -76,13 +77,19 @@ public class FeedbackServiceConnection {
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
 	private final NioEventLoopGroup eventLoopGroup;
-	private final FeedbackConnectionConfiguration configuration;
-	private final FeedbackServiceListener listener;
 	private final String name;
+
+	private FeedbackServiceListener listener;
+	private long readTimeoutMillis = DEFAULT_READ_TIMEOUT_MILLIS;
 
 	private ChannelFuture connectFuture;
 
 	private static final Logger log = LoggerFactory.getLogger(FeedbackServiceConnection.class);
+
+	/**
+	 * The default read timeout for feedback service connections in milliseconds.
+	 */
+	public static final long DEFAULT_READ_TIMEOUT_MILLIS = 1000;
 
 	private enum ExpiredTokenDecoderState {
 		EXPIRATION,
@@ -180,12 +187,11 @@ public class FeedbackServiceConnection {
 	 * @param sslContext an SSL context with the keys/certificates and trust managers this client should use when
 	 * communicating with the APNs feedback service
 	 * @param eventLoopGroup the event loop group this client should use for asynchronous network operations
-	 * @param configuration the set of configuration options to use for this connection. The configuration object is
 	 * copied and changes to the original object will not propagate to the connection after creation. Must not be
 	 * {@code null}.
 	 * @param name a human-readable name for this connection; names must not be {@code null}
 	 */
-	public FeedbackServiceConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup, final FeedbackConnectionConfiguration configuration, final FeedbackServiceListener listener, final String name) {
+	public FeedbackServiceConnection(final ApnsEnvironment environment, final SSLContext sslContext, final NioEventLoopGroup eventLoopGroup, final String name) {
 		if (environment == null) {
 			throw new NullPointerException("Environment must not be null.");
 		}
@@ -198,10 +204,6 @@ public class FeedbackServiceConnection {
 			throw new NullPointerException("Event loop group must not be null.");
 		}
 
-		if (configuration == null) {
-			throw new NullPointerException("Feedback service connection configuration must not be null.");
-		}
-
 		if (name == null) {
 			throw new NullPointerException("Feedback service connection name must not be null.");
 		}
@@ -209,9 +211,23 @@ public class FeedbackServiceConnection {
 		this.environment = environment;
 		this.sslContext = sslContext;
 		this.eventLoopGroup = eventLoopGroup;
-		this.configuration = configuration;
-		this.listener = listener;
 		this.name = name;
+	}
+
+	public void setListener(final FeedbackServiceListener listener) {
+		this.listener = listener;
+	}
+
+	public FeedbackServiceListener getListener() {
+		return this.listener;
+	}
+
+	public void setReadTimeoutMillis(final long readTimeoutMillis) {
+		this.readTimeoutMillis = readTimeoutMillis;
+	}
+
+	public long getReadTimeoutMillis() {
+		return this.readTimeoutMillis;
 	}
 
 	/**
@@ -243,7 +259,7 @@ public class FeedbackServiceConnection {
 				sslEngine.setUseClientMode(true);
 
 				pipeline.addLast("ssl", new SslHandler(sslEngine));
-				pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(feedbackConnection.configuration.getReadTimeout()));
+				pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(FeedbackServiceConnection.this.getReadTimeoutMillis(), TimeUnit.MILLISECONDS));
 				pipeline.addLast("decoder", new ExpiredTokenDecoder());
 				pipeline.addLast("handler", new FeedbackClientHandler(feedbackConnection));
 			}

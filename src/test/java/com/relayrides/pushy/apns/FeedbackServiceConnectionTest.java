@@ -84,13 +84,12 @@ public class FeedbackServiceConnectionTest extends BasePushyTest {
 
 	@Test
 	public void testGetExpiredTokens() throws Exception {
-		final Object mutex = new Object();
-
-		final TestListener listener = new TestListener(mutex);
-
 		final FeedbackServiceConnection feedbackConnection =
-				new FeedbackServiceConnection(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
-						this.getEventLoopGroup(), new FeedbackConnectionConfiguration(), listener, TEST_CONNECTION_NAME);
+				this.getFeedbackConnectionFactory().createFeedbackConnection();
+
+		final Object mutex = new Object();
+		final TestListener listener = new TestListener(mutex);
+		feedbackConnection.setListener(listener);
 
 		assertTrue(listener.expiredTokens.isEmpty());
 

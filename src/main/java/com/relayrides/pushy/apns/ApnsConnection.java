@@ -72,10 +72,12 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
 	private final EventLoopGroup eventLoopGroup;
-	private final ApnsConnectionConfiguration configuration;
-	private final ApnsConnectionListener<T> listener;
-
 	private final String name;
+
+	private ApnsConnectionListener<T> listener;
+	private long closeAfterInactivityMillis = 0;
+	private long gracefulDisconnectTimeoutMillis = 0;
+	private long sendAttemptLimit = 0;
 
 	private ChannelFuture connectFuture;
 	private volatile boolean handshakeCompleted = false;
@@ -85,10 +87,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	// notifications), but the probability of collision (or even sending 4 billion notifications without some recipient
 	// having an expired token) is vanishingly small.
 	private int sequenceNumber = 1;
-
+	private long sendAttempts = 0;
 	private volatile ChannelFuture lastWriteFuture;
-
-	private int sendAttempts = 0;
 
 	private SendableApnsPushNotification<KnownBadPushNotification> disconnectNotification;
 	private ScheduledFuture<?> gracefulDisconnectionTimeoutFuture;
@@ -358,8 +358,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * @param name a human-readable name for this connection; names must not be {@code null}
 	 */
 	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext,
-			final EventLoopGroup eventLoopGroup, final ApnsConnectionConfiguration configuration,
-			final ApnsConnectionListener<T> listener, final String name) {
+			final EventLoopGroup eventLoopGroup, final String name, final int sentNotificationBufferCapacity) {
 
 		if (environment == null) {
 			throw new NullPointerException("Environment must not be null.");
@@ -379,20 +378,45 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 		this.eventLoopGroup = eventLoopGroup;
 
-		if (configuration == null) {
-			throw new NullPointerException("Connection configuration must not be null.");
-		}
-
-		this.configuration = configuration;
-		this.listener = listener;
-
 		if (name == null) {
 			throw new NullPointerException("Connection name must not be null.");
 		}
 
 		this.name = name;
 
-		this.sentNotificationBuffer = new SentNotificationBuffer<T>(configuration.getSentNotificationBufferCapacity());
+		this.sentNotificationBuffer = new SentNotificationBuffer<T>(sentNotificationBufferCapacity);
+	}
+
+	public void setListener(final ApnsConnectionListener<T> listener) {
+		this.listener = listener;
+	}
+
+	public ApnsConnectionListener<T> getListener() {
+		return this.listener;
+	}
+
+	public void setCloseAfterInactivityMillis(final long closeAfterInactivityMillis) {
+		this.closeAfterInactivityMillis = closeAfterInactivityMillis;
+	}
+
+	public long getCloseAfterInactivityMillis() {
+		return this.closeAfterInactivityMillis;
+	}
+
+	public void setGracefulDisconnectTimeoutMillis(final long gracefulDisconnectTimeoutMillis) {
+		this.gracefulDisconnectTimeoutMillis = gracefulDisconnectTimeoutMillis;
+	}
+
+	public long getGracefulDisconnectTimeoutMillis() {
+		return this.getGracefulDisconnectTimeoutMillis();
+	}
+
+	public void setSendAttemptLimit(final long maximumSendAttempts) {
+		this.sendAttemptLimit = maximumSendAttempts;
+	}
+
+	public long getSendAttemptLimit() {
+		return this.sendAttemptLimit;
 	}
 
 	/**
@@ -432,8 +456,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 				pipeline.addLast("decoder", new RejectedNotificationDecoder());
 				pipeline.addLast("encoder", new ApnsPushNotificationEncoder());
 
-				if (ApnsConnection.this.configuration.getCloseAfterInactivityTime() != null) {
-					pipeline.addLast("idleStateHandler", new IdleStateHandler(0, 0, apnsConnection.configuration.getCloseAfterInactivityTime()));
+				if (ApnsConnection.this.closeAfterInactivityMillis > 0) {
+					pipeline.addLast("idleStateHandler", new IdleStateHandler(0, 0, ApnsConnection.this.closeAfterInactivityMillis, TimeUnit.MILLISECONDS));
 				}
 
 				pipeline.addLast("handler", new ApnsConnectionHandler(apnsConnection));
@@ -575,7 +599,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			}
 		}
 
-		if (this.configuration.getSendAttemptLimit() != null && ++this.sendAttempts >= this.configuration.getSendAttemptLimit()) {
+		if (this.sendAttemptLimit > 0 && ++this.sendAttempts >= this.sendAttemptLimit) {
 			log.debug("{} reached send attempt limit and will disconnect gracefully.", this.name);
 			this.disconnectGracefully();
 		}
@@ -614,13 +638,13 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 				this.disconnectNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
 						new KnownBadPushNotification(), this.sequenceNumber++);
 
-				if (this.configuration.getGracefulDisconnectionTimeout() != null) {
+				if (this.gracefulDisconnectTimeoutMillis > 0) {
 					ApnsConnection.this.gracefulDisconnectionTimeoutFuture = ApnsConnection.this.connectFuture.channel().eventLoop().schedule(new Runnable() {
 						@Override
 						public void run() {
 							ApnsConnection.this.disconnectImmediately();
 						}
-					}, ApnsConnection.this.configuration.getGracefulDisconnectionTimeout(), TimeUnit.SECONDS);
+					}, this.gracefulDisconnectTimeoutMillis, TimeUnit.MILLISECONDS);
 				}
 
 				this.lastWriteFuture = this.connectFuture.channel().writeAndFlush(this.disconnectNotification).addListener(new GenericFutureListener<ChannelFuture>() {

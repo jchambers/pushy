@@ -21,19 +21,15 @@
 
 package com.relayrides.pushy.apns;
 
-import io.netty.channel.EventLoopGroup;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.net.ssl.SSLContext;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,10 +46,8 @@ import com.relayrides.pushy.apns.util.DeadlineUtil;
 public class ApnsConnectionGroup<T extends ApnsPushNotification> implements ApnsConnectionListener<T> {
 	private final int connectionCount;
 
-	private final ApnsEnvironment environment;
-	private final SSLContext sslContext;
-	private final EventLoopGroup eventLoopGroup;
-	private final ApnsConnectionConfiguration connectionConfiguration;
+	private final ScheduledExecutorService scheduledExecutorService;
+	private final ApnsConnectionFactory<T> apnsConnectionFactory;
 
 	private final String name;
 	private final ApnsConnectionGroupListener<T> listener;
@@ -63,8 +57,6 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	private final List<ApnsConnection<T>> connections = new ArrayList<ApnsConnection<T>>();
 	private final List<ScheduledFuture<?>> connectionFutures = new ArrayList<ScheduledFuture<?>>();
 	private final BlockingQueue<ApnsConnection<T>> writableConnections = new LinkedBlockingQueue<ApnsConnection<T>>();
-
-	private final AtomicInteger connectionCounter = new AtomicInteger(0);
 
 	private long reconnectDelay = 0;
 
@@ -79,8 +71,7 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	 * @param environment the environment in which connections in this group will operate; must not be {@code null}
 	 * @param sslContext an SSL context with the keys/certificates and trust managers connection in this group should
 	 * use when communicating with the APNs gateway; must not be {@code null}
-	 * @param eventLoopGroup the event loop group connections in this group should use for asynchronous network
-	 * operations; must not be {@code null}
+	 * @param scheduledExecutorService TODO; must not be {@code null}
 	 * @param connectionConfiguration the set of configuration options to use for connections in this group. The
 	 * configuration object is copied and changes to the original object will not propagate to the connection after
 	 * creation. Must not be {@code null}.
@@ -88,13 +79,12 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	 * @param name a human-readable name for this group; must not be {@code null}
 	 * @param connectionCount the number of concurrent connections to maintain to the APNs gateway
 	 */
-	public ApnsConnectionGroup(final ApnsEnvironment environment, final SSLContext sslContext,
-			final EventLoopGroup eventLoopGroup, final ApnsConnectionConfiguration connectionConfiguration,
-			final ApnsConnectionGroupListener<T> listener, final String name, final int connectionCount) {
-		this.environment = environment;
-		this.sslContext = sslContext;
-		this.eventLoopGroup = eventLoopGroup;
-		this.connectionConfiguration = connectionConfiguration;
+	public ApnsConnectionGroup(final ScheduledExecutorService scheduledExecutorService,
+			final ApnsConnectionFactory<T> apnsConnectionFactory, final ApnsConnectionGroupListener<T> listener,
+			final String name, final int connectionCount) {
+
+		this.scheduledExecutorService = scheduledExecutorService;
+		this.apnsConnectionFactory = apnsConnectionFactory;
 		this.name = name;
 
 		this.listener = listener;
@@ -236,16 +226,14 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 		log.trace("{} will open a new connection after {} milliseconds.", this, delayMillis);
 
 		synchronized (this.connectionFutures) {
-			final ScheduledFuture<?> future = this.eventLoopGroup.schedule(new Runnable() {
+			final ScheduledFuture<?> future = this.scheduledExecutorService.schedule(new Runnable() {
 				@Override
 				public void run() {
 					if (ApnsConnectionGroup.this.shouldMaintainConnections) {
 						synchronized (ApnsConnectionGroup.this.connections) {
-							final String connectionName = String.format("%s-%d", ApnsConnectionGroup.this.name, ApnsConnectionGroup.this.connectionCounter.getAndIncrement());
+							final ApnsConnection<T> connection = ApnsConnectionGroup.this.apnsConnectionFactory.createApnsConnection();
 
-							final ApnsConnection<T> connection =
-									new ApnsConnection<T>(ApnsConnectionGroup.this.environment, ApnsConnectionGroup.this.sslContext, ApnsConnectionGroup.this.eventLoopGroup, ApnsConnectionGroup.this.connectionConfiguration, ApnsConnectionGroup.this, connectionName);
-
+							connection.setListener(ApnsConnectionGroup.this);
 							ApnsConnectionGroup.this.connections.add(connection);
 							connection.connect();
 						}

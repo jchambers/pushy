@@ -25,18 +25,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import io.netty.channel.nio.NioEventLoopGroup;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.net.ssl.SSLContext;
 
 import org.junit.Test;
 
@@ -103,28 +98,10 @@ public class PushManagerTest extends BasePushyTest {
 		}
 	}
 
-	@Test(expected = NullPointerException.class)
-	public void testPushManagerNullEnvironment() throws Exception {
-		new PushManager<ApnsPushNotification>(null, SSLTestUtil.createSSLContextForTestClient(),
-				null, null, null, new PushManagerConfiguration(), TEST_PUSH_MANAGER_NAME);
-	}
-
-	@Test(expected = NullPointerException.class)
-	public void testPushManagerNullSslContext() throws Exception {
-		new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, null,
-				null, null, null, new PushManagerConfiguration(), TEST_PUSH_MANAGER_NAME);
-	}
-
-	@Test(expected = NullPointerException.class)
-	public void testPushManagerNullConfiguration() throws Exception {
-		new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
-				null, null, null, null, TEST_PUSH_MANAGER_NAME);
-	}
-
 	@Test
 	public void testPushManagerNullName() throws Exception {
-		final PushManager<ApnsPushNotification> pushManager = new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT,
-				SSLTestUtil.createSSLContextForTestClient(), null, null, null, new PushManagerConfiguration(), null);
+		final PushManager<SimpleApnsPushNotification> pushManager = new PushManager<SimpleApnsPushNotification>(null,
+				null, this.getApnsConnectionFactory(), this.getFeedbackConnectionFactory(), 1, null);
 
 		assertNotNull(pushManager.getName());
 	}
@@ -173,10 +150,19 @@ public class PushManagerTest extends BasePushyTest {
 	@Test
 	public void testRegisterFailedConnectionListener() throws Exception {
 
+		final ApnsConnectionFactory<SimpleApnsPushNotification> badCredentialApnsConnectionFactory =
+				new DefaultApnsConnectionFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
+						SSLTestUtil.createSSLContextForTestClient("/pushy-test-client-untrusted.jks"),
+						this.getEventLoopGroup(), "TestConnection");
+
+		final FeedbackServiceConnectionFactory badCredentialFeedbackConnectionFactory =
+				new DefaultFeedbackServiceConnectionFactory(TEST_ENVIRONMENT,
+						SSLTestUtil.createSSLContextForTestClient("/pushy-test-client-untrusted.jks"),
+						this.getEventLoopGroup(), "TestFeedbackConnection");
+
 		final PushManager<SimpleApnsPushNotification> badCredentialManager =
-				new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
-						SSLTestUtil.createSSLContextForTestClient("/pushy-test-client-untrusted.jks"), null,
-						null, null, new PushManagerConfiguration(), TEST_PUSH_MANAGER_NAME);
+				new PushManager<SimpleApnsPushNotification>(null, null, badCredentialApnsConnectionFactory,
+						badCredentialFeedbackConnectionFactory, 1, TEST_PUSH_MANAGER_NAME);
 
 		final Object mutex = new Object();
 		final TestFailedConnectionListener listener = new TestFailedConnectionListener(mutex);
@@ -210,39 +196,19 @@ public class PushManagerTest extends BasePushyTest {
 	@Test
 	public void testShutdown() throws Exception {
 		{
-			final PushManager<ApnsPushNotification> defaultGroupPushManager =
-					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT,
-							SSLTestUtil.createSSLContextForTestClient(), null, null, null,
-							new PushManagerConfiguration(), TEST_PUSH_MANAGER_NAME);
+			this.getPushManager().start();
+			this.getPushManager().shutdown();
 
-			defaultGroupPushManager.start();
-			defaultGroupPushManager.shutdown();
-
-			assertTrue(defaultGroupPushManager.isShutDown());
+			assertTrue(this.getPushManager().isShutDown());
+			assertFalse(this.getEventLoopGroup().isShutdown());
 		}
 
 		{
-			final NioEventLoopGroup group = new NioEventLoopGroup(1);
+			final ScheduledExecutorService listenerExecutorService = Executors.newSingleThreadScheduledExecutor();
 
-			final PushManager<ApnsPushNotification> providedGroupPushManager =
-					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
-							group, null, null, new PushManagerConfiguration(), TEST_PUSH_MANAGER_NAME);
-
-			providedGroupPushManager.start();
-			providedGroupPushManager.shutdown();
-
-			assertTrue(providedGroupPushManager.isShutDown());
-			assertFalse(group.isShutdown());
-
-			group.shutdownGracefully();
-		}
-
-		{
-			final ExecutorService listenerExecutorService = Executors.newSingleThreadExecutor();
-
-			final PushManager<ApnsPushNotification> providedExecutorServicePushManager =
-					new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
-							null, listenerExecutorService, null, new PushManagerConfiguration(), TEST_PUSH_MANAGER_NAME);
+			final PushManager<SimpleApnsPushNotification> providedExecutorServicePushManager =
+					new PushManager<SimpleApnsPushNotification>(listenerExecutorService, null,
+							this.getApnsConnectionFactory(), this.getFeedbackConnectionFactory(), 1, TEST_PUSH_MANAGER_NAME);
 
 			providedExecutorServicePushManager.start();
 			providedExecutorServicePushManager.shutdown();
@@ -285,32 +251,20 @@ public class PushManagerTest extends BasePushyTest {
 
 	@Test(expected = IllegalStateException.class)
 	public void testDoubleStart() throws Exception {
-		final PushManager<ApnsPushNotification> doubleStartPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
-						null, null, null, new PushManagerConfiguration(), TEST_PUSH_MANAGER_NAME);
-
-		doubleStartPushManager.start();
-		doubleStartPushManager.start();
+		this.getPushManager().start();
+		this.getPushManager().start();
 	}
 
 	@Test(expected = IllegalStateException.class)
 	public void testPrematureShutdown() throws Exception {
-		final PushManager<ApnsPushNotification> prematureShutdownPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
-						null, null, null, new PushManagerConfiguration(), TEST_PUSH_MANAGER_NAME);
-
-		prematureShutdownPushManager.shutdown();
+		this.getPushManager().shutdown();
 	}
 
 	@Test
 	public void testRepeatedShutdown() throws Exception {
-		final PushManager<ApnsPushNotification> repeatedShutdownPushManager =
-				new PushManager<ApnsPushNotification>(TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(),
-						null, null, null, new PushManagerConfiguration(), TEST_PUSH_MANAGER_NAME);
-
-		repeatedShutdownPushManager.start();
-		repeatedShutdownPushManager.shutdown();
-		repeatedShutdownPushManager.shutdown();
+		this.getPushManager().start();
+		this.getPushManager().shutdown();
+		this.getPushManager().shutdown();
 	}
 
 	@Test
@@ -336,20 +290,15 @@ public class PushManagerTest extends BasePushyTest {
 
 	@Test
 	public void testRequestExpiredTokensWithDefaultEventLoopGroup() throws Exception {
-		final PushManager<SimpleApnsPushNotification> defaultPushManager =
-				new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
-						SSLTestUtil.createSSLContextForTestClient(), null, null, null, new PushManagerConfiguration(),
-						TEST_PUSH_MANAGER_NAME);
-
 		final Object mutex = new Object();
 		final TestExpiredTokenListener listener = new TestExpiredTokenListener(mutex);
 
-		defaultPushManager.registerExpiredTokenListener(listener);
-		defaultPushManager.start();
+		this.getPushManager().registerExpiredTokenListener(listener);
+		this.getPushManager().start();
 
 		try {
 			synchronized (mutex) {
-				defaultPushManager.requestExpiredTokens();
+				this.getPushManager().requestExpiredTokens();
 
 				while (listener.expiredTokens == null) {
 					mutex.wait();
@@ -358,7 +307,7 @@ public class PushManagerTest extends BasePushyTest {
 
 			assertTrue(listener.expiredTokens.isEmpty());
 		} finally {
-			defaultPushManager.shutdown();
+			this.getPushManager().shutdown();
 		}
 	}
 
@@ -435,13 +384,9 @@ public class PushManagerTest extends BasePushyTest {
 
 	@Test
 	public void testSendNotificationsWithParallelConnections() throws Exception {
-		final PushManagerConfiguration configuration = new PushManagerConfiguration();
-		configuration.setConcurrentConnectionCount(4);
-
 		final PushManager<SimpleApnsPushNotification> parallelPushManager =
-				new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
-						SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(), null, null, configuration,
-						TEST_PUSH_MANAGER_NAME);
+				new PushManager<SimpleApnsPushNotification>(null, null, this.getApnsConnectionFactory(),
+						this.getFeedbackConnectionFactory(), 4, TEST_PUSH_MANAGER_NAME);
 
 		final int iterations = 1000;
 
@@ -458,13 +403,9 @@ public class PushManagerTest extends BasePushyTest {
 
 	@Test
 	public void testSendNotificationsWithParallelConnectionsAndError() throws Exception {
-		final PushManagerConfiguration configuration = new PushManagerConfiguration();
-		configuration.setConcurrentConnectionCount(4);
-
 		final PushManager<SimpleApnsPushNotification> parallelPushManager =
-				new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
-						SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(), null, null, configuration,
-						TEST_PUSH_MANAGER_NAME);
+				new PushManager<SimpleApnsPushNotification>(null, null, this.getApnsConnectionFactory(),
+						this.getFeedbackConnectionFactory(), 4, TEST_PUSH_MANAGER_NAME);
 
 		final int iterations = 1000;
 
@@ -492,14 +433,8 @@ public class PushManagerTest extends BasePushyTest {
 
 			private final CountDownLatch latch;
 
-			protected PushManagerWithSelfDestructingDispatchThread(
-					ApnsEnvironment environment, SSLContext sslContext,
-					NioEventLoopGroup eventLoopGroup,
-					BlockingQueue<SimpleApnsPushNotification> queue,
-					PushManagerConfiguration configuration,
-					CountDownLatch latch) {
-
-				super(environment, sslContext, eventLoopGroup, null, queue, configuration, TEST_PUSH_MANAGER_NAME);
+			protected PushManagerWithSelfDestructingDispatchThread(final CountDownLatch latch) {
+				super(null, null, PushManagerTest.this.getApnsConnectionFactory(), PushManagerTest.this.getFeedbackConnectionFactory(), 1, TEST_PUSH_MANAGER_NAME);
 
 				this.latch = latch;
 			}
@@ -523,9 +458,7 @@ public class PushManagerTest extends BasePushyTest {
 		final CountDownLatch latch = new CountDownLatch(2);
 
 		final PushManagerWithSelfDestructingDispatchThread testManager =
-				new PushManagerWithSelfDestructingDispatchThread(
-						TEST_ENVIRONMENT, SSLTestUtil.createSSLContextForTestClient(), this.getEventLoopGroup(),
-						new LinkedBlockingQueue<SimpleApnsPushNotification>(), new PushManagerConfiguration(), latch);
+				new PushManagerWithSelfDestructingDispatchThread(latch);
 
 		testManager.start();
 		this.waitForLatch(latch);

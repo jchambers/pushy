@@ -46,6 +46,9 @@ public abstract class BasePushyTest {
 
 	private static NioEventLoopGroup eventLoopGroup;
 
+	private DefaultApnsConnectionFactory<SimpleApnsPushNotification> apnsConnectionFactory;
+	private DefaultFeedbackServiceConnectionFactory feedbackConnectionFactory;
+
 	private PushManager<SimpleApnsPushNotification> pushManager;
 	private MockApnsServer apnsServer;
 	private MockFeedbackServer feedbackServer;
@@ -67,9 +70,14 @@ public abstract class BasePushyTest {
 		this.feedbackServer = new MockFeedbackServer(TEST_ENVIRONMENT.getFeedbackPort(), BasePushyTest.eventLoopGroup);
 		this.feedbackServer.start();
 
-		this.pushManager = new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
-				SSLTestUtil.createSSLContextForTestClient(), BasePushyTest.eventLoopGroup, null, null,
-				new PushManagerConfiguration(), "Test push manager");
+		this.apnsConnectionFactory = new DefaultApnsConnectionFactory<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
+				SSLTestUtil.createSSLContextForTestClient(), BasePushyTest.eventLoopGroup, "TestConnection");
+
+		this.feedbackConnectionFactory = new DefaultFeedbackServiceConnectionFactory(TEST_ENVIRONMENT,
+				SSLTestUtil.createSSLContextForTestClient(), BasePushyTest.eventLoopGroup, "TestFeedbackConnection");
+
+		this.pushManager = new PushManager<SimpleApnsPushNotification>(null, null,
+				this.apnsConnectionFactory, this.feedbackConnectionFactory, 1, "TestPushManager");
 	}
 
 	@After
@@ -85,6 +93,14 @@ public abstract class BasePushyTest {
 
 	public NioEventLoopGroup getEventLoopGroup() {
 		return BasePushyTest.eventLoopGroup;
+	}
+
+	public ApnsConnectionFactory<SimpleApnsPushNotification> getApnsConnectionFactory() {
+		return this.apnsConnectionFactory;
+	}
+
+	public FeedbackServiceConnectionFactory getFeedbackConnectionFactory() {
+		return this.feedbackConnectionFactory;
 	}
 
 	public PushManager<SimpleApnsPushNotification> getPushManager() {

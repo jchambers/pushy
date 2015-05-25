@@ -21,21 +21,18 @@
 
 package com.relayrides.pushy.apns;
 
-import io.netty.channel.nio.NioEventLoopGroup;
-
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLHandshakeException;
 
 import org.slf4j.Logger;
@@ -93,14 +90,11 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final BlockingQueue<T> queue;
 	private final LinkedBlockingQueue<T> retryQueue = new LinkedBlockingQueue<T>();
 
-	private final ApnsEnvironment environment;
-	private final SSLContext sslContext;
-
-	private final PushManagerConfiguration configuration;
+	private final ApnsConnectionFactory<T> apnsConnectionFactory;
+	private final FeedbackServiceConnectionFactory feedbackConnectionFactory;
 
 	private final String name;
-	private static final AtomicInteger pushManagerCounter = new AtomicInteger(0);
-	private int feedbackConnectionCounter = 0;
+	private static final AtomicInteger PUSH_MANAGER_COUNTER = new AtomicInteger(0);
 
 	private final ApnsConnectionGroup<T> connectionGroup;
 
@@ -120,10 +114,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private Thread dispatchThread;
 	private boolean dispatchThreadShouldContinue = true;
 
-	private final NioEventLoopGroup eventLoopGroup;
-	private final boolean shouldShutDownEventLoopGroup;
-
-	private final ExecutorService listenerExecutorService;
+	private final ScheduledExecutorService scheduledExecutorService;
 	private final boolean shouldShutDownListenerExecutorService;
 
 	private boolean shutDownStarted = false;
@@ -167,72 +158,47 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * provided, callers <strong>must</strong> shut down the executor service after shutting down all
 	 * {@code PushManager} instances that use that executor service.</p>
 	 *
-	 * @param environment the environment in which this {@code PushManager} operates; must not be {@code null}
-	 * @param sslContext the SSL context in which APNs connections controlled by this {@code PushManager} will operate;
-	 * must not be {@code null}
-	 * @param eventLoopGroup the event loop group this push manager should use for its connections to the APNs gateway and
-	 * feedback service; if {@code null}, a new event loop group will be created and will be shut down automatically
-	 * when the push manager is shut down. If not {@code null}, the caller <strong>must</strong> shut down the event
-	 * loop group after shutting down the push manager.
-	 * @param listenerExecutorService the executor service this push manager should use to dispatch notifications to
+	 * @param scheduledExecutorService the executor service this push manager should use to dispatch notifications to
 	 * registered listeners. If {@code null}, a new single-thread executor service will be created and will be shut
 	 * down automatically with the push manager is shut down. If not {@code null}, the caller <strong>must</strong>
 	 * shut down the executor service after shutting down the push manager.
 	 * @param queue the queue to be used to pass new notifications to this push manager; if {@code null}, the new push
 	 * manager will create its own queue
-	 * @param configuration the set of configuration options to use for this push manager and the connections it
-	 * creates. The configuration object is copied and changes to the original object will not propagate to the push
-	 * manager after creation. Must not be {@code null}.
+	 * @param apnsConnectionFactory TODO
+	 * @param feedbackConnectionFactory TODO
+	 * @param concurrentConnectionCount TODO
 	 * @param name a human-readable name for this push manager; if {@code null}, a default name will be used
 	 */
-	public PushManager(final ApnsEnvironment environment, final SSLContext sslContext,
-			final NioEventLoopGroup eventLoopGroup, final ExecutorService listenerExecutorService,
-			final BlockingQueue<T> queue, final PushManagerConfiguration configuration, final String name) {
+	public PushManager(final ScheduledExecutorService scheduledExecutorService, final BlockingQueue<T> queue,
+			final ApnsConnectionFactory<T> apnsConnectionFactory,
+			final FeedbackServiceConnectionFactory feedbackConnectionFactory, final int concurrentConnectionCount,
+			final String name) {
 
 		this.queue = queue != null ? queue : new LinkedBlockingQueue<T>();
+		this.name = name == null ? String.format("PushManager-%d", PushManager.PUSH_MANAGER_COUNTER.getAndIncrement()) : name;
 
-		if (environment == null) {
-			throw new NullPointerException("Environment must not be null.");
-		}
-
-		this.environment = environment;
-
-		if (sslContext == null) {
-			throw new NullPointerException("SSL context must not be null.");
-		}
-
-		this.sslContext = sslContext;
-
-		if (configuration == null) {
-			throw new NullPointerException("Configuration object must not be null.");
-		}
-
-		this.configuration = new PushManagerConfiguration(configuration);
-		this.name = name == null ? String.format("PushManager-%d", PushManager.pushManagerCounter.getAndIncrement()) : name;
-
-		if (eventLoopGroup != null) {
-			this.eventLoopGroup = eventLoopGroup;
-			this.shouldShutDownEventLoopGroup = false;
-		} else {
-			// Never use more threads than concurrent connections (Netty binds a channel to a single thread, so the
-			// excess threads would always go unused)
-			final int threadCount = Math.min(this.configuration.getConcurrentConnectionCount(), Runtime.getRuntime().availableProcessors() * 2);
-
-			this.eventLoopGroup = new NioEventLoopGroup(threadCount);
-			this.shouldShutDownEventLoopGroup = true;
-		}
-
-		if (listenerExecutorService != null) {
-			this.listenerExecutorService = listenerExecutorService;
+		if (scheduledExecutorService != null) {
+			this.scheduledExecutorService = scheduledExecutorService;
 			this.shouldShutDownListenerExecutorService = false;
 		} else {
-			this.listenerExecutorService = Executors.newSingleThreadExecutor();
+			this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
 			this.shouldShutDownListenerExecutorService = true;
 		}
 
-		this.connectionGroup = new ApnsConnectionGroup<T>(this.environment, this.sslContext, this.eventLoopGroup,
-				this.configuration.getConnectionConfiguration(), this, String.format("%s-ConnectionGroup", this.name),
-				this.configuration.getConcurrentConnectionCount());
+		if (apnsConnectionFactory == null) {
+			throw new NullPointerException("APNs connection factory must not be null.");
+		}
+
+		this.apnsConnectionFactory = apnsConnectionFactory;
+
+		if (feedbackConnectionFactory == null) {
+			throw new NullPointerException("Feedback service connection factory must not be null.");
+		}
+
+		this.feedbackConnectionFactory = feedbackConnectionFactory;
+
+		this.connectionGroup = new ApnsConnectionGroup<T>(this.scheduledExecutorService,
+				this.apnsConnectionFactory, this, String.format("%s-ConnectionGroup", this.name), concurrentConnectionCount);
 	}
 
 	/**
@@ -431,11 +397,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		if (this.shouldShutDownListenerExecutorService) {
-			this.listenerExecutorService.shutdown();
-		}
-
-		if (this.shouldShutDownEventLoopGroup) {
-			this.eventLoopGroup.shutdownGracefully().await();
+			this.scheduledExecutorService.shutdown();
 		}
 
 		this.shutDownFinished = true;
@@ -606,11 +568,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			if (this.feedbackConnection == null) {
 				this.expiredTokens = new ArrayList<ExpiredToken>();
 
-				this.feedbackConnection = new FeedbackServiceConnection(
-						this.environment, this.sslContext, this.eventLoopGroup,
-						this.configuration.getFeedbackConnectionConfiguration(), this,
-						String.format("%s-feedbackConnection-%d", this.name, this.feedbackConnectionCounter++));
+				this.feedbackConnection = this.feedbackConnectionFactory.createFeedbackConnection();
 
+				this.feedbackConnection.setListener(this);
 				this.feedbackConnection.connect();
 			}
 		}
@@ -643,7 +603,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			for (final FailedConnectionListener<? super T> listener : this.failedConnectionListeners) {
 
 				// Handle connection failures in a separate thread in case a handler takes a long time to run
-				this.listenerExecutorService.submit(new Runnable() {
+				this.scheduledExecutorService.submit(new Runnable() {
 					@Override
 					public void run() {
 						listener.handleFailedConnection(pushManager, cause);
@@ -676,7 +636,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		synchronized (this.expiredTokenListeners) {
 			for (final ExpiredTokenListener<? super T> listener : this.expiredTokenListeners) {
-				this.listenerExecutorService.submit(new Runnable() {
+				this.scheduledExecutorService.submit(new Runnable() {
 
 					@Override
 					public void run() {
@@ -697,7 +657,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			for (final FailedConnectionListener<? super T> listener : this.failedConnectionListeners) {
 
 				// Handle connection failures in a separate thread in case a handler takes a long time to run
-				this.listenerExecutorService.submit(new Runnable() {
+				this.scheduledExecutorService.submit(new Runnable() {
 					@Override
 					public void run() {
 						listener.handleFailedConnection(PushManager.this, cause);
@@ -731,7 +691,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			for (final RejectedNotificationListener<? super T> listener : this.rejectedNotificationListeners) {
 
 				// Handle the notifications in a separate thread in case a listener takes a long time to run
-				this.listenerExecutorService.execute(new Runnable() {
+				this.scheduledExecutorService.execute(new Runnable() {
 					@Override
 					public void run() {
 						listener.handleRejectedNotification(PushManager.this, rejectedNotification, reason);
