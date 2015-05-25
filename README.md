@@ -81,7 +81,7 @@ When your application shuts down, make sure to shut down the `PushManager`, too:
 pushManager.shutdown();
 ```
 
-When the `PushManager` takes a notification from the queue, it will keep trying to send that notification. By the time you shut down the `PushManager` (as long as you don't give the shutdown process a timeout), the notification is guaranteed to have either been accepted or rejected by the APNs gateway.
+When the `PushManager` takes a notification from the queue, it will keep trying to send that notification. By the time you shut down the `PushManager` (as long as you don't give the shutdown process a timeout), the notification is guaranteed to have either been accepted or rejected by the APNs gateway. An important corollary is that notifications that have *not* been taken from the queue by the time the `PushManager` is shut down will not be sent. Please see [the FAQ](https://github.com/relayrides/pushy/wiki/Frequently-asked-questions#i-started-a-push-manager-added-a-notification-to-the-queue-and-shut-down-the-push-manager-my-push-notification-never-got-sent-why-not) for additional discussion.
 
 ## Error handling
 
