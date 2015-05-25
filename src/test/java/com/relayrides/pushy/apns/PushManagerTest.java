@@ -433,6 +433,30 @@ public class PushManagerTest extends BasePushyTest {
 		this.getPushManager().shutdown();
 	}
 
+	/*
+	 * This is a regression test for https://github.com/relayrides/pushy/issues/155.
+	 */
+	@Test
+	public void testSendNotificationsWithErrorOtherThanMissingToken() throws Exception {
+		final int iterations = 1000;
+
+		// We expect one less because one notification should be rejected
+		final CountDownLatch latch = this.getApnsServer().getAcceptedNotificationCountDownLatch(iterations - 1);
+
+		for (int i = 0; i < iterations; i++) {
+			if (i == iterations / 2) {
+				this.getPushManager().getQueue().add(
+						new SimpleApnsPushNotification(new byte[] {1, 2, 3, 4, 5}, "This is a deliberately malformed notification."));
+			} else {
+				this.getPushManager().getQueue().add(this.createTestNotification());
+			}
+		}
+
+		this.getPushManager().start();
+		this.waitForLatch(latch);
+		this.getPushManager().shutdown();
+	}
+
 	@Test
 	public void testSendNotificationsWithParallelConnections() throws Exception {
 		final PushManagerConfiguration configuration = new PushManagerConfiguration();
