@@ -41,9 +41,19 @@ import org.slf4j.LoggerFactory;
 import com.relayrides.pushy.apns.util.DeadlineUtil;
 
 /**
- * A connection group maintains a pool of connections to the APNs gateway. Callers can retrieve connections from the
+ * <p>A connection group maintains a pool of connections to the APNs gateway. Callers can retrieve connections from the
  * group via the {@link ApnsConnectionGroup#getNextConnection()} method, and then use the returned connection to send
- * notifications.
+ * notifications.</p>
+ *
+ * <p>Connection groups also perform two secondary roles:</p>
+ *
+ * <ol>
+ * 	<li>They serve as a simple load balancer by rotating through connections; subsequent calls to the
+ * {@link ApnsConnectionGroup#getNextConnection()} method will return different connections if the group has more than
+ * one writable connection.</li>
+ * 	<li>They control the rate at which connections are replaced by implementing an exponential back-off strategy to
+ * avoid bombarding the APNs gateway (and local listeners) with connection attempts.</li>
+ * </ol>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */
