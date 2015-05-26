@@ -86,7 +86,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	// having an expired token) is vanishingly small.
 	private int sequenceNumber = 1;
 
-	private volatile ChannelFuture lastWriteFuture;
+	private ChannelFuture lastWriteFuture;
+	private boolean lastWriteFutureListenerFinished;
 
 	private int sendAttempts = 0;
 
@@ -309,7 +310,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 				// If we're still waiting for a write to finish, we'll let the listener for the write operation itself
 				// announce closure.
 				final boolean hasOutstandingWriteOperation =
-						(this.apnsConnection.lastWriteFuture != null && !this.apnsConnection.lastWriteFuture.isDone());
+						(this.apnsConnection.lastWriteFuture != null && !this.apnsConnection.lastWriteFutureListenerFinished);
 
 				if (this.apnsConnection.listener != null && !hasOutstandingWriteOperation) {
 					this.apnsConnection.listener.handleConnectionClosure(this.apnsConnection);
@@ -516,6 +517,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 			log.trace("{} sending {}", this.name, sendableNotification);
 
+			this.lastWriteFutureListenerFinished = false;
 			this.lastWriteFuture = this.connectFuture.channel().writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
 				@Override
@@ -547,8 +549,10 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 					// The connection has already closed, and we're the last write operation; let listeners know that
 					// everything is finished.
-					if (writeFuture == ApnsConnection.this.lastWriteFuture && !writeFuture.channel().isOpen()) {
-						if (ApnsConnection.this.listener != null) {
+					if (writeFuture == ApnsConnection.this.lastWriteFuture) {
+						ApnsConnection.this.lastWriteFutureListenerFinished = true;
+
+						if (!writeFuture.channel().isOpen() && ApnsConnection.this.listener != null) {
 							ApnsConnection.this.listener.handleConnectionClosure(ApnsConnection.this);
 						}
 					}
@@ -608,7 +612,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 					}, ApnsConnection.this.configuration.getGracefulDisconnectionTimeout(), TimeUnit.SECONDS);
 				}
 
-				this.lastWriteFuture = this.connectFuture.channel().writeAndFlush(this.disconnectNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+				this.connectFuture.channel().writeAndFlush(this.disconnectNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
 					@Override
 					public void operationComplete(final ChannelFuture writeFuture) {
@@ -622,14 +626,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 							// Try again!
 							ApnsConnection.this.disconnectNotification = null;
 							ApnsConnection.this.disconnectGracefully();
-						}
-
-						// The connection has already closed, and we're the last write operation; let listeners know
-						// that everything is finished.
-						if (writeFuture == ApnsConnection.this.lastWriteFuture && !writeFuture.channel().isOpen()) {
-							if (ApnsConnection.this.listener != null) {
-								ApnsConnection.this.listener.handleConnectionClosure(ApnsConnection.this);
-							}
 						}
 					}
 				});
