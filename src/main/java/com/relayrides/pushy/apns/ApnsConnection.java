@@ -86,8 +86,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	// having an expired token) is vanishingly small.
 	private int sequenceNumber = 1;
 
-	private ChannelFuture lastWriteFuture;
-	private boolean lastWriteFutureListenerFinished;
+	private volatile ChannelFuture lastWriteFuture;
+	private volatile boolean lastWriteFutureListenerFinished = false;
 
 	private int sendAttempts = 0;
 
