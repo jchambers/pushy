@@ -47,5 +47,5 @@ public interface FailedConnectionListener<T extends ApnsPushNotification> {
 	 * @param pushManager the push manager that failed to open a connection
 	 * @param cause the cause for the connection failure
 	 */
-	void handleFailedConnection(PushManager<? extends T> pushManager, Throwable cause);
+	void handleFailedConnection(PushManager<? extends T> pushManager, Throwable cause, boolean fatal);
 }

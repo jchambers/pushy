@@ -21,6 +21,7 @@
 
 package com.relayrides.pushy.apns;
 
+import com.relayrides.pushy.apns.util.ExceptionUtil;
 import io.netty.channel.nio.NioEventLoopGroup;
 
 import java.lang.Thread.UncaughtExceptionHandler;
@@ -635,6 +636,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.feedbackConnection = null;
 		}
 
+		final boolean fatal = ExceptionUtil.isFatal(cause);
+
 		synchronized (this.failedConnectionListeners) {
 			final PushManager<T> pushManager = this;
 
@@ -644,7 +647,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 				this.listenerExecutorService.submit(new Runnable() {
 					@Override
 					public void run() {
-						listener.handleFailedConnection(pushManager, cause);
+						listener.handleFailedConnection(pushManager, cause, fatal);
 					}
 				});
 			}
@@ -716,6 +719,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		this.removeActiveConnection(connection);
 
+		final boolean fatal = ExceptionUtil.isFatal(cause);
+
 		synchronized (this.failedConnectionListeners) {
 			final PushManager<T> pushManager = this;
 
@@ -725,14 +730,14 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 				this.listenerExecutorService.submit(new Runnable() {
 					@Override
 					public void run() {
-						listener.handleFailedConnection(pushManager, cause);
+						listener.handleFailedConnection(pushManager, cause, fatal);
 					}
 				});
 			}
 		}
 
 		// As long as we're not shut down, try to open a replacement connection.
-		if (this.shouldReplaceClosedConnection()) {
+		if (this.shouldReplaceClosedConnection() && !fatal) {
 			this.startNewConnection();
 		}
 	}

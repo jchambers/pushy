@@ -66,15 +66,17 @@ public class PushManagerTest extends BasePushyTest {
 
 		private PushManager<? extends SimpleApnsPushNotification> pushManager;
 		private Throwable cause;
+		private boolean fatal;
 
 		public TestFailedConnectionListener(final Object mutex) {
 			this.mutex = mutex;
 		}
 
 		@Override
-		public void handleFailedConnection(final PushManager<? extends SimpleApnsPushNotification> pushManager, final Throwable cause) {
+		public void handleFailedConnection(final PushManager<? extends SimpleApnsPushNotification> pushManager, final Throwable cause, boolean fatal) {
 			this.pushManager = pushManager;
 			this.cause = cause;
+			this.fatal = fatal;
 
 			synchronized (this.mutex) {
 				this.mutex.notifyAll();
@@ -195,6 +197,7 @@ public class PushManagerTest extends BasePushyTest {
 
 		assertEquals(badCredentialManager, listener.pushManager);
 		assertNotNull(listener.cause);
+		assertTrue(!listener.fatal);
 	}
 
 	@Test
