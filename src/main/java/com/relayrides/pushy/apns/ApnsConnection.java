@@ -86,8 +86,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	// having an expired token) is vanishingly small.
 	private int sequenceNumber = 1;
 
-	private volatile ChannelFuture lastWriteFuture;
-
 	private int sendAttempts = 0;
 
 	private SendableApnsPushNotification<KnownBadPushNotification> disconnectNotification;
@@ -305,15 +303,14 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			// Channel closure implies that the connection attempt had fully succeeded, so we only want to notify
 			// listeners if the handshake has completed. Otherwise, we'll notify listeners of a connection failure (as
 			// opposed to closure) elsewhere.
-			if (this.apnsConnection.handshakeCompleted) {
-				// If we're still waiting for a write to finish, we'll let the listener for the write operation itself
-				// announce closure.
-				final boolean hasOutstandingWriteOperation =
-						(this.apnsConnection.lastWriteFuture != null && !this.apnsConnection.lastWriteFuture.isDone());
+			if (this.apnsConnection.handshakeCompleted && this.apnsConnection.listener != null) {
+				context.channel().eventLoop().execute(new Runnable() {
 
-				if (this.apnsConnection.listener != null && !hasOutstandingWriteOperation) {
-					this.apnsConnection.listener.handleConnectionClosure(this.apnsConnection);
-				}
+					@Override
+					public void run() {
+						ApnsConnectionHandler.this.apnsConnection.listener.handleConnectionClosure(ApnsConnectionHandler.this.apnsConnection);
+					}
+				});
 			}
 
 			if (this.apnsConnection.gracefulDisconnectionTimeoutFuture != null) {
@@ -516,7 +513,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 			log.trace("{} sending {}", this.name, sendableNotification);
 
-			this.lastWriteFuture = this.connectFuture.channel().writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+			this.connectFuture.channel().writeAndFlush(sendableNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
 				@Override
 				public void operationComplete(final ChannelFuture writeFuture) {
@@ -542,14 +539,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 						// even manage to write the notification to the wire) and re-enqueue for another send attempt.
 						if (ApnsConnection.this.listener != null) {
 							ApnsConnection.this.listener.handleWriteFailure(ApnsConnection.this, notification, writeFuture.cause());
-						}
-					}
-
-					// The connection has already closed, and we're the last write operation; let listeners know that
-					// everything is finished.
-					if (writeFuture == ApnsConnection.this.lastWriteFuture && !writeFuture.channel().isOpen()) {
-						if (ApnsConnection.this.listener != null) {
-							ApnsConnection.this.listener.handleConnectionClosure(ApnsConnection.this);
 						}
 					}
 				}
@@ -608,7 +597,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 					}, ApnsConnection.this.configuration.getGracefulDisconnectionTimeout(), TimeUnit.SECONDS);
 				}
 
-				this.lastWriteFuture = this.connectFuture.channel().writeAndFlush(this.disconnectNotification).addListener(new GenericFutureListener<ChannelFuture>() {
+				this.connectFuture.channel().writeAndFlush(this.disconnectNotification).addListener(new GenericFutureListener<ChannelFuture>() {
 
 					@Override
 					public void operationComplete(final ChannelFuture writeFuture) {
@@ -622,14 +611,6 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 							// Try again!
 							ApnsConnection.this.disconnectNotification = null;
 							ApnsConnection.this.disconnectGracefully();
-						}
-
-						// The connection has already closed, and we're the last write operation; let listeners know
-						// that everything is finished.
-						if (writeFuture == ApnsConnection.this.lastWriteFuture && !writeFuture.channel().isOpen()) {
-							if (ApnsConnection.this.listener != null) {
-								ApnsConnection.this.listener.handleConnectionClosure(ApnsConnection.this);
-							}
 						}
 					}
 				});
