@@ -304,6 +304,9 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			// listeners if the handshake has completed. Otherwise, we'll notify listeners of a connection failure (as
 			// opposed to closure) elsewhere.
 			if (this.apnsConnection.handshakeCompleted && this.apnsConnection.listener != null) {
+				// At this point, there may still be some tasks in the event queue (i.e. write future listeners). We
+				// want to make sure those are all done before we notify listeners of connection closure, so we put the
+				// actual handler notification at the end of the queue.
 				context.channel().eventLoop().execute(new Runnable() {
 
 					@Override
