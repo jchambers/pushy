@@ -307,6 +307,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 				// At this point, there may still be some tasks in the event queue (i.e. write future listeners). We
 				// want to make sure those are all done before we notify listeners of connection closure, so we put the
 				// actual handler notification at the end of the queue.
+
+				// TODO Don't do this once Netty 5.0 is out (see http://netty.io/wiki/new-and-noteworthy-in-5.0.html)
 				context.channel().eventLoop().execute(new Runnable() {
 
 					@Override
