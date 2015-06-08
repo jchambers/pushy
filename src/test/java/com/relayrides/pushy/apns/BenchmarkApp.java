@@ -52,7 +52,7 @@ public class BenchmarkApp {
 	private class BenchmarkErrorListener implements RejectedNotificationListener<SimpleApnsPushNotification>, FailedConnectionListener<SimpleApnsPushNotification> {
 
 		@Override
-		public void handleFailedConnection(final PushManager<? extends SimpleApnsPushNotification> pushManager, final Throwable cause) {
+		public void handleFailedConnection(final PushManager<? extends SimpleApnsPushNotification> pushManager, final Throwable cause, boolean fatal) {
 			System.err.println("Connection failed.");
 			cause.printStackTrace(System.err);
 		}
