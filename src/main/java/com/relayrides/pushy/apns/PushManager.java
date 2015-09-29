@@ -272,6 +272,10 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 				while (PushManager.this.dispatchThreadShouldContinue) {
 					try {
 						final ApnsConnection<T> connection = PushManager.this.connectionGroup.getNextConnection();
+						if (connection == null) {
+							continue;
+						}
+
 						final T notificationToRetry = PushManager.this.retryQueue.poll();
 
 						if (notificationToRetry != null) {

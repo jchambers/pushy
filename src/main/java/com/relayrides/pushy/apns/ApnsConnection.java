@@ -513,6 +513,19 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	}
 
 	/**
+	 * Indicates whether this connection is usable (is connected, has had no rejections, and is writable).
+	 *
+	 * @return {@code true} if this connection is usable or {@code false} if not
+	 */
+	public boolean isUsable() {
+		if (this.rejectionReceived || this.connectFuture == null || this.connectFuture.channel() == null) {
+			return false;
+		} else {
+			return this.handshakeCompleted && this.connectFuture.channel().isActive() && this.connectFuture.channel().isWritable();
+		}
+	}
+
+	/**
 	 * Asynchronously sends a push notification to the connected APNs gateway. Successful notifications are
 	 * <strong>not</strong> acknowledged by the APNs gateway; failed attempts to write push notifications to the
 	 * outbound buffer and notification rejections are reported via this connection's listener.
