@@ -311,11 +311,13 @@ public class ApnsConnectionGroup<T extends ApnsPushNotification> implements Apns
 	public ApnsConnection<T> getNextConnection(final long timeoutMillis) throws InterruptedException {
 		final ApnsConnection<T> connection = this.writableConnections.poll(timeoutMillis, TimeUnit.MILLISECONDS);
 
-		if (connection != null && connection.isWritable()) {
+		if (connection != null && connection.isUsable()) {
 			this.writableConnections.add(connection);
+			return connection;
 		}
 
-		return connection;
+		log.trace("{} returned null or a poisoned/inactive/unwritable channel {}.", this, connection);
+		return null;
 	}
 
 	/*
