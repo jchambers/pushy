@@ -29,15 +29,14 @@ import io.netty.channel.nio.NioEventLoopGroup;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.Date;
+import java.util.List;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
 
+import io.netty.util.concurrent.Future;
 import org.junit.Test;
 
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
@@ -335,6 +334,44 @@ public class PushManagerTest extends BasePushyTest {
 	}
 
 	@Test
+	public void testGetExpiredTokensWhenEmpty() throws InterruptedException, ExecutionException {
+		this.getPushManager().start();
+
+		Future<List<ExpiredToken>> future = this.getPushManager().getExpiredTokens();
+
+		List<ExpiredToken> list = future.get();
+
+		assertTrue(list.isEmpty());
+
+		this.getPushManager().shutdown();
+	}
+
+	@Test
+	public void testGetExpiredTokensWhenNotEmpty() throws InterruptedException, ExecutionException {
+		this.getPushManager().start();
+
+		// Dates will have some loss of precision since APNS only deals with SECONDS since the epoch; we choose
+		// timestamps that just happen to be on full seconds.
+		ExpiredToken token1 = new ExpiredToken(new byte[] { 97, 44, 32, 16, 16 }, new Date(1375760188000L));
+		ExpiredToken token2 = new ExpiredToken(new byte[] { 77, 62, 40, 30, 8 }, new Date(1375760188000L));
+		ExpiredToken token3 = new ExpiredToken(new byte[] { 78, 63, 41, 31, 9 }, new Date(1375760199000L));
+
+		this.getFeedbackServer().addExpiredToken(token1);
+		this.getFeedbackServer().addExpiredToken(token2);
+
+		Future<List<ExpiredToken>> future = this.getPushManager().getExpiredTokens();
+
+		List<ExpiredToken> list = future.get();
+
+		assertTrue(list.contains(token1));
+		assertTrue(list.contains(token2));
+		assertTrue(list.contains(token2));
+		assertTrue(!list.contains(token3));
+
+		this.getPushManager().shutdown();
+	}
+
+	@Test
 	public void testRequestExpiredTokensWithDefaultEventLoopGroup() throws Exception {
 		final PushManager<SimpleApnsPushNotification> defaultPushManager =
 				new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
@@ -362,9 +399,47 @@ public class PushManagerTest extends BasePushyTest {
 		}
 	}
 
+	@Test
+	public void testGetExpiredTokensWithDefaultEventLoopGroup() throws Exception {
+		final PushManager<SimpleApnsPushNotification> defaultPushManager =
+				new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
+						SSLTestUtil.createSSLContextForTestClient(), null, null, null, new PushManagerConfiguration(),
+						TEST_PUSH_MANAGER_NAME);
+
+		defaultPushManager.start();
+
+		// Dates will have some loss of precision since APNS only deals with SECONDS since the epoch; we choose
+		// timestamps that just happen to be on full seconds.
+		ExpiredToken token1 = new ExpiredToken(new byte[] { 97, 44, 32, 16, 16 }, new Date(1375760188000L));
+		ExpiredToken token2 = new ExpiredToken(new byte[] { 77, 62, 40, 30, 8 }, new Date(1375760188000L));
+		ExpiredToken token3 = new ExpiredToken(new byte[] { 78, 63, 41, 31, 9 }, new Date(1375760199000L));
+
+		this.getFeedbackServer().addExpiredToken(token1);
+		this.getFeedbackServer().addExpiredToken(token2);
+
+		try {
+			Future<List<ExpiredToken>> future = defaultPushManager.getExpiredTokens();
+
+			List<ExpiredToken> list = future.get();
+
+			assertTrue(list.contains(token1));
+			assertTrue(list.contains(token2));
+			assertTrue(list.contains(token2));
+			assertTrue(!list.contains(token3));
+
+		} finally {
+			defaultPushManager.shutdown();
+		}
+	}
+
 	@Test(expected = IllegalStateException.class)
 	public void testRequestExpiredTokensBeforeStart() throws InterruptedException {
 		this.getPushManager().requestExpiredTokens();
+	}
+
+	@Test(expected = IllegalStateException.class)
+	public void testGetExpiredTokensBeforeStart() throws InterruptedException {
+		this.getPushManager().getExpiredTokens();
 	}
 
 	@Test(expected = IllegalStateException.class)
@@ -373,6 +448,14 @@ public class PushManagerTest extends BasePushyTest {
 		this.getPushManager().shutdown();
 
 		this.getPushManager().requestExpiredTokens();
+	}
+
+	@Test(expected = IllegalStateException.class)
+	public void testGetExpiredTokensAfterShutdown() throws InterruptedException {
+		this.getPushManager().start();
+		this.getPushManager().shutdown();
+
+		this.getPushManager().getExpiredTokens();
 	}
 
 	@Test
