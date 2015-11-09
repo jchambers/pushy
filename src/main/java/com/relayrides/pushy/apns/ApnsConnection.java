@@ -593,7 +593,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 				this.disconnectNotification = new SendableApnsPushNotification<KnownBadPushNotification>(
 						new KnownBadPushNotification(), this.sequenceNumber++);
 
-				if (this.configuration.getGracefulDisconnectionTimeout() != null) {
+				if (this.configuration.getGracefulDisconnectionTimeout() != null
+						&& ApnsConnection.this.gracefulDisconnectionTimeoutFuture == null) {
 					ApnsConnection.this.gracefulDisconnectionTimeoutFuture = ApnsConnection.this.connectFuture.channel().eventLoop().schedule(new Runnable() {
 						@Override
 						public void run() {
