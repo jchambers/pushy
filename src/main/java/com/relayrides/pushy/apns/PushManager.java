@@ -29,15 +29,14 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLHandshakeException;
 
+import io.netty.util.concurrent.*;
+import io.netty.util.concurrent.Future;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -107,6 +106,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final Object feedbackConnectionMonitor = new Object();
 	private FeedbackServiceConnection feedbackConnection;
 	private List<ExpiredToken> expiredTokens;
+	private Promise<List<ExpiredToken>> expiredTokensPromise;
+	private ThreadFactory threadFactory = new DefaultThreadFactory("pushManagerTF");
+	private SingleThreadEventExecutor eventExecutor;
 
 	private final List<RejectedNotificationListener<? super T>> rejectedNotificationListeners =
 			new ArrayList<RejectedNotificationListener<? super T>>();
@@ -229,6 +231,24 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.listenerExecutorService = Executors.newSingleThreadExecutor();
 			this.shouldShutDownListenerExecutorService = true;
 		}
+
+		this.eventExecutor = new SingleThreadEventExecutor(null, threadFactory, false) {
+
+			@Override
+			protected void run() {
+				for (;;) {
+					Runnable task = takeTask();
+					if (task != null) {
+						task.run();
+						updateLastExecutionTime();
+					}
+
+					if (confirmShutdown()) {
+						break;
+					}
+				}
+			}
+		};
 	}
 
 	/**
@@ -436,6 +456,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.eventLoopGroup.shutdownGracefully().await();
 		}
 
+		this.eventExecutor.shutdownGracefully();
+
 		this.shutDownFinished = true;
 
 		return new ArrayList<T>(this.retryQueue);
@@ -602,6 +624,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		synchronized (this.feedbackConnectionMonitor) {
 			// If we already have a feedback connection in play, let it finish
 			if (this.feedbackConnection == null) {
+				this.expiredTokensPromise = this.eventExecutor.newPromise();
 				this.expiredTokens = new ArrayList<ExpiredToken>();
 
 				this.feedbackConnection = new FeedbackServiceConnection(
@@ -612,6 +635,24 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 				this.feedbackConnection.connect();
 			}
 		}
+	}
+
+	/**
+	 * Get (Netty) future with expired tokens or Throwable which caused failure.
+	 * Internally calls {@link PushManager#requestExpiredTokens}.
+	 *
+	 * Why this method exist along with {@link PushManager#requestExpiredTokens}?
+	 *
+	 * Actually, sometimes it is very handy to have kind of synchronous code,
+	 * when you can call method and get the result. So, since Netty is async, we cannot return actual result
+	 * right after the call, but instead we return a Future with possible result.
+	 * One can set up a listener to this Future and handle either success or failure.
+	 *
+	 * @return Netty future with list of expired tokens or Throwable which caused failure
+	 */
+	public Future<List<ExpiredToken>> getExpiredTokens() {
+		requestExpiredTokens();
+		return expiredTokensPromise;
 	}
 
 	/*
@@ -648,6 +689,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 					}
 				});
 			}
+
+			this.expiredTokensPromise.setFailure(cause);
 		}
 	}
 
@@ -681,11 +724,13 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 						listener.handleExpiredTokens(pushManager, expiredTokens);
 					}});
 			}
+			this.expiredTokensPromise.setSuccess(expiredTokens);
 		}
 
 		synchronized (this.feedbackConnectionMonitor) {
 			this.feedbackConnection = null;
 			this.expiredTokens = null;
+			this.expiredTokensPromise = null;
 		}
 	}
 
