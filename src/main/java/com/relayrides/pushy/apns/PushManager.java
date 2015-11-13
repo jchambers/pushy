@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -123,7 +124,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	private final NioEventLoopGroup eventLoopGroup;
 	private final boolean shouldShutDownEventLoopGroup;
 
-	private final ExecutorService listenerExecutorService;
+	private final Executor listenerExecutor;
 	private final boolean shouldShutDownListenerExecutorService;
 
 	private boolean shutDownStarted = false;
@@ -162,7 +163,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * caller is responsible for managing the lifecycle of the group and <strong>must</strong> shut it down after
 	 * shutting down this {@code PushManager}.</p>
 	 *
-	 * <p>This constructor may also take an {@link java.util.concurrent.ExecutorService} as an argument. The executor
+	 * <p>This constructor may also take an {@link java.util.concurrent.Executor} as an argument. The executor
 	 * service is used to dispatch notifications to registered listeners. If a non-{@code null} executor service is
 	 * provided, callers <strong>must</strong> shut down the executor service after shutting down all
 	 * {@code PushManager} instances that use that executor service.</p>
@@ -174,7 +175,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * feedback service; if {@code null}, a new event loop group will be created and will be shut down automatically
 	 * when the push manager is shut down. If not {@code null}, the caller <strong>must</strong> shut down the event
 	 * loop group after shutting down the push manager.
-	 * @param listenerExecutorService the executor service this push manager should use to dispatch notifications to
+	 * @param listenerExecutor the executor service this push manager should use to dispatch notifications to
 	 * registered listeners. If {@code null}, a new single-thread executor service will be created and will be shut
 	 * down automatically with the push manager is shut down. If not {@code null}, the caller <strong>must</strong>
 	 * shut down the executor service after shutting down the push manager.
@@ -186,7 +187,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 	 * @param name a human-readable name for this push manager; if {@code null}, a default name will be used
 	 */
 	public PushManager(final ApnsEnvironment environment, final SSLContext sslContext,
-			final NioEventLoopGroup eventLoopGroup, final ExecutorService listenerExecutorService,
+			final NioEventLoopGroup eventLoopGroup, final Executor listenerExecutor,
 			final BlockingQueue<T> queue, final PushManagerConfiguration configuration, final String name) {
 
 		this.queue = queue != null ? queue : new LinkedBlockingQueue<T>();
@@ -222,11 +223,11 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			this.shouldShutDownEventLoopGroup = true;
 		}
 
-		if (listenerExecutorService != null) {
-			this.listenerExecutorService = listenerExecutorService;
+		if (listenerExecutor != null) {
+			this.listenerExecutor = listenerExecutor;
 			this.shouldShutDownListenerExecutorService = false;
 		} else {
-			this.listenerExecutorService = Executors.newSingleThreadExecutor();
+			this.listenerExecutor = Executors.newSingleThreadExecutor();
 			this.shouldShutDownListenerExecutorService = true;
 		}
 	}
@@ -429,7 +430,8 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		}
 
 		if (this.shouldShutDownListenerExecutorService) {
-			this.listenerExecutorService.shutdown();
+			if (listenerExecutor instanceof ExecutorService)
+			((ExecutorService)listenerExecutor).shutdown();
 		}
 
 		if (this.shouldShutDownEventLoopGroup) {
@@ -641,7 +643,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			for (final FailedConnectionListener<? super T> listener : this.failedConnectionListeners) {
 
 				// Handle connection failures in a separate thread in case a handler takes a long time to run
-				this.listenerExecutorService.submit(new Runnable() {
+				this.listenerExecutor.execute(new Runnable() {
 					@Override
 					public void run() {
 						listener.handleFailedConnection(pushManager, cause);
@@ -674,12 +676,13 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 		synchronized (this.expiredTokenListeners) {
 			for (final ExpiredTokenListener<? super T> listener : this.expiredTokenListeners) {
-				this.listenerExecutorService.submit(new Runnable() {
+				this.listenerExecutor.execute(new Runnable() {
 
 					@Override
 					public void run() {
 						listener.handleExpiredTokens(pushManager, expiredTokens);
-					}});
+					}
+				});
 			}
 		}
 
@@ -722,7 +725,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			for (final FailedConnectionListener<? super T> listener : this.failedConnectionListeners) {
 
 				// Handle connection failures in a separate thread in case a handler takes a long time to run
-				this.listenerExecutorService.submit(new Runnable() {
+				this.listenerExecutor.execute(new Runnable() {
 					@Override
 					public void run() {
 						listener.handleFailedConnection(pushManager, cause);
@@ -799,7 +802,7 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			for (final RejectedNotificationListener<? super T> listener : this.rejectedNotificationListeners) {
 
 				// Handle the notifications in a separate thread in case a listener takes a long time to run
-				this.listenerExecutorService.execute(new Runnable() {
+				this.listenerExecutor.execute(new Runnable() {
 					@Override
 					public void run() {
 						listener.handleRejectedNotification(pushManager, rejectedNotification, reason);
