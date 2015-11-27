@@ -42,6 +42,7 @@ import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
+import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.Date;
@@ -613,9 +614,14 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 							log.trace("{} failed to write known-bad notification {}",
 									ApnsConnection.this.name, ApnsConnection.this.disconnectNotification, writeFuture.cause());
 
-							// Try again!
-							ApnsConnection.this.disconnectNotification = null;
-							ApnsConnection.this.disconnectGracefully();
+							if (writeFuture.cause() instanceof IOException) {
+								// none recoverable exception
+								ApnsConnection.this.disconnectImmediately();
+							} else {
+								// Try again!
+								ApnsConnection.this.disconnectNotification = null;
+								ApnsConnection.this.disconnectGracefully();
+							}
 						}
 					}
 				});
