@@ -60,6 +60,8 @@ public class ApnsConnectionTest extends BasePushyTest {
 
 		private SimpleApnsPushNotification rejectedNotification;
 		private RejectedNotificationReason rejectionReason;
+		
+		private SimpleApnsPushNotification successfulNotification;
 
 		private final ArrayList<SimpleApnsPushNotification> unprocessedNotifications = new ArrayList<SimpleApnsPushNotification>();
 
@@ -113,6 +115,13 @@ public class ApnsConnectionTest extends BasePushyTest {
 				final Collection<SimpleApnsPushNotification> unprocessedNotifications) {
 
 			this.unprocessedNotifications.addAll(unprocessedNotifications);
+		}
+		
+		@Override
+		public void handleSuccessfulNotification(
+				ApnsConnection<SimpleApnsPushNotification> connection,
+				SimpleApnsPushNotification successfulNotification) {
+			this.successfulNotification = successfulNotification;
 		}
 
 		@Override
