@@ -107,4 +107,13 @@ public interface ApnsConnectionListener<T extends ApnsPushNotification> {
 	 * @param unprocessedNotifications the notifications known to have not been processed by the APNs gateway
 	 */
 	void handleUnprocessedNotifications(ApnsConnection<T> connection, Collection<T> unprocessedNotifications);
+	
+	/**
+	 * Indicates that the given connection succeeded to send a push notification to an APNs gateway.
+	 * notification passed to this method was successfully transmitted to the APNs gateway, 
+	 * 
+	 * @param connection the connection that sent the notifications that were successful
+	 * @param successfulNotification the notification that was successful
+	 */
+	void handleSuccessfulNotification(ApnsConnection<T> connection, T successfulNotification);
 }

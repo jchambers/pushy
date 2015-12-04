@@ -534,6 +534,9 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 								ApnsConnection.this.listener.handleUnprocessedNotifications(ApnsConnection.this, java.util.Collections.singletonList(notification));
 							}
 						} else {
+							if (ApnsConnection.this.listener != null) {
+								ApnsConnection.this.listener.handleSuccessfulNotification(ApnsConnection.this, notification);
+							}
 							ApnsConnection.this.sentNotificationBuffer.addSentNotification(sendableNotification);
 						}
 					} else {

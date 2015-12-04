@@ -110,6 +110,9 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 
 	private final List<RejectedNotificationListener<? super T>> rejectedNotificationListeners =
 			new ArrayList<RejectedNotificationListener<? super T>>();
+	
+	private final List<SuccessfulNotificationListener<? super T>> successfulNotificationListeners =
+			new ArrayList<SuccessfulNotificationListener<? super T>>();
 
 	private final List<FailedConnectionListener<? super T>> failedConnectionListeners =
 			new ArrayList<FailedConnectionListener<? super T>>();
@@ -613,6 +616,39 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 			}
 		}
 	}
+	
+	/**
+	 * <p>Registers a listener for successful attempts to send a notification.</p>
+	 *
+	 * @param listener the listener to register
+	 *
+	 * @throws IllegalStateException if this push manager has already been shut down
+	 *
+	 * @see PushManager#unregisterSuccessfulNotificationListener(SuccessfulNotificationListener)
+	 */
+	public void registerSuccessfulNotificationListener(final SuccessfulNotificationListener<? super T> listener) {
+		if (this.isShutDown()) {
+			throw new IllegalStateException("Successful notification listeners may not be registered after a push manager has been shut down.");
+		}
+
+		synchronized (this.successfulNotificationListeners) {
+			this.successfulNotificationListeners.add(listener);
+		}
+	}
+
+	/**
+	 * <p>Un-registers an successful notification listener.</p>
+	 *
+	 * @param listener the listener to un-register
+	 *
+	 * @return {@code true} if the given listener was registered with this push manager and removed or {@code false} if
+	 * the listener was not already registered with this push manager
+	 */
+	public boolean unregisterSuccessfulNotificationListener(final SuccessfulNotificationListener<? super T> listener) {
+		synchronized (this.successfulNotificationListeners) {
+			return this.successfulNotificationListeners.remove(listener);
+		}
+	}
 
 	/*
 	 * (non-Javadoc)
@@ -821,6 +857,31 @@ public class PushManager<T extends ApnsPushNotification> implements ApnsConnecti
 		this.retryQueue.addAll(unprocessedNotifications);
 
 		this.dispatchThread.interrupt();
+	}
+	
+	/*
+	 * (non-Javadoc)
+	 * @see com.relayrides.pushy.apns.ApnsConnectionListener#handleSuccessfulNotification(com.relayrides.pushy.apns.ApnsConnection, com.relayrides.pushy.apns.ApnsPushNotification)
+	 */
+	@Override
+	public void handleSuccessfulNotification(ApnsConnection<T> connection,
+			final T successfulNotification) {
+		log.trace("{} make a {} successful", connection, successfulNotification);
+		
+		final PushManager<T> pushManager = this;
+
+		synchronized (this.successfulNotificationListeners) {
+			for (final SuccessfulNotificationListener<? super T> listener : this.successfulNotificationListeners) {
+
+				// Handle the notifications in a separate thread in case a listener takes a long time to run
+				this.listenerExecutorService.execute(new Runnable() {
+					@Override
+					public void run() {
+						listener.handleSuccessfulNotification(pushManager, successfulNotification);
+					}
+				});
+			}
+		}
 	}
 
 	private void startNewConnection() {
