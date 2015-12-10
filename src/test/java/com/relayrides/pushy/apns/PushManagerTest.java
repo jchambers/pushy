@@ -25,10 +25,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import io.netty.channel.nio.NioEventLoopGroup;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -41,6 +39,8 @@ import javax.net.ssl.SSLContext;
 import org.junit.Test;
 
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
+
+import io.netty.channel.nio.NioEventLoopGroup;
 
 public class PushManagerTest extends BasePushyTest {
 
@@ -75,27 +75,6 @@ public class PushManagerTest extends BasePushyTest {
 		public void handleFailedConnection(final PushManager<? extends SimpleApnsPushNotification> pushManager, final Throwable cause) {
 			this.pushManager = pushManager;
 			this.cause = cause;
-
-			synchronized (this.mutex) {
-				this.mutex.notifyAll();
-			}
-		}
-	}
-
-	private class TestExpiredTokenListener implements ExpiredTokenListener<SimpleApnsPushNotification> {
-
-		private final Object mutex;
-
-		private Collection<ExpiredToken> expiredTokens;
-
-		public TestExpiredTokenListener(final Object mutex) {
-			this.mutex = mutex;
-		}
-
-		@Override
-		public void handleExpiredTokens(final PushManager<? extends SimpleApnsPushNotification> pushManager, final Collection<ExpiredToken> expiredTokens) {
-
-			this.expiredTokens = expiredTokens;
 
 			synchronized (this.mutex) {
 				this.mutex.notifyAll();
@@ -311,68 +290,6 @@ public class PushManagerTest extends BasePushyTest {
 		repeatedShutdownPushManager.start();
 		repeatedShutdownPushManager.shutdown();
 		repeatedShutdownPushManager.shutdown();
-	}
-
-	@Test
-	public void testRequestExpiredTokens() throws InterruptedException {
-		final Object mutex = new Object();
-		final TestExpiredTokenListener listener = new TestExpiredTokenListener(mutex);
-
-		this.getPushManager().registerExpiredTokenListener(listener);
-		this.getPushManager().start();
-
-		synchronized (mutex) {
-			this.getPushManager().requestExpiredTokens();
-
-			while (listener.expiredTokens == null) {
-				mutex.wait();
-			}
-		}
-
-		assertTrue(listener.expiredTokens.isEmpty());
-
-		this.getPushManager().shutdown();
-	}
-
-	@Test
-	public void testRequestExpiredTokensWithDefaultEventLoopGroup() throws Exception {
-		final PushManager<SimpleApnsPushNotification> defaultPushManager =
-				new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
-						SSLTestUtil.createSSLContextForTestClient(), null, null, null, new PushManagerConfiguration(),
-						TEST_PUSH_MANAGER_NAME);
-
-		final Object mutex = new Object();
-		final TestExpiredTokenListener listener = new TestExpiredTokenListener(mutex);
-
-		defaultPushManager.registerExpiredTokenListener(listener);
-		defaultPushManager.start();
-
-		try {
-			synchronized (mutex) {
-				defaultPushManager.requestExpiredTokens();
-
-				while (listener.expiredTokens == null) {
-					mutex.wait();
-				}
-			}
-
-			assertTrue(listener.expiredTokens.isEmpty());
-		} finally {
-			defaultPushManager.shutdown();
-		}
-	}
-
-	@Test(expected = IllegalStateException.class)
-	public void testRequestExpiredTokensBeforeStart() throws InterruptedException {
-		this.getPushManager().requestExpiredTokens();
-	}
-
-	@Test(expected = IllegalStateException.class)
-	public void testRequestExpiredTokensAfterShutdown() throws InterruptedException {
-		this.getPushManager().start();
-		this.getPushManager().shutdown();
-
-		this.getPushManager().requestExpiredTokens();
 	}
 
 	@Test

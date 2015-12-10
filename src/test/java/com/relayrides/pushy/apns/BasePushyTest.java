@@ -48,7 +48,6 @@ public abstract class BasePushyTest {
 
 	private PushManager<SimpleApnsPushNotification> pushManager;
 	private MockApnsServer apnsServer;
-	private MockFeedbackServer feedbackServer;
 
 	@Rule
 	public Timeout globalTimeout = new Timeout(10000);
@@ -64,9 +63,6 @@ public abstract class BasePushyTest {
 		this.apnsServer = new MockApnsServer(TEST_ENVIRONMENT.getApnsGatewayPort(), BasePushyTest.eventLoopGroup);
 		this.apnsServer.start();
 
-		this.feedbackServer = new MockFeedbackServer(TEST_ENVIRONMENT.getFeedbackPort(), BasePushyTest.eventLoopGroup);
-		this.feedbackServer.start();
-
 		this.pushManager = new PushManager<SimpleApnsPushNotification>(TEST_ENVIRONMENT,
 				SSLTestUtil.createSSLContextForTestClient(), BasePushyTest.eventLoopGroup, null, null,
 				new PushManagerConfiguration(), "Test push manager");
@@ -75,7 +71,6 @@ public abstract class BasePushyTest {
 	@After
 	public void tearDown() throws InterruptedException {
 		this.apnsServer.shutdown();
-		this.feedbackServer.shutdown();
 	}
 
 	@AfterClass
@@ -93,10 +88,6 @@ public abstract class BasePushyTest {
 
 	public MockApnsServer getApnsServer() {
 		return this.apnsServer;
-	}
-
-	public MockFeedbackServer getFeedbackServer() {
-		return this.feedbackServer;
 	}
 
 	public SimpleApnsPushNotification createTestNotification() {
