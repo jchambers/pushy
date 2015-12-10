@@ -18,8 +18,6 @@ import javax.net.ssl.TrustManagerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.relayrides.pushy.apns.PushManager;
-
 /**
  * A utility class for creating SSL contexts for use with a {@link PushManager}.
  *
