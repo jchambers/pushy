@@ -20,7 +20,7 @@ import io.netty.handler.codec.http2.Http2FrameListener;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Settings;
 
-public class MockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
+class MockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
 
 	private MockApnsServer server;
 
