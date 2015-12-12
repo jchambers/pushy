@@ -1,7 +1,12 @@
 package com.relayrides.pushy.apns;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPromise;
+import io.netty.channel.ChannelPromiseAggregator;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http2.DefaultHttp2Headers;
 import io.netty.handler.codec.http2.Http2ConnectionDecoder;
 import io.netty.handler.codec.http2.Http2ConnectionEncoder;
 import io.netty.handler.codec.http2.Http2ConnectionHandler;
@@ -10,82 +15,108 @@ import io.netty.handler.codec.http2.Http2Flags;
 import io.netty.handler.codec.http2.Http2FrameListener;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Settings;
+import io.netty.util.AsciiString;
 
 class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameListener {
+
+    private int nextStreamId = 1;
+
+    private static final String APNS_PATH_PREFIX = "/3/device/";
+    private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
 
     public static final class Builder extends BuilderBase<ApnsClientHandler, Builder> {
         @Override
         public ApnsClientHandler build0(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder) {
-            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, initialSettings());
+            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, this.initialSettings());
             this.frameListener(handler);
             return handler;
         }
     }
 
-    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder,
-            final Http2Settings initialSettings) {
+    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
         super(decoder, encoder, initialSettings);
     }
 
     @Override
-    public int onDataRead(final ChannelHandlerContext ctx, final int streamId, final ByteBuf data, final int padding,
-            final boolean endOfStream) throws Http2Exception {
+    public int onDataRead(final ChannelHandlerContext context, final int streamId, final ByteBuf data, final int padding, final boolean endOfStream) throws Http2Exception {
         return data.readableBytes() + padding;
     }
 
     @Override
-    public void onHeadersRead(ChannelHandlerContext ctx, int streamId, Http2Headers headers, int padding,
-            boolean endOfStream) throws Http2Exception {
+    public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
     }
 
     @Override
-    public void onHeadersRead(ChannelHandlerContext ctx, int streamId, Http2Headers headers, int streamDependency,
-            short weight, boolean exclusive, int padding, boolean endOfStream) throws Http2Exception {
-        this.onHeadersRead(ctx, streamId, headers, padding, endOfStream);
+    public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int streamDependency, final short weight, final boolean exclusive, final int padding, final boolean endOfStream) throws Http2Exception {
+        this.onHeadersRead(context, streamId, headers, padding, endOfStream);
     }
 
     @Override
-    public void onPriorityRead(ChannelHandlerContext ctx, int streamId, int streamDependency, short weight,
-            boolean exclusive) throws Http2Exception {
+    public void onPriorityRead(final ChannelHandlerContext context, final int streamId, final int streamDependency, final short weight, final boolean exclusive) throws Http2Exception {
     }
 
     @Override
-    public void onRstStreamRead(ChannelHandlerContext ctx, int streamId, long errorCode) throws Http2Exception {
+    public void onRstStreamRead(final ChannelHandlerContext context, final int streamId, final long errorCode) throws Http2Exception {
     }
 
     @Override
-    public void onSettingsAckRead(ChannelHandlerContext ctx) throws Http2Exception {
+    public void onSettingsAckRead(final ChannelHandlerContext context) throws Http2Exception {
     }
 
     @Override
-    public void onSettingsRead(ChannelHandlerContext ctx, Http2Settings settings) throws Http2Exception {
+    public void onSettingsRead(final ChannelHandlerContext context, final Http2Settings settings) throws Http2Exception {
     }
 
     @Override
-    public void onPingRead(ChannelHandlerContext ctx, ByteBuf data) throws Http2Exception {
+    public void onPingRead(final ChannelHandlerContext context, final ByteBuf data) throws Http2Exception {
     }
 
     @Override
-    public void onPingAckRead(ChannelHandlerContext ctx, ByteBuf data) throws Http2Exception {
+    public void onPingAckRead(final ChannelHandlerContext ctx, final ByteBuf data) throws Http2Exception {
     }
 
     @Override
-    public void onPushPromiseRead(ChannelHandlerContext ctx, int streamId, int promisedStreamId, Http2Headers headers,
-            int padding) throws Http2Exception {
+    public void onPushPromiseRead(final ChannelHandlerContext ctx, final int streamId, final int promisedStreamId, final Http2Headers headers, final int padding) throws Http2Exception {
     }
 
     @Override
-    public void onGoAwayRead(ChannelHandlerContext ctx, int lastStreamId, long errorCode, ByteBuf debugData)
-            throws Http2Exception {
+    public void onGoAwayRead(final ChannelHandlerContext ctx, final int lastStreamId, final long errorCode, final ByteBuf debugData) throws Http2Exception {
     }
 
     @Override
-    public void onWindowUpdateRead(ChannelHandlerContext ctx, int streamId, int windowSizeIncrement)
-            throws Http2Exception {
+    public void onWindowUpdateRead(final ChannelHandlerContext ctx, final int streamId, final int windowSizeIncrement) throws Http2Exception {
     }
 
     @Override
-    public void onUnknownFrame(ChannelHandlerContext ctx, byte frameType, int streamId, Http2Flags flags,
-            ByteBuf payload) throws Http2Exception {
+    public void onUnknownFrame(final ChannelHandlerContext ctx, final byte frameType, final int streamId, final Http2Flags flags, final ByteBuf payload) throws Http2Exception {
+    }
+
+    @Override
+    public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise promise) {
+        if (!(message instanceof ApnsPushNotification)) {
+            context.write(message, promise);
+        } else {
+            final ApnsPushNotification pushNotification = (ApnsPushNotification) message;
+            final int streamId = this.nextStreamId;
+
+            // TODO Even though it's very unlikely, make sure that we don't run out of stream IDs
+            this.nextStreamId += 2;
+
+            final ChannelPromiseAggregator promiseAggregator = new ChannelPromiseAggregator(promise);
+
+            final Http2Headers headers = new DefaultHttp2Headers()
+                    .method("POST")
+                    .path(APNS_PATH_PREFIX + pushNotification.getToken())
+                    .addInt(HttpHeaderNames.CONTENT_LENGTH, pushNotification.getPayload().getBytes().length)
+                    .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
+
+            final ChannelPromise headersPromise = context.newPromise();
+            this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
+
+            final ChannelPromise dataPromise = context.newPromise();
+            this.encoder().writeData(context, streamId, Unpooled.wrappedBuffer(pushNotification.getPayload().getBytes()), 0, true, dataPromise);
+
+            promiseAggregator.add(headersPromise, dataPromise);
+        }
     }
 }

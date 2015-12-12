@@ -5,6 +5,7 @@ import static io.netty.handler.logging.LogLevel.INFO;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.Security;
+import java.util.concurrent.Future;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
@@ -33,7 +34,7 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 
-public class ApnsClient {
+public class ApnsClient<T extends ApnsPushNotification> {
 
     private final String hostname;
     private final int port;
@@ -117,6 +118,14 @@ public class ApnsClient {
         this.channel = channelFuture.channel();
 
         return channelFuture;
+    }
+
+    public Future<PushNotificationResult<T>> sendNotification(final T notification) {
+        // TODO Make sure we actually have a channel first
+        this.channel.writeAndFlush(notification);
+
+        // TODO
+        return null;
     }
 
     public ChannelFuture close() {
