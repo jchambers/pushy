@@ -35,95 +35,92 @@ import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 
 public class ApnsClient {
 
-	private final String hostname;
-	private final int port;
+    private final String hostname;
+    private final int port;
 
-	private final SslContext sslContext;
+    private final SslContext sslContext;
 
-	private final EventLoopGroup eventLoopGroup;
+    private final EventLoopGroup eventLoopGroup;
 
-	private Channel channel;
+    private Channel channel;
 
-	private static final String DEFAULT_ALGORITHM = "SunX509";
+    private static final String DEFAULT_ALGORITHM = "SunX509";
 
-	public ApnsClient(final String hostname, final int port, final KeyStore keyStore, final String keyStorePassword, final EventLoopGroup eventLoopGroup) {
-		this.hostname = hostname;
-		this.port = port;
-		this.eventLoopGroup = eventLoopGroup;
+    public ApnsClient(final String hostname, final int port, final KeyStore keyStore, final String keyStorePassword, final EventLoopGroup eventLoopGroup) {
+        this.hostname = hostname;
+        this.port = port;
+        this.eventLoopGroup = eventLoopGroup;
 
-		String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
+        String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
 
-		if (algorithm == null) {
-			algorithm = DEFAULT_ALGORITHM;
-		}
+        if (algorithm == null) {
+            algorithm = DEFAULT_ALGORITHM;
+        }
 
-		try {
-			if (keyStore.size() == 0) {
-				throw new KeyStoreException("Keystore is empty; while this is legal for keystores in general, APNs clients must have at least one key.");
-			}
+        try {
+            if (keyStore.size() == 0) {
+                throw new KeyStoreException(
+                        "Keystore is empty; while this is legal for keystores in general, APNs clients must have at least one key.");
+            }
 
-			final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(algorithm);
-			trustManagerFactory.init(keyStore);
+            final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(algorithm);
+            trustManagerFactory.init(keyStore);
 
-			final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(algorithm);
-			keyManagerFactory.init(keyStore, keyStorePassword.toCharArray());
+            final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(algorithm);
+            keyManagerFactory.init(keyStore, keyStorePassword.toCharArray());
 
-			this.sslContext = SslContextBuilder.forClient()
-					.sslProvider(OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK)
-					.ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-					.trustManager(trustManagerFactory)
-					.keyManager(keyManagerFactory)
-					.applicationProtocolConfig(new ApplicationProtocolConfig(
-							Protocol.ALPN,
-							SelectorFailureBehavior.NO_ADVERTISE,
-							SelectedListenerFailureBehavior.ACCEPT,
-							ApplicationProtocolNames.HTTP_2))
-					.build();
-		} catch (Exception e) {
-			throw new RuntimeException("Could not initialize SSL context.", e);
-		}
-	}
+            this.sslContext = SslContextBuilder.forClient()
+                    .sslProvider(OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK)
+                    .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
+                    .trustManager(trustManagerFactory).keyManager(keyManagerFactory)
+                    .applicationProtocolConfig(
+                            new ApplicationProtocolConfig(Protocol.ALPN, SelectorFailureBehavior.NO_ADVERTISE,
+                                    SelectedListenerFailureBehavior.ACCEPT, ApplicationProtocolNames.HTTP_2))
+                    .build();
+        } catch (Exception e) {
+            throw new RuntimeException("Could not initialize SSL context.", e);
+        }
+    }
 
-	public ChannelFuture connect() {
-		final Bootstrap bootstrap = new Bootstrap();
-		bootstrap.group(this.eventLoopGroup);
-		bootstrap.channel(NioSocketChannel.class);
-		bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
-		bootstrap.option(ChannelOption.TCP_NODELAY, true);
-		bootstrap.remoteAddress(this.hostname, this.port);
-		bootstrap.handler(new ChannelInitializer<SocketChannel>() {
+    public ChannelFuture connect() {
+        final Bootstrap bootstrap = new Bootstrap();
+        bootstrap.group(this.eventLoopGroup);
+        bootstrap.channel(NioSocketChannel.class);
+        bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+        bootstrap.option(ChannelOption.TCP_NODELAY, true);
+        bootstrap.remoteAddress(this.hostname, this.port);
+        bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
-			@Override
-			protected void initChannel(final SocketChannel channel) throws Exception {
-				final ChannelPipeline pipeline = channel.pipeline();
-				pipeline.addLast(ApnsClient.this.sslContext.newHandler(channel.alloc()));
+            @Override
+            protected void initChannel(final SocketChannel channel) throws Exception {
+                final ChannelPipeline pipeline = channel.pipeline();
+                pipeline.addLast(ApnsClient.this.sslContext.newHandler(channel.alloc()));
 
-				pipeline.addLast(new ApplicationProtocolNegotiationHandler("") {
-					@Override
-					protected void configurePipeline(final ChannelHandlerContext context, final String protocol) {
-						if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-							context.pipeline().addLast(new ApnsClientHandler.Builder()
-									.frameLogger(new Http2FrameLogger(INFO, ApnsClient.class))
-									.server(false)
-									.encoderEnforceMaxConcurrentStreams(true)
-									.build());
-						} else {
-							context.close();
-							throw new IllegalStateException("unknown protocol: " + protocol);
-						}
-					}
-				});
-			}
-		});
+                pipeline.addLast(new ApplicationProtocolNegotiationHandler("") {
+                    @Override
+                    protected void configurePipeline(final ChannelHandlerContext context, final String protocol) {
+                        if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
+                            context.pipeline()
+                            .addLast(new ApnsClientHandler.Builder()
+                                    .frameLogger(new Http2FrameLogger(INFO, ApnsClient.class)).server(false)
+                                    .encoderEnforceMaxConcurrentStreams(true).build());
+                        } else {
+                            context.close();
+                            throw new IllegalStateException("unknown protocol: " + protocol);
+                        }
+                    }
+                });
+            }
+        });
 
-		final ChannelFuture channelFuture = bootstrap.connect();
-		this.channel = channelFuture.channel();
+        final ChannelFuture channelFuture = bootstrap.connect();
+        this.channel = channelFuture.channel();
 
-		return channelFuture;
-	}
+        return channelFuture;
+    }
 
-	public ChannelFuture close() {
-		// TODO Graceful shutdown things
-		return this.channel.close();
-	}
+    public ChannelFuture close() {
+        // TODO Graceful shutdown things
+        return this.channel.close();
+    }
 }

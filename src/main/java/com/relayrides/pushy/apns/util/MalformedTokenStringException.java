@@ -28,14 +28,15 @@ package com.relayrides.pushy.apns.util;
  */
 public class MalformedTokenStringException extends Exception {
 
-	private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 1L;
 
-	/**
-	 * Constructs a new malformed token string exception with the given detail message.
-	 *
-	 * @param message an explanation of the cause of the exception
-	 */
-	public MalformedTokenStringException(final String message) {
-		super(message);
-	}
+    /**
+     * Constructs a new malformed token string exception with the given detail message.
+     *
+     * @param message
+     *            an explanation of the cause of the exception
+     */
+    public MalformedTokenStringException(final String message) {
+        super(message);
+    }
 }

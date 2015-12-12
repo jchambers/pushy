@@ -16,21 +16,26 @@
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
+ * THE SOFTWARE. */
 
 /**
- * <p>Contains classes and interfaces for interacting with the Apple Push Notification service (APNs).</p>
+ * <p>
+ * Contains classes and interfaces for interacting with the Apple Push Notification service (APNs).
+ * </p>
  *
- * <p>The {@link com.relayrides.pushy.apns.PushManager} class is the main public-facing class in Pushy. A
+ * <p>
+ * The {@link com.relayrides.pushy.apns.PushManager} class is the main public-facing class in Pushy. A
  * {@code PushManager} manages connections to APNs and manages the queue of outbound notifications. Generally, Pushy
  * users should create a single long-lived {@code PushManager} instance per "topic" (or receiving app) and use it
- * throughout the lifetime of their provider application.</p>
+ * throughout the lifetime of their provider application.
+ * </p>
  *
- * <p>The {@link com.relayrides.pushy.apns.ApnsPushNotification} interface represents a single APNs push notification
+ * <p>
+ * The {@link com.relayrides.pushy.apns.ApnsPushNotification} interface represents a single APNs push notification
  * sent to a single device. A simple concrete implementation of the {@code ApnsPushNotification} interface
  * ({@link com.relayrides.pushy.apns.util.SimpleApnsPushNotification}) and tools for constructing push notification
- * payloads can be found in the {@code com.relayrides.pushy.apns.util} package.</p>
+ * payloads can be found in the {@code com.relayrides.pushy.apns.util} package.
+ * </p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
