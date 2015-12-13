@@ -47,6 +47,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private final EventLoopGroup eventLoopGroup;
 
+    private Promise<Void> prefacePromise;
+
     private Channel channel;
     private final IdentityHashMap<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
 
@@ -88,7 +90,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
         }
     }
 
-    public ChannelFuture connect() {
+    public Future<Void> connect() {
         final Bootstrap bootstrap = new Bootstrap();
         bootstrap.group(this.eventLoopGroup);
         bootstrap.channel(NioSocketChannel.class);
@@ -108,8 +110,11 @@ public class ApnsClient<T extends ApnsPushNotification> {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
                             context.pipeline()
                             .addLast(new ApnsClientHandler.Builder()
-                                    .frameLogger(new Http2FrameLogger(INFO, ApnsClient.class)).server(false)
-                                    .encoderEnforceMaxConcurrentStreams(true).build());
+                                    .frameLogger(new Http2FrameLogger(INFO, ApnsClient.class))
+                                    .server(false)
+                                    .encoderEnforceMaxConcurrentStreams(true)
+                                    .client(ApnsClient.this)
+                                    .build());
                         } else {
                             context.close();
                             throw new IllegalStateException("unknown protocol: " + protocol);
@@ -122,7 +127,23 @@ public class ApnsClient<T extends ApnsPushNotification> {
         final ChannelFuture channelFuture = bootstrap.connect();
         this.channel = channelFuture.channel();
 
-        return channelFuture;
+        this.prefacePromise = this.channel.newPromise();
+
+        channelFuture.addListener(new GenericFutureListener<ChannelFuture>() {
+
+            @Override
+            public void operationComplete(final ChannelFuture future) throws Exception {
+                if (!future.isSuccess()) {
+                    ApnsClient.this.prefacePromise.tryFailure(future.cause());
+                }
+            }
+        });
+
+        return this.prefacePromise;
+    }
+
+    protected void handleSettingsReceived() {
+        this.prefacePromise.trySuccess(null);
     }
 
     public Future<PushNotificationResponse<T>> sendNotification(final T notification) {
@@ -146,9 +167,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
         // TODO
         return responsePromise;
-    }
-
-    protected void handleSettingsReceived() {
     }
 
     protected void handlePushNotificationResponse(final PushNotificationResponse<T> response) {
