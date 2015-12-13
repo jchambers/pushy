@@ -47,6 +47,19 @@
             </exclusions>
         </dependency>
         <dependency>
+            <groupId>org.mortbay.jetty.alpn</groupId>
+            <artifactId>alpn-boot</artifactId>
+            <version>${jetty.alpn.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty.alpn</groupId>
+            <artifactId>alpn-api</artifactId>
+            <version>1.1.2.v20150522</version>
+            <!-- Provided by alpn-boot; see
+            http://www.eclipse.org/jetty/documentation/9.2.8.v20150217/alpn-chapter.html#alpn-understanding -->
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
             <version>1.7.6</version>
@@ -55,6 +68,8 @@
     </dependencies>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jetty.alpn.path>${settings.localRepository}/org/mortbay/jetty/alpn/alpn-boot/${jetty.alpn.version}/alpn-boot-${jetty.alpn.version}.jar</jetty.alpn.path>
+        <argLine.bootcp>-Xbootclasspath/p:${jetty.alpn.path}</argLine.bootcp>
     </properties>
     <build>
         <plugins>
@@ -72,7 +87,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.16</version>
                 <configuration>
-                    <argLine>-Dorg.slf4j.simpleLogger.defaultLogLevel=warn</argLine>
+                    <argLine>${argLine.bootcp} -Dorg.slf4j.simpleLogger.defaultLogLevel=warn</argLine>
                 </configuration>
             </plugin>
             <plugin>
@@ -105,6 +120,24 @@
                         <goals>
                             <goal>jar</goal>
                         </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Download the alpn-boot.jar in advance to add it to the boot classpath. -->
+            <plugin>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>get-alpn-boot</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>get</goal>
+                        </goals>
+                        <configuration>
+                            <groupId>org.mortbay.jetty.alpn</groupId>
+                            <artifactId>alpn-boot</artifactId>
+                            <version>${jetty.alpn.version}</version>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
