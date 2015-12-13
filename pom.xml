@@ -65,6 +65,12 @@
             <version>1.7.6</version>
             <scope>test</scope>
         </dependency>
+        <!-- TODO This should go away; needing it here at all appears to be a Netty bug. -->
+        <dependency>
+            <groupId>com.twitter</groupId>
+            <artifactId>hpack</artifactId>
+            <version>0.11.0</version>
+        </dependency>
     </dependencies>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -78,8 +84,8 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.1</version>
                 <configuration>
-                    <source>1.7</source>
-                    <target>1.7</target>
+                    <source>1.8</source>
+                    <target>1.8</target>
                 </configuration>
             </plugin>
             <plugin>

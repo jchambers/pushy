@@ -21,20 +21,35 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     private int nextStreamId = 1;
 
+    private final ApnsClient client;
+
     private static final String APNS_PATH_PREFIX = "/3/device/";
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
 
     public static final class Builder extends BuilderBase<ApnsClientHandler, Builder> {
+        private ApnsClient client;
+
+        public Builder client(final ApnsClient client) {
+            this.client = client;
+            return Builder.this;
+        }
+
+        public ApnsClient client() {
+            return this.client;
+        }
+
         @Override
         public ApnsClientHandler build0(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder) {
-            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, this.initialSettings());
+            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, this.initialSettings(), this.client());
             this.frameListener(handler);
             return handler;
         }
     }
 
-    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
+    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final ApnsClient client) {
         super(decoder, encoder, initialSettings);
+
+        this.client = client;
     }
 
     @Override
@@ -44,6 +59,11 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     @Override
     public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
+        if (headers.status().equals("200")) {
+            // We're not expecting any more data
+        } else {
+
+        }
     }
 
     @Override
@@ -65,6 +85,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     @Override
     public void onSettingsRead(final ChannelHandlerContext context, final Http2Settings settings) throws Http2Exception {
+        this.client.handleSettingsReceived();
     }
 
     @Override
