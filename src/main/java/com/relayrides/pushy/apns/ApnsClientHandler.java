@@ -17,36 +17,36 @@ import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.util.AsciiString;
 
-class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameListener {
+class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionHandler implements Http2FrameListener {
 
     private int nextStreamId = 1;
 
-    private final ApnsClient client;
+    private final ApnsClient<T> client;
 
     private static final String APNS_PATH_PREFIX = "/3/device/";
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
 
-    public static final class Builder extends BuilderBase<ApnsClientHandler, Builder> {
-        private ApnsClient client;
+    public static final class Builder<S extends ApnsPushNotification> extends BuilderBase<ApnsClientHandler<S>, Builder<S>> {
+        private ApnsClient<S> client;
 
-        public Builder client(final ApnsClient client) {
+        public Builder<S> client(final ApnsClient<S> client) {
             this.client = client;
             return Builder.this;
         }
 
-        public ApnsClient client() {
+        public ApnsClient<S> client() {
             return this.client;
         }
 
         @Override
-        public ApnsClientHandler build0(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder) {
-            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, this.initialSettings(), this.client());
+        public ApnsClientHandler<S> build0(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder) {
+            final ApnsClientHandler<S> handler = new ApnsClientHandler<S>(decoder, encoder, this.initialSettings(), this.client());
             this.frameListener(handler);
             return handler;
         }
     }
 
-    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final ApnsClient client) {
+    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final ApnsClient<T> client) {
         super(decoder, encoder, initialSettings);
 
         this.client = client;

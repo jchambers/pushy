@@ -109,7 +109,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
                             context.pipeline()
-                            .addLast(new ApnsClientHandler.Builder()
+                            .addLast(new ApnsClientHandler.Builder<T>()
                                     .frameLogger(new Http2FrameLogger(INFO, ApnsClient.class))
                                     .server(false)
                                     .encoderEnforceMaxConcurrentStreams(true)
