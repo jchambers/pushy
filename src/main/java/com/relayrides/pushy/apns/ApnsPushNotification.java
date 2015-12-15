@@ -24,7 +24,6 @@ package com.relayrides.pushy.apns;
 import java.util.Date;
 
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
-import com.relayrides.pushy.apns.util.TokenUtil;
 
 /**
  * <p>
