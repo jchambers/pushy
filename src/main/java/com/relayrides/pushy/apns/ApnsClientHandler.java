@@ -9,6 +9,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.ChannelPromiseAggregator;
 import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http2.DefaultHttp2Headers;
 import io.netty.handler.codec.http2.Http2ConnectionDecoder;
 import io.netty.handler.codec.http2.Http2ConnectionEncoder;
@@ -28,6 +29,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     private final ApnsClient<T> client;
 
     private final Map<Integer, T> pushNotificationsByStreamId = new HashMap<>();
+    private final Map<Integer, Http2Headers> headersByStreamId = new HashMap<>();
 
     private static final String APNS_PATH_PREFIX = "/3/device/";
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
@@ -62,15 +64,36 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     public int onDataRead(final ChannelHandlerContext context, final int streamId, final ByteBuf data, final int padding, final boolean endOfStream) throws Http2Exception {
         final int bytesProcessed = data.readableBytes() + padding;
 
+        if (endOfStream) {
+            final Http2Headers headers = this.headersByStreamId.remove(streamId);
+            final T pushNotification = this.pushNotificationsByStreamId.remove(streamId);
+
+            assert headers != null;
+            assert pushNotification != null;
+
+            // TODO Actually parse the response and include it in the processed result
+            final boolean success = HttpResponseStatus.OK.equals(HttpResponseStatus.parseLine(headers.status()));
+
+            this.client.handlePushNotificationResponse(new PushNotificationResponse<T>(pushNotification, success));
+        } else {
+            // TODO Complain?
+        }
+
         return bytesProcessed;
     }
 
     @Override
     public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
-        if ("200".equals(headers.status().toString())) {
+        final boolean success = HttpResponseStatus.OK.equals(HttpResponseStatus.parseLine(headers.status()));
+
+        if (endOfStream) {
+            // TODO We should only get an end-of-stream with headers for successful replies; warn if not?
             final T pushNotification = this.pushNotificationsByStreamId.remove(streamId);
-            this.client.handlePushNotificationResponse(new PushNotificationResponse<T>(pushNotification, true));
+            assert pushNotification != null;
+
+            this.client.handlePushNotificationResponse(new PushNotificationResponse<T>(pushNotification, success));
         } else {
+            this.headersByStreamId.put(streamId, headers);
         }
     }
 
