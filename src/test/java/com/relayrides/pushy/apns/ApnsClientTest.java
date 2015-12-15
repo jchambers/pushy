@@ -17,6 +17,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 public class ApnsClientTest {
 
     private static NioEventLoopGroup EVENT_LOOP_GROUP;
+    private static KeyStore CLIENT_KEY_STORE;
 
     private static final String CLIENT_KEYSTORE_FILENAME = "/pushy-test-client.jks";
     private static final String CLIENT_KEYSTORE_PASSWORD = "pushy-test";
@@ -24,6 +25,15 @@ public class ApnsClientTest {
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {
         ApnsClientTest.EVENT_LOOP_GROUP = new NioEventLoopGroup();
+
+        try (final InputStream keyStoreInputStream = ApnsClientTest.class.getResourceAsStream(CLIENT_KEYSTORE_FILENAME)) {
+            if (keyStoreInputStream == null) {
+                throw new RuntimeException("Client keystore file not found.");
+            }
+
+            CLIENT_KEY_STORE = KeyStore.getInstance("JKS");
+            CLIENT_KEY_STORE.load(keyStoreInputStream, "pushy-test".toCharArray());
+        }
     }
 
     @Before
@@ -44,16 +54,8 @@ public class ApnsClientTest {
         final MockApnsServer server = new MockApnsServer(8443, EVENT_LOOP_GROUP);
         server.start().await();
 
-        final InputStream keyStoreInputStream = ApnsClientTest.class.getResourceAsStream(CLIENT_KEYSTORE_FILENAME);
-
-        if (keyStoreInputStream == null) {
-            throw new RuntimeException("Client keystore file not found.");
-        }
-
-        final KeyStore keyStore = KeyStore.getInstance("JKS");
-        keyStore.load(keyStoreInputStream, "pushy-test".toCharArray());
-
-        final ApnsClient<SimpleApnsPushNotification> client = new ApnsClient<>("localhost", 8443, keyStore, CLIENT_KEYSTORE_PASSWORD, EVENT_LOOP_GROUP);
+        final ApnsClient<SimpleApnsPushNotification> client =
+                new ApnsClient<>("localhost", 8443, CLIENT_KEY_STORE, CLIENT_KEYSTORE_PASSWORD, EVENT_LOOP_GROUP);
 
         client.connect().get();
 
