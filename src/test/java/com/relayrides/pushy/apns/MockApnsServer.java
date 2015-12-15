@@ -5,6 +5,8 @@ import static io.netty.handler.logging.LogLevel.INFO;
 import java.io.InputStream;
 import java.security.KeyStore;
 import java.security.Security;
+import java.util.HashSet;
+import java.util.Set;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
@@ -36,88 +38,103 @@ import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 
 public class MockApnsServer {
 
-	private final int port;
-	private final SslContext sslContext;
+    private final int port;
+    private final SslContext sslContext;
 
-	private final EventLoopGroup eventLoopGroup;
+    private final EventLoopGroup eventLoopGroup;
 
-	private Channel channel;
+    private final Set<String> registeredTokens = new HashSet<>();
 
-	private static final String SERVER_KEYSTORE_FILE_NAME = "/pushy-test-server.jks";
-	private static final char[] KEYSTORE_PASSWORD = "pushy-test".toCharArray();
+    private Channel channel;
 
-	private static final String DEFAULT_ALGORITHM = "SunX509";
+    private static final String SERVER_KEYSTORE_FILE_NAME = "/pushy-test-server.jks";
+    private static final char[] KEYSTORE_PASSWORD = "pushy-test".toCharArray();
 
-	public MockApnsServer(final int port, final EventLoopGroup eventLoopGroup) {
-		this.port = port;
-		this.eventLoopGroup = eventLoopGroup;
+    private static final String DEFAULT_ALGORITHM = "SunX509";
 
-		try (final InputStream keyStoreInputStream = MockApnsServer.class.getResourceAsStream(SERVER_KEYSTORE_FILE_NAME)) {
-			final KeyStore keyStore = KeyStore.getInstance("JKS");
-			keyStore.load(keyStoreInputStream, KEYSTORE_PASSWORD);
+    public MockApnsServer(final int port, final EventLoopGroup eventLoopGroup) {
+        this.port = port;
+        this.eventLoopGroup = eventLoopGroup;
 
-			String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
+        try (final InputStream keyStoreInputStream = MockApnsServer.class.getResourceAsStream(SERVER_KEYSTORE_FILE_NAME)) {
+            final KeyStore keyStore = KeyStore.getInstance("JKS");
+            keyStore.load(keyStoreInputStream, KEYSTORE_PASSWORD);
 
-			if (algorithm == null) {
-				algorithm = DEFAULT_ALGORITHM;
-			}
+            String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
 
-			final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(algorithm);
-			keyManagerFactory.init(keyStore, KEYSTORE_PASSWORD);
+            if (algorithm == null) {
+                algorithm = DEFAULT_ALGORITHM;
+            }
 
-			final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(algorithm);
-			trustManagerFactory.init(keyStore);
+            final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(algorithm);
+            keyManagerFactory.init(keyStore, KEYSTORE_PASSWORD);
 
-			final SslProvider provider = OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK;
-			this.sslContext = SslContextBuilder.forServer(keyManagerFactory)
-					.sslProvider(provider)
-					.ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-					.applicationProtocolConfig(new ApplicationProtocolConfig(
-							Protocol.ALPN,
-							SelectorFailureBehavior.NO_ADVERTISE,
-							SelectedListenerFailureBehavior.ACCEPT,
-							ApplicationProtocolNames.HTTP_2))
-					.build();
-		} catch (Exception e) {
-			throw new RuntimeException("Failed to create SSL context for mock APNs server.", e);
-		}
-	}
+            final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(algorithm);
+            trustManagerFactory.init(keyStore);
 
-	public ChannelFuture start() {
-		final ServerBootstrap bootstrap = new ServerBootstrap();
-		bootstrap.option(ChannelOption.SO_BACKLOG, 1024);
-		bootstrap.group(this.eventLoopGroup);
-		bootstrap.channel(NioServerSocketChannel.class);
-		bootstrap.handler(new LoggingHandler(LogLevel.INFO));
-		bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
+            final SslProvider provider = OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK;
+            this.sslContext = SslContextBuilder.forServer(keyManagerFactory)
+                    .sslProvider(provider)
+                    .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
+                    .applicationProtocolConfig(new ApplicationProtocolConfig(
+                            Protocol.ALPN,
+                            SelectorFailureBehavior.NO_ADVERTISE,
+                            SelectedListenerFailureBehavior.ACCEPT,
+                            ApplicationProtocolNames.HTTP_2))
+                    .build();
+        } catch (final Exception e) {
+            throw new RuntimeException("Failed to create SSL context for mock APNs server.", e);
+        }
+    }
 
-			@Override
-			protected void initChannel(final SocketChannel channel) throws Exception {
-				channel.pipeline().addLast(MockApnsServer.this.sslContext.newHandler(channel.alloc()));
-				channel.pipeline().addLast(new ApplicationProtocolNegotiationHandler(ApplicationProtocolNames.HTTP_1_1) {
+    public ChannelFuture start() {
+        final ServerBootstrap bootstrap = new ServerBootstrap();
+        bootstrap.option(ChannelOption.SO_BACKLOG, 1024);
+        bootstrap.group(this.eventLoopGroup);
+        bootstrap.channel(NioServerSocketChannel.class);
+        bootstrap.handler(new LoggingHandler(LogLevel.INFO));
+        bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
 
-					@Override
-					protected void configurePipeline(final ChannelHandlerContext context, final String protocol) throws Exception {
-						if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-							context.pipeline().addLast(new MockApnsServerHandler.Builder()
-									.frameLogger(new Http2FrameLogger(INFO, MockApnsServer.class))
-									.build());
-						} else {
-							throw new IllegalStateException("Unexpected protocol: " + protocol);
-						}
-					}
-				});
-			}
-		});
+            @Override
+            protected void initChannel(final SocketChannel channel) throws Exception {
+                channel.pipeline().addLast(MockApnsServer.this.sslContext.newHandler(channel.alloc()));
+                channel.pipeline().addLast(new ApplicationProtocolNegotiationHandler(ApplicationProtocolNames.HTTP_1_1) {
 
-		final ChannelFuture channelFuture = bootstrap.bind(this.port);
-		this.channel = channelFuture.channel();
+                    @Override
+                    protected void configurePipeline(final ChannelHandlerContext context, final String protocol) throws Exception {
+                        if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
+                            context.pipeline().addLast(new MockApnsServerHandler.Builder()
+                                    .frameLogger(new Http2FrameLogger(INFO, MockApnsServer.class))
+                                    .apnsServer(MockApnsServer.this)
+                                    .build());
+                        } else {
+                            throw new IllegalStateException("Unexpected protocol: " + protocol);
+                        }
+                    }
+                });
+            }
+        });
 
-		return channelFuture;
-	}
+        final ChannelFuture channelFuture = bootstrap.bind(this.port);
+        this.channel = channelFuture.channel();
 
-	public ChannelFuture shutdown() {
-		// TODO Make sure this does graceful shutdown things
-		return this.channel.close();
-	}
+        return channelFuture;
+    }
+
+    public void registerToken(final String token) {
+        this.registeredTokens.add(token.toLowerCase());
+    }
+
+    protected boolean isTokenRegistered(final String token) {
+        return this.registeredTokens.contains(token.toLowerCase());
+    }
+
+    public void reset() {
+        this.registeredTokens.clear();
+    }
+
+    public ChannelFuture shutdown() {
+        // TODO Make sure this does graceful shutdown things
+        return this.channel.close();
+    }
 }

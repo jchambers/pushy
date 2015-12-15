@@ -51,7 +51,10 @@ public class ApnsClientTest {
 
     @Test
     public void testSendNotification() throws Exception {
+        final String testToken = TokenTestUtil.generateRandomToken();
+
         final MockApnsServer server = new MockApnsServer(8443, EVENT_LOOP_GROUP);
+        server.registerToken(testToken);
         server.start().await();
 
         final ApnsClient<SimpleApnsPushNotification> client =
@@ -59,7 +62,7 @@ public class ApnsClientTest {
 
         client.connect().get();
 
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification("test-token", "test-payload");
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, "test-payload");
         final PushNotificationResponse<SimpleApnsPushNotification> response = client.sendNotification(pushNotification).get();
 
         assertTrue(response.isSuccess());
@@ -67,5 +70,4 @@ public class ApnsClientTest {
         client.close().await();
         server.shutdown().await();
     }
-
 }
