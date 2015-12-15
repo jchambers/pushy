@@ -1,5 +1,8 @@
 package com.relayrides.pushy.apns;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
@@ -16,12 +19,15 @@ import io.netty.handler.codec.http2.Http2FrameListener;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.util.AsciiString;
+import io.netty.util.concurrent.GenericFutureListener;
 
 class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionHandler implements Http2FrameListener {
 
     private int nextStreamId = 1;
 
     private final ApnsClient<T> client;
+
+    private final Map<Integer, T> pushNotificationsByStreamId = new HashMap<>();
 
     private static final String APNS_PATH_PREFIX = "/3/device/";
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
@@ -54,15 +60,17 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
     @Override
     public int onDataRead(final ChannelHandlerContext context, final int streamId, final ByteBuf data, final int padding, final boolean endOfStream) throws Http2Exception {
-        return data.readableBytes() + padding;
+        final int bytesProcessed = data.readableBytes() + padding;
+
+        return bytesProcessed;
     }
 
     @Override
     public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
-        if (headers.status().equals("200")) {
-            // We're not expecting any more data
+        if ("200".equals(headers.status().toString())) {
+            final T pushNotification = this.pushNotificationsByStreamId.remove(streamId);
+            this.client.handlePushNotificationResponse(new PushNotificationResponse<T>(pushNotification, true));
         } else {
-
         }
     }
 
@@ -114,16 +122,15 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
     @Override
     public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise promise) {
-        if (!(message instanceof ApnsPushNotification)) {
-            context.write(message, promise);
-        } else {
-            final ApnsPushNotification pushNotification = (ApnsPushNotification) message;
+        try {
+            // We'll catch class cast issues gracefully
+            @SuppressWarnings("unchecked")
+            final T pushNotification = (T) message;
+
             final int streamId = this.nextStreamId;
 
             // TODO Even though it's very unlikely, make sure that we don't run out of stream IDs
             this.nextStreamId += 2;
-
-            final ChannelPromiseAggregator promiseAggregator = new ChannelPromiseAggregator(promise);
 
             final Http2Headers headers = new DefaultHttp2Headers()
                     .method("POST")
@@ -137,7 +144,20 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
             final ChannelPromise dataPromise = context.newPromise();
             this.encoder().writeData(context, streamId, Unpooled.wrappedBuffer(pushNotification.getPayload().getBytes()), 0, true, dataPromise);
 
+            final ChannelPromiseAggregator promiseAggregator = new ChannelPromiseAggregator(promise);
             promiseAggregator.add(headersPromise, dataPromise);
+
+            promise.addListener(new GenericFutureListener<ChannelPromise>() {
+
+                @Override
+                public void operationComplete(final ChannelPromise future) throws Exception {
+                    if (future.isSuccess()) {
+                        ApnsClientHandler.this.pushNotificationsByStreamId.put(streamId, pushNotification);
+                    }
+                }
+            });
+        } catch (final ClassCastException e) {
+            context.write(message, promise);
         }
     }
 }
