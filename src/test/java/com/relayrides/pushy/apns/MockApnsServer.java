@@ -134,7 +134,6 @@ public class MockApnsServer {
     }
 
     public ChannelFuture shutdown() {
-        // TODO Make sure this does graceful shutdown things
         return this.channel.close();
     }
 }
