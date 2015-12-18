@@ -22,6 +22,9 @@ public class ApnsClientTest {
     private static final String CLIENT_KEYSTORE_FILENAME = "/pushy-test-client.jks";
     private static final String CLIENT_KEYSTORE_PASSWORD = "pushy-test";
 
+    private MockApnsServer server;
+    private ApnsClient<SimpleApnsPushNotification> client;
+
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {
         ApnsClientTest.EVENT_LOOP_GROUP = new NioEventLoopGroup();
@@ -38,10 +41,17 @@ public class ApnsClientTest {
 
     @Before
     public void setUp() throws Exception {
+        this.server = new MockApnsServer(8443, EVENT_LOOP_GROUP);
+        this.server.start().await();
+
+        this.client = new ApnsClient<>("localhost", 8443, CLIENT_KEY_STORE, CLIENT_KEYSTORE_PASSWORD, EVENT_LOOP_GROUP);
+        this.client.connect().get();
     }
 
     @After
     public void tearDown() throws Exception {
+        this.client.close().await();
+        this.server.shutdown().await();
     }
 
     @AfterClass
@@ -53,21 +63,12 @@ public class ApnsClientTest {
     public void testSendNotification() throws Exception {
         final String testToken = TokenTestUtil.generateRandomToken();
 
-        final MockApnsServer server = new MockApnsServer(8443, EVENT_LOOP_GROUP);
-        server.registerToken(testToken);
-        server.start().await();
-
-        final ApnsClient<SimpleApnsPushNotification> client =
-                new ApnsClient<>("localhost", 8443, CLIENT_KEY_STORE, CLIENT_KEYSTORE_PASSWORD, EVENT_LOOP_GROUP);
-
-        client.connect().get();
+        this.server.registerToken(testToken);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, "test-payload");
-        final PushNotificationResponse<SimpleApnsPushNotification> response = client.sendNotification(pushNotification).get();
+        final PushNotificationResponse<SimpleApnsPushNotification> response =
+                this.client.sendNotification(pushNotification).get();
 
         assertTrue(response.isSuccess());
-
-        client.close().await();
-        server.shutdown().await();
     }
 }
