@@ -12,12 +12,14 @@ import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.group.ChannelGroup;
+import io.netty.channel.group.ChannelGroupFuture;
+import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http2.Http2FrameLogger;
@@ -45,7 +47,7 @@ public class MockApnsServer {
 
     private final Set<String> registeredTokens = new HashSet<>();
 
-    private Channel channel;
+    private ChannelGroup allChannels;
 
     private static final String SERVER_KEYSTORE_FILE_NAME = "/pushy-test-server.jks";
     private static final char[] KEYSTORE_PASSWORD = "pushy-test".toCharArray();
@@ -107,6 +109,8 @@ public class MockApnsServer {
                                     .frameLogger(new Http2FrameLogger(INFO, MockApnsServer.class))
                                     .apnsServer(MockApnsServer.this)
                                     .build());
+
+                            MockApnsServer.this.allChannels.add(context.channel());
                         } else {
                             throw new IllegalStateException("Unexpected protocol: " + protocol);
                         }
@@ -116,7 +120,9 @@ public class MockApnsServer {
         });
 
         final ChannelFuture channelFuture = bootstrap.bind(this.port);
-        this.channel = channelFuture.channel();
+
+        this.allChannels = new DefaultChannelGroup(channelFuture.channel().eventLoop(), true);
+        this.allChannels.add(channelFuture.channel());
 
         return channelFuture;
     }
@@ -133,7 +139,7 @@ public class MockApnsServer {
         this.registeredTokens.clear();
     }
 
-    public ChannelFuture shutdown() {
-        return this.channel.close();
+    public ChannelGroupFuture shutdown() {
+        return this.allChannels.close();
     }
 }
