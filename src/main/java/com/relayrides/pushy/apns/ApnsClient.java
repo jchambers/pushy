@@ -2,13 +2,12 @@ package com.relayrides.pushy.apns;
 
 import static io.netty.handler.logging.LogLevel.INFO;
 
-import java.io.Closeable;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-
+import java.util.concurrent.TimeUnit;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -44,7 +43,7 @@ import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
 
-public class ApnsClient<T extends ApnsPushNotification> implements Closeable {
+public class ApnsClient<T extends ApnsPushNotification> {
 
     private final EventLoopGroup eventLoopGroup;
     private final Bootstrap bootstrap;
@@ -57,6 +56,74 @@ public class ApnsClient<T extends ApnsPushNotification> implements Closeable {
 
     private static final String APNS_PATH_PREFIX = "/3/device/";
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
+
+    private static class FailedFuture<V> implements Future<V> {
+
+        private final Throwable cause;
+
+        public FailedFuture(final Throwable cause) {
+            this.cause = cause;
+        }
+
+        @Override
+        public boolean cancel(final boolean mayInterruptIfRunning) {
+            return false;
+        }
+
+        @Override
+        public boolean isCancelled() {
+            return false;
+        }
+
+        @Override
+        public boolean isDone() {
+            return true;
+        }
+
+        @Override
+        public V get() throws ExecutionException {
+            throw new ExecutionException(this.cause);
+        }
+
+        @Override
+        public V get(final long timeout, final TimeUnit unit) throws ExecutionException {
+            return this.get();
+        }
+    }
+
+    private static class SuccessfulFuture<V> implements Future<V> {
+
+        private final V value;
+
+        public SuccessfulFuture(final V value) {
+            this.value = value;
+        }
+
+        @Override
+        public boolean cancel(final boolean mayInterruptIfRunning) {
+            return false;
+        }
+
+        @Override
+        public boolean isCancelled() {
+            return false;
+        }
+
+        @Override
+        public boolean isDone() {
+            return true;
+        }
+
+        @Override
+        public V get() {
+            return this.value;
+        }
+
+        @Override
+        public V get(final long timeout, final TimeUnit unit) {
+            return this.get();
+        }
+    }
 
     private class ApnsClientHandlerBuilder extends BuilderBase<ApnsClientHandler, ApnsClientHandlerBuilder> {
         @Override
@@ -324,16 +391,20 @@ public class ApnsClient<T extends ApnsPushNotification> implements Closeable {
         promise.setSuccess(response);
     }
 
-    @Override
-    public void close() throws IOException {
-        // TODO Cancel in-progress connection attempts
-        // TODO Synchronize everything
-        if (this.channel != null) {
-            try {
-                this.channel.close().await();
-            } catch (final InterruptedException e) {
-                throw new IOException(e);
+    public Future<Void> disconnect() {
+        final Future<Void> disconnectFuture;
+
+        synchronized (this.bootstrap) {
+            if (this.connectFuture != null) {
+                this.connectFuture.cancel(false);
+                this.connectFuture.channel().close();
+
+                disconnectFuture = this.connectFuture.channel().closeFuture();
+            } else {
+                disconnectFuture = new SuccessfulFuture<Void>(null);
             }
         }
+
+        return disconnectFuture;
     }
 }

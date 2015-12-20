@@ -67,7 +67,7 @@ public class ApnsClientTest {
 
     @After
     public void tearDown() throws Exception {
-        this.client.close();
+        this.client.disconnect().get();
         this.server.shutdown().await();
     }
 
@@ -83,7 +83,7 @@ public class ApnsClientTest {
                 EVENT_LOOP_GROUP);
 
         untrustedClient.connect("localhost", 8443).get();
-        untrustedClient.close();
+        untrustedClient.disconnect().get();
     }
 
     @Test
