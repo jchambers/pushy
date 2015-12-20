@@ -10,6 +10,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.Security;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.util.Random;
 import java.util.concurrent.ExecutionException;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -46,6 +47,8 @@ public class ApnsClientTest {
 
     private static final String DEFAULT_ALGORITHM = "SunX509";
 
+    private static final int TOKEN_LENGTH = 32; // bytes
+
     private MockApnsServer server;
     private ApnsClient<SimpleApnsPushNotification> client;
 
@@ -60,7 +63,8 @@ public class ApnsClientTest {
         this.server.start().await();
 
         this.client = new ApnsClient<>(
-                this.getSslContextForTestClient(CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD), EVENT_LOOP_GROUP);
+                ApnsClientTest.getSslContextForTestClient(CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
+                EVENT_LOOP_GROUP);
 
         this.client.connect("localhost", 8443).get();
     }
@@ -79,7 +83,7 @@ public class ApnsClientTest {
     @Test(expected = ExecutionException.class)
     public void testConnectWithUntrustedCertificate() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> untrustedClient = new ApnsClient<>(
-                this.getSslContextForTestClient(UNTRUSTED_CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
+                ApnsClientTest.getSslContextForTestClient(UNTRUSTED_CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
                 EVENT_LOOP_GROUP);
 
         untrustedClient.connect("localhost", 8443).get();
@@ -88,7 +92,7 @@ public class ApnsClientTest {
 
     @Test
     public void testSendNotification() throws Exception {
-        final String testToken = TokenTestUtil.generateRandomToken();
+        final String testToken = ApnsClientTest.generateRandomToken();
 
         this.server.registerToken(testToken);
 
@@ -99,7 +103,21 @@ public class ApnsClientTest {
         assertTrue(response.isSuccess());
     }
 
-    private SslContext getSslContextForTestClient(final String keyStoreFilename, final String keyStorePassword) throws NoSuchAlgorithmException, KeyStoreException, UnrecoverableKeyException, IOException, CertificateException {
+    @Test(expected = ExecutionException.class)
+    public void testSendNotificationBeforeConnected() throws Exception {
+        final ApnsClient<SimpleApnsPushNotification> unconnectedClient = new ApnsClient<>(
+                ApnsClientTest.getSslContextForTestClient(CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
+                EVENT_LOOP_GROUP);
+
+        final String testToken = ApnsClientTest.generateRandomToken();
+
+        this.server.registerToken(testToken);
+
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, "test-payload");
+        unconnectedClient.sendNotification(pushNotification).get();
+    }
+
+    private static SslContext getSslContextForTestClient(final String keyStoreFilename, final String keyStorePassword) throws NoSuchAlgorithmException, KeyStoreException, UnrecoverableKeyException, IOException, CertificateException {
         final String algorithm;
         {
             final String algorithmFromSecurityProperties = Security.getProperty("ssl.KeyManagerFactory.algorithm");
@@ -132,5 +150,25 @@ public class ApnsClientTest {
                         SelectedListenerFailureBehavior.ACCEPT,
                         ApplicationProtocolNames.HTTP_2))
                 .build();
+    }
+
+    private static String generateRandomToken() {
+        final byte[] tokenBytes = new byte[TOKEN_LENGTH];
+        new Random().nextBytes(tokenBytes);
+
+        final StringBuilder builder = new StringBuilder(TOKEN_LENGTH * 2);
+
+        for (final byte b : tokenBytes) {
+            final String hexString = Integer.toHexString(b & 0xff);
+
+            if (hexString.length() == 1) {
+                // We need a leading zero
+                builder.append('0');
+            }
+
+            builder.append(hexString);
+        }
+
+        return builder.toString();
     }
 }
