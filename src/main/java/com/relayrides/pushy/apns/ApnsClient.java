@@ -40,12 +40,8 @@ import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 
 public class ApnsClient<T extends ApnsPushNotification> {
 
-    private final String hostname;
-    private final int port;
-
-    private final SslContext sslContext;
-
     private final EventLoopGroup eventLoopGroup;
+    private final Bootstrap bootstrap;
 
     private Promise<Void> prefacePromise;
 
@@ -54,9 +50,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private static final String DEFAULT_ALGORITHM = "SunX509";
 
-    public ApnsClient(final String hostname, final int port, final KeyStore keyStore, final String keyStorePassword, final EventLoopGroup eventLoopGroup) {
-        this.hostname = hostname;
-        this.port = port;
+    public ApnsClient(final KeyStore keyStore, final String keyStorePassword, final EventLoopGroup eventLoopGroup) {
         this.eventLoopGroup = eventLoopGroup;
 
         String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
@@ -64,6 +58,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
         if (algorithm == null) {
             algorithm = DEFAULT_ALGORITHM;
         }
+
+        final SslContext sslContext;
 
         try {
             if (keyStore.size() == 0) {
@@ -77,40 +73,36 @@ public class ApnsClient<T extends ApnsPushNotification> {
             final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(algorithm);
             keyManagerFactory.init(keyStore, keyStorePassword.toCharArray());
 
-            this.sslContext = SslContextBuilder.forClient()
+            sslContext = SslContextBuilder.forClient()
                     .sslProvider(OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK)
                     .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
                     .keyManager(keyManagerFactory)
                     .trustManager(trustManagerFactory)
-                    .applicationProtocolConfig(
-                            new ApplicationProtocolConfig(Protocol.ALPN, SelectorFailureBehavior.NO_ADVERTISE,
-                                    SelectedListenerFailureBehavior.ACCEPT, ApplicationProtocolNames.HTTP_2))
+                    .applicationProtocolConfig(new ApplicationProtocolConfig(Protocol.ALPN,
+                            SelectorFailureBehavior.NO_ADVERTISE,
+                            SelectedListenerFailureBehavior.ACCEPT,
+                            ApplicationProtocolNames.HTTP_2))
                     .build();
         } catch (final Exception e) {
             throw new RuntimeException("Could not initialize SSL context.", e);
         }
-    }
 
-    public Future<Void> connect() {
-        final Bootstrap bootstrap = new Bootstrap();
-        bootstrap.group(this.eventLoopGroup);
-        bootstrap.channel(NioSocketChannel.class);
-        bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
-        bootstrap.option(ChannelOption.TCP_NODELAY, true);
-        bootstrap.remoteAddress(this.hostname, this.port);
-        bootstrap.handler(new ChannelInitializer<SocketChannel>() {
+        this.bootstrap = new Bootstrap();
+        this.bootstrap.group(this.eventLoopGroup);
+        this.bootstrap.channel(NioSocketChannel.class);
+        this.bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+        this.bootstrap.option(ChannelOption.TCP_NODELAY, true);
+        this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
             @Override
             protected void initChannel(final SocketChannel channel) throws Exception {
                 final ChannelPipeline pipeline = channel.pipeline();
-                pipeline.addLast(ApnsClient.this.sslContext.newHandler(channel.alloc()));
-
+                pipeline.addLast(sslContext.newHandler(channel.alloc()));
                 pipeline.addLast(new ApplicationProtocolNegotiationHandler("") {
                     @Override
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                            context.pipeline()
-                            .addLast(new ApnsClientHandler.Builder<T>()
+                            context.pipeline().addLast(new ApnsClientHandler.Builder<T>()
                                     .frameLogger(new Http2FrameLogger(INFO, ApnsClient.class))
                                     .server(false)
                                     .encoderEnforceMaxConcurrentStreams(true)
@@ -124,8 +116,10 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 });
             }
         });
+    }
 
-        final ChannelFuture channelFuture = bootstrap.connect();
+    public Future<Void> connect(final String hostname, final int port) {
+        final ChannelFuture channelFuture = this.bootstrap.connect(hostname, port);
         this.channel = channelFuture.channel();
 
         this.prefacePromise = this.channel.newPromise();

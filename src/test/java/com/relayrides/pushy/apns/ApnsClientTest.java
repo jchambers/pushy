@@ -47,8 +47,8 @@ public class ApnsClientTest {
         this.server = new MockApnsServer(8443, EVENT_LOOP_GROUP);
         this.server.start().await();
 
-        this.client = new ApnsClient<>("localhost", 8443, CLIENT_KEY_STORE, CLIENT_KEYSTORE_PASSWORD, EVENT_LOOP_GROUP);
-        this.client.connect().get();
+        this.client = new ApnsClient<>(CLIENT_KEY_STORE, CLIENT_KEYSTORE_PASSWORD, EVENT_LOOP_GROUP);
+        this.client.connect("localhost", 8443).get();
     }
 
     @After
@@ -84,10 +84,10 @@ public class ApnsClientTest {
         }
 
         final ApnsClient<SimpleApnsPushNotification> untrustedClient =
-                new ApnsClient<>("localhost", 8443, CLIENT_KEY_STORE, CLIENT_KEYSTORE_PASSWORD, EVENT_LOOP_GROUP);
+                new ApnsClient<>(CLIENT_KEY_STORE, CLIENT_KEYSTORE_PASSWORD, EVENT_LOOP_GROUP);
 
         try {
-            untrustedClient.connect().get();
+            untrustedClient.connect("localhost", 8443).get();
             fail("Connection attempt should fail due to untrusted certificate.");
         } catch (final ExecutionException e) {
             untrustedClient.close().await();
