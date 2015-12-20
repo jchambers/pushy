@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -35,24 +36,20 @@ import io.netty.handler.codec.http2.Http2FrameListener;
 import io.netty.handler.codec.http2.Http2FrameLogger;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Settings;
+import io.netty.handler.ssl.ApplicationProtocolNames;
+import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
+import io.netty.handler.ssl.SslContext;
 import io.netty.util.AsciiString;
 import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
-import io.netty.util.concurrent.ScheduledFuture;
-import io.netty.handler.ssl.ApplicationProtocolNames;
-import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
-import io.netty.handler.ssl.SslContext;
 
 public class ApnsClient<T extends ApnsPushNotification> {
 
     private final EventLoopGroup eventLoopGroup;
     private final Bootstrap bootstrap;
 
-    private boolean shouldReconnect;
-
     private ChannelFuture connectFuture;
-    private ScheduledFuture<?> reconnectionFuture;
     private ChannelPromise connectionReadyPromise;
     private Channel channel;
 
@@ -315,13 +312,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     public Future<Void> connect(final String host, final int port) {
         synchronized (this.bootstrap) {
-            this.shouldReconnect = true;
-            return this.openConnection(host, port);
-        }
-    }
-
-    private Future<Void> openConnection(final String host, final int port) {
-        synchronized (this.bootstrap) {
             // We only want to begin a connection attempt if one is not already in progress or complete; if we already
             // have a connection future, just return the existing promise.
             if (this.connectFuture == null) {
@@ -366,10 +356,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
                             ApnsClient.this.channel = null;
                             ApnsClient.this.connectionReadyPromise = null;
                             ApnsClient.this.connectFuture = null;
-
-                            if (ApnsClient.this.shouldReconnect) {
-                                ApnsClient.this.scheduleReconnectionAttempt(host, port);
-                            }
                         }
                     }
                 });
@@ -377,18 +363,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
             return this.connectionReadyPromise;
         }
-    }
-
-    private void scheduleReconnectionAttempt(final String host, final int port) {
-        assert this.reconnectionFuture == null;
-
-        this.reconnectionFuture = this.eventLoopGroup.schedule(new Runnable() {
-
-            @Override
-            public void run() {
-                ApnsClient.this.openConnection(host, port);
-            }
-        }, 100, TimeUnit.MILLISECONDS);
     }
 
     public Future<PushNotificationResponse<T>> sendNotification(final T notification) {
@@ -427,13 +401,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
         final Future<Void> disconnectFuture;
 
         synchronized (this.bootstrap) {
-            this.shouldReconnect = false;
-
-            if (this.reconnectionFuture != null) {
-                this.reconnectionFuture.cancel(false);
-                this.reconnectionFuture = null;
-            }
-
             if (this.connectFuture != null) {
                 this.connectFuture.cancel(false);
                 this.connectFuture.channel().close();
