@@ -2,6 +2,8 @@ package com.relayrides.pushy.apns;
 
 import static io.netty.handler.logging.LogLevel.INFO;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.IdentityHashMap;
 import java.util.concurrent.Future;
 
@@ -25,7 +27,7 @@ import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
 
-public class ApnsClient<T extends ApnsPushNotification> {
+public class ApnsClient<T extends ApnsPushNotification> implements Closeable {
 
     static final AttributeKey<ChannelPromise> PREFACE_PROMISE_KEY = AttributeKey.newInstance("pushyPrefacePromise");
 
@@ -150,8 +152,16 @@ public class ApnsClient<T extends ApnsPushNotification> {
         promise.setSuccess(response);
     }
 
-    public ChannelFuture close() {
-        // TODO Graceful shutdown things
-        return this.channel.close();
+    @Override
+    public void close() throws IOException {
+        // TODO Cancel in-progress connection attempts
+        // TODO Synchronize everything
+        if (this.channel != null) {
+            try {
+                this.channel.close().await();
+            } catch (final InterruptedException e) {
+                throw new IOException(e);
+            }
+        }
     }
 }

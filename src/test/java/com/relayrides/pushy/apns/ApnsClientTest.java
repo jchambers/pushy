@@ -67,7 +67,7 @@ public class ApnsClientTest {
 
     @After
     public void tearDown() throws Exception {
-        this.client.close().await();
+        this.client.close();
         this.server.shutdown().await();
     }
 
@@ -76,18 +76,14 @@ public class ApnsClientTest {
         ApnsClientTest.EVENT_LOOP_GROUP.shutdownGracefully().await();
     }
 
-    @Test
+    @Test(expected = ExecutionException.class)
     public void testConnectWithUntrustedCertificate() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> untrustedClient = new ApnsClient<>(
                 this.getSslContextForTestClient(UNTRUSTED_CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
                 EVENT_LOOP_GROUP);
 
-        try {
-            untrustedClient.connect("localhost", 8443).get();
-            fail("Connection attempt should fail due to untrusted certificate.");
-        } catch (final ExecutionException e) {
-            untrustedClient.close().await();
-        }
+        untrustedClient.connect("localhost", 8443).get();
+        untrustedClient.close();
     }
 
     @Test
