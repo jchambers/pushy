@@ -7,6 +7,8 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.json.simple.JSONObject;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
@@ -85,12 +87,12 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     @Override
     public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
         if (!HttpMethod.POST.asciiName().contentEquals(headers.get(Http2Headers.PseudoHeaderName.METHOD.value()))) {
-            this.sendErrorResponse(context, streamId, HttpResponseStatus.METHOD_NOT_ALLOWED, "Method not allowed", null);
+            this.sendErrorResponse(context, streamId, ErrorReason.METHOD_NOT_ALLOWED, null);
             return;
         }
 
         if (endOfStream) {
-            this.sendErrorResponse(context, streamId, HttpResponseStatus.BAD_REQUEST, "No payload", null);
+            this.sendErrorResponse(context, streamId, ErrorReason.PAYLOAD_EMPTY, null);
             return;
         }
 
@@ -98,10 +100,10 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             final Integer contentLength = headers.getInt(HttpHeaderNames.CONTENT_LENGTH);
 
             if (contentLength != null && contentLength > MAX_CONTENT_LENGTH) {
-                this.sendErrorResponse(context, streamId, HttpResponseStatus.BAD_REQUEST, "Payload too large", null);
+                this.sendErrorResponse(context, streamId, ErrorReason.PAYLOAD_TOO_LARGE, null);
                 return;
             } else if (contentLength == null) {
-                this.sendErrorResponse(context, streamId, HttpResponseStatus.LENGTH_REQUIRED, "No payload", null);
+                this.sendErrorResponse(context, streamId, ErrorReason.PAYLOAD_EMPTY, null);
                 return;
             }
         }
@@ -118,17 +120,17 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
                     final Matcher tokenMatcher = TOKEN_PATTERN.matcher(tokenString);
 
                     if (!tokenMatcher.matches()) {
-                        this.sendErrorResponse(context, streamId, HttpResponseStatus.BAD_REQUEST, "Malformed token", null);
+                        this.sendErrorResponse(context, streamId, ErrorReason.BAD_DEVICE_TOKEN, null);
                         return;
                     }
 
                     if (!this.apnsServer.isTokenRegistered(tokenString)) {
-                        this.sendErrorResponse(context, streamId, HttpResponseStatus.BAD_REQUEST, "Token not registered", null);
+                        this.sendErrorResponse(context, streamId, ErrorReason.DEVICE_TOKEN_NOT_FOR_TOPIC, null);
                         return;
                     }
                 }
             } else {
-                this.sendErrorResponse(context, streamId, HttpResponseStatus.NOT_FOUND, "Not found", null);
+                this.sendErrorResponse(context, streamId, ErrorReason.BAD_PATH, null);
                 return;
             }
         }
@@ -202,14 +204,28 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         context.flush();
     }
 
-    private void sendErrorResponse(final ChannelHandlerContext context, final int streamId, final HttpResponseStatus responseStatus, final String reason, final Date timestamp) {
+    @SuppressWarnings("unchecked")
+    private void sendErrorResponse(final ChannelHandlerContext context, final int streamId, final ErrorReason reason, final Date timestamp) {
         final Http2Headers headers = new DefaultHttp2Headers();
-        headers.status(responseStatus.codeAsText());
+        headers.status(reason.getHttpResponseStatus().codeAsText());
         headers.add(HttpHeaderNames.CONTENT_TYPE, "application/json");
-        headers.addInt(HttpHeaderNames.CONTENT_LENGTH, reason.getBytes().length);
+
+        final byte[] payloadBytes;
+        {
+            final JSONObject payload = new JSONObject();
+            payload.put("reason", reason.getReasonText());
+
+            if (timestamp != null) {
+                payload.put("timestamp", timestamp.getTime() / 1000);
+            }
+
+            payloadBytes = payload.toString().getBytes();
+        }
+
+        headers.addInt(HttpHeaderNames.CONTENT_LENGTH, payloadBytes.length);
 
         this.encoder().writeHeaders(context, streamId, headers, 0, false, context.newPromise());
-        this.encoder().writeData(context, streamId, Unpooled.wrappedBuffer(reason.getBytes()), 0, true, context.newPromise());
+        this.encoder().writeData(context, streamId, Unpooled.wrappedBuffer(payloadBytes), 0, true, context.newPromise());
 
         context.flush();
     }
