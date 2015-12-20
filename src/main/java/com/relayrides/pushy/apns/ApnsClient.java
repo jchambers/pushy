@@ -39,6 +39,7 @@ import io.netty.util.AsciiString;
 import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
+import io.netty.util.concurrent.ScheduledFuture;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
@@ -48,7 +49,10 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private final EventLoopGroup eventLoopGroup;
     private final Bootstrap bootstrap;
 
+    private boolean shouldReconnect;
+
     private ChannelFuture connectFuture;
+    private ScheduledFuture<?> reconnectionFuture;
     private ChannelPromise connectionReadyPromise;
     private Channel channel;
 
@@ -309,12 +313,19 @@ public class ApnsClient<T extends ApnsPushNotification> {
         });
     }
 
-    public Future<Void> connect(final String hostname, final int port) {
+    public Future<Void> connect(final String host, final int port) {
+        synchronized (this.bootstrap) {
+            this.shouldReconnect = true;
+            return this.openConnection(host, port);
+        }
+    }
+
+    private Future<Void> openConnection(final String host, final int port) {
         synchronized (this.bootstrap) {
             // We only want to begin a connection attempt if one is not already in progress or complete; if we already
             // have a connection future, just return the existing promise.
             if (this.connectFuture == null) {
-                this.connectFuture = this.bootstrap.connect(hostname, port);
+                this.connectFuture = this.bootstrap.connect(host, port);
                 this.connectionReadyPromise = this.connectFuture.channel().newPromise();
 
                 this.connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
@@ -327,17 +338,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
                     }
                 });
 
-                this.connectFuture.channel().closeFuture().addListener(new GenericFutureListener<ChannelFuture> () {
-
-                    @Override
-                    public void operationComplete(final ChannelFuture future) throws Exception {
-                        ApnsClient.this.connectionReadyPromise.tryFailure(
-                                new IllegalStateException("Channel closed before HTTP/2 preface completed."));
-
-                        // TODO Try to reconnect if appropriate
-                    }
-                });
-
                 this.connectionReadyPromise.addListener(new GenericFutureListener<ChannelFuture> () {
 
                     @Override
@@ -346,9 +346,29 @@ public class ApnsClient<T extends ApnsPushNotification> {
                             if (future.isSuccess()) {
                                 ApnsClient.this.channel = future.channel();
                             } else {
-                                ApnsClient.this.connectFuture = null;
-                                ApnsClient.this.connectionReadyPromise = null;
-                                ApnsClient.this.channel = null;
+                                // The channel closure listener will deal with cleanup
+                                future.channel().close();
+                            }
+                        }
+                    }
+                });
+
+                this.connectFuture.channel().closeFuture().addListener(new GenericFutureListener<ChannelFuture> () {
+
+                    @Override
+                    public void operationComplete(final ChannelFuture future) throws Exception {
+                        // We always want to try to fail the "connection ready" promise if the connection closes; if
+                        // it has already succeeded, this will have no effect.
+                        ApnsClient.this.connectionReadyPromise.tryFailure(
+                                new IllegalStateException("Channel closed before HTTP/2 preface completed."));
+
+                        synchronized (ApnsClient.this.bootstrap) {
+                            ApnsClient.this.channel = null;
+                            ApnsClient.this.connectionReadyPromise = null;
+                            ApnsClient.this.connectFuture = null;
+
+                            if (ApnsClient.this.shouldReconnect) {
+                                ApnsClient.this.scheduleReconnectionAttempt(host, port);
                             }
                         }
                     }
@@ -357,6 +377,18 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
             return this.connectionReadyPromise;
         }
+    }
+
+    private void scheduleReconnectionAttempt(final String host, final int port) {
+        assert this.reconnectionFuture == null;
+
+        this.reconnectionFuture = this.eventLoopGroup.schedule(new Runnable() {
+
+            @Override
+            public void run() {
+                ApnsClient.this.openConnection(host, port);
+            }
+        }, 100, TimeUnit.MILLISECONDS);
     }
 
     public Future<PushNotificationResponse<T>> sendNotification(final T notification) {
@@ -395,6 +427,13 @@ public class ApnsClient<T extends ApnsPushNotification> {
         final Future<Void> disconnectFuture;
 
         synchronized (this.bootstrap) {
+            this.shouldReconnect = false;
+
+            if (this.reconnectionFuture != null) {
+                this.reconnectionFuture.cancel(false);
+                this.reconnectionFuture = null;
+            }
+
             if (this.connectFuture != null) {
                 this.connectFuture.cancel(false);
                 this.connectFuture.channel().close();
