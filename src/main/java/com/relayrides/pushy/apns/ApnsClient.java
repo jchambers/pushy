@@ -2,14 +2,8 @@ package com.relayrides.pushy.apns;
 
 import static io.netty.handler.logging.LogLevel.INFO;
 
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.Security;
 import java.util.IdentityHashMap;
 import java.util.concurrent.Future;
-
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.TrustManagerFactory;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -23,22 +17,13 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http2.Http2FrameLogger;
-import io.netty.handler.codec.http2.Http2SecurityUtil;
-import io.netty.handler.ssl.ApplicationProtocolConfig;
-import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
 import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
-import io.netty.handler.ssl.OpenSsl;
 import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.handler.ssl.SslProvider;
-import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 
 public class ApnsClient<T extends ApnsPushNotification> {
 
@@ -51,44 +36,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private final IdentityHashMap<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
 
-    private static final String DEFAULT_ALGORITHM = "SunX509";
-
-    public ApnsClient(final KeyStore keyStore, final String keyStorePassword, final EventLoopGroup eventLoopGroup) {
+    public ApnsClient(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
         this.eventLoopGroup = eventLoopGroup;
-
-        String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
-
-        if (algorithm == null) {
-            algorithm = DEFAULT_ALGORITHM;
-        }
-
-        final SslContext sslContext;
-
-        try {
-            if (keyStore.size() == 0) {
-                throw new KeyStoreException(
-                        "Keystore is empty; while this is legal for keystores in general, APNs clients must have at least one key.");
-            }
-
-            final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(algorithm);
-            trustManagerFactory.init((KeyStore) null);
-
-            final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(algorithm);
-            keyManagerFactory.init(keyStore, keyStorePassword.toCharArray());
-
-            sslContext = SslContextBuilder.forClient()
-                    .sslProvider(OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK)
-                    .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-                    .keyManager(keyManagerFactory)
-                    .trustManager(trustManagerFactory)
-                    .applicationProtocolConfig(new ApplicationProtocolConfig(Protocol.ALPN,
-                            SelectorFailureBehavior.NO_ADVERTISE,
-                            SelectedListenerFailureBehavior.ACCEPT,
-                            ApplicationProtocolNames.HTTP_2))
-                    .build();
-        } catch (final Exception e) {
-            throw new RuntimeException("Could not initialize SSL context.", e);
-        }
 
         this.bootstrap = new Bootstrap();
         this.bootstrap.group(this.eventLoopGroup);
