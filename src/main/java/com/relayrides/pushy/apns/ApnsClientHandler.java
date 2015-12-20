@@ -116,7 +116,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
     @Override
     public void onSettingsRead(final ChannelHandlerContext context, final Http2Settings settings) throws Http2Exception {
-        this.client.handleSettingsReceived();
+        context.channel().attr(ApnsClient.PREFACE_PROMISE_KEY).get().trySuccess();
     }
 
     @Override

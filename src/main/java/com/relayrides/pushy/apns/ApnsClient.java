@@ -18,6 +18,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
+import io.netty.channel.ChannelPromise;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -27,6 +28,7 @@ import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
+import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
@@ -40,12 +42,13 @@ import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 
 public class ApnsClient<T extends ApnsPushNotification> {
 
+    static final AttributeKey<ChannelPromise> PREFACE_PROMISE_KEY = AttributeKey.newInstance("pushyPrefacePromise");
+
     private final EventLoopGroup eventLoopGroup;
     private final Bootstrap bootstrap;
 
-    private Promise<Void> prefacePromise;
-
     private Channel channel;
+
     private final IdentityHashMap<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
 
     private static final String DEFAULT_ALGORITHM = "SunX509";
@@ -113,32 +116,57 @@ public class ApnsClient<T extends ApnsPushNotification> {
                             throw new IllegalStateException("Unexpected protocol: " + protocol);
                         }
                     }
+
+                    @Override
+                    protected void handshakeFailure(final ChannelHandlerContext context, final Throwable cause) throws Exception {
+                        super.handshakeFailure(context, cause);
+                        context.channel().attr(PREFACE_PROMISE_KEY).get().tryFailure(cause);
+                    }
                 });
             }
         });
     }
 
     public Future<Void> connect(final String hostname, final int port) {
-        final ChannelFuture channelFuture = this.bootstrap.connect(hostname, port);
-        this.channel = channelFuture.channel();
+        final ChannelFuture connectFuture = this.bootstrap.connect(hostname, port);
+        final ChannelPromise prefacePromise = connectFuture.channel().newPromise();
 
-        this.prefacePromise = this.channel.newPromise();
+        connectFuture.channel().attr(PREFACE_PROMISE_KEY).set(prefacePromise);
 
-        channelFuture.addListener(new GenericFutureListener<ChannelFuture>() {
+        connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
 
             @Override
             public void operationComplete(final ChannelFuture future) throws Exception {
                 if (!future.isSuccess()) {
-                    ApnsClient.this.prefacePromise.tryFailure(future.cause());
+                    future.channel().attr(PREFACE_PROMISE_KEY).get().tryFailure(future.cause());
                 }
             }
         });
 
-        return this.prefacePromise;
-    }
+        connectFuture.channel().closeFuture().addListener(new GenericFutureListener<ChannelFuture> () {
 
-    protected void handleSettingsReceived() {
-        this.prefacePromise.trySuccess(null);
+            @Override
+            public void operationComplete(final ChannelFuture future) throws Exception {
+                future.channel().attr(PREFACE_PROMISE_KEY).get().tryFailure(
+                        new IllegalStateException("Channel closed before HTTP/2 preface completed."));
+
+                // TODO Try to reconnect if appropriate
+            }
+        });
+
+        prefacePromise.addListener(new GenericFutureListener<ChannelFuture> () {
+
+            @Override
+            public void operationComplete(final ChannelFuture future) throws Exception {
+                if (future.isSuccess()) {
+                    ApnsClient.this.channel = future.channel();
+                } else {
+                    ApnsClient.this.channel = null;
+                }
+            }
+        });
+
+        return prefacePromise;
     }
 
     public Future<PushNotificationResponse<T>> sendNotification(final T notification) {
