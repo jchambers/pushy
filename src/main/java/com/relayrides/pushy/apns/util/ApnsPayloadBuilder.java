@@ -395,7 +395,6 @@ public class ApnsPayloadBuilder {
      *
      * @return a JSON representation of the payload under construction (possibly with an abbreviated alert body)
      */
-    @SuppressWarnings("unchecked")
     public String buildWithMaximumLength(final int maximumPayloadLength) {
         final HashMap<String, Object> payload = new HashMap<>();
 
@@ -502,7 +501,6 @@ public class ApnsPayloadBuilder {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private Object createAlertObject() {
         if (this.hasAlertContent()) {
             if (this.shouldRepresentAlertAsString()) {
