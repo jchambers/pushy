@@ -367,25 +367,34 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     public Future<PushNotificationResponse<T>> sendNotification(final T notification) {
 
-        // TODO Make sure we actually have a channel first
-        final DefaultPromise<PushNotificationResponse<T>> responsePromise =
-                new DefaultPromise<>(this.channel.eventLoop());
+        final Future<PushNotificationResponse<T>> responseFuture;
 
-        this.responsePromises.put(notification, responsePromise);
+        synchronized (this.bootstrap) {
+            if (this.channel != null) {
+                final DefaultPromise<PushNotificationResponse<T>> responsePromise =
+                        new DefaultPromise<>(this.channel.eventLoop());
 
-        this.channel.writeAndFlush(notification).addListener(new GenericFutureListener<ChannelFuture>() {
+                this.responsePromises.put(notification, responsePromise);
 
-            @Override
-            public void operationComplete(final ChannelFuture future) throws Exception {
-                if (!future.isSuccess()) {
-                    ApnsClient.this.responsePromises.remove(notification);
-                    responsePromise.setFailure(future.cause());
-                }
+                this.channel.writeAndFlush(notification).addListener(new GenericFutureListener<ChannelFuture>() {
+
+                    @Override
+                    public void operationComplete(final ChannelFuture future) throws Exception {
+                        if (!future.isSuccess()) {
+                            ApnsClient.this.responsePromises.remove(notification);
+                            responsePromise.setFailure(future.cause());
+                        }
+                    }
+                });
+
+                responseFuture = responsePromise;
+            } else {
+                responseFuture = new FailedFuture<PushNotificationResponse<T>>(
+                        new IllegalStateException("Not connected"));
             }
-        });
+        }
 
-        // TODO
-        return responsePromise;
+        return responseFuture;
     }
 
     protected void handlePushNotificationResponse(final PushNotificationResponse<T> response) {
