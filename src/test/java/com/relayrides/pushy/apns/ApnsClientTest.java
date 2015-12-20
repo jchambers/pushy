@@ -4,6 +4,8 @@ import static org.junit.Assert.*;
 
 import java.io.InputStream;
 import java.security.KeyStore;
+import java.util.concurrent.ExecutionException;
+
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -20,6 +22,7 @@ public class ApnsClientTest {
     private static KeyStore CLIENT_KEY_STORE;
 
     private static final String CLIENT_KEYSTORE_FILENAME = "/pushy-test-client.jks";
+    private static final String UNTRUSTED_CLIENT_KEYSTORE_FILENAME = "/pushy-test-client-untrusted.jks";
     private static final String CLIENT_KEYSTORE_PASSWORD = "pushy-test";
 
     private MockApnsServer server;
@@ -70,5 +73,24 @@ public class ApnsClientTest {
                 this.client.sendNotification(pushNotification).get();
 
         assertTrue(response.isSuccess());
+    }
+
+    public void testConnectWithUntrustedCertificate() throws Exception {
+        final KeyStore untrustedKeyStore;
+
+        try (final InputStream keyStoreInputStream = ApnsClientTest.class.getResourceAsStream(UNTRUSTED_CLIENT_KEYSTORE_FILENAME)) {
+            untrustedKeyStore = KeyStore.getInstance("JKS");
+            untrustedKeyStore.load(keyStoreInputStream, CLIENT_KEYSTORE_PASSWORD.toCharArray());
+        }
+
+        final ApnsClient<SimpleApnsPushNotification> untrustedClient =
+                new ApnsClient<>("localhost", 8443, CLIENT_KEY_STORE, CLIENT_KEYSTORE_PASSWORD, EVENT_LOOP_GROUP);
+
+        try {
+            untrustedClient.connect().get();
+            fail("Connection attempt should fail due to untrusted certificate.");
+        } catch (final ExecutionException e) {
+            untrustedClient.close().await();
+        }
     }
 }

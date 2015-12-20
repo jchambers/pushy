@@ -78,6 +78,8 @@ public class MockApnsServer {
             this.sslContext = SslContextBuilder.forServer(keyManagerFactory)
                     .sslProvider(provider)
                     .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
+                    .keyManager(keyManagerFactory)
+                    .trustManager(trustManagerFactory)
                     .applicationProtocolConfig(new ApplicationProtocolConfig(
                             Protocol.ALPN,
                             SelectorFailureBehavior.NO_ADVERTISE,

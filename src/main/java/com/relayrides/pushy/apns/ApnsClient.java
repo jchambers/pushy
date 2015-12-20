@@ -72,7 +72,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
             }
 
             final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(algorithm);
-            trustManagerFactory.init(keyStore);
+            trustManagerFactory.init((KeyStore) null);
 
             final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(algorithm);
             keyManagerFactory.init(keyStore, keyStorePassword.toCharArray());
@@ -80,7 +80,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
             this.sslContext = SslContextBuilder.forClient()
                     .sslProvider(OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK)
                     .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-                    .trustManager(trustManagerFactory).keyManager(keyManagerFactory)
+                    .keyManager(keyManagerFactory)
+                    .trustManager(trustManagerFactory)
                     .applicationProtocolConfig(
                             new ApplicationProtocolConfig(Protocol.ALPN, SelectorFailureBehavior.NO_ADVERTISE,
                                     SelectedListenerFailureBehavior.ACCEPT, ApplicationProtocolNames.HTTP_2))
@@ -117,7 +118,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                     .build());
                         } else {
                             context.close();
-                            throw new IllegalStateException("unknown protocol: " + protocol);
+                            throw new IllegalStateException("Unexpected protocol: " + protocol);
                         }
                     }
                 });
