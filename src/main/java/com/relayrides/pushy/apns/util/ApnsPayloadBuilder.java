@@ -22,11 +22,12 @@
 package com.relayrides.pushy.apns.util;
 
 import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 /**
  * <p>
@@ -77,6 +78,8 @@ public class ApnsPayloadBuilder {
     private static final int DEFAULT_PAYLOAD_SIZE = 2048;
 
     private static final Charset UTF8 = Charset.forName("UTF-8");
+
+    private static final Gson gson = new GsonBuilder().serializeNulls().create();
 
     /**
      * The name of the iOS default push notification sound ({@value DEFAULT_SOUND_FILENAME}).
@@ -394,10 +397,10 @@ public class ApnsPayloadBuilder {
      */
     @SuppressWarnings("unchecked")
     public String buildWithMaximumLength(final int maximumPayloadLength) {
-        final JSONObject payload = new JSONObject();
+        final HashMap<String, Object> payload = new HashMap<>();
 
         {
-            final JSONObject aps = new JSONObject();
+            final HashMap<String, Object> aps = new HashMap<>();
 
             if (this.badgeNumber != null) {
                 aps.put(BADGE_KEY, this.badgeNumber);
@@ -428,7 +431,7 @@ public class ApnsPayloadBuilder {
             payload.put(entry.getKey(), entry.getValue());
         }
 
-        final String payloadString = payload.toJSONString();
+        final String payloadString = gson.toJson(payload);
         final int initialPayloadLength = payloadString.getBytes(UTF8).length;
 
         if (initialPayloadLength <= maximumPayloadLength) {
@@ -437,7 +440,7 @@ public class ApnsPayloadBuilder {
             // TODO This could probably be more efficient
             if (this.alertBody != null) {
                 this.replaceMessageBody(payload, "");
-                final int payloadLengthWithEmptyMessage = payload.toJSONString().getBytes(UTF8).length;
+                final int payloadLengthWithEmptyMessage = gson.toJson(payload).getBytes(UTF8).length;
 
                 if (payloadLengthWithEmptyMessage > maximumPayloadLength) {
                     throw new IllegalArgumentException(
@@ -448,11 +451,11 @@ public class ApnsPayloadBuilder {
 
                 this.replaceMessageBody(payload, this.abbreviateString(this.alertBody, maximumMessageBodyLength--));
 
-                while (payload.toJSONString().getBytes(UTF8).length > maximumPayloadLength) {
+                while (gson.toJson(payload).getBytes(UTF8).length > maximumPayloadLength) {
                     this.replaceMessageBody(payload, this.abbreviateString(this.alertBody, maximumMessageBodyLength--));
                 }
 
-                return payload.toJSONString();
+                return gson.toJson(payload);
 
             } else {
                 throw new IllegalArgumentException(String.format(
@@ -463,15 +466,15 @@ public class ApnsPayloadBuilder {
     }
 
     @SuppressWarnings("unchecked")
-    private void replaceMessageBody(final JSONObject payload, final String messageBody) {
-        final JSONObject aps = (JSONObject) payload.get(APS_KEY);
+    private void replaceMessageBody(final Map<String, Object> payload, final String messageBody) {
+        final Map<String, Object> aps = (Map<String, Object>) payload.get(APS_KEY);
         final Object alert = aps.get(ALERT_KEY);
 
         if (alert != null) {
             if (alert instanceof String) {
                 aps.put(ALERT_KEY, messageBody);
             } else {
-                final JSONObject alertObject = (JSONObject) alert;
+                final Map<String, Object> alertObject = (Map<String, Object>) alert;
 
                 if (alertObject.get(ALERT_BODY_KEY) != null) {
                     alertObject.put(ALERT_BODY_KEY, messageBody);
@@ -505,7 +508,7 @@ public class ApnsPayloadBuilder {
             if (this.shouldRepresentAlertAsString()) {
                 return this.alertBody;
             } else {
-                final JSONObject alert = new JSONObject();
+                final HashMap<String, Object> alert = new HashMap<>();
 
                 if (this.alertBody != null) {
                     alert.put(ALERT_BODY_KEY, this.alertBody);
@@ -528,13 +531,7 @@ public class ApnsPayloadBuilder {
                     alert.put(ALERT_LOC_KEY, this.localizedAlertKey);
 
                     if (this.localizedAlertArguments != null) {
-                        final JSONArray alertArgs = new JSONArray();
-
-                        for (final String arg : this.localizedAlertArguments) {
-                            alertArgs.add(arg);
-                        }
-
-                        alert.put(ALERT_ARGS_KEY, alertArgs);
+                        alert.put(ALERT_ARGS_KEY, Arrays.asList(this.localizedAlertArguments));
                     }
                 }
 
@@ -542,13 +539,7 @@ public class ApnsPayloadBuilder {
                     alert.put(ALERT_TITLE_LOC_KEY, this.localizedAlertTitleKey);
 
                     if (this.localizedAlertTitleArguments != null) {
-                        final JSONArray alertTitleArgs = new JSONArray();
-
-                        for (final String arg : this.localizedAlertTitleArguments) {
-                            alertTitleArgs.add(arg);
-                        }
-
-                        alert.put(ALERT_TITLE_ARGS_KEY, alertTitleArgs);
+                        alert.put(ALERT_TITLE_ARGS_KEY, Arrays.asList(this.localizedAlertTitleArguments));
                     }
                 }
 

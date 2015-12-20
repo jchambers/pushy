@@ -7,7 +7,7 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.json.simple.JSONObject;
+import com.google.gson.Gson;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -42,6 +42,8 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     private static final String PATH_PREFIX = "/3/device/";
 
     private static final Pattern TOKEN_PATTERN = Pattern.compile("[0-9a-fA-F]{64}");
+
+    private static final Gson gson = new Gson();
 
     public static final class Builder extends BuilderBase<MockApnsServerHandler, Builder> {
         private MockApnsServer apnsServer;
@@ -204,7 +206,6 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         context.flush();
     }
 
-    @SuppressWarnings("unchecked")
     private void sendErrorResponse(final ChannelHandlerContext context, final int streamId, final ErrorReason reason, final Date timestamp) {
         final Http2Headers headers = new DefaultHttp2Headers();
         headers.status(reason.getHttpResponseStatus().codeAsText());
@@ -212,14 +213,8 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
         final byte[] payloadBytes;
         {
-            final JSONObject payload = new JSONObject();
-            payload.put("reason", reason.getReasonText());
-
-            if (timestamp != null) {
-                payload.put("timestamp", timestamp.getTime() / 1000);
-            }
-
-            payloadBytes = payload.toString().getBytes();
+            final ErrorResponse errorResponse = new ErrorResponse(reason.getReasonText(), timestamp);
+            payloadBytes = gson.toJson(errorResponse).getBytes();
         }
 
         headers.addInt(HttpHeaderNames.CONTENT_LENGTH, payloadBytes.length);
