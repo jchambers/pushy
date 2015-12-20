@@ -37,7 +37,6 @@ import io.netty.handler.codec.http2.Http2FrameLogger;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.util.AsciiString;
-import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
@@ -47,11 +46,11 @@ import io.netty.handler.ssl.SslContext;
 
 public class ApnsClient<T extends ApnsPushNotification> implements Closeable {
 
-    static final AttributeKey<ChannelPromise> PREFACE_PROMISE_KEY = AttributeKey.newInstance("pushyPrefacePromise");
-
     private final EventLoopGroup eventLoopGroup;
     private final Bootstrap bootstrap;
 
+    private ChannelFuture connectFuture;
+    private ChannelPromise connectionReadyPromise;
     private Channel channel;
 
     private final IdentityHashMap<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
@@ -135,7 +134,7 @@ public class ApnsClient<T extends ApnsPushNotification> implements Closeable {
 
         @Override
         public void onSettingsRead(final ChannelHandlerContext context, final Http2Settings settings) throws Http2Exception {
-            context.channel().attr(ApnsClient.PREFACE_PROMISE_KEY).get().trySuccess();
+            ApnsClient.this.connectionReadyPromise.trySuccess();
         }
 
         @Override
@@ -236,7 +235,7 @@ public class ApnsClient<T extends ApnsPushNotification> implements Closeable {
                     @Override
                     protected void handshakeFailure(final ChannelHandlerContext context, final Throwable cause) throws Exception {
                         super.handshakeFailure(context, cause);
-                        context.channel().attr(PREFACE_PROMISE_KEY).get().tryFailure(cause);
+                        ApnsClient.this.connectionReadyPromise.tryFailure(cause);
                     }
                 });
             }
@@ -244,45 +243,53 @@ public class ApnsClient<T extends ApnsPushNotification> implements Closeable {
     }
 
     public Future<Void> connect(final String hostname, final int port) {
-        final ChannelFuture connectFuture = this.bootstrap.connect(hostname, port);
-        final ChannelPromise prefacePromise = connectFuture.channel().newPromise();
+        synchronized (this.bootstrap) {
+            // We only want to begin a connection attempt if one is not already in progress or complete; if we already
+            // have a connection future, just return the existing promise.
+            if (this.connectFuture == null) {
+                this.connectFuture = this.bootstrap.connect(hostname, port);
+                this.connectionReadyPromise = this.connectFuture.channel().newPromise();
 
-        connectFuture.channel().attr(PREFACE_PROMISE_KEY).set(prefacePromise);
+                this.connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
 
-        connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
+                    @Override
+                    public void operationComplete(final ChannelFuture future) throws Exception {
+                        if (!future.isSuccess()) {
+                            ApnsClient.this.connectionReadyPromise.tryFailure(future.cause());
+                        }
+                    }
+                });
 
-            @Override
-            public void operationComplete(final ChannelFuture future) throws Exception {
-                if (!future.isSuccess()) {
-                    future.channel().attr(PREFACE_PROMISE_KEY).get().tryFailure(future.cause());
-                }
+                this.connectFuture.channel().closeFuture().addListener(new GenericFutureListener<ChannelFuture> () {
+
+                    @Override
+                    public void operationComplete(final ChannelFuture future) throws Exception {
+                        ApnsClient.this.connectionReadyPromise.tryFailure(
+                                new IllegalStateException("Channel closed before HTTP/2 preface completed."));
+
+                        // TODO Try to reconnect if appropriate
+                    }
+                });
+
+                this.connectionReadyPromise.addListener(new GenericFutureListener<ChannelFuture> () {
+
+                    @Override
+                    public void operationComplete(final ChannelFuture future) throws Exception {
+                        synchronized (ApnsClient.this.bootstrap) {
+                            if (future.isSuccess()) {
+                                ApnsClient.this.channel = future.channel();
+                            } else {
+                                ApnsClient.this.connectFuture = null;
+                                ApnsClient.this.connectionReadyPromise = null;
+                                ApnsClient.this.channel = null;
+                            }
+                        }
+                    }
+                });
             }
-        });
 
-        connectFuture.channel().closeFuture().addListener(new GenericFutureListener<ChannelFuture> () {
-
-            @Override
-            public void operationComplete(final ChannelFuture future) throws Exception {
-                future.channel().attr(PREFACE_PROMISE_KEY).get().tryFailure(
-                        new IllegalStateException("Channel closed before HTTP/2 preface completed."));
-
-                // TODO Try to reconnect if appropriate
-            }
-        });
-
-        prefacePromise.addListener(new GenericFutureListener<ChannelFuture> () {
-
-            @Override
-            public void operationComplete(final ChannelFuture future) throws Exception {
-                if (future.isSuccess()) {
-                    ApnsClient.this.channel = future.channel();
-                } else {
-                    ApnsClient.this.channel = null;
-                }
-            }
-        });
-
-        return prefacePromise;
+            return this.connectionReadyPromise;
+        }
     }
 
     public Future<PushNotificationResponse<T>> sendNotification(final T notification) {
