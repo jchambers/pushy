@@ -19,7 +19,7 @@ class DateAsSecondsSinceEpochTypeAdapter implements JsonSerializer<Date>, JsonDe
         final Date date;
 
         if (json.isJsonPrimitive()) {
-            date = new Date(json.getAsInt() * 1000);
+            date = new Date(json.getAsLong() * 1000);
         } else if (json.isJsonNull()) {
             date = null;
         } else {

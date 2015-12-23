@@ -95,12 +95,12 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     @Override
     public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
         if (!HttpMethod.POST.asciiName().contentEquals(headers.get(Http2Headers.PseudoHeaderName.METHOD.value()))) {
-            this.sendErrorResponse(context, streamId, ErrorReason.METHOD_NOT_ALLOWED, null);
+            this.sendErrorResponse(context, streamId, ErrorReason.METHOD_NOT_ALLOWED);
             return;
         }
 
         if (endOfStream) {
-            this.sendErrorResponse(context, streamId, ErrorReason.PAYLOAD_EMPTY, null);
+            this.sendErrorResponse(context, streamId, ErrorReason.PAYLOAD_EMPTY);
             return;
         }
 
@@ -108,10 +108,10 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             final Integer contentLength = headers.getInt(HttpHeaderNames.CONTENT_LENGTH);
 
             if (contentLength != null && contentLength > MAX_CONTENT_LENGTH) {
-                this.sendErrorResponse(context, streamId, ErrorReason.PAYLOAD_TOO_LARGE, null);
+                this.sendErrorResponse(context, streamId, ErrorReason.PAYLOAD_TOO_LARGE);
                 return;
             } else if (contentLength == null) {
-                this.sendErrorResponse(context, streamId, ErrorReason.PAYLOAD_EMPTY, null);
+                this.sendErrorResponse(context, streamId, ErrorReason.PAYLOAD_EMPTY);
                 return;
             }
         }
@@ -128,17 +128,23 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
                     final Matcher tokenMatcher = TOKEN_PATTERN.matcher(tokenString);
 
                     if (!tokenMatcher.matches()) {
-                        this.sendErrorResponse(context, streamId, ErrorReason.BAD_DEVICE_TOKEN, null);
+                        this.sendErrorResponse(context, streamId, ErrorReason.BAD_DEVICE_TOKEN);
                         return;
                     }
 
+                    final Date expirationTimestamp = this.apnsServer.getExpirationTimestampForToken(tokenString);
+
+                    if (expirationTimestamp != null) {
+                        this.sendErrorResponse(context, streamId, ErrorReason.UNREGISTERED, expirationTimestamp);
+                    }
+
                     if (!this.apnsServer.isTokenRegistered(tokenString)) {
-                        this.sendErrorResponse(context, streamId, ErrorReason.UNREGISTERED, null);
+                        this.sendErrorResponse(context, streamId, ErrorReason.DEVICE_TOKEN_NOT_FOR_TOPIC);
                         return;
                     }
                 }
             } else {
-                this.sendErrorResponse(context, streamId, ErrorReason.BAD_PATH, null);
+                this.sendErrorResponse(context, streamId, ErrorReason.BAD_PATH);
                 return;
             }
         }
@@ -210,6 +216,10 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     private void sendSuccessResponse(final ChannelHandlerContext context, final int streamId) {
         this.encoder().writeHeaders(context, streamId, SUCCESS_HEADERS, 0, true, context.newPromise());
         context.flush();
+    }
+
+    private void sendErrorResponse(final ChannelHandlerContext context, final int streamId, final ErrorReason reason) {
+        this.sendErrorResponse(context, streamId, reason, null);
     }
 
     private void sendErrorResponse(final ChannelHandlerContext context, final int streamId, final ErrorReason reason, final Date timestamp) {

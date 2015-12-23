@@ -10,6 +10,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.Security;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.util.Date;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 
@@ -90,19 +91,6 @@ public class ApnsClientTest {
         untrustedClient.disconnect().get();
     }
 
-    @Test
-    public void testSendNotification() throws Exception {
-        final String testToken = ApnsClientTest.generateRandomToken();
-
-        this.server.registerToken(testToken);
-
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, "test-payload");
-        final PushNotificationResponse<SimpleApnsPushNotification> response =
-                this.client.sendNotification(pushNotification).get();
-
-        assertTrue(response.isSuccess());
-    }
-
     @Test(expected = ExecutionException.class)
     public void testSendNotificationBeforeConnected() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> unconnectedClient = new ApnsClient<>(
@@ -118,6 +106,19 @@ public class ApnsClientTest {
     }
 
     @Test
+    public void testSendNotification() throws Exception {
+        final String testToken = ApnsClientTest.generateRandomToken();
+
+        this.server.registerToken(testToken);
+
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, "test-payload");
+        final PushNotificationResponse<SimpleApnsPushNotification> response =
+                this.client.sendNotification(pushNotification).get();
+
+        assertTrue(response.isSuccess());
+    }
+
+    @Test
     public void testSendNotificationWithUnregisteredToken() throws Exception {
         final SimpleApnsPushNotification pushNotification =
                 new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), "test-payload");
@@ -126,8 +127,27 @@ public class ApnsClientTest {
                 this.client.sendNotification(pushNotification).get();
 
         assertFalse(response.isSuccess());
-        assertEquals("Unregistered", response.getRejectionReason());
+        assertEquals("DeviceTokenNotForTopic", response.getRejectionReason());
         assertNull(response.getTokenExpirationTimestamp());
+    }
+
+    @Test
+    public void testSendNotificationWithExpiredToken() throws Exception {
+        final String testToken = ApnsClientTest.generateRandomToken();
+
+        // APNs uses timestamps rounded to the nearest second; for ease of comparison, we test with timestamps that
+        // just happen to fall on whole seconds.
+        final Date roundedNow = new Date((System.currentTimeMillis() / 1000) * 1000);
+
+        this.server.registerExpiredToken(testToken, roundedNow);
+
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, "test-payload");
+        final PushNotificationResponse<SimpleApnsPushNotification> response =
+                this.client.sendNotification(pushNotification).get();
+
+        assertFalse(response.isSuccess());
+        assertEquals("Unregistered", response.getRejectionReason());
+        assertEquals(roundedNow, response.getTokenExpirationTimestamp());
     }
 
     private static SslContext getSslContextForTestClient(final String keyStoreFilename, final String keyStorePassword) throws NoSuchAlgorithmException, KeyStoreException, UnrecoverableKeyException, IOException, CertificateException {

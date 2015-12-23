@@ -5,7 +5,10 @@ import static io.netty.handler.logging.LogLevel.INFO;
 import java.io.InputStream;
 import java.security.KeyStore;
 import java.security.Security;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -46,6 +49,7 @@ public class MockApnsServer {
     private final EventLoopGroup eventLoopGroup;
 
     private final Set<String> registeredTokens = new HashSet<>();
+    private final Map<String, Date> expiredTokens = new HashMap<>();
 
     private ChannelGroup allChannels;
 
@@ -137,8 +141,17 @@ public class MockApnsServer {
         return this.registeredTokens.contains(token.toLowerCase());
     }
 
+    public void registerExpiredToken(final String token, final Date expirationTimestamp) {
+        this.expiredTokens.put(token, expirationTimestamp);
+    }
+
+    protected Date getExpirationTimestampForToken(final String token) {
+        return this.expiredTokens.get(token);
+    }
+
     public void reset() {
         this.registeredTokens.clear();
+        this.expiredTokens.clear();
     }
 
     public ChannelGroupFuture shutdown() {
