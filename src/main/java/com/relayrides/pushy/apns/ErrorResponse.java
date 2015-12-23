@@ -4,13 +4,9 @@ import java.util.Date;
 
 class ErrorResponse {
     private final String reason;
-    private final Integer timestamp;
+    private final Date timestamp;
 
     public ErrorResponse(final String reason, final Date timestamp) {
-        this(reason, timestamp != null ? (int) (timestamp.getTime() / 1000) : null);
-    }
-
-    public ErrorResponse(final String reason, final Integer timestamp) {
         this.reason = reason;
         this.timestamp = timestamp;
     }
@@ -19,7 +15,7 @@ class ErrorResponse {
         return this.reason;
     }
 
-    public Integer getTimestamp() {
+    public Date getTimestamp() {
         return this.timestamp;
     }
 }

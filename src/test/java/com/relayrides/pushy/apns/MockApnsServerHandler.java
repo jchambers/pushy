@@ -1,5 +1,6 @@
 package com.relayrides.pushy.apns;
 
+import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -8,6 +9,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -43,7 +45,11 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
     private static final Pattern TOKEN_PATTERN = Pattern.compile("[0-9a-fA-F]{64}");
 
-    private static final Gson gson = new Gson();
+    private static final Gson gson = new GsonBuilder()
+            .registerTypeAdapter(Date.class, new DateAsSecondsSinceEpochTypeAdapter())
+            .create();
+
+    private static final Charset UTF8 = Charset.forName("UTF-8");
 
     public static final class Builder extends BuilderBase<MockApnsServerHandler, Builder> {
         private MockApnsServer apnsServer;
@@ -127,7 +133,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
                     }
 
                     if (!this.apnsServer.isTokenRegistered(tokenString)) {
-                        this.sendErrorResponse(context, streamId, ErrorReason.DEVICE_TOKEN_NOT_FOR_TOPIC, null);
+                        this.sendErrorResponse(context, streamId, ErrorReason.UNREGISTERED, null);
                         return;
                     }
                 }

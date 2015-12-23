@@ -117,6 +117,19 @@ public class ApnsClientTest {
         unconnectedClient.sendNotification(pushNotification).get();
     }
 
+    @Test
+    public void testSendNotificationWithUnregisteredToken() throws Exception {
+        final SimpleApnsPushNotification pushNotification =
+                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), "test-payload");
+
+        final PushNotificationResponse<SimpleApnsPushNotification> response =
+                this.client.sendNotification(pushNotification).get();
+
+        assertFalse(response.isSuccess());
+        assertEquals("Unregistered", response.getRejectionReason());
+        assertNull(response.getTokenExpirationTimestamp());
+    }
+
     private static SslContext getSslContextForTestClient(final String keyStoreFilename, final String keyStorePassword) throws NoSuchAlgorithmException, KeyStoreException, UnrecoverableKeyException, IOException, CertificateException {
         final String algorithm;
         {

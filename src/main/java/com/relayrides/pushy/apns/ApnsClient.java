@@ -2,12 +2,17 @@ package com.relayrides.pushy.apns;
 
 import static io.netty.handler.logging.LogLevel.INFO;
 
+import java.nio.charset.Charset;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
@@ -57,6 +62,12 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private static final String APNS_PATH_PREFIX = "/3/device/";
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
+
+    private static final Gson gson = new GsonBuilder()
+            .registerTypeAdapter(Date.class, new DateAsSecondsSinceEpochTypeAdapter())
+            .create();
+
+    private static final Charset UTF8 = Charset.forName("UTF-8");
 
     private static class FailedFuture<V> implements Future<V> {
 
@@ -160,7 +171,10 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 // TODO Actually parse the response and include it in the processed result
                 final boolean success = HttpResponseStatus.OK.equals(HttpResponseStatus.parseLine(headers.status()));
 
-                ApnsClient.this.handlePushNotificationResponse(new PushNotificationResponse<T>(pushNotification, success));
+                final ErrorResponse errorResponse = gson.fromJson(data.toString(UTF8), ErrorResponse.class);
+
+                ApnsClient.this.handlePushNotificationResponse(new PushNotificationResponse<T>(
+                        pushNotification, success, errorResponse.getReason(), errorResponse.getTimestamp()));
             } else {
                 // TODO Complain?
             }
@@ -177,7 +191,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 final T pushNotification = this.pushNotificationsByStreamId.remove(streamId);
                 assert pushNotification != null;
 
-                ApnsClient.this.handlePushNotificationResponse(new PushNotificationResponse<T>(pushNotification, success));
+                ApnsClient.this.handlePushNotificationResponse(new PushNotificationResponse<T>(
+                        pushNotification, success, null, null));
             } else {
                 this.headersByStreamId.put(streamId, headers);
             }
@@ -241,17 +256,19 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 // TODO Even though it's very unlikely, make sure that we don't run out of stream IDs
                 this.nextStreamId += 2;
 
+                final byte[] payloadBytes = pushNotification.getPayload().getBytes(UTF8);
+
                 final Http2Headers headers = new DefaultHttp2Headers()
                         .method("POST")
                         .path(APNS_PATH_PREFIX + pushNotification.getToken())
-                        .addInt(HttpHeaderNames.CONTENT_LENGTH, pushNotification.getPayload().getBytes().length)
+                        .addInt(HttpHeaderNames.CONTENT_LENGTH, payloadBytes.length)
                         .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
 
                 final ChannelPromise headersPromise = context.newPromise();
                 this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
 
                 final ChannelPromise dataPromise = context.newPromise();
-                this.encoder().writeData(context, streamId, Unpooled.wrappedBuffer(pushNotification.getPayload().getBytes()), 0, true, dataPromise);
+                this.encoder().writeData(context, streamId, Unpooled.wrappedBuffer(payloadBytes), 0, true, dataPromise);
 
                 final ChannelPromiseAggregator promiseAggregator = new ChannelPromiseAggregator(promise);
                 promiseAggregator.add(headersPromise, dataPromise);
