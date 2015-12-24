@@ -53,10 +53,16 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private final Bootstrap bootstrap;
     private ChannelPromise connectionReadyPromise;
 
+    private boolean shouldReconnect = false;
+    private long reconnectDelay = INITIAL_RECONNECT_DELAY;
+
     private final IdentityHashMap<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
 
     private static final String APNS_PATH_PREFIX = "/3/device/";
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
+
+    private static final long INITIAL_RECONNECT_DELAY = 1; // second
+    private static final long MAX_RECONNECT_DELAY = 60; // seconds
 
     private static final Gson gson = new GsonBuilder()
             .registerTypeAdapter(Date.class, new DateAsSecondsSinceEpochTypeAdapter())
@@ -349,9 +355,34 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
                         synchronized (ApnsClient.this.bootstrap) {
                             ApnsClient.this.connectionReadyPromise = null;
+
+                            if (ApnsClient.this.shouldReconnect) {
+                                // TODO Exponential back-off instead of fixed interval
+                                future.channel().eventLoop().schedule(new Runnable() {
+
+                                    @Override
+                                    public void run() {
+                                        ApnsClient.this.connect(host, port);
+                                    }
+                                }, ApnsClient.this.reconnectDelay, TimeUnit.SECONDS);
+
+                                ApnsClient.this.reconnectDelay = Math.min(ApnsClient.this.reconnectDelay, MAX_RECONNECT_DELAY);
+                            }
                         }
                     }
                 });
+
+                this.connectionReadyPromise.addListener(new GenericFutureListener<ChannelFuture>() {
+
+                    @Override
+                    public void operationComplete(final ChannelFuture future) throws Exception {
+                        if (future.isSuccess()) {
+                            synchronized (ApnsClient.this.bootstrap) {
+                                ApnsClient.this.reconnectDelay = INITIAL_RECONNECT_DELAY;
+                                ApnsClient.this.shouldReconnect = true;
+                            }
+                        }
+                    }});
             }
 
             return this.connectionReadyPromise;
@@ -409,6 +440,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
         final Future<Void> disconnectFuture;
 
         synchronized (this.bootstrap) {
+            this.shouldReconnect = false;
+
             if (this.connectionReadyPromise != null) {
                 disconnectFuture = this.connectionReadyPromise.channel().close();
             } else {
