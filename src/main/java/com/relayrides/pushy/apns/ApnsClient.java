@@ -358,6 +358,12 @@ public class ApnsClient<T extends ApnsPushNotification> {
         }
     }
 
+    public boolean isConnected() {
+        synchronized (this.bootstrap) {
+            return this.connectionReadyPromise != null && this.connectionReadyPromise.isSuccess();
+        }
+    }
+
     public Future<PushNotificationResponse<T>> sendNotification(final T notification) {
 
         final Future<PushNotificationResponse<T>> responseFuture;

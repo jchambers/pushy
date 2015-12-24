@@ -81,6 +81,17 @@ public class ApnsClientTest {
         ApnsClientTest.EVENT_LOOP_GROUP.shutdownGracefully().await();
     }
 
+    @Test
+    public void testReconnection() throws Exception {
+        assertTrue(this.client.isConnected());
+        this.client.disconnect().get();
+
+        assertFalse(this.client.isConnected());
+
+        this.client.connect("localhost", 8443).get();
+        assertTrue(this.client.isConnected());
+    }
+
     @Test(expected = ExecutionException.class)
     public void testConnectWithUntrustedCertificate() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> untrustedClient = new ApnsClient<>(
