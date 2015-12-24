@@ -2,6 +2,7 @@ package com.relayrides.pushy.apns;
 
 import static io.netty.handler.logging.LogLevel.INFO;
 
+import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.HashMap;
@@ -51,12 +52,8 @@ import io.netty.util.concurrent.Promise;
 
 public class ApnsClient<T extends ApnsPushNotification> {
 
-    private final EventLoopGroup eventLoopGroup;
-    private final Bootstrap bootstrap;
-
-    private ChannelFuture connectFuture;
     private ChannelPromise connectionReadyPromise;
-    private Channel channel;
+    private final Channel channel;
 
     private final IdentityHashMap<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
 
@@ -99,40 +96,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
         @Override
         public V get(final long timeout, final TimeUnit unit) throws ExecutionException {
-            return this.get();
-        }
-    }
-
-    private static class SuccessfulFuture<V> implements Future<V> {
-
-        private final V value;
-
-        public SuccessfulFuture(final V value) {
-            this.value = value;
-        }
-
-        @Override
-        public boolean cancel(final boolean mayInterruptIfRunning) {
-            return false;
-        }
-
-        @Override
-        public boolean isCancelled() {
-            return false;
-        }
-
-        @Override
-        public boolean isDone() {
-            return true;
-        }
-
-        @Override
-        public V get() {
-            return this.value;
-        }
-
-        @Override
-        public V get(final long timeout, final TimeUnit unit) {
             return this.get();
         }
     }
@@ -289,14 +252,12 @@ public class ApnsClient<T extends ApnsPushNotification> {
     }
 
     public ApnsClient(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
-        this.eventLoopGroup = eventLoopGroup;
-
-        this.bootstrap = new Bootstrap();
-        this.bootstrap.group(this.eventLoopGroup);
-        this.bootstrap.channel(NioSocketChannel.class);
-        this.bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
-        this.bootstrap.option(ChannelOption.TCP_NODELAY, true);
-        this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
+        final Bootstrap bootstrap = new Bootstrap();
+        bootstrap.group(eventLoopGroup);
+        bootstrap.channel(NioSocketChannel.class);
+        bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+        bootstrap.option(ChannelOption.TCP_NODELAY, true);
+        bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
             @Override
             protected void initChannel(final SocketChannel channel) throws Exception {
@@ -325,17 +286,23 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 });
             }
         });
+
+        try {
+            this.channel = bootstrap.register().await().channel();
+        } catch (final InterruptedException e) {
+            // TODO
+            throw new RuntimeException(e);
+        }
     }
 
     public Future<Void> connect(final String host, final int port) {
-        synchronized (this.bootstrap) {
+        synchronized (this.channel) {
             // We only want to begin a connection attempt if one is not already in progress or complete; if we already
             // have a connection future, just return the existing promise.
-            if (this.connectFuture == null) {
-                this.connectFuture = this.bootstrap.connect(host, port);
-                this.connectionReadyPromise = this.connectFuture.channel().newPromise();
+            if (this.connectionReadyPromise == null) {
+                this.connectionReadyPromise = this.channel.newPromise();
 
-                this.connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
+                this.channel.connect(new InetSocketAddress(host, port)).addListener(new GenericFutureListener<ChannelFuture>() {
 
                     @Override
                     public void operationComplete(final ChannelFuture future) throws Exception {
@@ -345,22 +312,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                     }
                 });
 
-                this.connectionReadyPromise.addListener(new GenericFutureListener<ChannelFuture> () {
-
-                    @Override
-                    public void operationComplete(final ChannelFuture future) throws Exception {
-                        synchronized (ApnsClient.this.bootstrap) {
-                            if (future.isSuccess()) {
-                                ApnsClient.this.channel = future.channel();
-                            } else {
-                                // The channel closure listener will deal with cleanup
-                                future.channel().close();
-                            }
-                        }
-                    }
-                });
-
-                this.connectFuture.channel().closeFuture().addListener(new GenericFutureListener<ChannelFuture> () {
+                this.channel.closeFuture().addListener(new GenericFutureListener<ChannelFuture> () {
 
                     @Override
                     public void operationComplete(final ChannelFuture future) throws Exception {
@@ -368,12 +320,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
                         // it has already succeeded, this will have no effect.
                         ApnsClient.this.connectionReadyPromise.tryFailure(
                                 new IllegalStateException("Channel closed before HTTP/2 preface completed."));
-
-                        synchronized (ApnsClient.this.bootstrap) {
-                            ApnsClient.this.channel = null;
-                            ApnsClient.this.connectionReadyPromise = null;
-                            ApnsClient.this.connectFuture = null;
-                        }
                     }
                 });
             }
@@ -386,7 +332,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
         final Future<PushNotificationResponse<T>> responseFuture;
 
-        synchronized (this.bootstrap) {
+        synchronized (this.channel) {
             if (this.channel != null) {
                 final DefaultPromise<PushNotificationResponse<T>> responsePromise =
                         new DefaultPromise<>(this.channel.eventLoop());
@@ -424,19 +370,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
     }
 
     public Future<Void> disconnect() {
-        final Future<Void> disconnectFuture;
-
-        synchronized (this.bootstrap) {
-            if (this.connectFuture != null) {
-                this.connectFuture.cancel(false);
-                this.connectFuture.channel().close();
-
-                disconnectFuture = this.connectFuture.channel().closeFuture();
-            } else {
-                disconnectFuture = new SuccessfulFuture<Void>(null);
-            }
-        }
-
-        return disconnectFuture;
+        return this.channel.close();
     }
 }
