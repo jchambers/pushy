@@ -1,7 +1,5 @@
 package com.relayrides.pushy.apns;
 
-import static io.netty.handler.logging.LogLevel.INFO;
-
 import java.io.InputStream;
 import java.security.KeyStore;
 import java.security.Security;
@@ -19,6 +17,7 @@ import javax.net.ssl.TrustManagerFactory;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -42,7 +41,6 @@ import io.netty.handler.codec.http2.Http2ConnectionHandler;
 import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.handler.codec.http2.Http2Flags;
 import io.netty.handler.codec.http2.Http2FrameListener;
-import io.netty.handler.codec.http2.Http2FrameLogger;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.codec.http2.Http2Settings;
@@ -344,7 +342,6 @@ public class MockApnsServer {
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) throws Exception {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
                             context.pipeline().addLast(new MockApnsServerHandler.Builder()
-                                    .frameLogger(new Http2FrameLogger(INFO, MockApnsServer.class))
                                     .apnsServer(MockApnsServer.this)
                                     .build());
 

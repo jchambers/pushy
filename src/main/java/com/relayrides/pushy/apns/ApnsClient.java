@@ -1,7 +1,5 @@
 package com.relayrides.pushy.apns;
 
-import static io.netty.handler.logging.LogLevel.INFO;
-
 import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.HashMap;
@@ -37,7 +35,6 @@ import io.netty.handler.codec.http2.Http2ConnectionHandler.BuilderBase;
 import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.handler.codec.http2.Http2Flags;
 import io.netty.handler.codec.http2.Http2FrameListener;
-import io.netty.handler.codec.http2.Http2FrameLogger;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.ssl.ApplicationProtocolNames;
@@ -306,7 +303,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
                             context.pipeline().addLast(new ApnsClientHandlerBuilder()
-                                    .frameLogger(new Http2FrameLogger(INFO, ApnsClient.class))
                                     .server(false)
                                     .encoderEnforceMaxConcurrentStreams(true)
                                     .build());
