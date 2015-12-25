@@ -215,6 +215,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
         @Override
         public void onSettingsRead(final ChannelHandlerContext context, final Http2Settings settings) throws Http2Exception {
+            // Always try to notify the "connection is ready" promise; if it's already been notified, this will have no
+            // effect.
             ApnsClient.this.connectionReadyPromise.trySuccess();
         }
 
