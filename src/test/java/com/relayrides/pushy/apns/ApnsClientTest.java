@@ -21,7 +21,9 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.Timeout;
 
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
@@ -53,6 +55,9 @@ public class ApnsClientTest {
     private MockApnsServer server;
     private ApnsClient<SimpleApnsPushNotification> client;
 
+    @Rule
+    public Timeout globalTimeout = new Timeout(10000);
+
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {
         ApnsClientTest.EVENT_LOOP_GROUP = new NioEventLoopGroup();
@@ -82,13 +87,36 @@ public class ApnsClientTest {
     }
 
     @Test
-    public void testReconnection() throws Exception {
+    public void testReconnectionAfterClose() throws Exception {
         assertTrue(this.client.isConnected());
         this.client.disconnect().get();
 
         assertFalse(this.client.isConnected());
 
         this.client.connect("localhost", 8443).get();
+        assertTrue(this.client.isConnected());
+    }
+
+    @Test
+    public void testAutomaticReconnection() throws Exception {
+        assertTrue(this.client.isConnected());
+
+        this.server.shutdown().await();
+
+        // Wait for the client to notice the GOAWAY; if it doesn't, the test will time out and fail
+        while (this.client.isConnected()) {
+            Thread.sleep(100);
+        }
+
+        assertFalse(this.client.isConnected());
+
+        this.server.start().await();
+
+        // Wait for the client to reconnect automatically; if it doesn't, the test will time out and fail
+        while (!this.client.isConnected()) {
+            Thread.sleep(500);
+        }
+
         assertTrue(this.client.isConnected());
     }
 
