@@ -9,6 +9,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -65,6 +68,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private static final Gson gson = new GsonBuilder()
             .registerTypeAdapter(Date.class, new DateAsSecondsSinceEpochTypeAdapter())
             .create();
+
+    private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
     private static final Charset UTF8 = Charset.forName("UTF-8");
 
@@ -167,15 +172,13 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 assert headers != null;
                 assert pushNotification != null;
 
-                // TODO Actually parse the response and include it in the processed result
                 final boolean success = HttpResponseStatus.OK.equals(HttpResponseStatus.parseLine(headers.status()));
-
                 final ErrorResponse errorResponse = gson.fromJson(data.toString(UTF8), ErrorResponse.class);
 
                 ApnsClient.this.handlePushNotificationResponse(new PushNotificationResponse<T>(
                         pushNotification, success, errorResponse.getReason(), errorResponse.getTimestamp()));
             } else {
-                // TODO Complain?
+                log.error("Gateway sent a DATA frame that was not the end of a stream.");
             }
 
             return bytesProcessed;
@@ -186,7 +189,9 @@ public class ApnsClient<T extends ApnsPushNotification> {
             final boolean success = HttpResponseStatus.OK.equals(HttpResponseStatus.parseLine(headers.status()));
 
             if (endOfStream) {
-                // TODO We should only get an end-of-stream with headers for successful replies; warn if not?
+                if (!success) {
+                    log.error("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
+                }
                 final T pushNotification = this.pushNotificationsByStreamId.remove(streamId);
                 assert pushNotification != null;
 
@@ -360,7 +365,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
                             ApnsClient.this.connectionReadyPromise = null;
 
                             if (ApnsClient.this.shouldReconnect) {
-                                // TODO Exponential back-off instead of fixed interval
                                 future.channel().eventLoop().schedule(new Runnable() {
 
                                     @Override
