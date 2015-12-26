@@ -52,6 +52,7 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBeh
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
+import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.OpenSsl;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -313,6 +314,7 @@ public class MockApnsServer {
                     .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
                     .keyManager(keyManagerFactory)
                     .trustManager(trustManagerFactory)
+                    .clientAuth(ClientAuth.REQUIRE)
                     .applicationProtocolConfig(new ApplicationProtocolConfig(
                             Protocol.ALPN,
                             SelectorFailureBehavior.NO_ADVERTISE,
