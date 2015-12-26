@@ -49,6 +49,8 @@ public class ApnsClientTest {
     private static final String UNTRUSTED_CLIENT_KEYSTORE_FILENAME = "/pushy-test-client-untrusted.jks";
     private static final String CLIENT_KEYSTORE_PASSWORD = "pushy-test";
 
+    private static final String DEFAULT_TOPIC = "com.relayrides.pushy";
+
     private static final String DEFAULT_ALGORITHM = "SunX509";
 
     private static final int TOKEN_LENGTH = 32; // bytes
@@ -139,7 +141,7 @@ public class ApnsClientTest {
 
         final String testToken = ApnsClientTest.generateRandomToken();
 
-        this.server.registerToken(testToken);
+        this.server.registerToken(DEFAULT_TOPIC, testToken);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, "test-payload");
         unconnectedClient.sendNotification(pushNotification).get();
@@ -149,7 +151,7 @@ public class ApnsClientTest {
     public void testSendNotification() throws Exception {
         final String testToken = ApnsClientTest.generateRandomToken();
 
-        this.server.registerToken(testToken);
+        this.server.registerToken(DEFAULT_TOPIC, testToken);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, "test-payload");
         final PushNotificationResponse<SimpleApnsPushNotification> response =
@@ -179,7 +181,7 @@ public class ApnsClientTest {
         // just happen to fall on whole seconds.
         final Date roundedNow = new Date((System.currentTimeMillis() / 1000) * 1000);
 
-        this.server.registerExpiredToken(testToken, roundedNow);
+        this.server.registerToken(DEFAULT_TOPIC, testToken, roundedNow);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, "test-payload");
         final PushNotificationResponse<SimpleApnsPushNotification> response =

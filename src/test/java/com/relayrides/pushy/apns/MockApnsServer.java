@@ -9,6 +9,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -73,8 +74,7 @@ public class MockApnsServer {
 
     private final EventLoopGroup eventLoopGroup;
 
-    private final Set<String> registeredTokens = new HashSet<>();
-    private final Map<String, Date> expiredTokens = new HashMap<>();
+    final Map<String, Map<String, Date>> tokenExpirationsByTopic = new HashMap<>();
 
     private ChannelGroup allChannels;
 
@@ -88,6 +88,7 @@ public class MockApnsServer {
     private static class MockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
 
         private final MockApnsServer apnsServer;
+        private final Set<String> topics;
 
         private final Map<Integer, UUID> requestsWaitingForDataFrame = new HashMap<Integer, UUID>();
 
@@ -95,7 +96,7 @@ public class MockApnsServer {
                 .status(HttpResponseStatus.OK.codeAsText());
 
         private static final String APNS_ID = "apns-id";
-        private static final String APNS_EXPIRATION = "apns-expiration";
+        private static final String APNS_TOPIC = "apns-topic";
 
         private static final int MAX_CONTENT_LENGTH = 4096;
 
@@ -131,14 +132,15 @@ public class MockApnsServer {
 
             @Override
             public MockApnsServerHandler build0(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder) {
-                final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, this.initialSettings(), this.apnsServer());
+                final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, this.initialSettings(), this.apnsServer(), this.topics());
                 this.frameListener(handler);
                 return handler;
             }
         }
 
-        protected MockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final MockApnsServer apnsServer) {
+        protected MockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final MockApnsServer apnsServer, final Set<String> topics) {
             super(decoder, encoder, initialSettings);
+            this.topics = topics;
             this.apnsServer = apnsServer;
         }
 
@@ -182,6 +184,29 @@ public class MockApnsServer {
                 }
             }
 
+            final String topic;
+            {
+                final CharSequence topicSequence = headers.get(APNS_TOPIC);
+
+                if (topicSequence != null) {
+                    final String topicString = topicSequence.toString();
+
+                    if (this.topics.contains(topicString)) {
+                        topic = topicSequence.toString();
+                    } else {
+                        this.sendErrorResponse(context, streamId, ErrorReason.TOPIC_DIALLOWED);
+                        return;
+                    }
+                } else {
+                    if (this.topics.size() == 1) {
+                        topic = this.topics.iterator().next();
+                    } else {
+                        this.sendErrorResponse(context, streamId, ErrorReason.MISSING_TOPIC);
+                        return;
+                    }
+                }
+            }
+
             {
                 final CharSequence pathSequence = headers.get(Http2Headers.PseudoHeaderName.PATH.value());
 
@@ -198,13 +223,13 @@ public class MockApnsServer {
                             return;
                         }
 
-                        final Date expirationTimestamp = this.apnsServer.getExpirationTimestampForToken(tokenString);
+                        final Date expirationTimestamp = this.apnsServer.getExpirationTimestampForTokenInTopic(tokenString, topic);
 
                         if (expirationTimestamp != null) {
                             this.sendErrorResponse(context, streamId, ErrorReason.UNREGISTERED, expirationTimestamp);
                         }
 
-                        if (!this.apnsServer.isTokenRegistered(tokenString)) {
+                        if (!this.apnsServer.isTokenRegisteredForTopic(tokenString, topic)) {
                             this.sendErrorResponse(context, streamId, ErrorReason.DEVICE_TOKEN_NOT_FOR_TOPIC);
                             return;
                         }
@@ -416,25 +441,31 @@ public class MockApnsServer {
         return channelFuture;
     }
 
-    public void registerToken(final String token) {
-        this.registeredTokens.add(token.toLowerCase());
+    public void registerToken(final String topic, final String token) {
+        this.registerToken(topic, token, null);
     }
 
-    protected boolean isTokenRegistered(final String token) {
-        return this.registeredTokens.contains(token.toLowerCase());
+    public void registerToken(final String topic, final String token, final Date expiration) {
+        Objects.requireNonNull(topic);
+        Objects.requireNonNull(token);
+
+        if (!this.tokenExpirationsByTopic.containsKey(topic)) {
+            this.tokenExpirationsByTopic.put(topic, new HashMap<>());
+        }
+
+        this.tokenExpirationsByTopic.get(topic).put(token, expiration);
     }
 
-    public void registerExpiredToken(final String token, final Date expirationTimestamp) {
-        this.expiredTokens.put(token, expirationTimestamp);
+    protected boolean isTokenRegisteredForTopic(final String token, final String topic) {
+        final Map<String, Date> tokensWithinTopic = this.tokenExpirationsByTopic.get(topic);
+
+        return tokensWithinTopic != null && tokensWithinTopic.containsKey(token);
     }
 
-    protected Date getExpirationTimestampForToken(final String token) {
-        return this.expiredTokens.get(token);
-    }
+    protected Date getExpirationTimestampForTokenInTopic(final String token, final String topic) {
+        final Map<String, Date> tokensWithinTopic = this.tokenExpirationsByTopic.get(topic);
 
-    public void reset() {
-        this.registeredTokens.clear();
-        this.expiredTokens.clear();
+        return tokensWithinTopic != null ? tokensWithinTopic.get(token) : null;
     }
 
     public ChannelGroupFuture shutdown() {
