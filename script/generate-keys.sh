@@ -1,8 +1,8 @@
 #!/bin/sh
 
 # Generate new keys for the client and server
-keytool -genkey -alias pushy-test-server -keysize 2048 -validity 36500 -keyalg RSA -dname "CN=pushy" -keypass pushy-test -storepass pushy-test -keystore pushy-test-server.jks
-keytool -genkey -alias pushy-test-client -keysize 2048 -validity 36500 -keyalg RSA -dname "CN=pushy" -keypass pushy-test -storepass pushy-test -keystore pushy-test-client.jks
+keytool -genkeypair -alias pushy-test-server -keysize 2048 -validity 36500 -keyalg RSA -dname "CN=pushy" -keypass pushy-test -storepass pushy-test -keystore pushy-test-server.jks
+keytool -genkeypair -alias pushy-test-client -keysize 2048 -validity 36500 -keyalg RSA -dname "CN=pushy" -keypass pushy-test -storepass pushy-test -keystore pushy-test-client.jks
 
 # Import the server certificate into the client trust store
 keytool -export -storepass pushy-test -keystore pushy-test-server.jks -alias pushy-test-server -file pushy-test-server.crt
