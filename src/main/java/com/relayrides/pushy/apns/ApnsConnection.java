@@ -512,7 +512,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			throw new IllegalStateException(String.format("%s has not completed handshake.", this.name));
 		}
 
-		if (this.disconnectNotification == null) {
+		if (this.disconnectNotification == null && this.connectFuture.channel().isWritable()) {
 			final SendableApnsPushNotification<T> sendableNotification =
 					new SendableApnsPushNotification<T>(notification, this.sequenceNumber++);
 
@@ -550,7 +550,8 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 			});
 		} else {
 			if (this.listener != null) {
-				this.listener.handleWriteFailure(this, notification, new IllegalStateException("Connection is disconnecting."));
+				this.listener.handleWriteFailure(this, notification,
+						new IllegalStateException(this.disconnectNotification == null ? "Connection is disconnecting." : "Channel is not writable."));
 			}
 		}
 
