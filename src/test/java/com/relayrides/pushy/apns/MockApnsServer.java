@@ -3,6 +3,8 @@ package com.relayrides.pushy.apns;
 import java.io.InputStream;
 import java.security.KeyStore;
 import java.security.Security;
+import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -13,7 +15,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManagerFactory;
+
+import org.bouncycastle.asn1.ASN1Primitive;
+import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -56,6 +62,7 @@ import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.OpenSsl;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 
@@ -75,6 +82,8 @@ public class MockApnsServer {
     private static final char[] KEYSTORE_PASSWORD = "pushy-test".toCharArray();
 
     private static final String DEFAULT_ALGORITHM = "SunX509";
+
+    private static final String TOPIC_OID = "1.2.840.113635.100.6.3.6";
 
     private static class MockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
 
@@ -100,6 +109,7 @@ public class MockApnsServer {
 
         public static final class Builder extends BuilderBase<MockApnsServerHandler, Builder> {
             private MockApnsServer apnsServer;
+            private Set<String> topics;
 
             public Builder apnsServer(final MockApnsServer apnsServer) {
                 this.apnsServer = apnsServer;
@@ -108,6 +118,15 @@ public class MockApnsServer {
 
             public MockApnsServer apnsServer() {
                 return this.apnsServer;
+            }
+
+            public Builder topics(final Set<String> topics) {
+                this.topics = topics;
+                return this;
+            }
+
+            public Set<String> topics() {
+                return this.topics;
             }
 
             @Override
@@ -340,14 +359,44 @@ public class MockApnsServer {
 
             @Override
             protected void initChannel(final SocketChannel channel) throws Exception {
-                channel.pipeline().addLast(MockApnsServer.this.sslContext.newHandler(channel.alloc()));
+                final
+                SslHandler sslHandler = MockApnsServer.this.sslContext.newHandler(channel.alloc());
+                channel.pipeline().addLast(sslHandler);
                 channel.pipeline().addLast(new ApplicationProtocolNegotiationHandler(ApplicationProtocolNames.HTTP_1_1) {
 
                     @Override
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) throws Exception {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
+                            final Set<String> topics = new HashSet<>();
+                            {
+                                final SSLSession sslSession = sslHandler.engine().getSession();
+
+                                for (final String keyValuePair : sslSession.getPeerPrincipal().getName().split(",")) {
+                                    if (keyValuePair.toLowerCase().startsWith("uid=")) {
+                                        topics.add(keyValuePair.substring(4));
+                                        break;
+                                    }
+                                }
+
+                                for (final Certificate certificate : sslSession.getPeerCertificates()) {
+                                    if (certificate instanceof X509Certificate) {
+                                        final X509Certificate x509Certificate = (X509Certificate) certificate;
+                                        final byte[] topicExtensionData = x509Certificate.getExtensionValue(TOPIC_OID);
+
+                                        if (topicExtensionData != null) {
+                                            final ASN1Primitive extensionValue =
+                                                    JcaX509ExtensionUtils.parseExtensionValue(topicExtensionData);
+
+                                            // TODO
+                                        }
+                                    }
+                                }
+
+                            }
+
                             context.pipeline().addLast(new MockApnsServerHandler.Builder()
                                     .apnsServer(MockApnsServer.this)
+                                    .topics(topics)
                                     .build());
 
                             MockApnsServer.this.allChannels.add(context.channel());
