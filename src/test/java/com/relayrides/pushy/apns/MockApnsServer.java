@@ -20,6 +20,8 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManagerFactory;
 
 import org.bouncycastle.asn1.ASN1Primitive;
+import org.bouncycastle.asn1.ASN1Sequence;
+import org.bouncycastle.asn1.ASN1String;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 
 import com.google.gson.Gson;
@@ -412,7 +414,15 @@ public class MockApnsServer {
                                             final ASN1Primitive extensionValue =
                                                     JcaX509ExtensionUtils.parseExtensionValue(topicExtensionData);
 
-                                            // TODO
+                                            if (extensionValue instanceof ASN1Sequence) {
+                                                final ASN1Sequence sequence = (ASN1Sequence) extensionValue;
+
+                                                for (int i = 0; i < sequence.size(); i++) {
+                                                    if (sequence.getObjectAt(i) instanceof ASN1String) {
+                                                        topics.add(sequence.getObjectAt(i).toString());
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }

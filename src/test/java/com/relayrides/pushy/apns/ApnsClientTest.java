@@ -161,6 +161,48 @@ public class ApnsClientTest {
     }
 
     @Test
+    public void testSendNotificationWithBadTopic() throws Exception {
+        final String testToken = ApnsClientTest.generateRandomToken();
+
+        this.server.registerToken(DEFAULT_TOPIC, testToken);
+
+        final SimpleApnsPushNotification pushNotification =
+                new SimpleApnsPushNotification(testToken, "test-payload", null, DeliveryPriority.IMMEDIATE,
+                        "Definitely not a real topic");
+
+        final PushNotificationResponse<SimpleApnsPushNotification> response =
+                this.client.sendNotification(pushNotification).get();
+
+        assertFalse(response.isSuccess());
+        assertEquals("TopicDisallowed", response.getRejectionReason());
+        assertNull(response.getTokenExpirationTimestamp());
+    }
+
+    @Test
+    public void testSendNotificationWithMissingTopic() throws Exception {
+        final ApnsClient<SimpleApnsPushNotification> multiTopicClient = new ApnsClient<>(
+                ApnsClientTest.getSslContextForTestClient(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
+                EVENT_LOOP_GROUP);
+
+        multiTopicClient.connect("localhost", 8443).get();
+
+        final String testToken = ApnsClientTest.generateRandomToken();
+
+        this.server.registerToken(DEFAULT_TOPIC, testToken);
+
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, "test-payload");
+
+        final PushNotificationResponse<SimpleApnsPushNotification> response =
+                multiTopicClient.sendNotification(pushNotification).get();
+
+        multiTopicClient.disconnect().get();
+
+        assertFalse(response.isSuccess());
+        assertEquals("MissingTopic", response.getRejectionReason());
+        assertNull(response.getTokenExpirationTimestamp());
+    }
+
+    @Test
     public void testSendNotificationWithUnregisteredToken() throws Exception {
         final SimpleApnsPushNotification pushNotification =
                 new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), "test-payload");
