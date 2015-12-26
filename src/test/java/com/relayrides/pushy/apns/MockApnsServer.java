@@ -308,9 +308,8 @@ public class MockApnsServer {
             final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(algorithm);
             trustManagerFactory.init(keyStore);
 
-            final SslProvider provider = OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK;
             this.sslContext = SslContextBuilder.forServer(keyManagerFactory)
-                    .sslProvider(provider)
+                    .sslProvider(OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK)
                     .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
                     .keyManager(keyManagerFactory)
                     .trustManager(trustManagerFactory)
