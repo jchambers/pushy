@@ -32,7 +32,6 @@ import com.relayrides.pushy.apns.DeliveryPriority;
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  *
  * @see ApnsPayloadBuilder
- * @see TokenUtil
  */
 public class SimpleApnsPushNotification implements ApnsPushNotification {
 
@@ -40,6 +39,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
     private final String payload;
     private final Date invalidationTime;
     private final DeliveryPriority priority;
+    private final String topic;
 
     /**
      * Constructs a new push notification with the given token and payload. No expiration time is set for the
@@ -109,10 +109,32 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      */
     public SimpleApnsPushNotification(final String token, final String payload, final Date invalidationTime,
             final DeliveryPriority priority) {
+        this(token, payload, invalidationTime, priority, null);
+    }
+
+    /**
+     * Constructs a new push notification with the given token, payload, delivery expiration time, and delivery
+     * priority.
+     *
+     * @param token
+     *            the device token to which this push notification should be delivered
+     * @param payload
+     *            the payload to include in this push notification
+     * @param invalidationTime
+     *            the time at which Apple's servers should stop trying to deliver this message; if
+     *            {@code null}, no delivery attempts beyond the first will be made
+     * @param priority
+     *            the priority with which this notification should be delivered to the receiving device
+     * @param topic
+     *            the topic to which this notification should be sent
+     */
+    public SimpleApnsPushNotification(final String token, final String payload, final Date invalidationTime,
+            final DeliveryPriority priority, final String topic) {
         this.token = token;
         this.payload = payload;
         this.invalidationTime = invalidationTime;
         this.priority = priority;
+        this.topic = topic;
     }
 
     /**
@@ -155,25 +177,36 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
         return this.priority;
     }
 
-    /* (non-Javadoc)
+    /**
+     * Returns the topic to which this push notification should be sent.
      *
-     * @see java.lang.Object#hashCode() */
+     * @return the topic to which this push notification should be sent
+     */
+    @Override
+    public String getTopic() {
+        return this.topic;
+    }
+
+    /* (non-Javadoc)
+     * @see java.lang.Object#hashCode()
+     */
     @Override
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        result = prime * result + ((invalidationTime == null) ? 0 : invalidationTime.hashCode());
-        result = prime * result + ((payload == null) ? 0 : payload.hashCode());
-        result = prime * result + ((priority == null) ? 0 : priority.hashCode());
-        result = prime * result + ((token == null) ? 0 : token.hashCode());
+        result = prime * result + ((this.invalidationTime == null) ? 0 : this.invalidationTime.hashCode());
+        result = prime * result + ((this.payload == null) ? 0 : this.payload.hashCode());
+        result = prime * result + ((this.priority == null) ? 0 : this.priority.hashCode());
+        result = prime * result + ((this.token == null) ? 0 : this.token.hashCode());
+        result = prime * result + ((this.topic == null) ? 0 : this.topic.hashCode());
         return result;
     }
 
     /* (non-Javadoc)
-     *
-     * @see java.lang.Object#equals(java.lang.Object) */
+     * @see java.lang.Object#equals(java.lang.Object)
+     */
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(final Object obj) {
         if (this == obj) {
             return true;
         }
@@ -183,48 +216,57 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
         if (!(obj instanceof SimpleApnsPushNotification)) {
             return false;
         }
-        SimpleApnsPushNotification other = (SimpleApnsPushNotification) obj;
-        if (invalidationTime == null) {
+        final SimpleApnsPushNotification other = (SimpleApnsPushNotification) obj;
+        if (this.invalidationTime == null) {
             if (other.invalidationTime != null) {
                 return false;
             }
-        } else if (!invalidationTime.equals(other.invalidationTime)) {
+        } else if (!this.invalidationTime.equals(other.invalidationTime)) {
             return false;
         }
-        if (payload == null) {
+        if (this.payload == null) {
             if (other.payload != null) {
                 return false;
             }
-        } else if (!payload.equals(other.payload)) {
+        } else if (!this.payload.equals(other.payload)) {
             return false;
         }
-        if (priority != other.priority) {
+        if (this.priority != other.priority) {
             return false;
         }
-        if (token == null) {
+        if (this.token == null) {
             if (other.token != null) {
                 return false;
             }
-        } else if (!token.equals(other.token)) {
+        } else if (!this.token.equals(other.token)) {
+            return false;
+        }
+        if (this.topic == null) {
+            if (other.topic != null) {
+                return false;
+            }
+        } else if (!this.topic.equals(other.topic)) {
             return false;
         }
         return true;
     }
 
     /* (non-Javadoc)
-     *
-     * @see java.lang.Object#toString() */
+     * @see java.lang.Object#toString()
+     */
     @Override
     public String toString() {
-        StringBuilder builder = new StringBuilder();
+        final StringBuilder builder = new StringBuilder();
         builder.append("SimpleApnsPushNotification [token=");
-        builder.append(token);
+        builder.append(this.token);
         builder.append(", payload=");
-        builder.append(payload);
+        builder.append(this.payload);
         builder.append(", invalidationTime=");
-        builder.append(invalidationTime);
+        builder.append(this.invalidationTime);
         builder.append(", priority=");
-        builder.append(priority);
+        builder.append(this.priority);
+        builder.append(", topic=");
+        builder.append(this.topic);
         builder.append("]");
         return builder.toString();
     }

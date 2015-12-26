@@ -57,6 +57,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private static final String APNS_PATH_PREFIX = "/3/device/";
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
+    private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
 
     private static final long INITIAL_RECONNECT_DELAY = 1; // second
     private static final long MAX_RECONNECT_DELAY = 60; // seconds
@@ -263,6 +264,10 @@ public class ApnsClient<T extends ApnsPushNotification> {
                         .path(APNS_PATH_PREFIX + pushNotification.getToken())
                         .addInt(HttpHeaderNames.CONTENT_LENGTH, payloadBytes.length)
                         .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
+
+                if (pushNotification.getTopic() != null) {
+                    headers.add(APNS_TOPIC_HEADER, pushNotification.getTopic());
+                }
 
                 final ChannelPromise headersPromise = context.newPromise();
                 this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);

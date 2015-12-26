@@ -80,4 +80,12 @@ public interface ApnsPushNotification {
      *      Provider Communication with Apple Push Notification Service</a>
      */
     DeliveryPriority getPriority();
+
+    /**
+     * Returns the topic to which this notification should be sent.
+     *
+     * @return the topic to which this notification should be sent, or {@code null} for the default topic if this
+     * notification is sent on a connection with a single-topic certificate
+     */
+    String getTopic();
 }
