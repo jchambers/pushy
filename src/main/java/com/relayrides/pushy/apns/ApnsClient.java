@@ -340,7 +340,12 @@ public class ApnsClient<T extends ApnsPushNotification> {
                     @Override
                     protected void handshakeFailure(final ChannelHandlerContext context, final Throwable cause) throws Exception {
                         super.handshakeFailure(context, cause);
-                        ApnsClient.this.connectionReadyPromise.tryFailure(cause);
+
+                        final ChannelPromise connectionReadyPromise = ApnsClient.this.connectionReadyPromise;
+
+                        if (connectionReadyPromise != null) {
+                            connectionReadyPromise.tryFailure(cause);
+                        }
                     }
                 });
             }
@@ -419,29 +424,34 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
         final Future<PushNotificationResponse<T>> responseFuture;
 
-        synchronized (this.bootstrap) {
-            if (this.connectionReadyPromise != null && this.connectionReadyPromise.isSuccess() && this.connectionReadyPromise.channel().isActive()) {
-                final DefaultPromise<PushNotificationResponse<T>> responsePromise =
-                        new DefaultPromise<>(this.connectionReadyPromise.channel().eventLoop());
+        // Instead of synchronizing here, we keep a final reference to the connection ready promise. We can get away
+        // with this because we're not changing the state of the connection or its promises. Keeping a reference ensures
+        // we won't suddenly "lose" the channel and get a NullPointerException, but risks sending a notification after
+        // things have shut down. In that case, though, the returned futures should fail quickly, and the benefit of
+        // not synchronizing for every write seems worth it.
+        final ChannelPromise connectionReadyPromise = this.connectionReadyPromise;
 
-                this.responsePromises.put(notification, responsePromise);
+        if (connectionReadyPromise != null && connectionReadyPromise.isSuccess() && connectionReadyPromise.channel().isActive()) {
+            final DefaultPromise<PushNotificationResponse<T>> responsePromise =
+                    new DefaultPromise<>(connectionReadyPromise.channel().eventLoop());
 
-                this.connectionReadyPromise.channel().writeAndFlush(notification).addListener(new GenericFutureListener<ChannelFuture>() {
+            this.responsePromises.put(notification, responsePromise);
 
-                    @Override
-                    public void operationComplete(final ChannelFuture future) throws Exception {
-                        if (!future.isSuccess()) {
-                            ApnsClient.this.responsePromises.remove(notification);
-                            responsePromise.setFailure(future.cause());
-                        }
+            connectionReadyPromise.channel().writeAndFlush(notification).addListener(new GenericFutureListener<ChannelFuture>() {
+
+                @Override
+                public void operationComplete(final ChannelFuture future) throws Exception {
+                    if (!future.isSuccess()) {
+                        ApnsClient.this.responsePromises.remove(notification);
+                        responsePromise.setFailure(future.cause());
                     }
-                });
+                }
+            });
 
-                responseFuture = responsePromise;
-            } else {
-                responseFuture = new FailedFuture<PushNotificationResponse<T>>(
-                        new IllegalStateException("Channel is not active"));
-            }
+            responseFuture = responsePromise;
+        } else {
+            responseFuture = new FailedFuture<PushNotificationResponse<T>>(
+                    new IllegalStateException("Channel is not active"));
         }
 
         return responseFuture;
