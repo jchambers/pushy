@@ -65,6 +65,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private static final long INITIAL_RECONNECT_DELAY = 1; // second
     private static final long MAX_RECONNECT_DELAY = 60; // seconds
 
+    private static final int STREAM_ID_RESET_THRESHOLD = Integer.MAX_VALUE - 1;
+
     private static final Gson gson = new GsonBuilder()
             .registerTypeAdapter(Date.class, new DateAsSecondsSinceEpochTypeAdapter())
             .create();
@@ -259,9 +261,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
                 final int streamId = this.nextStreamId;
 
-                // TODO Even though it's very unlikely, make sure that we don't run out of stream IDs
-                this.nextStreamId += 2;
-
                 final byte[] payloadBytes = pushNotification.getPayload().getBytes(UTF8);
 
                 final Http2Headers headers = new DefaultHttp2Headers()
@@ -292,7 +291,21 @@ public class ApnsClient<T extends ApnsPushNotification> {
                         }
                     }
                 });
+
+                this.nextStreamId += 2;
+
+                if (this.nextStreamId >= STREAM_ID_RESET_THRESHOLD) {
+                    // This is very unlikely, but in the event that we run out of stream IDs (the maximum allowed is
+                    // 2^31, per https://httpwg.github.io/specs/rfc7540.html#StreamIdentifiers), we need to open a new
+                    // connection. Just closing the context should be enough; automatic reconnection should take things
+                    // from there.
+                    context.close();
+                }
+
             } catch (final ClassCastException e) {
+                // This should never happen, but in case some foreign debris winds up in the pipeline, just pass it
+                // through.
+                log.error("Unexpected object in pipeline: {}", message);
                 context.write(message, promise);
             }
         }
