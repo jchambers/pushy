@@ -294,6 +294,10 @@ public class MockApnsServer {
         this.eventLoopGroup = eventLoopGroup;
 
         try (final InputStream keyStoreInputStream = MockApnsServer.class.getResourceAsStream(SERVER_KEYSTORE_FILE_NAME)) {
+            if (keyStoreInputStream == null) {
+                throw new RuntimeException("Server keystore file not found.");
+            }
+
             final KeyStore keyStore = KeyStore.getInstance("JKS");
             keyStore.load(keyStoreInputStream, KEYSTORE_PASSWORD);
 

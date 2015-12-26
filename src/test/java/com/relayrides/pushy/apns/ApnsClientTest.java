@@ -44,7 +44,8 @@ public class ApnsClientTest {
 
     private static NioEventLoopGroup EVENT_LOOP_GROUP;
 
-    private static final String CLIENT_KEYSTORE_FILENAME = "/pushy-test-client.jks";
+    private static final String SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME = "/pushy-test-client-single-topic.jks";
+    private static final String MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME = "/pushy-test-client-multi-topic.jks";
     private static final String UNTRUSTED_CLIENT_KEYSTORE_FILENAME = "/pushy-test-client-untrusted.jks";
     private static final String CLIENT_KEYSTORE_PASSWORD = "pushy-test";
 
@@ -69,7 +70,7 @@ public class ApnsClientTest {
         this.server.start().await();
 
         this.client = new ApnsClient<>(
-                ApnsClientTest.getSslContextForTestClient(CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
+                ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
                 EVENT_LOOP_GROUP);
 
         this.client.connect("localhost", 8443).get();
@@ -133,7 +134,7 @@ public class ApnsClientTest {
     @Test(expected = ExecutionException.class)
     public void testSendNotificationBeforeConnected() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> unconnectedClient = new ApnsClient<>(
-                ApnsClientTest.getSslContextForTestClient(CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
+                ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
                 EVENT_LOOP_GROUP);
 
         final String testToken = ApnsClientTest.generateRandomToken();
