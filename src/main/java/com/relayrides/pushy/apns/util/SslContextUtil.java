@@ -81,10 +81,6 @@ public class SslContextUtil {
             algorithm = algorithmFromSecurityProperties != null ? algorithmFromSecurityProperties : DEFAULT_ALGORITHM;
         }
 
-        if (keyStore.size() == 0) {
-            throw new KeyStoreException("Keystore is empty; while this is legal for keystores in general, APNs clients must have at least one key.");
-        }
-
         final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(algorithm);
         keyManagerFactory.init(keyStore, keyStorePassword);
 
