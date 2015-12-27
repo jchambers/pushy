@@ -13,8 +13,6 @@ import java.security.cert.CertificateException;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLException;
-import javax.net.ssl.TrustManagerFactory;
-
 import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolNames;
@@ -87,9 +85,6 @@ public class SslContextUtil {
             throw new KeyStoreException("Keystore is empty; while this is legal for keystores in general, APNs clients must have at least one key.");
         }
 
-        final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(algorithm);
-        trustManagerFactory.init((KeyStore) null);
-
         final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(algorithm);
         keyManagerFactory.init(keyStore, keyStorePassword);
 
@@ -97,7 +92,6 @@ public class SslContextUtil {
                 .sslProvider(OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK)
                 .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
                 .keyManager(keyManagerFactory)
-                .trustManager(trustManagerFactory)
                 .applicationProtocolConfig(new ApplicationProtocolConfig(Protocol.ALPN,
                         SelectorFailureBehavior.NO_ADVERTISE,
                         SelectedListenerFailureBehavior.ACCEPT,
