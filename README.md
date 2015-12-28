@@ -70,7 +70,8 @@ final ApnsPayloadBuilder payloadBuilder = new ApnsPayloadBuilder();
 payloadBuilder.setAlertBody("Ring ring, Neo.");
 payloadBuilder.setSoundFileName("ring-ring.aiff");
 
-final String payload = payloadBuilder.buildWithDefaultMaximumLength();
+final String payload =
+    payloadBuilder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER);
 
 pushManager.getQueue().put(new SimpleApnsPushNotification(token, payload));
 ```

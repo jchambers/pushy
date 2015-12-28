@@ -31,6 +31,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
+import com.relayrides.pushy.apns.util.IOSVersion;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class BenchmarkApp {
@@ -73,7 +74,7 @@ public class BenchmarkApp {
 
 			builder.setAlertBody(new BigInteger(1024, new Random()).toString(16));
 
-			this.notifications.add(new SimpleApnsPushNotification(token, builder.buildWithDefaultMaximumLength()));
+			this.notifications.add(new SimpleApnsPushNotification(token, builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER)));
 		}
 	}
 

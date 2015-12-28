@@ -1,15 +1,15 @@
 /* Copyright (c) 2013 RelayRides
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -52,7 +52,7 @@ public class ApnsPayloadBuilderTest {
 		this.builder.setAlertBody(alertBody);
 
 		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER));
 
 			// The alert property should be a string if all we're specifying is a literal alert message
 			assertEquals(alertBody, aps.get("alert"));
@@ -61,7 +61,7 @@ public class ApnsPayloadBuilderTest {
 		this.builder.setShowActionButton(false);
 
 		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER));
 			final JSONObject alert = (JSONObject) aps.get("alert");
 
 			assertEquals(alertBody, alert.get("body"));
@@ -75,7 +75,7 @@ public class ApnsPayloadBuilderTest {
 		this.builder.setAlertTitle(alertTitle);
 
 		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER));
 			final JSONObject alert = (JSONObject) aps.get("alert");
 
 			assertEquals(alertTitle, alert.get("title"));
@@ -91,7 +91,7 @@ public class ApnsPayloadBuilderTest {
 		this.builder.setAlertTitle(alertTitle);
 
 		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER));
 			final JSONObject alert = (JSONObject) aps.get("alert");
 
 			assertEquals(alertTitle, alert.get("title"));
@@ -106,7 +106,7 @@ public class ApnsPayloadBuilderTest {
 		this.builder.setLocalizedAlertMessage(alertKey, null);
 
 		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER));
 			final JSONObject alert = (JSONObject) aps.get("alert");
 
 			assertEquals(alertKey, alert.get("loc-key"));
@@ -117,7 +117,7 @@ public class ApnsPayloadBuilderTest {
 		this.builder.setLocalizedAlertMessage(alertKey, alertArgs);
 
 		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER));
 			final JSONObject alert = (JSONObject) aps.get("alert");
 
 			assertEquals(alertKey, alert.get("loc-key"));
@@ -157,7 +157,7 @@ public class ApnsPayloadBuilderTest {
 		final String launchImageFilename = "launch.png";
 		this.builder.setLaunchImageFileName(launchImageFilename);
 
-		final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+		final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER));
 		final JSONObject alert = (JSONObject) aps.get("alert");
 
 		assertEquals(launchImageFilename, alert.get("launch-image"));
@@ -168,7 +168,7 @@ public class ApnsPayloadBuilderTest {
 		this.builder.setShowActionButton(true);
 
 		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER));
 
 			assertNull(aps.get("alert"));
 		}
@@ -176,7 +176,7 @@ public class ApnsPayloadBuilderTest {
 		this.builder.setShowActionButton(false);
 
 		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER));
 			final JSONObject alert = (JSONObject) aps.get("alert");
 
 			assertTrue(alert.keySet().contains("action-loc-key"));
@@ -188,7 +188,7 @@ public class ApnsPayloadBuilderTest {
 		this.builder.setShowActionButton(true);
 
 		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER));
 			final JSONObject alert = (JSONObject) aps.get("alert");
 
 			assertEquals(actionButtonKey, alert.get("action-loc-key"));
@@ -197,7 +197,7 @@ public class ApnsPayloadBuilderTest {
 		this.builder.setShowActionButton(false);
 
 		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER));
 			final JSONObject alert = (JSONObject) aps.get("alert");
 
 			assertTrue(alert.keySet().contains("action-loc-key"));
@@ -210,7 +210,7 @@ public class ApnsPayloadBuilderTest {
 		final String actionButtonKey = "action.key";
 		this.builder.setLocalizedActionButtonKey(actionButtonKey);
 
-		final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+		final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER));
 		final JSONObject alert = (JSONObject) aps.get("alert");
 
 		assertEquals(actionButtonKey, alert.get("action-loc-key"));
@@ -221,7 +221,7 @@ public class ApnsPayloadBuilderTest {
 		final int badgeNumber = 4;
 		this.builder.setBadgeNumber(badgeNumber);
 
-		final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+		final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER));
 
 		assertEquals(badgeNumber, ((Number) aps.get("badge")).intValue());
 	}
@@ -231,7 +231,7 @@ public class ApnsPayloadBuilderTest {
 		final String soundFileName = "dying-giraffe.aiff";
 		this.builder.setSoundFileName(soundFileName);
 
-		final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+		final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER));
 
 		assertEquals(soundFileName, aps.get("sound"));
 	}
@@ -241,7 +241,7 @@ public class ApnsPayloadBuilderTest {
 		final String categoryName = "INVITE";
 		this.builder.setCategoryName(categoryName);
 
-		final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+		final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER));
 
 		assertEquals(categoryName, aps.get("category"));
 	}
@@ -249,14 +249,14 @@ public class ApnsPayloadBuilderTest {
 	@Test
 	public void testSetContentAvailable() throws ParseException {
 		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER));
 			assertNull(aps.get("content-available"));
 		}
 
 		{
 			this.builder.setContentAvailable(true);
 
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER));
 			assertEquals(1L, aps.get("content-available"));
 		}
 	}
@@ -268,7 +268,7 @@ public class ApnsPayloadBuilderTest {
 
 		this.builder.addCustomProperty(customKey, customValue);
 
-		final JSONObject payload = (JSONObject) this.parser.parse(this.builder.buildWithDefaultMaximumLength());
+		final JSONObject payload = (JSONObject) this.parser.parse(this.builder.buildWithMaximumLengthForIOSVersion(IOSVersion.IOS_8_AND_NEWER));
 
 		assertEquals(customValue, payload.get(customKey));
 	}

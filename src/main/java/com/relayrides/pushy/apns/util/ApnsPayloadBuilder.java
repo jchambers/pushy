@@ -71,8 +71,6 @@ public class ApnsPayloadBuilder {
 
 	private final HashMap<String, Object> customProperties = new HashMap<String, Object>();
 
-	private static final int DEFAULT_PAYLOAD_SIZE = 2048;
-
 	private static final Charset UTF8 = Charset.forName("UTF-8");
 
 	/**
@@ -305,13 +303,31 @@ public class ApnsPayloadBuilder {
 
 	/**
 	 * <p>Returns a JSON representation of the push notification payload under construction. If the payload length is
-	 * longer than the default maximum (2048 bytes), the literal alert body will be shortened if possible. If the alert
-	 * body cannot be shortened or is not present, an {@code IllegalArgumentException} is thrown.</p>
+	 * longer than the maximum allowed for the given iOS version, the literal alert body will be shortened if possible.
+	 * If the alert body cannot be shortened or is not present, an {@code IllegalArgumentException} is thrown.</p>
 	 *
 	 * @return a JSON representation of the payload under construction (possibly with an abbreviated alert body)
 	 */
-	public String buildWithDefaultMaximumLength() {
-		return this.buildWithMaximumLength(DEFAULT_PAYLOAD_SIZE);
+	public String buildWithMaximumLengthForIOSVersion(final IOSVersion version) {
+		final int maximumPayloadLength;
+
+		switch (version) {
+			case IOS_7_AND_OLDER: {
+				maximumPayloadLength = 256;
+				break;
+			}
+
+			case IOS_8_AND_NEWER: {
+				maximumPayloadLength = 2048;
+				break;
+			}
+
+			default: {
+				throw new IllegalArgumentException(String.format("Unexpected iOS version."));
+			}
+		}
+
+		return this.buildWithMaximumLength(maximumPayloadLength);
 	}
 
 	/**
@@ -519,7 +535,9 @@ public class ApnsPayloadBuilder {
 	 * should be represented as a dictionary
 	 */
 	private boolean shouldRepresentAlertAsString() {
-		return this.alertBody != null && this.launchImageFileName == null && this.showActionButton
+		return this.alertBody != null
+				&& this.launchImageFileName == null
+				&& this.showActionButton
 				&& this.localizedActionButtonKey == null
 				&& this.alertTitle == null
 				&& this.localizedAlertTitleKey == null
