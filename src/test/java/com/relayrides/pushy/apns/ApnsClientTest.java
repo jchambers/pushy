@@ -12,9 +12,8 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.Date;
 import java.util.Random;
-import java.util.concurrent.ExecutionException;
-
 import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLException;
 import javax.net.ssl.TrustManagerFactory;
 
 import org.junit.After;
@@ -36,6 +35,7 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
+import io.netty.util.concurrent.Future;
 import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
@@ -69,19 +69,19 @@ public class ApnsClientTest {
     @Before
     public void setUp() throws Exception {
         this.server = new MockApnsServer(8443, EVENT_LOOP_GROUP);
-        this.server.start().await();
+        this.server.start().await().isSuccess();
 
         this.client = new ApnsClient<>(
                 ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
                 EVENT_LOOP_GROUP);
 
-        this.client.connect("localhost", 8443).get();
+        this.client.connect("localhost", 8443).await();
     }
 
     @After
     public void tearDown() throws Exception {
-        this.client.disconnect().get();
-        this.server.shutdown().await();
+        this.client.disconnect().await().isSuccess();
+        this.server.shutdown().await().isSuccess();
     }
 
     @AfterClass
@@ -92,11 +92,11 @@ public class ApnsClientTest {
     @Test
     public void testReconnectionAfterClose() throws Exception {
         assertTrue(this.client.isConnected());
-        this.client.disconnect().get();
+        assertTrue(this.client.disconnect().await().isSuccess());
 
         assertFalse(this.client.isConnected());
 
-        this.client.connect("localhost", 8443).get();
+        assertTrue(this.client.connect("localhost", 8443).await().isSuccess());
         assertTrue(this.client.isConnected());
     }
 
@@ -123,17 +123,18 @@ public class ApnsClientTest {
         assertTrue(this.client.isConnected());
     }
 
-    @Test(expected = ExecutionException.class)
     public void testConnectWithUntrustedCertificate() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> untrustedClient = new ApnsClient<>(
                 ApnsClientTest.getSslContextForTestClient(UNTRUSTED_CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
                 EVENT_LOOP_GROUP);
 
-        untrustedClient.connect("localhost", 8443).get();
-        untrustedClient.disconnect().get();
+        final Future<Void> connectFuture = untrustedClient.connect("localhost", 8443).await();
+        assertFalse(connectFuture.isSuccess());
+        assertTrue(connectFuture.cause() instanceof SSLException);
+
+        untrustedClient.disconnect().await();
     }
 
-    @Test(expected = ExecutionException.class)
     public void testSendNotificationBeforeConnected() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> unconnectedClient = new ApnsClient<>(
                 ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
@@ -144,7 +145,11 @@ public class ApnsClientTest {
         this.server.registerToken(DEFAULT_TOPIC, testToken);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
-        unconnectedClient.sendNotification(pushNotification).get();
+        final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
+                unconnectedClient.sendNotification(pushNotification).await();
+
+        assertFalse(sendFuture.isSuccess());
+        assertTrue(sendFuture.cause() instanceof IllegalStateException);
     }
 
     @Test
@@ -184,7 +189,7 @@ public class ApnsClientTest {
                 ApnsClientTest.getSslContextForTestClient(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
                 EVENT_LOOP_GROUP);
 
-        multiTopicClient.connect("localhost", 8443).get();
+        multiTopicClient.connect("localhost", 8443).await();
 
         final String testToken = ApnsClientTest.generateRandomToken();
 
@@ -195,7 +200,7 @@ public class ApnsClientTest {
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 multiTopicClient.sendNotification(pushNotification).get();
 
-        multiTopicClient.disconnect().get();
+        multiTopicClient.disconnect().await();
 
         assertFalse(response.isSuccess());
         assertEquals("MissingTopic", response.getRejectionReason());
@@ -208,7 +213,7 @@ public class ApnsClientTest {
                 ApnsClientTest.getSslContextForTestClient(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
                 EVENT_LOOP_GROUP);
 
-        multiTopicClient.connect("localhost", 8443).get();
+        multiTopicClient.connect("localhost", 8443).await();
 
         final String testToken = ApnsClientTest.generateRandomToken();
 
@@ -220,7 +225,7 @@ public class ApnsClientTest {
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 multiTopicClient.sendNotification(pushNotification).get();
 
-        multiTopicClient.disconnect().get();
+        multiTopicClient.disconnect().await();
 
         assertTrue(response.isSuccess());
     }

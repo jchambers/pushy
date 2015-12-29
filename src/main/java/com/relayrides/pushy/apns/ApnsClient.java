@@ -5,8 +5,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
@@ -45,8 +43,12 @@ import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.util.AsciiString;
 import io.netty.util.concurrent.DefaultPromise;
+import io.netty.util.concurrent.FailedFuture;
+import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.GlobalEventExecutor;
 import io.netty.util.concurrent.Promise;
+import io.netty.util.concurrent.SucceededFuture;
 
 public class ApnsClient<T extends ApnsPushNotification> {
 
@@ -74,74 +76,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
     private static final Charset UTF8 = Charset.forName("UTF-8");
-
-    private static class FailedFuture<V> implements Future<V> {
-
-        private final Throwable cause;
-
-        public FailedFuture(final Throwable cause) {
-            this.cause = cause;
-        }
-
-        @Override
-        public boolean cancel(final boolean mayInterruptIfRunning) {
-            return false;
-        }
-
-        @Override
-        public boolean isCancelled() {
-            return false;
-        }
-
-        @Override
-        public boolean isDone() {
-            return true;
-        }
-
-        @Override
-        public V get() throws ExecutionException {
-            throw new ExecutionException(this.cause);
-        }
-
-        @Override
-        public V get(final long timeout, final TimeUnit unit) throws ExecutionException {
-            return this.get();
-        }
-    }
-
-    private static class SuccessfulFuture<V> implements Future<V> {
-
-        private final V value;
-
-        public SuccessfulFuture(final V value) {
-            this.value = value;
-        }
-
-        @Override
-        public boolean cancel(final boolean mayInterruptIfRunning) {
-            return false;
-        }
-
-        @Override
-        public boolean isCancelled() {
-            return false;
-        }
-
-        @Override
-        public boolean isDone() {
-            return true;
-        }
-
-        @Override
-        public V get() {
-            return this.value;
-        }
-
-        @Override
-        public V get(final long timeout, final TimeUnit unit) {
-            return this.get();
-        }
-    }
 
     private class ApnsClientHandlerBuilder extends BuilderBase<ApnsClientHandler, ApnsClientHandlerBuilder> {
         @Override
@@ -450,8 +384,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
             responseFuture = responsePromise;
         } else {
-            responseFuture = new FailedFuture<PushNotificationResponse<T>>(
-                    new IllegalStateException("Channel is not active"));
+            responseFuture = new FailedFuture<>(GlobalEventExecutor.INSTANCE, new IllegalStateException("Channel is not active"));
         }
 
         return responseFuture;
@@ -475,7 +408,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
             if (this.connectionReadyPromise != null) {
                 disconnectFuture = this.connectionReadyPromise.channel().close();
             } else {
-                disconnectFuture = new SuccessfulFuture<Void>(null);
+                disconnectFuture = new SucceededFuture<>(GlobalEventExecutor.INSTANCE, null);
             }
         }
 
