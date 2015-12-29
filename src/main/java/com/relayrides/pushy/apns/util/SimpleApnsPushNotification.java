@@ -49,13 +49,15 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      *
      * @param token
      *            the device token to which this push notification should be delivered
+     * @param topic
+     *            the topic to which this notification should be sent
      * @param payload
      *            the payload to include in this push notification
      *
      * @see DeliveryPriority#IMMEDIATE
      */
-    public SimpleApnsPushNotification(final String token, final String payload) {
-        this(token, payload, null, DeliveryPriority.IMMEDIATE);
+    public SimpleApnsPushNotification(final String token, final String topic, final String payload) {
+        this(token, topic, payload, null, DeliveryPriority.IMMEDIATE);
     }
 
     /**
@@ -65,6 +67,8 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      *
      * @param token
      *            the device token to which this push notification should be delivered
+     * @param topic
+     *            the topic to which this notification should be sent
      * @param payload
      *            the payload to include in this push notification
      * @param invalidationTime
@@ -73,8 +77,8 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      *
      * @see DeliveryPriority#IMMEDIATE
      */
-    public SimpleApnsPushNotification(final String token, final String payload, final Date invalidationTime) {
-        this(token, payload, invalidationTime, DeliveryPriority.IMMEDIATE);
+    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime) {
+        this(token, topic, payload, invalidationTime, DeliveryPriority.IMMEDIATE);
     }
 
     /**
@@ -84,52 +88,36 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      *
      * @param token
      *            the device token to which this push notification should be delivered
-     * @param payload
-     *            the payload to include in this push notification
-     * @param priority
-     *            the priority with which this notification should be delivered to the receiving device
-     */
-    public SimpleApnsPushNotification(final String token, final String payload, final DeliveryPriority priority) {
-        this(token, payload, null, priority);
-    }
-
-    /**
-     * Constructs a new push notification with the given token, payload, delivery expiration time, and delivery
-     * priority.
-     *
-     * @param token
-     *            the device token to which this push notification should be delivered
-     * @param payload
-     *            the payload to include in this push notification
-     * @param invalidationTime
-     *            the time at which Apple's servers should stop trying to deliver this message; if
-     *            {@code null}, no delivery attempts beyond the first will be made
-     * @param priority
-     *            the priority with which this notification should be delivered to the receiving device
-     */
-    public SimpleApnsPushNotification(final String token, final String payload, final Date invalidationTime,
-            final DeliveryPriority priority) {
-        this(token, payload, invalidationTime, priority, null);
-    }
-
-    /**
-     * Constructs a new push notification with the given token, payload, delivery expiration time, and delivery
-     * priority.
-     *
-     * @param token
-     *            the device token to which this push notification should be delivered
-     * @param payload
-     *            the payload to include in this push notification
-     * @param invalidationTime
-     *            the time at which Apple's servers should stop trying to deliver this message; if
-     *            {@code null}, no delivery attempts beyond the first will be made
-     * @param priority
-     *            the priority with which this notification should be delivered to the receiving device
      * @param topic
      *            the topic to which this notification should be sent
+     * @param payload
+     *            the payload to include in this push notification
+     * @param priority
+     *            the priority with which this notification should be delivered to the receiving device
      */
-    public SimpleApnsPushNotification(final String token, final String payload, final Date invalidationTime,
-            final DeliveryPriority priority, final String topic) {
+    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final DeliveryPriority priority) {
+        this(token, topic, payload, null, priority);
+    }
+
+    /**
+     * Constructs a new push notification with the given token, payload, delivery expiration time, and delivery
+     * priority.
+     *
+     * @param token
+     *            the device token to which this push notification should be delivered
+     * @param topic
+     *            the topic to which this notification should be sent
+     * @param payload
+     *            the payload to include in this push notification
+     * @param invalidationTime
+     *            the time at which Apple's servers should stop trying to deliver this message; if
+     *            {@code null}, no delivery attempts beyond the first will be made
+     * @param priority
+     *            the priority with which this notification should be delivered to the receiving device
+     */
+    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime,
+            final DeliveryPriority priority) {
+
         this.token = token;
         this.payload = payload;
         this.invalidationTime = invalidationTime;

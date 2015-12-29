@@ -143,7 +143,7 @@ public class ApnsClientTest {
 
         this.server.registerToken(DEFAULT_TOPIC, testToken);
 
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, "test-payload");
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
         unconnectedClient.sendNotification(pushNotification).get();
     }
 
@@ -153,7 +153,7 @@ public class ApnsClientTest {
 
         this.server.registerToken(DEFAULT_TOPIC, testToken);
 
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, "test-payload");
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 this.client.sendNotification(pushNotification).get();
 
@@ -167,8 +167,8 @@ public class ApnsClientTest {
         this.server.registerToken(DEFAULT_TOPIC, testToken);
 
         final SimpleApnsPushNotification pushNotification =
-                new SimpleApnsPushNotification(testToken, "test-payload", null, DeliveryPriority.IMMEDIATE,
-                        "Definitely not a real topic");
+                new SimpleApnsPushNotification(testToken, "Definitely not a real topic", "test-payload", null,
+                        DeliveryPriority.IMMEDIATE);
 
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 this.client.sendNotification(pushNotification).get();
@@ -190,7 +190,7 @@ public class ApnsClientTest {
 
         this.server.registerToken(DEFAULT_TOPIC, testToken);
 
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, "test-payload");
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
 
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 multiTopicClient.sendNotification(pushNotification).get();
@@ -215,7 +215,7 @@ public class ApnsClientTest {
         this.server.registerToken(DEFAULT_TOPIC, testToken);
 
         final SimpleApnsPushNotification pushNotification =
-                new SimpleApnsPushNotification(testToken, "test-payload", null, DeliveryPriority.IMMEDIATE, DEFAULT_TOPIC);
+                new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload", null, DeliveryPriority.IMMEDIATE);
 
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 multiTopicClient.sendNotification(pushNotification).get();
@@ -228,7 +228,7 @@ public class ApnsClientTest {
     @Test
     public void testSendNotificationWithUnregisteredToken() throws Exception {
         final SimpleApnsPushNotification pushNotification =
-                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), "test-payload");
+                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), null, "test-payload");
 
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 this.client.sendNotification(pushNotification).get();
@@ -248,7 +248,7 @@ public class ApnsClientTest {
 
         this.server.registerToken(DEFAULT_TOPIC, testToken, roundedNow);
 
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, "test-payload");
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 this.client.sendNotification(pushNotification).get();
 
