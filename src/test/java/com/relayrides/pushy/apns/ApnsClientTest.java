@@ -2,20 +2,15 @@ package com.relayrides.pushy.apns;
 
 import static org.junit.Assert.*;
 
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
-import java.security.Security;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.Date;
 import java.util.Random;
-import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLException;
-import javax.net.ssl.TrustManagerFactory;
-
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -44,14 +39,18 @@ public class ApnsClientTest {
 
     private static NioEventLoopGroup EVENT_LOOP_GROUP;
 
-    private static final String SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME = "/pushy-test-client-single-topic.jks";
-    private static final String MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME = "/pushy-test-client-multi-topic.jks";
-    private static final String UNTRUSTED_CLIENT_KEYSTORE_FILENAME = "/pushy-test-client-untrusted.jks";
-    private static final String CLIENT_KEYSTORE_PASSWORD = "pushy-test";
+    private static File SINGLE_TOPIC_CLIENT_CERTIFICATE;
+    private static File SINGLE_TOPIC_CLIENT_PRIVATE_KEY;
+
+    private static File MULTI_TOPIC_CLIENT_CERTIFICATE;
+    private static File MULTI_TOPIC_CLIENT_PRIVATE_KEY;
+
+    private static File UNTRUSTED_CLIENT_CERTIFICATE;
+    private static File UNTRUSTED_CLIENT_PRIVATE_KEY;
+
+    private static File CA_CERTIFICATE;
 
     private static final String DEFAULT_TOPIC = "com.relayrides.pushy";
-
-    private static final String DEFAULT_ALGORITHM = "SunX509";
 
     private static final int TOKEN_LENGTH = 32; // bytes
 
@@ -64,6 +63,17 @@ public class ApnsClientTest {
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {
         ApnsClientTest.EVENT_LOOP_GROUP = new NioEventLoopGroup();
+
+        SINGLE_TOPIC_CLIENT_CERTIFICATE = new File(ApnsClientTest.class.getResource("/single-topic-client.crt").toURI());
+        SINGLE_TOPIC_CLIENT_PRIVATE_KEY = new File(ApnsClientTest.class.getResource("/single-topic-client.pk8").toURI());
+
+        MULTI_TOPIC_CLIENT_CERTIFICATE = new File(ApnsClientTest.class.getResource("/multi-topic-client.crt").toURI());
+        MULTI_TOPIC_CLIENT_PRIVATE_KEY = new File(ApnsClientTest.class.getResource("/multi-topic-client.pk8").toURI());
+
+        UNTRUSTED_CLIENT_CERTIFICATE = new File(ApnsClientTest.class.getResource("/untrusted-client.crt").toURI());
+        UNTRUSTED_CLIENT_PRIVATE_KEY = new File(ApnsClientTest.class.getResource("/untrusted-client.pk8").toURI());
+
+        CA_CERTIFICATE = new File(ApnsClientTest.class.getResource("/ca.crt").toURI());
     }
 
     @Before
@@ -72,7 +82,7 @@ public class ApnsClientTest {
         this.server.start().await().isSuccess();
 
         this.client = new ApnsClient<>(
-                ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
+                ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_CERTIFICATE, SINGLE_TOPIC_CLIENT_PRIVATE_KEY),
                 EVENT_LOOP_GROUP);
 
         this.client.connect("localhost", 8443).await();
@@ -125,7 +135,7 @@ public class ApnsClientTest {
 
     public void testConnectWithUntrustedCertificate() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> untrustedClient = new ApnsClient<>(
-                ApnsClientTest.getSslContextForTestClient(UNTRUSTED_CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
+                ApnsClientTest.getSslContextForTestClient(UNTRUSTED_CLIENT_CERTIFICATE, UNTRUSTED_CLIENT_PRIVATE_KEY),
                 EVENT_LOOP_GROUP);
 
         final Future<Void> connectFuture = untrustedClient.connect("localhost", 8443).await();
@@ -137,7 +147,7 @@ public class ApnsClientTest {
 
     public void testSendNotificationBeforeConnected() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> unconnectedClient = new ApnsClient<>(
-                ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
+                ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_CERTIFICATE, SINGLE_TOPIC_CLIENT_PRIVATE_KEY),
                 EVENT_LOOP_GROUP);
 
         final String testToken = ApnsClientTest.generateRandomToken();
@@ -186,7 +196,7 @@ public class ApnsClientTest {
     @Test
     public void testSendNotificationWithMissingTopic() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> multiTopicClient = new ApnsClient<>(
-                ApnsClientTest.getSslContextForTestClient(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
+                ApnsClientTest.getSslContextForTestClient(MULTI_TOPIC_CLIENT_CERTIFICATE, MULTI_TOPIC_CLIENT_PRIVATE_KEY),
                 EVENT_LOOP_GROUP);
 
         multiTopicClient.connect("localhost", 8443).await();
@@ -210,7 +220,7 @@ public class ApnsClientTest {
     @Test
     public void testSendNotificationWithSpecifiedTopic() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> multiTopicClient = new ApnsClient<>(
-                ApnsClientTest.getSslContextForTestClient(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME, CLIENT_KEYSTORE_PASSWORD),
+                ApnsClientTest.getSslContextForTestClient(MULTI_TOPIC_CLIENT_CERTIFICATE, MULTI_TOPIC_CLIENT_PRIVATE_KEY),
                 EVENT_LOOP_GROUP);
 
         multiTopicClient.connect("localhost", 8443).await();
@@ -262,34 +272,12 @@ public class ApnsClientTest {
         assertEquals(roundedNow, response.getTokenExpirationTimestamp());
     }
 
-    private static SslContext getSslContextForTestClient(final String keyStoreFilename, final String keyStorePassword) throws NoSuchAlgorithmException, KeyStoreException, UnrecoverableKeyException, IOException, CertificateException {
-        final String algorithm;
-        {
-            final String algorithmFromSecurityProperties = Security.getProperty("ssl.KeyManagerFactory.algorithm");
-            algorithm = algorithmFromSecurityProperties != null ? algorithmFromSecurityProperties : DEFAULT_ALGORITHM;
-        }
-
-        final KeyStore keyStore = KeyStore.getInstance("JKS");
-
-        try (final InputStream keyStoreInputStream = ApnsClientTest.class.getResourceAsStream(keyStoreFilename)) {
-            if (keyStoreInputStream == null) {
-                throw new KeyStoreException("Client keystore file not found.");
-            }
-
-            keyStore.load(keyStoreInputStream, "pushy-test".toCharArray());
-        }
-
-        final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(algorithm);
-        trustManagerFactory.init(keyStore);
-
-        final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(algorithm);
-        keyManagerFactory.init(keyStore, CLIENT_KEYSTORE_PASSWORD.toCharArray());
-
+    private static SslContext getSslContextForTestClient(final File certificate, final File privateKey) throws NoSuchAlgorithmException, KeyStoreException, UnrecoverableKeyException, IOException, CertificateException {
         return SslContextBuilder.forClient()
                 .sslProvider(OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK)
                 .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-                .keyManager(keyManagerFactory)
-                .trustManager(trustManagerFactory)
+                .keyManager(certificate, privateKey)
+                .trustManager(CA_CERTIFICATE)
                 .applicationProtocolConfig(new ApplicationProtocolConfig(Protocol.ALPN,
                         SelectorFailureBehavior.NO_ADVERTISE,
                         SelectedListenerFailureBehavior.ACCEPT,

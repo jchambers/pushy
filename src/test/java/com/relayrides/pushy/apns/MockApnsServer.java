@@ -1,8 +1,6 @@
 package com.relayrides.pushy.apns;
 
-import java.io.InputStream;
-import java.security.KeyStore;
-import java.security.Security;
+import java.io.File;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.Date;
@@ -15,10 +13,7 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLSession;
-import javax.net.ssl.TrustManagerFactory;
-
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.ASN1String;
@@ -80,8 +75,9 @@ public class MockApnsServer {
 
     private ChannelGroup allChannels;
 
-    private static final String SERVER_KEYSTORE_FILE_NAME = "/pushy-test-server.jks";
-    private static final char[] KEYSTORE_PASSWORD = "pushy-test".toCharArray();
+    private static final String CA_CERTIFICATE_FILENAME = "/ca.crt";
+    private static final String SERVER_CERTIFICATE_FILENAME = "/server.crt";
+    private static final String SERVER_PRIVATE_KEY_FILENAME = "/server.pk8";
 
     private static final String DEFAULT_ALGORITHM = "SunX509";
 
@@ -339,31 +335,15 @@ public class MockApnsServer {
         this.port = port;
         this.eventLoopGroup = eventLoopGroup;
 
-        try (final InputStream keyStoreInputStream = MockApnsServer.class.getResourceAsStream(SERVER_KEYSTORE_FILE_NAME)) {
-            if (keyStoreInputStream == null) {
-                throw new RuntimeException("Server keystore file not found.");
-            }
+        try {
+            final File caCertificateFile = new File(MockApnsServer.class.getResource(CA_CERTIFICATE_FILENAME).toURI());
+            final File serverCertificateFile = new File(MockApnsServer.class.getResource(SERVER_CERTIFICATE_FILENAME).toURI());
+            final File serverPrivateKeyFile = new File(MockApnsServer.class.getResource(SERVER_PRIVATE_KEY_FILENAME).toURI());
 
-            final KeyStore keyStore = KeyStore.getInstance("JKS");
-            keyStore.load(keyStoreInputStream, KEYSTORE_PASSWORD);
-
-            String algorithm = Security.getProperty("ssl.KeyManagerFactory.algorithm");
-
-            if (algorithm == null) {
-                algorithm = DEFAULT_ALGORITHM;
-            }
-
-            final KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(algorithm);
-            keyManagerFactory.init(keyStore, KEYSTORE_PASSWORD);
-
-            final TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(algorithm);
-            trustManagerFactory.init(keyStore);
-
-            this.sslContext = SslContextBuilder.forServer(keyManagerFactory)
+            this.sslContext = SslContextBuilder.forServer(serverCertificateFile, serverPrivateKeyFile)
                     .sslProvider(OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK)
                     .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-                    .keyManager(keyManagerFactory)
-                    .trustManager(trustManagerFactory)
+                    .trustManager(caCertificateFile)
                     .clientAuth(ClientAuth.REQUIRE)
                     .applicationProtocolConfig(new ApplicationProtocolConfig(
                             Protocol.ALPN,
@@ -372,7 +352,7 @@ public class MockApnsServer {
                             ApplicationProtocolNames.HTTP_2))
                     .build();
         } catch (final Exception e) {
-            throw new RuntimeException("Failed to create SSL context for mock APNs server.", e);
+            throw new RuntimeException("Failed to start mock APNs server.", e);
         }
     }
 

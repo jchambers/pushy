@@ -1,0 +1,23 @@
+[ apns_single_topic_client_extensions ]
+basicConstraints = CA:FALSE
+keyUsage = critical, digitalSignature
+extendedKeyUsage = clientAuth
+
+[ apns_multi_topic_client_extensions ]
+basicConstraints = CA:FALSE
+keyUsage = critical, digitalSignature
+extendedKeyUsage = clientAuth
+1.2.840.113635.100.6.3.6 = ASN1:SEQUENCE:apns_topics
+
+[ apns_server_extensions ]
+basicConstraints = CA:FALSE
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = clientAuth, serverAuth
+
+[ apns_topics ]
+aps_topics.0 = UTF8String:com.relayrides.pushy
+aps_topics.1 = SEQWRAP,UTF8String:app
+aps_topics.2 = UTF8String:com.relayrides.pushy.voip
+aps_topics.3 = SEQWRAP,UTF8String:voip
+aps_topics.4 = UTF8String:com.relayrides.pushy.complication
+aps_topics.5 = SEQWRAP,UTF8String:complication
