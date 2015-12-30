@@ -242,12 +242,22 @@ public class FeedbackServiceConnection {
 				final SSLEngine sslEngine = feedbackConnection.sslContext.createSSLEngine();
 				sslEngine.setUseClientMode(true);
 
+				if(feedbackConnection.configuration.getProxyHandler() != null) {
+					log.debug("adding proxy to pipeline");
+					pipeline.addFirst("proxy", feedbackConnection.configuration.getProxyHandler());
+				}
+
 				pipeline.addLast("ssl", new SslHandler(sslEngine));
 				pipeline.addLast("readTimeoutHandler", new ReadTimeoutHandler(feedbackConnection.configuration.getReadTimeout()));
 				pipeline.addLast("decoder", new ExpiredTokenDecoder());
 				pipeline.addLast("handler", new FeedbackClientHandler(feedbackConnection));
 			}
 		});
+
+		if(feedbackConnection.configuration.getCustomBootstrapConfiguration() != null) {
+			log.debug("applying custom bootstrap configuration");
+			feedbackConnection.configuration.getCustomBootstrapConfiguration().customConfiguration(bootstrap);
+		}
 
 		this.connectFuture = bootstrap.connect(this.environment.getFeedbackHost(), this.environment.getFeedbackPort());
 		this.connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
