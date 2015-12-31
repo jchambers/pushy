@@ -41,5 +41,4 @@ class DateAsSecondsSinceEpochTypeAdapter implements JsonSerializer<Date>, JsonDe
 
         return element;
     }
-
 }
