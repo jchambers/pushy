@@ -50,6 +50,9 @@ public class ApnsClientTest {
 
     private static File CA_CERTIFICATE;
 
+    private static final String HOST = "localhost";
+    private static final int PORT = 8443;
+
     private static final String DEFAULT_TOPIC = "com.relayrides.pushy";
 
     private static final int TOKEN_LENGTH = 32; // bytes
@@ -78,14 +81,14 @@ public class ApnsClientTest {
 
     @Before
     public void setUp() throws Exception {
-        this.server = new MockApnsServer(8443, EVENT_LOOP_GROUP);
-        this.server.start().await().isSuccess();
+        this.server = new MockApnsServer(EVENT_LOOP_GROUP);
+        this.server.start(PORT).await().isSuccess();
 
         this.client = new ApnsClient<SimpleApnsPushNotification>(
                 ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_CERTIFICATE, SINGLE_TOPIC_CLIENT_PRIVATE_KEY),
                 EVENT_LOOP_GROUP);
 
-        this.client.connect("localhost", 8443).await();
+        this.client.connect(HOST, PORT).await();
     }
 
     @After
@@ -106,7 +109,7 @@ public class ApnsClientTest {
 
         assertFalse(this.client.isConnected());
 
-        assertTrue(this.client.connect("localhost", 8443).await().isSuccess());
+        assertTrue(this.client.connect(HOST, PORT).await().isSuccess());
         assertTrue(this.client.isConnected());
     }
 
@@ -123,7 +126,7 @@ public class ApnsClientTest {
 
         assertFalse(this.client.isConnected());
 
-        this.server.start().await();
+        this.server.start(PORT).await();
 
         // Wait for the client to reconnect automatically; if it doesn't, the test will time out and fail
         while (!this.client.isConnected()) {
@@ -138,7 +141,7 @@ public class ApnsClientTest {
                 ApnsClientTest.getSslContextForTestClient(UNTRUSTED_CLIENT_CERTIFICATE, UNTRUSTED_CLIENT_PRIVATE_KEY),
                 EVENT_LOOP_GROUP);
 
-        final Future<Void> connectFuture = untrustedClient.connect("localhost", 8443).await();
+        final Future<Void> connectFuture = untrustedClient.connect(HOST, PORT).await();
         assertFalse(connectFuture.isSuccess());
         assertTrue(connectFuture.cause() instanceof SSLException);
 
@@ -199,7 +202,7 @@ public class ApnsClientTest {
                 ApnsClientTest.getSslContextForTestClient(MULTI_TOPIC_CLIENT_CERTIFICATE, MULTI_TOPIC_CLIENT_PRIVATE_KEY),
                 EVENT_LOOP_GROUP);
 
-        multiTopicClient.connect("localhost", 8443).await();
+        multiTopicClient.connect(HOST, PORT).await();
 
         final String testToken = ApnsClientTest.generateRandomToken();
 
@@ -223,7 +226,7 @@ public class ApnsClientTest {
                 ApnsClientTest.getSslContextForTestClient(MULTI_TOPIC_CLIENT_CERTIFICATE, MULTI_TOPIC_CLIENT_PRIVATE_KEY),
                 EVENT_LOOP_GROUP);
 
-        multiTopicClient.connect("localhost", 8443).await();
+        multiTopicClient.connect(HOST, PORT).await();
 
         final String testToken = ApnsClientTest.generateRandomToken();
 

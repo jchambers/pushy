@@ -44,10 +44,7 @@ import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 
 public class MockApnsServer {
 
-    private final int port;
-    private final SslContext sslContext;
-
-    private final EventLoopGroup eventLoopGroup;
+    private final ServerBootstrap bootstrap;
 
     final Map<String, Map<String, Date>> tokenExpirationsByTopic = new HashMap<String, Map<String, Date>>();
 
@@ -59,16 +56,14 @@ public class MockApnsServer {
 
     private static final String TOPIC_OID = "1.2.840.113635.100.6.3.6";
 
-    public MockApnsServer(final int port, final EventLoopGroup eventLoopGroup) {
-        this.port = port;
-        this.eventLoopGroup = eventLoopGroup;
-
+    public MockApnsServer(final EventLoopGroup eventLoopGroup) {
+        final SslContext sslContext;
         try {
             final File caCertificateFile = new File(MockApnsServer.class.getResource(CA_CERTIFICATE_FILENAME).toURI());
             final File serverCertificateFile = new File(MockApnsServer.class.getResource(SERVER_CERTIFICATE_FILENAME).toURI());
             final File serverPrivateKeyFile = new File(MockApnsServer.class.getResource(SERVER_PRIVATE_KEY_FILENAME).toURI());
 
-            this.sslContext = SslContextBuilder.forServer(serverCertificateFile, serverPrivateKeyFile)
+            sslContext = SslContextBuilder.forServer(serverCertificateFile, serverPrivateKeyFile)
                     .sslProvider(OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK)
                     .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
                     .trustManager(caCertificateFile)
@@ -80,21 +75,19 @@ public class MockApnsServer {
                             ApplicationProtocolNames.HTTP_2))
                     .build();
         } catch (final Exception e) {
-            throw new RuntimeException("Failed to start mock APNs server.", e);
+            throw new RuntimeException("Failed to create SSL context for mock APNs server.", e);
         }
-    }
 
-    public ChannelFuture start() {
-        final ServerBootstrap bootstrap = new ServerBootstrap();
-        bootstrap.group(this.eventLoopGroup);
-        bootstrap.channel(NioServerSocketChannel.class);
-        bootstrap.handler(new LoggingHandler(LogLevel.INFO));
-        bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
+        this.bootstrap = new ServerBootstrap();
+        this.bootstrap.group(eventLoopGroup);
+        this.bootstrap.channel(NioServerSocketChannel.class);
+        this.bootstrap.handler(new LoggingHandler(LogLevel.INFO));
+        this.bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
 
             @Override
             protected void initChannel(final SocketChannel channel) throws Exception {
                 final
-                SslHandler sslHandler = MockApnsServer.this.sslContext.newHandler(channel.alloc());
+                SslHandler sslHandler = sslContext.newHandler(channel.alloc());
                 channel.pipeline().addLast(sslHandler);
                 channel.pipeline().addLast(new ApplicationProtocolNegotiationHandler(ApplicationProtocolNames.HTTP_1_1) {
 
@@ -149,8 +142,10 @@ public class MockApnsServer {
                 });
             }
         });
+    }
 
-        final ChannelFuture channelFuture = bootstrap.bind(this.port);
+    public ChannelFuture start(final int port) {
+        final ChannelFuture channelFuture = this.bootstrap.bind(port);
 
         this.allChannels = new DefaultChannelGroup(channelFuture.channel().eventLoop(), true);
         this.allChannels.add(channelFuture.channel());
