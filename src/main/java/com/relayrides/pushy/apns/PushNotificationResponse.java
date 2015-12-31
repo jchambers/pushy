@@ -2,32 +2,46 @@ package com.relayrides.pushy.apns;
 
 import java.util.Date;
 
-public class PushNotificationResponse<T extends ApnsPushNotification> {
-    private final T pushNotification;
-    private final boolean success;
-    private final String rejectionReason;
-    private final Date tokenExpirationTimestamp;
+/**
+ * A response from the APNs gateway indicating whether a notification was accepted or rejected.
+ *
+ * @author <a href="https://github.com/jchambers">Jon Chambers</a>
+ *
+ * @param <T> the type of push notification
+ */
+public interface PushNotificationResponse<T extends ApnsPushNotification> {
 
-    public PushNotificationResponse(final T pushNotification, final boolean success, final String rejectionReason, final Date tokenExpirationTimestamp) {
-        this.pushNotification = pushNotification;
-        this.success = success;
-        this.rejectionReason = rejectionReason;
-        this.tokenExpirationTimestamp = tokenExpirationTimestamp;
-    }
+    /**
+     * Returns the original push notification sent to the APNs gateway.
+     *
+     * @return the original push notification sent to the APNs gateway
+     */
+    T getPushNotification();
 
-    public T getPushNotification() {
-        return this.pushNotification;
-    }
+    /**
+     * Indicates whether the push notification was accepted by the APNs gateway.
+     *
+     * @return {@code true} if the push notification was accepted or {@code false} if it was rejected
+     */
+    boolean isAccepted();
 
-    public boolean isSuccess() {
-        return this.success;
-    }
+    /**
+     * Returns the reason for rejection reported by the APNs gateway. If the notification was accepted, the rejection
+     * reason will be {@code null}.
+     *
+     * @return the reason for rejection reported by the APNs gateway, or {@code null} if the notification was not
+     * rejected
+     */
+    String getRejectionReason();
 
-    public String getRejectionReason() {
-        return this.rejectionReason;
-    }
-
-    public Date getTokenExpirationTimestamp() {
-        return this.tokenExpirationTimestamp;
-    }
+    /**
+     * If the sent push notification was rejected because the destination token is no longer valid, returns the most
+     * recent time at which the APNs gateway confirmed that the token is no longer valid. Callers should stop attempting
+     * to send notifications to the expired token unless the token has been re-registered more recently than the
+     * returned timestamp.
+     *
+     * @return the time at which the token for the sent push notification became invalid, or {@code null} if the push
+     * notification was either accepted or rejected for a reason other than token invalidation
+     */
+    Date getTokenInvalidationTimestamp();
 }

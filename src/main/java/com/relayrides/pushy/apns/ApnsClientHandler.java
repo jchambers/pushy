@@ -84,7 +84,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
                 final boolean success = HttpResponseStatus.OK.equals(HttpResponseStatus.parseLine(headers.status()));
                 final ErrorResponse errorResponse = gson.fromJson(data.toString(UTF8), ErrorResponse.class);
 
-                ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(new PushNotificationResponse<T>(
+                ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(new SimplePushNotificationResponse<T>(
                         pushNotification, success, errorResponse.getReason(), errorResponse.getTimestamp()));
             } else {
                 log.error("Gateway sent a DATA frame that was not the end of a stream.");
@@ -109,7 +109,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
                 final T pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
                 assert pushNotification != null;
 
-                ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(new PushNotificationResponse<T>(
+                ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(new SimplePushNotificationResponse<T>(
                         pushNotification, success, null, null));
             } else {
                 ApnsClientHandler.this.headersByStreamId.put(streamId, headers);

@@ -175,7 +175,7 @@ public class ApnsClientTest {
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 this.client.sendNotification(pushNotification).get();
 
-        assertTrue(response.isSuccess());
+        assertTrue(response.isAccepted());
     }
 
     @Test
@@ -191,9 +191,9 @@ public class ApnsClientTest {
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 this.client.sendNotification(pushNotification).get();
 
-        assertFalse(response.isSuccess());
+        assertFalse(response.isAccepted());
         assertEquals("TopicDisallowed", response.getRejectionReason());
-        assertNull(response.getTokenExpirationTimestamp());
+        assertNull(response.getTokenInvalidationTimestamp());
     }
 
     @Test
@@ -215,9 +215,9 @@ public class ApnsClientTest {
 
         multiTopicClient.disconnect().await();
 
-        assertFalse(response.isSuccess());
+        assertFalse(response.isAccepted());
         assertEquals("MissingTopic", response.getRejectionReason());
-        assertNull(response.getTokenExpirationTimestamp());
+        assertNull(response.getTokenInvalidationTimestamp());
     }
 
     @Test
@@ -240,7 +240,7 @@ public class ApnsClientTest {
 
         multiTopicClient.disconnect().await();
 
-        assertTrue(response.isSuccess());
+        assertTrue(response.isAccepted());
     }
 
     @Test
@@ -251,9 +251,9 @@ public class ApnsClientTest {
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 this.client.sendNotification(pushNotification).get();
 
-        assertFalse(response.isSuccess());
+        assertFalse(response.isAccepted());
         assertEquals("DeviceTokenNotForTopic", response.getRejectionReason());
-        assertNull(response.getTokenExpirationTimestamp());
+        assertNull(response.getTokenInvalidationTimestamp());
     }
 
     @Test
@@ -270,9 +270,9 @@ public class ApnsClientTest {
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 this.client.sendNotification(pushNotification).get();
 
-        assertFalse(response.isSuccess());
+        assertFalse(response.isAccepted());
         assertEquals("Unregistered", response.getRejectionReason());
-        assertEquals(roundedNow, response.getTokenExpirationTimestamp());
+        assertEquals(roundedNow, response.getTokenInvalidationTimestamp());
     }
 
     private static SslContext getSslContextForTestClient(final File certificate, final File privateKey) throws NoSuchAlgorithmException, KeyStoreException, UnrecoverableKeyException, IOException, CertificateException {
