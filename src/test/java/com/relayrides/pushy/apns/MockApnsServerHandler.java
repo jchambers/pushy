@@ -26,6 +26,7 @@ import io.netty.handler.codec.http2.Http2Flags;
 import io.netty.handler.codec.http2.Http2FrameListener;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Settings;
+import io.netty.util.AsciiString;
 
 class MockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
 
@@ -37,8 +38,8 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     private static final Http2Headers SUCCESS_HEADERS = new DefaultHttp2Headers()
             .status(HttpResponseStatus.OK.codeAsText());
 
-    private static final String APNS_ID = "apns-id";
-    private static final String APNS_TOPIC = "apns-topic";
+    private static final AsciiString APNS_ID = new AsciiString("apns-id");
+    private static final AsciiString APNS_TOPIC = new AsciiString("apns-topic");
 
     private static final int MAX_CONTENT_LENGTH = 4096;
 
@@ -91,11 +92,16 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         final int bytesProcessed = data.readableBytes() + padding;
 
         if (endOfStream) {
-            // Presumably, we replied as soon as we got the headers if we don't have a UUID associated with this stream
+            // Presumably, we spotted an error earlier and sent a response immediately if we don't have an entry in the
+            // "waiting for data frame" map.
             if (this.requestsWaitingForDataFrame.containsKey(streamId)) {
-                // TODO Are we actually supposed to use this ID in the response?
                 final UUID apnsId = this.requestsWaitingForDataFrame.remove(streamId);
-                this.sendSuccessResponse(context, streamId);
+
+                if (data.readableBytes() <= MAX_CONTENT_LENGTH) {
+                    this.sendSuccessResponse(context, streamId);
+                } else {
+                    this.sendErrorResponse(context, streamId, apnsId, ErrorReason.PAYLOAD_TOO_LARGE);
+                }
             }
         }
 
@@ -105,12 +111,31 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     @Override
     public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
         if (!HttpMethod.POST.asciiName().contentEquals(headers.get(Http2Headers.PseudoHeaderName.METHOD.value()))) {
-            this.sendErrorResponse(context, streamId, ErrorReason.METHOD_NOT_ALLOWED);
+            this.sendErrorResponse(context, streamId, null, ErrorReason.METHOD_NOT_ALLOWED);
             return;
         }
 
+        final UUID apnsId;
+        {
+            final CharSequence apnsIdSequence = headers.get(APNS_ID);
+
+            if (apnsIdSequence != null) {
+                try {
+                    apnsId = UUID.fromString(apnsIdSequence.toString());
+                } catch (final IllegalArgumentException e) {
+                    this.sendErrorResponse(context, streamId, null, ErrorReason.BAD_MESSAGE_ID);
+                    return;
+                }
+            } else {
+                // If the client didn't send us a UUID, make one up (for now)
+                apnsId = UUID.randomUUID();
+            }
+
+            this.requestsWaitingForDataFrame.put(streamId, apnsId);
+        }
+
         if (endOfStream) {
-            this.sendErrorResponse(context, streamId, ErrorReason.PAYLOAD_EMPTY);
+            this.sendErrorResponse(context, streamId, apnsId, ErrorReason.PAYLOAD_EMPTY);
             return;
         }
 
@@ -118,10 +143,10 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             final Integer contentLength = headers.getInt(HttpHeaderNames.CONTENT_LENGTH);
 
             if (contentLength != null && contentLength > MAX_CONTENT_LENGTH) {
-                this.sendErrorResponse(context, streamId, ErrorReason.PAYLOAD_TOO_LARGE);
+                this.sendErrorResponse(context, streamId, apnsId, ErrorReason.PAYLOAD_TOO_LARGE);
                 return;
             } else if (contentLength == null) {
-                this.sendErrorResponse(context, streamId, ErrorReason.PAYLOAD_EMPTY);
+                this.sendErrorResponse(context, streamId, apnsId, ErrorReason.PAYLOAD_EMPTY);
                 return;
             }
         }
@@ -136,14 +161,14 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
                 if (this.topics.contains(topicString)) {
                     topic = topicSequence.toString();
                 } else {
-                    this.sendErrorResponse(context, streamId, ErrorReason.TOPIC_DIALLOWED);
+                    this.sendErrorResponse(context, streamId, apnsId, ErrorReason.TOPIC_DIALLOWED);
                     return;
                 }
             } else {
                 if (this.topics.size() == 1) {
                     topic = this.topics.iterator().next();
                 } else {
-                    this.sendErrorResponse(context, streamId, ErrorReason.MISSING_TOPIC);
+                    this.sendErrorResponse(context, streamId, apnsId, ErrorReason.MISSING_TOPIC);
                     return;
                 }
             }
@@ -161,41 +186,25 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
                     final Matcher tokenMatcher = TOKEN_PATTERN.matcher(tokenString);
 
                     if (!tokenMatcher.matches()) {
-                        this.sendErrorResponse(context, streamId, ErrorReason.BAD_DEVICE_TOKEN);
+                        this.sendErrorResponse(context, streamId, apnsId, ErrorReason.BAD_DEVICE_TOKEN);
                         return;
                     }
 
                     final Date expirationTimestamp = this.apnsServer.getExpirationTimestampForTokenInTopic(tokenString, topic);
 
                     if (expirationTimestamp != null) {
-                        this.sendErrorResponse(context, streamId, ErrorReason.UNREGISTERED, expirationTimestamp);
+                        this.sendErrorResponse(context, streamId, apnsId, ErrorReason.UNREGISTERED, expirationTimestamp);
                     }
 
                     if (!this.apnsServer.isTokenRegisteredForTopic(tokenString, topic)) {
-                        this.sendErrorResponse(context, streamId, ErrorReason.DEVICE_TOKEN_NOT_FOR_TOPIC);
+                        this.sendErrorResponse(context, streamId, apnsId, ErrorReason.DEVICE_TOKEN_NOT_FOR_TOPIC);
                         return;
                     }
                 }
             } else {
-                this.sendErrorResponse(context, streamId, ErrorReason.BAD_PATH);
+                this.sendErrorResponse(context, streamId, apnsId, ErrorReason.BAD_PATH);
                 return;
             }
-        }
-
-        {
-            final CharSequence apnsIdSequence = headers.get(APNS_ID);
-
-            final UUID apnsId;
-
-            if (apnsIdSequence != null) {
-                // TODO Handle IllegalArgumentException here
-                apnsId = UUID.fromString(apnsIdSequence.toString());
-            } else {
-                // If the client didn't send us a UUID, make one up (for now)
-                apnsId = UUID.randomUUID();
-            }
-
-            this.requestsWaitingForDataFrame.put(streamId, apnsId);
         }
     }
 
@@ -251,22 +260,24 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         context.flush();
     }
 
-    private void sendErrorResponse(final ChannelHandlerContext context, final int streamId, final ErrorReason reason) {
-        this.sendErrorResponse(context, streamId, reason, null);
+    private void sendErrorResponse(final ChannelHandlerContext context, final int streamId, final UUID apnsId, final ErrorReason reason) {
+        this.sendErrorResponse(context, streamId, apnsId, reason, null);
     }
 
-    private void sendErrorResponse(final ChannelHandlerContext context, final int streamId, final ErrorReason reason, final Date timestamp) {
+    private void sendErrorResponse(final ChannelHandlerContext context, final int streamId, final UUID apnsId, final ErrorReason reason, final Date timestamp) {
         final Http2Headers headers = new DefaultHttp2Headers();
         headers.status(reason.getHttpResponseStatus().codeAsText());
         headers.add(HttpHeaderNames.CONTENT_TYPE, "application/json");
+
+        if (apnsId != null) {
+            headers.add(APNS_ID, apnsId.toString());
+        }
 
         final byte[] payloadBytes;
         {
             final ErrorResponse errorResponse = new ErrorResponse(reason.getReasonText(), timestamp);
             payloadBytes = gson.toJson(errorResponse).getBytes();
         }
-
-        headers.addInt(HttpHeaderNames.CONTENT_LENGTH, payloadBytes.length);
 
         this.encoder().writeHeaders(context, streamId, headers, 0, false, context.newPromise());
         this.encoder().writeData(context, streamId, Unpooled.wrappedBuffer(payloadBytes), 0, true, context.newPromise());
