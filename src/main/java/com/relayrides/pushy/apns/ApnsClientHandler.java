@@ -40,6 +40,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     private static final String APNS_PATH_PREFIX = "/3/device/";
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
+    private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
 
     private static final int STREAM_ID_RESET_THRESHOLD = Integer.MAX_VALUE - 1;
 
@@ -139,6 +140,10 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
                     .path(APNS_PATH_PREFIX + pushNotification.getToken())
                     .addInt(HttpHeaderNames.CONTENT_LENGTH, payloadBytes.length)
                     .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
+
+            if (pushNotification.getPriority() != null) {
+                headers.addInt(APNS_PRIORITY_HEADER, pushNotification.getPriority().getCode());
+            }
 
             if (pushNotification.getTopic() != null) {
                 headers.add(APNS_TOPIC_HEADER, pushNotification.getTopic());

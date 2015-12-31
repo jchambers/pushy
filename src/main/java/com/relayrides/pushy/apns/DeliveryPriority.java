@@ -6,9 +6,8 @@ package com.relayrides.pushy.apns;
  * notification will be sent to the gateway itself.
  *
  * @see <a href=
- *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW4">
- *      Local and Push Notification Programming Guide, Provider Communication with Apple Push Notification Service, The
- *      Binary Interface and Notification Format</a>
+ *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW15">
+ *      APNs Provider API, Notification API</a>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
@@ -29,7 +28,7 @@ public enum DeliveryPriority {
      * </p>
      * </blockquote>
      */
-    IMMEDIATE((byte) 10),
+    IMMEDIATE(10),
 
     /**
      * <p>
@@ -43,19 +42,19 @@ public enum DeliveryPriority {
      * </p>
      * </blockquote>
      */
-    CONSERVE_POWER((byte) 5);
+    CONSERVE_POWER(5);
 
-    private final byte code;
+    private final int code;
 
-    private DeliveryPriority(final byte code) {
+    private DeliveryPriority(final int code) {
         this.code = code;
     }
 
-    protected byte getCode() {
+    protected int getCode() {
         return this.code;
     }
 
-    protected static DeliveryPriority getFromCode(final byte code) {
+    protected static DeliveryPriority getFromCode(final int code) {
         for (final DeliveryPriority priority : DeliveryPriority.values()) {
             if (priority.getCode() == code) {
                 return priority;

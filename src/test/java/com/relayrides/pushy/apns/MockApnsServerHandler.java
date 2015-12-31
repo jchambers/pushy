@@ -38,13 +38,12 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     private static final Http2Headers SUCCESS_HEADERS = new DefaultHttp2Headers()
             .status(HttpResponseStatus.OK.codeAsText());
 
-    private static final AsciiString APNS_ID = new AsciiString("apns-id");
-    private static final AsciiString APNS_TOPIC = new AsciiString("apns-topic");
+    private static final String APNS_PATH_PREFIX = "/3/device/";
+    private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
+    private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
+    private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
 
     private static final int MAX_CONTENT_LENGTH = 4096;
-
-    private static final String PATH_PREFIX = "/3/device/";
-
     private static final Pattern TOKEN_PATTERN = Pattern.compile("[0-9a-fA-F]{64}");
 
     private static final Gson gson = new GsonBuilder()
@@ -117,7 +116,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
         final UUID apnsId;
         {
-            final CharSequence apnsIdSequence = headers.get(APNS_ID);
+            final CharSequence apnsIdSequence = headers.get(APNS_ID_HEADER);
 
             if (apnsIdSequence != null) {
                 try {
@@ -153,7 +152,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
         final String topic;
         {
-            final CharSequence topicSequence = headers.get(APNS_TOPIC);
+            final CharSequence topicSequence = headers.get(APNS_TOPIC_HEADER);
 
             if (topicSequence != null) {
                 final String topicString = topicSequence.toString();
@@ -175,13 +174,26 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
 
         {
+            final Integer priorityCode = headers.getInt(APNS_PRIORITY_HEADER);
+
+            if (priorityCode != null) {
+                try {
+                    DeliveryPriority.getFromCode(priorityCode);
+                } catch (final IllegalArgumentException e) {
+                    this.sendErrorResponse(context, streamId, apnsId, ErrorReason.BAD_PRIORITY);
+                    return;
+                }
+            }
+        }
+
+        {
             final CharSequence pathSequence = headers.get(Http2Headers.PseudoHeaderName.PATH.value());
 
             if (pathSequence != null) {
                 final String pathString = pathSequence.toString();
 
-                if (pathString.startsWith(PATH_PREFIX)) {
-                    final String tokenString = pathString.substring(PATH_PREFIX.length());
+                if (pathString.startsWith(APNS_PATH_PREFIX)) {
+                    final String tokenString = pathString.substring(APNS_PATH_PREFIX.length());
 
                     final Matcher tokenMatcher = TOKEN_PATTERN.matcher(tokenString);
 
@@ -270,7 +282,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         headers.add(HttpHeaderNames.CONTENT_TYPE, "application/json");
 
         if (apnsId != null) {
-            headers.add(APNS_ID, apnsId.toString());
+            headers.add(APNS_ID_HEADER, apnsId.toString());
         }
 
         final byte[] payloadBytes;
