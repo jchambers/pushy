@@ -22,14 +22,13 @@ import io.netty.handler.codec.http2.Http2ConnectionDecoder;
 import io.netty.handler.codec.http2.Http2ConnectionEncoder;
 import io.netty.handler.codec.http2.Http2ConnectionHandler;
 import io.netty.handler.codec.http2.Http2Exception;
-import io.netty.handler.codec.http2.Http2Flags;
-import io.netty.handler.codec.http2.Http2FrameListener;
+import io.netty.handler.codec.http2.Http2FrameAdapter;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.util.AsciiString;
 import io.netty.util.concurrent.GenericFutureListener;
 
-class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionHandler implements Http2FrameListener {
+class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionHandler {
 
     private int nextStreamId = 1;
 
@@ -68,8 +67,53 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
         @Override
         public ApnsClientHandler<S> build0(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder) {
             final ApnsClientHandler<S> handler = new ApnsClientHandler<S>(decoder, encoder, this.initialSettings(), this.apnsClient());
-            this.frameListener(handler);
+            this.frameListener(handler.new ApnsClientHandlerFrameAdapter());
             return handler;
+        }
+    }
+
+    private class ApnsClientHandlerFrameAdapter extends Http2FrameAdapter {
+        @Override
+        public int onDataRead(final ChannelHandlerContext context, final int streamId, final ByteBuf data, final int padding, final boolean endOfStream) throws Http2Exception {
+            final int bytesProcessed = data.readableBytes() + padding;
+
+            if (endOfStream) {
+                final Http2Headers headers = ApnsClientHandler.this.headersByStreamId.remove(streamId);
+                final T pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
+
+                final boolean success = HttpResponseStatus.OK.equals(HttpResponseStatus.parseLine(headers.status()));
+                final ErrorResponse errorResponse = gson.fromJson(data.toString(UTF8), ErrorResponse.class);
+
+                ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(new PushNotificationResponse<T>(
+                        pushNotification, success, errorResponse.getReason(), errorResponse.getTimestamp()));
+            } else {
+                log.error("Gateway sent a DATA frame that was not the end of a stream.");
+            }
+
+            return bytesProcessed;
+        }
+
+        @Override
+        public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int streamDependency, final short weight, final boolean exclusive, final int padding, final boolean endOfStream) throws Http2Exception {
+            this.onHeadersRead(context, streamId, headers, padding, endOfStream);
+        }
+
+        @Override
+        public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
+            final boolean success = HttpResponseStatus.OK.equals(HttpResponseStatus.parseLine(headers.status()));
+
+            if (endOfStream) {
+                if (!success) {
+                    log.error("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
+                }
+                final T pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
+                assert pushNotification != null;
+
+                ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(new PushNotificationResponse<T>(
+                        pushNotification, success, null, null));
+            } else {
+                ApnsClientHandler.this.headersByStreamId.put(streamId, headers);
+            }
         }
     }
 
@@ -77,89 +121,6 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
         super(decoder, encoder, initialSettings);
 
         this.apnsClient = apnsClient;
-    }
-
-    @Override
-    public int onDataRead(final ChannelHandlerContext context, final int streamId, final ByteBuf data, final int padding, final boolean endOfStream) throws Http2Exception {
-        final int bytesProcessed = data.readableBytes() + padding;
-
-        if (endOfStream) {
-            final Http2Headers headers = this.headersByStreamId.remove(streamId);
-            final T pushNotification = this.pushNotificationsByStreamId.remove(streamId);
-
-            final boolean success = HttpResponseStatus.OK.equals(HttpResponseStatus.parseLine(headers.status()));
-            final ErrorResponse errorResponse = gson.fromJson(data.toString(UTF8), ErrorResponse.class);
-
-            this.apnsClient.handlePushNotificationResponse(new PushNotificationResponse<T>(
-                    pushNotification, success, errorResponse.getReason(), errorResponse.getTimestamp()));
-        } else {
-            log.error("Gateway sent a DATA frame that was not the end of a stream.");
-        }
-
-        return bytesProcessed;
-    }
-
-    @Override
-    public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
-        final boolean success = HttpResponseStatus.OK.equals(HttpResponseStatus.parseLine(headers.status()));
-
-        if (endOfStream) {
-            if (!success) {
-                log.error("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
-            }
-            final T pushNotification = this.pushNotificationsByStreamId.remove(streamId);
-            assert pushNotification != null;
-
-            this.apnsClient.handlePushNotificationResponse(new PushNotificationResponse<T>(
-                    pushNotification, success, null, null));
-        } else {
-            this.headersByStreamId.put(streamId, headers);
-        }
-    }
-
-    @Override
-    public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int streamDependency, final short weight, final boolean exclusive, final int padding, final boolean endOfStream) throws Http2Exception {
-        this.onHeadersRead(context, streamId, headers, padding, endOfStream);
-    }
-
-    @Override
-    public void onPriorityRead(final ChannelHandlerContext context, final int streamId, final int streamDependency, final short weight, final boolean exclusive) throws Http2Exception {
-    }
-
-    @Override
-    public void onRstStreamRead(final ChannelHandlerContext context, final int streamId, final long errorCode) throws Http2Exception {
-    }
-
-    @Override
-    public void onSettingsAckRead(final ChannelHandlerContext context) throws Http2Exception {
-    }
-
-    @Override
-    public void onSettingsRead(final ChannelHandlerContext context, final Http2Settings settings) throws Http2Exception {
-    }
-
-    @Override
-    public void onPingRead(final ChannelHandlerContext context, final ByteBuf data) throws Http2Exception {
-    }
-
-    @Override
-    public void onPingAckRead(final ChannelHandlerContext ctx, final ByteBuf data) throws Http2Exception {
-    }
-
-    @Override
-    public void onPushPromiseRead(final ChannelHandlerContext ctx, final int streamId, final int promisedStreamId, final Http2Headers headers, final int padding) throws Http2Exception {
-    }
-
-    @Override
-    public void onGoAwayRead(final ChannelHandlerContext ctx, final int lastStreamId, final long errorCode, final ByteBuf debugData) throws Http2Exception {
-    }
-
-    @Override
-    public void onWindowUpdateRead(final ChannelHandlerContext ctx, final int streamId, final int windowSizeIncrement) throws Http2Exception {
-    }
-
-    @Override
-    public void onUnknownFrame(final ChannelHandlerContext ctx, final byte frameType, final int streamId, final Http2Flags flags, final ByteBuf payload) throws Http2Exception {
     }
 
     @Override
