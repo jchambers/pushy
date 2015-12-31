@@ -2,7 +2,7 @@ package com.relayrides.pushy.apns;
 
 /**
  * An enumeration of delivery priorities for APNs push notifications. Note that this priority affects when the
- * notification may be delivered to the receiving device by the APNs gateway and does <em>not</em> effect when the
+ * notification may be delivered to the receiving device by the APNs gateway and does <em>not</em> affect when the
  * notification will be sent to the gateway itself.
  *
  * @see <a href=
