@@ -28,24 +28,28 @@ import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 /**
  * <p>
  * A push notification that can be sent through the Apple Push Notification service (APNs). Push notifications have a
- * token that identifies the device to which it should be sent, a JSON payload, and (optionally) a time at which the
- * notification is invalid and should no longer be delivered.
+ * token that identifies the device to which it should be sent, a topic (generally the bundle ID of the receiving app),
+ * a JSON payload, and (optionally) a time at which the notification is invalid and should no longer be delivered.
  * </p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  *
  * @see <a href=
- *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html#//apple_ref/doc/uid/TP40008194-CH100-SW9">
+ *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html">
  *      Apple Push Notification Service</a>
  *
- * @see TokenUtil
  * @see ApnsPayloadBuilder
  */
 public interface ApnsPushNotification {
     /**
      * Returns the token of the device to which this push notification is to be sent.
      *
-     * @return an array of bytes containing the token of the device to which this notification is to be sent
+     * @return a string of hexadecimal digits representing the token of the device to which this push notification is to
+     * be sent
+     *
+     * @see <a href=
+     *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">
+     *      APNs Provider API</a>
      */
     String getToken();
 
@@ -53,6 +57,10 @@ public interface ApnsPushNotification {
      * Returns the JSON-encoded payload of this push notification.
      *
      * @return the JSON-encoded payload of this push notification
+     *
+     * @see <a href=
+     *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/TheNotificationPayload.html#//apple_ref/doc/uid/TP40008194-CH107-SW1">
+     *      The Remote Notification Payload</a>
      */
     String getPayload();
 
@@ -64,8 +72,8 @@ public interface ApnsPushNotification {
      * @return the time at which this notification can be discarded
      *
      * @see <a href=
-     *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">
-     *      Provider Communication with Apple Push Notification Service</a>
+     *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">
+     *      APNs Provider API</a>
      */
     Date getExpiration();
 
@@ -76,16 +84,29 @@ public interface ApnsPushNotification {
      * @return the priority with which this push notification should be sent to the receiving device
      *
      * @see <a href=
-     *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">
-     *      Provider Communication with Apple Push Notification Service</a>
+     *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">
+     *      APNs Provider API</a>
      */
     DeliveryPriority getPriority();
 
     /**
-     * Returns the topic to which this notification should be sent.
+     * <p>
+     * Returns the topic to which this notification should be sent. This is generally the bundle ID of the receiving
+     * app.
+     * </p>
+     *
+     * <p>
+     * Some (older) APNs certificates contain only a single topic; if this push notification is sent via a client using
+     * a single-topic certificate, this topic may be {@code null}, in which case the APNs gateway will use the
+     * certificate's subject (the bundle ID for the receiving app) as the topic.
+     * </p>
      *
      * @return the topic to which this notification should be sent, or {@code null} for the default topic if this
-     * notification is sent on a connection with a single-topic certificate
+     *         notification is sent on a connection with a single-topic certificate
+     *
+     * @see <a href=
+     *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">
+     *      APNs Provider API</a>
      */
     String getTopic();
 }
