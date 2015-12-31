@@ -396,10 +396,10 @@ public class ApnsPayloadBuilder {
      * @return a JSON representation of the payload under construction (possibly with an abbreviated alert body)
      */
     public String buildWithMaximumLength(final int maximumPayloadLength) {
-        final HashMap<String, Object> payload = new HashMap<>();
+        final HashMap<String, Object> payload = new HashMap<String, Object>();
 
         {
-            final HashMap<String, Object> aps = new HashMap<>();
+            final HashMap<String, Object> aps = new HashMap<String, Object>();
 
             if (this.badgeNumber != null) {
                 aps.put(BADGE_KEY, this.badgeNumber);
@@ -506,7 +506,7 @@ public class ApnsPayloadBuilder {
             if (this.shouldRepresentAlertAsString()) {
                 return this.alertBody;
             } else {
-                final HashMap<String, Object> alert = new HashMap<>();
+                final HashMap<String, Object> alert = new HashMap<String, Object>();
 
                 if (this.alertBody != null) {
                     alert.put(ALERT_BODY_KEY, this.alertBody);

@@ -81,7 +81,7 @@ public class ApnsClientTest {
         this.server = new MockApnsServer(8443, EVENT_LOOP_GROUP);
         this.server.start().await().isSuccess();
 
-        this.client = new ApnsClient<>(
+        this.client = new ApnsClient<SimpleApnsPushNotification>(
                 ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_CERTIFICATE, SINGLE_TOPIC_CLIENT_PRIVATE_KEY),
                 EVENT_LOOP_GROUP);
 
@@ -134,7 +134,7 @@ public class ApnsClientTest {
     }
 
     public void testConnectWithUntrustedCertificate() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> untrustedClient = new ApnsClient<>(
+        final ApnsClient<SimpleApnsPushNotification> untrustedClient = new ApnsClient<SimpleApnsPushNotification>(
                 ApnsClientTest.getSslContextForTestClient(UNTRUSTED_CLIENT_CERTIFICATE, UNTRUSTED_CLIENT_PRIVATE_KEY),
                 EVENT_LOOP_GROUP);
 
@@ -146,7 +146,7 @@ public class ApnsClientTest {
     }
 
     public void testSendNotificationBeforeConnected() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> unconnectedClient = new ApnsClient<>(
+        final ApnsClient<SimpleApnsPushNotification> unconnectedClient = new ApnsClient<SimpleApnsPushNotification>(
                 ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_CERTIFICATE, SINGLE_TOPIC_CLIENT_PRIVATE_KEY),
                 EVENT_LOOP_GROUP);
 
@@ -195,7 +195,7 @@ public class ApnsClientTest {
 
     @Test
     public void testSendNotificationWithMissingTopic() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> multiTopicClient = new ApnsClient<>(
+        final ApnsClient<SimpleApnsPushNotification> multiTopicClient = new ApnsClient<SimpleApnsPushNotification>(
                 ApnsClientTest.getSslContextForTestClient(MULTI_TOPIC_CLIENT_CERTIFICATE, MULTI_TOPIC_CLIENT_PRIVATE_KEY),
                 EVENT_LOOP_GROUP);
 
@@ -219,7 +219,7 @@ public class ApnsClientTest {
 
     @Test
     public void testSendNotificationWithSpecifiedTopic() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> multiTopicClient = new ApnsClient<>(
+        final ApnsClient<SimpleApnsPushNotification> multiTopicClient = new ApnsClient<SimpleApnsPushNotification>(
                 ApnsClientTest.getSslContextForTestClient(MULTI_TOPIC_CLIENT_CERTIFICATE, MULTI_TOPIC_CLIENT_PRIVATE_KEY),
                 EVENT_LOOP_GROUP);
 

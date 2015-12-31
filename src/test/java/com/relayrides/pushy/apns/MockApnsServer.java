@@ -71,15 +71,13 @@ public class MockApnsServer {
 
     private final EventLoopGroup eventLoopGroup;
 
-    final Map<String, Map<String, Date>> tokenExpirationsByTopic = new HashMap<>();
+    final Map<String, Map<String, Date>> tokenExpirationsByTopic = new HashMap<String, Map<String, Date>>();
 
     private ChannelGroup allChannels;
 
     private static final String CA_CERTIFICATE_FILENAME = "/ca.crt";
     private static final String SERVER_CERTIFICATE_FILENAME = "/server.crt";
     private static final String SERVER_PRIVATE_KEY_FILENAME = "/server.pk8";
-
-    private static final String DEFAULT_ALGORITHM = "SunX509";
 
     private static final String TOPIC_OID = "1.2.840.113635.100.6.3.6";
 
@@ -374,7 +372,7 @@ public class MockApnsServer {
                     @Override
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) throws Exception {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                            final Set<String> topics = new HashSet<>();
+                            final Set<String> topics = new HashSet<String>();
                             {
                                 final SSLSession sslSession = sslHandler.engine().getSession();
 
@@ -440,7 +438,7 @@ public class MockApnsServer {
         Objects.requireNonNull(token);
 
         if (!this.tokenExpirationsByTopic.containsKey(topic)) {
-            this.tokenExpirationsByTopic.put(topic, new HashMap<>());
+            this.tokenExpirationsByTopic.put(topic, new HashMap<String, Date>());
         }
 
         this.tokenExpirationsByTopic.get(topic).put(token, expiration);

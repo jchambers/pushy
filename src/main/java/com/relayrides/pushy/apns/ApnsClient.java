@@ -58,7 +58,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private boolean shouldReconnect = false;
     private long reconnectDelay = INITIAL_RECONNECT_DELAY;
 
-    private final IdentityHashMap<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
+    private final IdentityHashMap<T, Promise<PushNotificationResponse<T>>> responsePromises =
+            new IdentityHashMap<T, Promise<PushNotificationResponse<T>>>();
 
     private static final String APNS_PATH_PREFIX = "/3/device/";
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
@@ -90,8 +91,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
         private int nextStreamId = 1;
 
-        private final Map<Integer, T> pushNotificationsByStreamId = new HashMap<>();
-        private final Map<Integer, Http2Headers> headersByStreamId = new HashMap<>();
+        private final Map<Integer, T> pushNotificationsByStreamId = new HashMap<Integer, T>();
+        private final Map<Integer, Http2Headers> headersByStreamId = new HashMap<Integer, Http2Headers>();
 
         protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
             super(decoder, encoder, initialSettings);
@@ -187,10 +188,10 @@ public class ApnsClient<T extends ApnsPushNotification> {
         }
 
         @Override
+        @SuppressWarnings("unchecked")
         public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise promise) {
             try {
                 // We'll catch class cast issues gracefully
-                @SuppressWarnings("unchecked")
                 final T pushNotification = (T) message;
 
                 final int streamId = this.nextStreamId;
@@ -367,7 +368,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
         if (connectionReadyPromise != null && connectionReadyPromise.isSuccess() && connectionReadyPromise.channel().isActive()) {
             final DefaultPromise<PushNotificationResponse<T>> responsePromise =
-                    new DefaultPromise<>(connectionReadyPromise.channel().eventLoop());
+                    new DefaultPromise<PushNotificationResponse<T>>(connectionReadyPromise.channel().eventLoop());
 
             this.responsePromises.put(notification, responsePromise);
 
@@ -384,7 +385,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
             responseFuture = responsePromise;
         } else {
-            responseFuture = new FailedFuture<>(GlobalEventExecutor.INSTANCE, new IllegalStateException("Channel is not active"));
+            responseFuture = new FailedFuture<PushNotificationResponse<T>>(
+                    GlobalEventExecutor.INSTANCE, new IllegalStateException("Channel is not active"));
         }
 
         return responseFuture;
@@ -408,7 +410,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
             if (this.connectionReadyPromise != null) {
                 disconnectFuture = this.connectionReadyPromise.channel().close();
             } else {
-                disconnectFuture = new SucceededFuture<>(GlobalEventExecutor.INSTANCE, null);
+                disconnectFuture = new SucceededFuture<Void>(GlobalEventExecutor.INSTANCE, null);
             }
         }
 
