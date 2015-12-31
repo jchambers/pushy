@@ -250,7 +250,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
         this.bootstrap = new Bootstrap();
         this.bootstrap.group(eventLoopGroup);
         this.bootstrap.channel(NioSocketChannel.class);
-        this.bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
         this.bootstrap.option(ChannelOption.TCP_NODELAY, true);
         this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 

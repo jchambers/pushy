@@ -28,7 +28,6 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.ChannelGroupFuture;
@@ -356,7 +355,6 @@ public class MockApnsServer {
 
     public ChannelFuture start() {
         final ServerBootstrap bootstrap = new ServerBootstrap();
-        bootstrap.option(ChannelOption.SO_BACKLOG, 1024);
         bootstrap.group(this.eventLoopGroup);
         bootstrap.channel(NioServerSocketChannel.class);
         bootstrap.handler(new LoggingHandler(LogLevel.INFO));
