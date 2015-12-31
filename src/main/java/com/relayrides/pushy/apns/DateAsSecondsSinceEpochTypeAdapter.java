@@ -23,7 +23,7 @@ class DateAsSecondsSinceEpochTypeAdapter implements JsonSerializer<Date>, JsonDe
         } else if (json.isJsonNull()) {
             date = null;
         } else {
-            throw new JsonParseException("Dates represented as seconds since the epoch must either be numers or null.");
+            throw new JsonParseException("Dates represented as seconds since the epoch must either be numbers or null.");
         }
 
         return date;
