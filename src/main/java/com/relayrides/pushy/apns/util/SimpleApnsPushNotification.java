@@ -82,24 +82,6 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
     }
 
     /**
-     * Constructs a new push notification with the given token, payload, and delivery priority. No expiration time is
-     * set for the notification, so APNs will not attempt to store the notification for later delivery if the initial
-     * attempt fails.
-     *
-     * @param token
-     *            the device token to which this push notification should be delivered
-     * @param topic
-     *            the topic to which this notification should be sent
-     * @param payload
-     *            the payload to include in this push notification
-     * @param priority
-     *            the priority with which this notification should be delivered to the receiving device
-     */
-    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final DeliveryPriority priority) {
-        this(token, topic, payload, null, priority);
-    }
-
-    /**
      * Constructs a new push notification with the given token, payload, delivery expiration time, and delivery
      * priority.
      *
