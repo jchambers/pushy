@@ -158,9 +158,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
         @Override
         public void onSettingsRead(final ChannelHandlerContext context, final Http2Settings settings) throws Http2Exception {
-            // Always try to notify the "connection is ready" promise; if it's already been notified, this will have no
-            // effect.
-            ApnsClient.this.connectionReadyPromise.trySuccess();
         }
 
         @Override
@@ -265,9 +262,23 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                     .server(false)
                                     .encoderEnforceMaxConcurrentStreams(true)
                                     .build());
+
+                            // Add this to the end of the queue so any events enqueued by the client handler happen
+                            // before we declare victory.
+                            context.channel().eventLoop().submit(new Runnable() {
+
+                                @Override
+                                public void run() {
+                                    final ChannelPromise connectionReadyPromise = ApnsClient.this.connectionReadyPromise;
+
+                                    if (connectionReadyPromise != null) {
+                                        connectionReadyPromise.trySuccess();
+                                    }
+                                }
+                            });
                         } else {
+                            log.error("Unexpected protocol: {}", protocol);
                             context.close();
-                            throw new IllegalStateException("Unexpected protocol: " + protocol);
                         }
                     }
 
