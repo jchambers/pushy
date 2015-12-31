@@ -174,8 +174,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
             }
 
         } catch (final ClassCastException e) {
-            // This should never happen, but in case some foreign debris winds up in the pipeline, just pass it
-            // through.
+            // This should never happen, but in case some foreign debris winds up in the pipeline, just pass it through.
             log.error("Unexpected object in pipeline: {}", message);
             context.write(message, promise);
         }

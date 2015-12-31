@@ -207,8 +207,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
         final Promise<PushNotificationResponse<T>> promise =
                 this.responsePromises.remove(response.getPushNotification());
 
-        assert promise != null;
-
         promise.setSuccess(response);
     }
 
