@@ -60,6 +60,32 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises =
             new IdentityHashMap<T, Promise<PushNotificationResponse<T>>>();
 
+    /**
+     * The hostname for the production APNs gateway.
+     */
+    public static final String PRODUCTION_APNS_HOST = "api.push.apple.com";
+
+    /**
+     * The hostname for the development APNs gateway.
+     */
+    public static final String DEVELOPMENT_APNS_HOST = "api.development.push.apple.com";
+
+    /**
+     * The default (HTTPS) port for communication with the APNs gateway.
+     */
+    public static final int DEFAULT_APNS_PORT = 443;
+
+    /**
+     * <p>An alternative port for communication with the APNs gateway. According to Apple's documentation:</p>
+     *
+     * <blockquote>You can alternatively use port 2197 when communicating with APNs. You might do this, for example, to
+     * allow APNs traffic through your firewall but to block other HTTPS traffic.</blockquote>
+     *
+     * @see <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW12">APNs
+     * Provider API, Connections</a>
+     */
+    public static final int ALTERNATE_APNS_PORT = 2197;
+
     private static final ClientNotConnectedException NOT_CONNECTED_EXCEPTION = new ClientNotConnectedException();
 
     private static final long INITIAL_RECONNECT_DELAY = 1; // second
@@ -175,12 +201,43 @@ public class ApnsClient<T extends ApnsPushNotification> {
     }
 
     /**
-     * Connects to an APNs gateway at the given address.
+     * <p>Connects to the given APNs gateway on the default (HTTPS) port ({@value DEFAULT_APNS_PORT}).</p>
      *
-     * @param host
-     * @param port
+     * <p>Once an initial connection has been established and until the client has been explicitly disconnected via the
+     * {@link ApnsClient#disconnect()} method, the client will attempt to reconnect automatically if the connection
+     * closes unexpectedly. If the connection closes unexpectedly, callers may monitor the status of the reconnection
+     * attempt with the {@code Future} returned by the {@link ApnsClient#getReconnectionFuture()} method.</p>
      *
-     * @return a {@code Future} that will be complete when a secure connection to the APNs gateway has been established
+     * @param host the APNs gateway to which to connect
+     *
+     * @return a {@code Future} that will succeed when the client has connected to the gateway and is ready to send
+     * push notifications
+     *
+     * @see ApnsClient#PRODUCTION_APNS_HOST
+     * @see ApnsClient#DEVELOPMENT_APNS_HOST
+     */
+    public Future<Void> connect(final String host) {
+        return this.connect(host, DEFAULT_APNS_PORT);
+    }
+
+    /**
+     * <p>Connects to the given APNs gateway on the given port.</p>
+     *
+     * <p>Once an initial connection has been established and until the client has been explicitly disconnected via the
+     * {@link ApnsClient#disconnect()} method, the client will attempt to reconnect automatically if the connection
+     * closes unexpectedly. If the connection closes unexpectedly, callers may monitor the status of the reconnection
+     * attempt with the {@code Future} returned by the {@link ApnsClient#getReconnectionFuture()} method.</p>
+     *
+     * @param host the APNs gateway to which to connect
+     * @param port the port on which to connect to the APNs gateway
+     *
+     * @return a {@code Future} that will succeed when the client has connected to the gateway and is ready to send
+     * push notifications
+     *
+     * @see ApnsClient#PRODUCTION_APNS_HOST
+     * @see ApnsClient#DEVELOPMENT_APNS_HOST
+     * @see ApnsClient#DEFAULT_APNS_PORT
+     * @see ApnsClient#ALTERNATE_APNS_PORT
      */
     public Future<Void> connect(final String host, final int port) {
         synchronized (this.bootstrap) {
@@ -260,7 +317,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
     }
 
     /**
-     * <p>Returns a {@code Future} that will succeed when the client has established a connection to the APNs gateway.
+     * <p>Returns a {@code Future} that will succeed when the client has re-established a connection to the APNs gateway.
      * Callers may use this method to determine when it is safe to resume sending notifications after a send attempt
      * fails with a {@link ClientNotConnectedException}.</p>
      *
