@@ -18,7 +18,7 @@ openssl req -new -keyout multi-topic-client.key -nodes -newkey rsa:2048 -subj "/
 openssl req -new -keyout untrusted-client.key -nodes -newkey rsa:2048 -subj "/CN=Apple Push Services: com.relayrides.pushy/UID=com.relayrides.pushy" | \
     openssl x509 -extfile ./apns-extensions.cnf -extensions apns_single_topic_client_extensions -req -days 36500  -set_serial $RANDOM -signkey untrusted-client.key -out untrusted-client.crt
 
-# If we want things to work with both the JDK and OpenSSL providers, we'll the keys in PKCS8 format
+# If we want things to work with both the JDK and OpenSSL providers, we'll need the keys in PKCS8 format
 openssl pkcs8 -topk8 -nocrypt -in server.key -out server.pk8
 openssl pkcs8 -topk8 -nocrypt -in single-topic-client.key -out single-topic-client.pk8
 openssl pkcs8 -topk8 -nocrypt -in multi-topic-client.key -out multi-topic-client.pk8
