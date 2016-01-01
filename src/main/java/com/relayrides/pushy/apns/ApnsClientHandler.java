@@ -107,8 +107,8 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
                 if (!success) {
                     log.error("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
                 }
+
                 final T pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
-                assert pushNotification != null;
 
                 ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(new SimplePushNotificationResponse<T>(
                         pushNotification, success, null, null));
