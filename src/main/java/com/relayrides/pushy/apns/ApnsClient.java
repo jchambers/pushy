@@ -60,6 +60,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises =
             new IdentityHashMap<T, Promise<PushNotificationResponse<T>>>();
 
+    private static final ClientNotConnectedException NOT_CONNECTED_EXCEPTION = new ClientNotConnectedException();
+
     private static final long INITIAL_RECONNECT_DELAY = 1; // second
     private static final long MAX_RECONNECT_DELAY = 60; // seconds
 
@@ -246,12 +248,29 @@ public class ApnsClient<T extends ApnsPushNotification> {
         }
     }
 
+    /**
+     * Indicates whether this client is connected to the APNs gateway and ready to send push notifications.
+     *
+     * @return {@code true} if this client is connected and ready to send notifications or {@code false} otherwise
+     */
     public boolean isConnected() {
         synchronized (this.bootstrap) {
             return this.connectionReadyPromise != null && this.connectionReadyPromise.isSuccess();
         }
     }
 
+    /**
+     * <p>Returns a {@code Future} that will succeed when the client has established a connection to the APNs gateway.
+     * Callers may use this method to determine when it is safe to resume sending notifications after a send attempt
+     * fails with a {@link ClientNotConnectedException}.</p>
+     *
+     * <p>If the client is already connected, the {@code Future} returned by this method will succeed immediately. If
+     * the client was not previously connected (either because it has never been connected or because it was explicitly
+     * disconnected via the {@link ApnsClient#disconnect()} method), the {@code Future} returned by this method will
+     * fail immediately with an {@link IllegalStateException}.</p>
+     *
+     * @return a {@code Future} that will succeed when the client has established a connection to the APNs gateway
+     */
     public Future<Void> getReconnectionFuture() {
         final Future<Void> reconnectionFuture;
 
@@ -283,8 +302,14 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * <p>The returned {@code Future} may fail with an exception if the notification could not be sent. Failures to
      * <em>send</em> a notification to the gateway—i.e. those that fail with exceptions—should generally be considered
-     * non-permanent, and callers should attempt to re-send the notification when the underlying problem (e.g. a
-     * connection failure) has been resolved.</p>
+     * non-permanent, and callers should attempt to re-send the notification when the underlying problem has been
+     * resolved.</p>
+     *
+     * <p>In particular, attempts to send a notification when the client is not connected will fail with a
+     * {@link ClientNotConnectedException}. If the client was previously connected and has not been explicitly
+     * disconnected (via the {@link ApnsClient#disconnect()} method), the client will attempt to reconnect
+     * automatically. Callers may wait for a reconnection attempt to complete by waiting for the {@code Future} returned
+     * by the {@link ApnsClient#getReconnectionFuture()} method.</p>
      *
      * @param notification the notification to send to the APNs gateway
      *
@@ -322,7 +347,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
             responseFuture = responsePromise;
         } else {
             responseFuture = new FailedFuture<PushNotificationResponse<T>>(
-                    GlobalEventExecutor.INSTANCE, new IllegalStateException("Channel is not active"));
+                    GlobalEventExecutor.INSTANCE, NOT_CONNECTED_EXCEPTION);
         }
 
         return responseFuture;
