@@ -129,11 +129,34 @@ public class ApnsClientTest {
         this.server.start(PORT).await();
 
         // Wait for the client to reconnect automatically; if it doesn't, the test will time out and fail
-        while (!this.client.isConnected()) {
-            Thread.sleep(500);
-        }
+        final Future<Void> reconnectionFuture = this.client.getReconnectionFuture();
+        reconnectionFuture.await();
+
+        assertTrue(reconnectionFuture.isSuccess());
+        assertTrue(this.client.isConnected());
+    }
+
+    @Test
+    public void testGetReconnectionFutureWhenConnected() throws Exception {
+        final Future<Void> reconnectionFuture = this.client.getReconnectionFuture();
+        reconnectionFuture.await();
 
         assertTrue(this.client.isConnected());
+        assertTrue(reconnectionFuture.isSuccess());
+    }
+
+    @Test
+    public void testGetReconnectionFutureWhenNotConnected() throws Exception {
+        final ApnsClient<SimpleApnsPushNotification> unconnectedClient = new ApnsClient<SimpleApnsPushNotification>(
+                ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_CERTIFICATE, SINGLE_TOPIC_CLIENT_PRIVATE_KEY),
+                EVENT_LOOP_GROUP);
+
+        final Future<Void> reconnectionFuture = unconnectedClient.getReconnectionFuture();
+
+        reconnectionFuture.await();
+
+        assertFalse(unconnectedClient.isConnected());
+        assertFalse(reconnectionFuture.isSuccess());
     }
 
     public void testConnectWithUntrustedCertificate() throws Exception {

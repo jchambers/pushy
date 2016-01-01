@@ -52,9 +52,9 @@ import io.netty.util.concurrent.SucceededFuture;
 public class ApnsClient<T extends ApnsPushNotification> {
 
     private final Bootstrap bootstrap;
-    private ChannelPromise connectionReadyPromise;
 
-    private boolean shouldReconnect = false;
+    private ChannelPromise connectionReadyPromise;
+    private ChannelPromise reconnectionPromise;
     private long reconnectDelay = INITIAL_RECONNECT_DELAY;
 
     private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises =
@@ -210,7 +210,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                         synchronized (ApnsClient.this.bootstrap) {
                             ApnsClient.this.connectionReadyPromise = null;
 
-                            if (ApnsClient.this.shouldReconnect) {
+                            if (ApnsClient.this.reconnectionPromise != null) {
                                 future.channel().eventLoop().schedule(new Runnable() {
 
                                     @Override
@@ -231,8 +231,12 @@ public class ApnsClient<T extends ApnsPushNotification> {
                     public void operationComplete(final ChannelFuture future) throws Exception {
                         if (future.isSuccess()) {
                             synchronized (ApnsClient.this.bootstrap) {
+                                if (ApnsClient.this.reconnectionPromise != null) {
+                                    ApnsClient.this.reconnectionPromise.trySuccess();
+                                }
+
                                 ApnsClient.this.reconnectDelay = INITIAL_RECONNECT_DELAY;
-                                ApnsClient.this.shouldReconnect = true;
+                                ApnsClient.this.reconnectionPromise = future.channel().newPromise();
                             }
                         }
                     }});
@@ -246,6 +250,27 @@ public class ApnsClient<T extends ApnsPushNotification> {
         synchronized (this.bootstrap) {
             return this.connectionReadyPromise != null && this.connectionReadyPromise.isSuccess();
         }
+    }
+
+    public Future<Void> getReconnectionFuture() {
+        final Future<Void> reconnectionFuture;
+
+        synchronized (this.bootstrap) {
+            if (this.isConnected()) {
+                reconnectionFuture = this.connectionReadyPromise.channel().newSucceededFuture();
+            } else if (this.reconnectionPromise != null) {
+                // If we're not connected, but have a reconnection promise, we're in the middle of a reconnection
+                // attempt.
+                reconnectionFuture = this.reconnectionPromise;
+            } else {
+                // We're not connected and have no reconnection future, which means we've either never connected or have
+                // explicitly disconnected.
+                reconnectionFuture = new FailedFuture<Void>(GlobalEventExecutor.INSTANCE,
+                        new IllegalStateException("Client was not previously connected."));
+            }
+        }
+
+        return reconnectionFuture;
     }
 
     /**
@@ -321,7 +346,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
         final Future<Void> disconnectFuture;
 
         synchronized (this.bootstrap) {
-            this.shouldReconnect = false;
+            this.reconnectionPromise = null;
 
             if (this.connectionReadyPromise != null) {
                 disconnectFuture = this.connectionReadyPromise.channel().close();
