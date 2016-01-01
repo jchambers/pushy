@@ -8,8 +8,12 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Random;
+import java.util.UUID;
+
 import javax.net.ssl.SSLException;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -19,6 +23,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
 
+import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -202,6 +207,35 @@ public class ApnsClientTest {
     }
 
     @Test
+    public void testSendManyNotifications() throws Exception {
+        final int notificationCount = 1000;
+
+        final List<SimpleApnsPushNotification> pushNotifications = new ArrayList<SimpleApnsPushNotification>();
+
+        for (int i = 0; i < notificationCount; i++) {
+            final String token = ApnsClientTest.generateRandomToken();
+            final String payload = ApnsClientTest.generateRandomPayload();
+
+            this.server.registerToken(DEFAULT_TOPIC, token);
+            pushNotifications.add(new SimpleApnsPushNotification(token, DEFAULT_TOPIC, payload));
+        }
+
+        final List<Future<PushNotificationResponse<SimpleApnsPushNotification>>> futures =
+                new ArrayList<Future<PushNotificationResponse<SimpleApnsPushNotification>>>();
+
+        for (final SimpleApnsPushNotification pushNotification : pushNotifications) {
+            futures.add(this.client.sendNotification(pushNotification));
+        }
+
+        for (final Future<PushNotificationResponse<SimpleApnsPushNotification>> future : futures) {
+            future.await();
+
+            assertTrue(future.isSuccess());
+            assertTrue(future.get().isAccepted());
+        }
+    }
+
+    @Test
     public void testSendNotificationWithBadTopic() throws Exception {
         final String testToken = ApnsClientTest.generateRandomToken();
 
@@ -329,5 +363,12 @@ public class ApnsClientTest {
         }
 
         return builder.toString();
+    }
+
+    private static String generateRandomPayload() {
+        final ApnsPayloadBuilder payloadBuilder = new ApnsPayloadBuilder();
+        payloadBuilder.setAlertBody(UUID.randomUUID().toString());
+
+        return payloadBuilder.buildWithDefaultMaximumLength();
     }
 }
