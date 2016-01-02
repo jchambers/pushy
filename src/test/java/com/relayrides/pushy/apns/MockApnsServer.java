@@ -26,6 +26,7 @@ import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
+import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
@@ -132,6 +133,7 @@ public class MockApnsServer {
                             context.pipeline().addLast(new MockApnsServerHandler.Builder()
                                     .apnsServer(MockApnsServer.this)
                                     .topics(topics)
+                                    .initialSettings(new Http2Settings().maxConcurrentStreams(8))
                                     .build());
 
                             MockApnsServer.this.allChannels.add(context.channel());
