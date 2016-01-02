@@ -30,8 +30,8 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.ByteToMessageDecoder;
@@ -71,7 +71,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 
 	private final ApnsEnvironment environment;
 	private final SSLContext sslContext;
-	private final NioEventLoopGroup eventLoopGroup;
+	private final EventLoopGroup eventLoopGroup;
 	private final ApnsConnectionConfiguration configuration;
 	private final ApnsConnectionListener<T> listener;
 
@@ -360,7 +360,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 * @param name a human-readable name for this connection; names must not be {@code null}
 	 */
 	public ApnsConnection(final ApnsEnvironment environment, final SSLContext sslContext,
-			final NioEventLoopGroup eventLoopGroup, final ApnsConnectionConfiguration configuration,
+			final EventLoopGroup eventLoopGroup, final ApnsConnectionConfiguration configuration,
 			final ApnsConnectionListener<T> listener, final String name) {
 
 		if (environment == null) {
@@ -495,6 +495,21 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 				}
 			}
 		});
+	}
+
+	/**
+	 * Indicates whether this connection will write a push notification immediately. Any notifications sent when this
+	 * method returns {@code false} will be enqueued internally.
+	 *
+	 * @return {@code true} if this connection will write a push notification immediately or {@code false} if attempts
+	 * to send push notifications will be deferred
+	 */
+	public boolean isWritable() {
+		if (this.connectFuture == null || this.connectFuture.channel() == null) {
+			return false;
+		} else {
+			return this.connectFuture.channel().isWritable();
+		}
 	}
 
 	/**
@@ -646,6 +661,7 @@ public class ApnsConnection<T extends ApnsPushNotification> {
 	 */
 	public synchronized void disconnectImmediately() {
 		if (this.connectFuture != null) {
+			this.connectFuture.cancel(false);
 			this.connectFuture.channel().close();
 		}
 	}
