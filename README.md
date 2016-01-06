@@ -35,12 +35,12 @@ TODO
 
 The APNs protocol is built on top of the [HTTP/2 protocol](https://http2.github.io/). HTTP/2 is a relatively new protocol, and relies on some new technological developments that aren't yet wide-spread in the Java world. In particular:
 
-1. HTTP/2 depends on [ALPN](https://tools.ietf.org/html/rfc7301), a TLS extension for protocol negotiation. No version of Java has native ALPN support at this time. The ALPN requirement may be met either by using [native OpenSSL](http://netty.io/wiki/forked-tomcat-native.html) as an SSL provider for Java 6, 7, and 8, or by using [Jetty's ALPN implementation](http://www.eclipse.org/jetty/documentation/9.2.8.v20150217/alpn-chapter.html) under OpenJDK 7 or 8.
-2. The HTTP/2 specification requires the use of [ciphers](https://httpwg.github.io/specs/rfc7540.html#rfc.section.9.2.2) that weren't introduced in Java until Java 8. Using [native OpenSSL](http://netty.io/wiki/forked-tomcat-native.html) as an SSL provider is the best way to meet this requirement under Java 6 and 7. Using native OpenSSL isn't a requirement under Java 8, but may still yield performance gains.
+1. HTTP/2 depends on [ALPN](https://tools.ietf.org/html/rfc7301), a TLS extension for protocol negotiation. No version of Java has native ALPN support at this time. The ALPN requirement may be met either by [using OpenSSL as an SSL provider](#using-native-openssl-as-an-ssl-provider) for Java 6, 7, and 8, or by [using Jetty's ALPN implementation](#using-jettys-alpn-implementation) under OpenJDK 7 or 8.
+2. The HTTP/2 specification requires the use of [ciphers](https://httpwg.github.io/specs/rfc7540.html#rfc.section.9.2.2) that weren't introduced in Java until Java 8. Using OpenSSL as an SSL provider is the best way to meet this requirement under Java 6 and 7. Using OpenSSL isn't a requirement under Java 8, but may still yield performance gains.
 
-Generally speaking, using native OpenSSL as your SSL provider is the best way to fulfill the system requirements imposed by HTTP/2 because installation is fairly straightforward, it works for Java 6 onward and generally offers better SSL performance than the JDK SSL provider.
+Generally speaking, using OpenSSL as your SSL provider is the best way to fulfill the system requirements imposed by HTTP/2 because installation is fairly straightforward, it works for Java 6 onward and generally offers better SSL performance than the JDK SSL provider.
 
-### Using native OpenSSL as an SSL provider
+### Using OpenSSL as an SSL provider
 
 Using OpenSSL as an SSL provider fulfills the ALPN and cipher suite requirements imposed by HTTP/2. To use OpenSSL as an SSL provider, you'll need OpenSSL 1.0.2 or newer installed. You'll also need to add `netty-tcnative` as a dependency to your project. The `netty-tcnative` wiki provides [detailed instructions](http://netty.io/wiki/forked-tomcat-native.html), but in short, you'll need to add one additional platform-specific dependency to your project. This approach will meet all requirements imposed by HTTP/2 for Java 6, 7, and 8.
 
