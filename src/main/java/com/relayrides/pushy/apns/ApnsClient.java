@@ -205,6 +205,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
         });
     }
 
+    // TODO Expose connection/handshake timeout settings
+
     /**
      * <p>Connects to the given APNs gateway on the default (HTTPS) port ({@value DEFAULT_APNS_PORT}).</p>
      *
