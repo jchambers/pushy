@@ -430,10 +430,12 @@ public class ApnsClient<T extends ApnsPushNotification> {
     // TODO Expose graceful shutdown timeout methods
 
     /**
-     * Gracefully disconnects from the APNs gateway. The disconnection process will wait until notifications in flight
-     * have been either accepted or rejected by the gateway. The returned {@code Future} will be marked as complete
-     * when the connection has closed completely. If the connection is already closed when this method is called, the
-     * returned {@code Future} will be marked as complete immediately.
+     * <p>Gracefully disconnects from the APNs gateway. The disconnection process will wait until notifications in
+     * flight have been either accepted or rejected by the gateway. The returned {@code Future} will be marked as
+     * complete when the connection has closed completely. If the connection is already closed when this method is
+     * called, the returned {@code Future} will be marked as complete immediately.</p>
+     *
+     * <p>Clients may be reconnected and reused after they have been disconnected.</p>
      *
      * @return a {@code Future} that will be marked as complete when the connection has been closed
      */
