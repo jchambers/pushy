@@ -2,7 +2,6 @@ package com.relayrides.pushy.apns;
 
 import java.io.File;
 import java.security.cert.Certificate;
-import java.security.cert.X509Certificate;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -10,11 +9,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import javax.net.ssl.SSLSession;
-import org.bouncycastle.asn1.ASN1Primitive;
-import org.bouncycastle.asn1.ASN1Sequence;
-import org.bouncycastle.asn1.ASN1String;
-import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
-
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
@@ -54,8 +48,6 @@ public class MockApnsServer {
     private static final String CA_CERTIFICATE_FILENAME = "/ca.crt";
     private static final String SERVER_CERTIFICATE_FILENAME = "/server.crt";
     private static final String SERVER_PRIVATE_KEY_FILENAME = "/server.pk8";
-
-    private static final String TOPIC_OID = "1.2.840.113635.100.6.3.6";
 
     public MockApnsServer(final EventLoopGroup eventLoopGroup) {
         final SslContext sslContext;
@@ -99,33 +91,8 @@ public class MockApnsServer {
                             {
                                 final SSLSession sslSession = sslHandler.engine().getSession();
 
-                                for (final String keyValuePair : sslSession.getPeerPrincipal().getName().split(",")) {
-                                    if (keyValuePair.toLowerCase().startsWith("uid=")) {
-                                        topics.add(keyValuePair.substring(4));
-                                        break;
-                                    }
-                                }
-
                                 for (final Certificate certificate : sslSession.getPeerCertificates()) {
-                                    if (certificate instanceof X509Certificate) {
-                                        final X509Certificate x509Certificate = (X509Certificate) certificate;
-                                        final byte[] topicExtensionData = x509Certificate.getExtensionValue(TOPIC_OID);
-
-                                        if (topicExtensionData != null) {
-                                            final ASN1Primitive extensionValue =
-                                                    JcaX509ExtensionUtils.parseExtensionValue(topicExtensionData);
-
-                                            if (extensionValue instanceof ASN1Sequence) {
-                                                final ASN1Sequence sequence = (ASN1Sequence) extensionValue;
-
-                                                for (int i = 0; i < sequence.size(); i++) {
-                                                    if (sequence.getObjectAt(i) instanceof ASN1String) {
-                                                        topics.add(sequence.getObjectAt(i).toString());
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
+                                    topics.addAll(TopicUtil.extractApnsTopicsFromCertificate(certificate));
                                 }
                             }
 
