@@ -39,4 +39,22 @@ class SimplePushNotificationResponse<T extends ApnsPushNotification> implements 
     public Date getTokenInvalidationTimestamp() {
         return this.tokenExpirationTimestamp;
     }
+
+    /* (non-Javadoc)
+     * @see java.lang.Object#toString()
+     */
+    @Override
+    public String toString() {
+        final StringBuilder builder = new StringBuilder();
+        builder.append("SimplePushNotificationResponse [pushNotification=");
+        builder.append(this.pushNotification);
+        builder.append(", success=");
+        builder.append(this.success);
+        builder.append(", rejectionReason=");
+        builder.append(this.rejectionReason);
+        builder.append(", tokenExpirationTimestamp=");
+        builder.append(this.tokenExpirationTimestamp);
+        builder.append("]");
+        return builder.toString();
+    }
 }

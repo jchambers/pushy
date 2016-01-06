@@ -76,6 +76,8 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     private class ApnsClientHandlerFrameAdapter extends Http2FrameAdapter {
         @Override
         public int onDataRead(final ChannelHandlerContext context, final int streamId, final ByteBuf data, final int padding, final boolean endOfStream) throws Http2Exception {
+            log.trace("Received data from APNs gateway on stream {}: {}", streamId, data.toString(UTF8));
+
             final int bytesProcessed = data.readableBytes() + padding;
 
             if (endOfStream) {
@@ -101,6 +103,8 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
         @Override
         public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
+            log.trace("Received headers from APNs gateway on stream {}: {}", streamId, headers);
+
             final boolean success = HttpResponseStatus.OK.equals(HttpResponseStatus.parseLine(headers.status()));
 
             if (endOfStream) {
@@ -151,9 +155,11 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
             final ChannelPromise headersPromise = context.newPromise();
             this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
+            log.trace("Wrote headers on stream {}: {}", streamId, headers);
 
             final ChannelPromise dataPromise = context.newPromise();
             this.encoder().writeData(context, streamId, Unpooled.wrappedBuffer(payloadBytes), 0, true, dataPromise);
+            log.trace("Wrote payload on stream {}: {}", streamId, pushNotification.getPayload());
 
             final ChannelPromiseAggregator promiseAggregator = new ChannelPromiseAggregator(promise);
             promiseAggregator.add(headersPromise, dataPromise);
@@ -164,6 +170,8 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
                 public void operationComplete(final ChannelPromise future) throws Exception {
                     if (future.isSuccess()) {
                         ApnsClientHandler.this.pushNotificationsByStreamId.put(streamId, pushNotification);
+                    } else {
+                        log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
                     }
                 }
             });

@@ -252,6 +252,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                     @Override
                     public void operationComplete(final ChannelFuture future) throws Exception {
                         if (!future.isSuccess()) {
+                            log.debug("Failed to connect.", future.cause());
                             ApnsClient.this.connectionReadyPromise.tryFailure(future.cause());
                         }
                     }
@@ -270,10 +271,13 @@ public class ApnsClient<T extends ApnsPushNotification> {
                             ApnsClient.this.connectionReadyPromise = null;
 
                             if (ApnsClient.this.reconnectionPromise != null) {
+                                log.debug("Disconnected. Next automatic reconnection attempt in {} seconds.", ApnsClient.this.reconnectDelay);
+
                                 future.channel().eventLoop().schedule(new Runnable() {
 
                                     @Override
                                     public void run() {
+                                        log.debug("Attempting to reconnect.");
                                         ApnsClient.this.connect(host, port);
                                     }
                                 }, ApnsClient.this.reconnectDelay, TimeUnit.SECONDS);
@@ -291,12 +295,17 @@ public class ApnsClient<T extends ApnsPushNotification> {
                         if (future.isSuccess()) {
                             synchronized (ApnsClient.this.bootstrap) {
                                 if (ApnsClient.this.reconnectionPromise != null) {
+                                    log.info("Connection to {} restored.", future.channel().remoteAddress());
                                     ApnsClient.this.reconnectionPromise.trySuccess();
+                                } else {
+                                    log.info("Connected to {}.", future.channel().remoteAddress());
                                 }
 
                                 ApnsClient.this.reconnectDelay = INITIAL_RECONNECT_DELAY;
                                 ApnsClient.this.reconnectionPromise = future.channel().newPromise();
                             }
+                        } else {
+                            log.info("Failed to connect.", future.cause());
                         }
                     }});
             }
@@ -311,9 +320,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * @return {@code true} if this client is connected and ready to send notifications or {@code false} otherwise
      */
     public boolean isConnected() {
-        synchronized (this.bootstrap) {
-            return this.connectionReadyPromise != null && this.connectionReadyPromise.isSuccess();
-        }
+        final ChannelPromise connectionReadyPromise = this.connectionReadyPromise;
+        return (connectionReadyPromise != null && connectionReadyPromise.isSuccess());
     }
 
     /**
@@ -395,6 +403,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 @Override
                 public void operationComplete(final ChannelFuture future) throws Exception {
                     if (!future.isSuccess()) {
+                        log.debug("Failed to write push notification: {}", notification, future.cause());
                         ApnsClient.this.responsePromises.remove(notification);
                         responsePromise.setFailure(future.cause());
                     }
@@ -403,6 +412,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
             responseFuture = responsePromise;
         } else {
+            log.debug("Failed to send push notification because client is not connected: {}", notification);
             responseFuture = new FailedFuture<PushNotificationResponse<T>>(
                     GlobalEventExecutor.INSTANCE, NOT_CONNECTED_EXCEPTION);
         }
@@ -411,6 +421,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
     }
 
     protected void handlePushNotificationResponse(final PushNotificationResponse<T> response) {
+        log.debug("Received response from APNs gateway: {}", response);
         this.responsePromises.remove(response.getPushNotification()).setSuccess(response);
     }
 
@@ -425,6 +436,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * @return a {@code Future} that will be marked as complete when the connection has been closed
      */
     public Future<Void> disconnect() {
+        log.info("Disconnecting.");
         final Future<Void> disconnectFuture;
 
         synchronized (this.bootstrap) {

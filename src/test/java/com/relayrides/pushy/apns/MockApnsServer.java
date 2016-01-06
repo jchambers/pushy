@@ -127,7 +127,6 @@ public class MockApnsServer {
                                         }
                                     }
                                 }
-
                             }
 
                             context.pipeline().addLast(new MockApnsServerHandler.Builder()

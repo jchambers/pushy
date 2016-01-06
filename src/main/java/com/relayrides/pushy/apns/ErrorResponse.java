@@ -18,4 +18,18 @@ class ErrorResponse {
     public Date getTimestamp() {
         return this.timestamp;
     }
+
+    /* (non-Javadoc)
+     * @see java.lang.Object#toString()
+     */
+    @Override
+    public String toString() {
+        final StringBuilder builder = new StringBuilder();
+        builder.append("ErrorResponse [reason=");
+        builder.append(this.reason);
+        builder.append(", timestamp=");
+        builder.append(this.timestamp);
+        builder.append("]");
+        return builder.toString();
+    }
 }
