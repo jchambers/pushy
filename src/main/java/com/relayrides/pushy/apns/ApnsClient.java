@@ -2,13 +2,9 @@ package com.relayrides.pushy.apns;
 
 import java.io.File;
 import java.security.PrivateKey;
-import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLException;
@@ -36,7 +32,6 @@ import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.OpenSsl;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import io.netty.util.concurrent.DefaultPromise;
@@ -305,18 +300,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                     log.info("Connection to {} restored.", future.channel().remoteAddress());
                                     ApnsClient.this.reconnectionPromise.trySuccess();
                                 } else {
-                                    final Set<String> topics = new HashSet<String>();
-
-                                    for (final Certificate certificate : future.channel().pipeline().get(SslHandler.class).engine().getSession().getLocalCertificates()) {
-                                        try {
-                                            topics.addAll(TopicUtil.extractApnsTopicsFromCertificate(certificate));
-                                        } catch (final Exception e) {
-                                            log.warn("Failed to extract topics from certificate.", e);
-                                        }
-                                    }
-
-                                    log.info("Connected to {}. Legal topics are: {}", future.channel().remoteAddress(),
-                                            Arrays.toString(topics.toArray(new String[0])));
+                                    log.info("Connected to {}.", future.channel().remoteAddress());
                                 }
 
                                 ApnsClient.this.reconnectDelay = INITIAL_RECONNECT_DELAY;
