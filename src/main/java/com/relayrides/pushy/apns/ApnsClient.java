@@ -1,7 +1,12 @@
 package com.relayrides.pushy.apns;
 
 import java.io.File;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
+import java.security.UnrecoverableEntryException;
+import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -93,6 +98,10 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
+    public ApnsClient(final File p12File, final String password, final EventLoopGroup eventLoopGroup) throws SSLException {
+        this(ApnsClient.getSslContextWithP12File(p12File, password), eventLoopGroup);
+    }
+
     /**
      * Creates a new APNs client that will identify itself to the APNs gateway with the certificate and key from the
      * given files. The certificate file <em>must</em> contain a PEM-formatted X.509 certificate, and the key file
@@ -109,9 +118,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * arises when constructing the context
      */
     public ApnsClient(final File certificatePemFile, final File privateKeyPkcs8File, final String privateKeyPassword, final EventLoopGroup eventLoopGroup) throws SSLException {
-        this(ApnsClient.getBaseSslContextBuilder()
-                .keyManager(certificatePemFile, privateKeyPkcs8File, privateKeyPassword)
-                .build(),
+        this(ApnsClient.getSslContextWithCertificateAndPrivateKeyFiles(certificatePemFile, privateKeyPkcs8File, privateKeyPassword),
                 eventLoopGroup);
     }
 
@@ -128,10 +135,60 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * arises when constructing the context
      */
     public ApnsClient(final X509Certificate certificate, final PrivateKey privateKey, final String privateKeyPassword, final EventLoopGroup eventLoopGroup) throws SSLException {
-        this(ApnsClient.getBaseSslContextBuilder()
+        this(ApnsClient.getSslContextWithCertificateAndPrivateKey(certificate, privateKey, privateKeyPassword), eventLoopGroup);
+    }
+
+    private static SslContext getSslContextWithP12File(final File p12File, final String password) throws SSLException {
+        final X509Certificate x509Certificate;
+        final PrivateKey privateKey;
+
+        try {
+            final KeyStore.PasswordProtection keyStorePassword = (password != null) ? new KeyStore.PasswordProtection(password.toCharArray()) : null;
+
+            final KeyStore keyStore = KeyStore.Builder.newInstance("PKCS12", null, p12File, keyStorePassword).getKeyStore();
+
+            if (keyStore.size() != 1) {
+                throw new KeyStoreException("Key store must contain exactly one entry, and that entry must be a private key entry.");
+            }
+
+            final String alias = keyStore.aliases().nextElement();
+            final KeyStore.Entry entry = keyStore.getEntry(alias, keyStorePassword);
+
+            if (!(entry instanceof KeyStore.PrivateKeyEntry)) {
+                throw new KeyStoreException("Key store must contain exactly one entry, and that entry must be a private key entry.");
+            }
+
+            final KeyStore.PrivateKeyEntry privateKeyEntry = (KeyStore.PrivateKeyEntry) entry;
+
+            final Certificate certificate = privateKeyEntry.getCertificate();
+
+            if (!(certificate instanceof X509Certificate)) {
+                throw new KeyStoreException("Found a certificate in the provided PKCS#12 file, but it was not an X.509 certificate.");
+            }
+
+            x509Certificate = (X509Certificate) certificate;
+            privateKey = privateKeyEntry.getPrivateKey();
+        } catch (final KeyStoreException e) {
+            throw new SSLException(e);
+        } catch (final NoSuchAlgorithmException e) {
+            throw new SSLException(e);
+        } catch (final UnrecoverableEntryException e) {
+            throw new SSLException(e);
+        }
+
+        return ApnsClient.getSslContextWithCertificateAndPrivateKey(x509Certificate, privateKey, password);
+    }
+
+    private static SslContext getSslContextWithCertificateAndPrivateKeyFiles(final File certificatePemFile, final File privateKeyPkcs8File, final String privateKeyPassword) throws SSLException {
+        return ApnsClient.getBaseSslContextBuilder()
+                .keyManager(certificatePemFile, privateKeyPkcs8File, privateKeyPassword)
+                .build();
+    }
+
+    private static SslContext getSslContextWithCertificateAndPrivateKey(final X509Certificate certificate, final PrivateKey privateKey, final String privateKeyPassword) throws SSLException {
+        return ApnsClient.getBaseSslContextBuilder()
                 .keyManager(privateKey, privateKeyPassword, certificate)
-                .build(),
-                eventLoopGroup);
+                .build();
     }
 
     private static SslContextBuilder getBaseSslContextBuilder() {
