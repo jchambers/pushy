@@ -70,7 +70,11 @@ public class ApnsClientTest {
 
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {
-        ApnsClientTest.EVENT_LOOP_GROUP = new NioEventLoopGroup();
+        // We want enough threads so we can be confident that the client and server are running on different threads and
+        // we can accurately simulate race conditions. Two threads seems like an obvious choice, but there are some
+        // tests where we have multiple clients and servers in play, and it's good to have some extra room in those
+        // cases.
+        ApnsClientTest.EVENT_LOOP_GROUP = new NioEventLoopGroup(4);
 
         SINGLE_TOPIC_CLIENT_CERTIFICATE = new File(ApnsClientTest.class.getResource("/single-topic-client.crt").toURI());
         SINGLE_TOPIC_CLIENT_PRIVATE_KEY = new File(ApnsClientTest.class.getResource("/single-topic-client.pk8").toURI());

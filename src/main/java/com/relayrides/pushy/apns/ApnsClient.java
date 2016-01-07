@@ -398,7 +398,15 @@ public class ApnsClient<T extends ApnsPushNotification> {
             final DefaultPromise<PushNotificationResponse<T>> responsePromise =
                     new DefaultPromise<PushNotificationResponse<T>>(connectionReadyPromise.channel().eventLoop());
 
-            this.responsePromises.put(notification, responsePromise);
+            connectionReadyPromise.channel().eventLoop().submit(new Runnable() {
+
+                @Override
+                public void run() {
+                    // We want to do this inside the channel's event loop so we can be sure that only one thread is
+                    // modifying responsePromises.
+                    ApnsClient.this.responsePromises.put(notification, responsePromise);
+                }
+            });
 
             connectionReadyPromise.channel().writeAndFlush(notification).addListener(new GenericFutureListener<ChannelFuture>() {
 
@@ -406,6 +414,9 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 public void operationComplete(final ChannelFuture future) throws Exception {
                     if (!future.isSuccess()) {
                         log.debug("Failed to write push notification: {}", notification, future.cause());
+
+                        // This will always be called from inside the channel's event loop, so we don't have to worry
+                        // about synchronization.
                         ApnsClient.this.responsePromises.remove(notification);
                         responsePromise.setFailure(future.cause());
                     }
@@ -424,6 +435,9 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     protected void handlePushNotificationResponse(final PushNotificationResponse<T> response) {
         log.debug("Received response from APNs gateway: {}", response);
+
+        // This will always be called from inside the channel's event loop, so we don't have to worry about
+        // synchronization.
         this.responsePromises.remove(response.getPushNotification()).setSuccess(response);
     }
 
