@@ -321,78 +321,87 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * @see ApnsClient#ALTERNATE_APNS_PORT
      */
     public Future<Void> connect(final String host, final int port) {
-        synchronized (this.bootstrap) {
-            // We only want to begin a connection attempt if one is not already in progress or complete; if we already
-            // have a connection future, just return the existing promise.
-            if (this.connectionReadyPromise == null) {
-                final ChannelFuture connectFuture = this.bootstrap.connect(host, port);
-                this.connectionReadyPromise = connectFuture.channel().newPromise();
+        final Future<Void> connectionReadyFuture;
 
-                connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
+        if (this.bootstrap.group().isShuttingDown() || this.bootstrap.group().isShutdown()) {
+            connectionReadyFuture = new FailedFuture<Void>(GlobalEventExecutor.INSTANCE,
+                    new IllegalStateException("Client's event loop group has been shut down and cannot be restarted."));
+        } else {
+            synchronized (this.bootstrap) {
+                // We only want to begin a connection attempt if one is not already in progress or complete; if we already
+                // have a connection future, just return the existing promise.
+                if (this.connectionReadyPromise == null) {
+                    final ChannelFuture connectFuture = this.bootstrap.connect(host, port);
+                    this.connectionReadyPromise = connectFuture.channel().newPromise();
 
-                    @Override
-                    public void operationComplete(final ChannelFuture future) throws Exception {
-                        if (!future.isSuccess()) {
-                            log.debug("Failed to connect.", future.cause());
-                            ApnsClient.this.connectionReadyPromise.tryFailure(future.cause());
-                        }
-                    }
-                });
+                    connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
 
-                connectFuture.channel().closeFuture().addListener(new GenericFutureListener<ChannelFuture> () {
-
-                    @Override
-                    public void operationComplete(final ChannelFuture future) throws Exception {
-                        // We always want to try to fail the "connection ready" promise if the connection closes; if
-                        // it has already succeeded, this will have no effect.
-                        ApnsClient.this.connectionReadyPromise.tryFailure(
-                                new IllegalStateException("Channel closed before HTTP/2 preface completed."));
-
-                        synchronized (ApnsClient.this.bootstrap) {
-                            ApnsClient.this.connectionReadyPromise = null;
-
-                            if (ApnsClient.this.reconnectionPromise != null) {
-                                log.debug("Disconnected. Next automatic reconnection attempt in {} seconds.", ApnsClient.this.reconnectDelay);
-
-                                future.channel().eventLoop().schedule(new Runnable() {
-
-                                    @Override
-                                    public void run() {
-                                        log.debug("Attempting to reconnect.");
-                                        ApnsClient.this.connect(host, port);
-                                    }
-                                }, ApnsClient.this.reconnectDelay, TimeUnit.SECONDS);
-
-                                ApnsClient.this.reconnectDelay = Math.min(ApnsClient.this.reconnectDelay, MAX_RECONNECT_DELAY);
+                        @Override
+                        public void operationComplete(final ChannelFuture future) throws Exception {
+                            if (!future.isSuccess()) {
+                                log.debug("Failed to connect.", future.cause());
+                                ApnsClient.this.connectionReadyPromise.tryFailure(future.cause());
                             }
                         }
-                    }
-                });
+                    });
 
-                this.connectionReadyPromise.addListener(new GenericFutureListener<ChannelFuture>() {
+                    connectFuture.channel().closeFuture().addListener(new GenericFutureListener<ChannelFuture> () {
 
-                    @Override
-                    public void operationComplete(final ChannelFuture future) throws Exception {
-                        if (future.isSuccess()) {
+                        @Override
+                        public void operationComplete(final ChannelFuture future) throws Exception {
+                            // We always want to try to fail the "connection ready" promise if the connection closes; if
+                            // it has already succeeded, this will have no effect.
+                            ApnsClient.this.connectionReadyPromise.tryFailure(
+                                    new IllegalStateException("Channel closed before HTTP/2 preface completed."));
+
                             synchronized (ApnsClient.this.bootstrap) {
+                                ApnsClient.this.connectionReadyPromise = null;
+
                                 if (ApnsClient.this.reconnectionPromise != null) {
-                                    log.info("Connection to {} restored.", future.channel().remoteAddress());
-                                    ApnsClient.this.reconnectionPromise.trySuccess();
-                                } else {
-                                    log.info("Connected to {}.", future.channel().remoteAddress());
+                                    log.debug("Disconnected. Next automatic reconnection attempt in {} seconds.", ApnsClient.this.reconnectDelay);
+
+                                    future.channel().eventLoop().schedule(new Runnable() {
+
+                                        @Override
+                                        public void run() {
+                                            log.debug("Attempting to reconnect.");
+                                            ApnsClient.this.connect(host, port);
+                                        }
+                                    }, ApnsClient.this.reconnectDelay, TimeUnit.SECONDS);
+
+                                    ApnsClient.this.reconnectDelay = Math.min(ApnsClient.this.reconnectDelay, MAX_RECONNECT_DELAY);
                                 }
-
-                                ApnsClient.this.reconnectDelay = INITIAL_RECONNECT_DELAY;
-                                ApnsClient.this.reconnectionPromise = future.channel().newPromise();
                             }
-                        } else {
-                            log.info("Failed to connect.", future.cause());
                         }
-                    }});
-            }
+                    });
 
-            return this.connectionReadyPromise;
+                    this.connectionReadyPromise.addListener(new GenericFutureListener<ChannelFuture>() {
+
+                        @Override
+                        public void operationComplete(final ChannelFuture future) throws Exception {
+                            if (future.isSuccess()) {
+                                synchronized (ApnsClient.this.bootstrap) {
+                                    if (ApnsClient.this.reconnectionPromise != null) {
+                                        log.info("Connection to {} restored.", future.channel().remoteAddress());
+                                        ApnsClient.this.reconnectionPromise.trySuccess();
+                                    } else {
+                                        log.info("Connected to {}.", future.channel().remoteAddress());
+                                    }
+
+                                    ApnsClient.this.reconnectDelay = INITIAL_RECONNECT_DELAY;
+                                    ApnsClient.this.reconnectionPromise = future.channel().newPromise();
+                                }
+                            } else {
+                                log.info("Failed to connect.", future.cause());
+                            }
+                        }});
+                }
+
+                connectionReadyFuture = this.connectionReadyPromise;
+            }
         }
+
+        return connectionReadyFuture;
     }
 
     /**
@@ -528,7 +537,9 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * complete when the connection has closed completely. If the connection is already closed when this method is
      * called, the returned {@code Future} will be marked as complete immediately.</p>
      *
-     * <p>Clients may be reconnected and reused after they have been disconnected.</p>
+     * <p>If a non-null {@code EventLoopGroup} was provided at construction time, clients may be reconnected and reused
+     * after they have been disconnected. If no event loop group was provided at construction time, clients may not be
+     * restarted after they have been disconnected via this method.</p>
      *
      * @return a {@code Future} that will be marked as complete when the connection has been closed
      */

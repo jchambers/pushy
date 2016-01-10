@@ -125,6 +125,20 @@ public class ApnsClientTest {
     }
 
     @Test
+    public void testRestartApnsClientWithManagedEventLoopGroup() throws Exception {
+        final ApnsClient<SimpleApnsPushNotification> managedGroupClient = new ApnsClient<SimpleApnsPushNotification>(
+                ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_CERTIFICATE, SINGLE_TOPIC_CLIENT_PRIVATE_KEY), null);
+
+        assertTrue(managedGroupClient.connect(HOST, PORT).await().isSuccess());
+        assertTrue(managedGroupClient.disconnect().await().isSuccess());
+
+        final Future<Void> reconnectFuture = managedGroupClient.connect(HOST, PORT);
+
+        assertFalse(reconnectFuture.isSuccess());
+        assertTrue(reconnectFuture.cause() instanceof IllegalStateException);
+    }
+
+    @Test
     public void testReconnectionAfterClose() throws Exception {
         assertTrue(this.client.isConnected());
         assertTrue(this.client.disconnect().await().isSuccess());
