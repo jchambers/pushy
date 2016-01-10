@@ -80,16 +80,16 @@ public class ApnsClientTest {
         // cases.
         ApnsClientTest.EVENT_LOOP_GROUP = new NioEventLoopGroup(4);
 
-        SINGLE_TOPIC_CLIENT_CERTIFICATE = new File(ApnsClientTest.class.getResource("/single-topic-client.crt").toURI());
+        SINGLE_TOPIC_CLIENT_CERTIFICATE = new File(ApnsClientTest.class.getResource("/single-topic-client.pem").toURI());
         SINGLE_TOPIC_CLIENT_PRIVATE_KEY = new File(ApnsClientTest.class.getResource("/single-topic-client.pk8").toURI());
 
-        MULTI_TOPIC_CLIENT_CERTIFICATE = new File(ApnsClientTest.class.getResource("/multi-topic-client.crt").toURI());
+        MULTI_TOPIC_CLIENT_CERTIFICATE = new File(ApnsClientTest.class.getResource("/multi-topic-client.pem").toURI());
         MULTI_TOPIC_CLIENT_PRIVATE_KEY = new File(ApnsClientTest.class.getResource("/multi-topic-client.pk8").toURI());
 
-        UNTRUSTED_CLIENT_CERTIFICATE = new File(ApnsClientTest.class.getResource("/untrusted-client.crt").toURI());
+        UNTRUSTED_CLIENT_CERTIFICATE = new File(ApnsClientTest.class.getResource("/untrusted-client.pem").toURI());
         UNTRUSTED_CLIENT_PRIVATE_KEY = new File(ApnsClientTest.class.getResource("/untrusted-client.pk8").toURI());
 
-        CA_CERTIFICATE = new File(ApnsClientTest.class.getResource("/ca.crt").toURI());
+        CA_CERTIFICATE = new File(ApnsClientTest.class.getResource("/ca.pem").toURI());
     }
 
     @Before

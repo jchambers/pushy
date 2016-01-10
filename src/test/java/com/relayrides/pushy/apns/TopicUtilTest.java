@@ -1,6 +1,6 @@
 package com.relayrides.pushy.apns;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,8 +15,8 @@ import org.junit.Test;
 
 public class TopicUtilTest {
 
-    private static final String SINGLE_TOPIC_CERTIFICATE_FILE = "/single-topic-client.crt";
-    private static final String MULTI_TOPIC_CERTIFICATE_FILE = "/multi-topic-client.crt";
+    private static final String SINGLE_TOPIC_CERTIFICATE_FILE = "/single-topic-client.pem";
+    private static final String MULTI_TOPIC_CERTIFICATE_FILE = "/multi-topic-client.pem";
 
     @Test
     public void testExtractApnsTopicsFromSingleTopicCertificate() throws Exception {

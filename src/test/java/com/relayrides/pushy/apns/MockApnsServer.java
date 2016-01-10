@@ -45,8 +45,8 @@ public class MockApnsServer {
 
     private ChannelGroup allChannels;
 
-    private static final String CA_CERTIFICATE_FILENAME = "/ca.crt";
-    private static final String SERVER_CERTIFICATE_FILENAME = "/server.crt";
+    private static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
+    private static final String SERVER_CERTIFICATE_FILENAME = "/server.pem";
     private static final String SERVER_PRIVATE_KEY_FILENAME = "/server.pk8";
 
     public MockApnsServer(final EventLoopGroup eventLoopGroup) {
