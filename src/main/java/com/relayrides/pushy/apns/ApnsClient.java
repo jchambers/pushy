@@ -25,6 +25,7 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
@@ -57,6 +58,7 @@ import io.netty.util.concurrent.SucceededFuture;
 public class ApnsClient<T extends ApnsPushNotification> {
 
     private final Bootstrap bootstrap;
+    private final boolean shouldShutDownEventLoopGroup;
 
     private ChannelPromise connectionReadyPromise;
     private ChannelPromise reconnectionPromise;
@@ -98,8 +100,16 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
+    public ApnsClient(final File p12File, final String password) throws SSLException {
+        this(p12File, password, null);
+    }
+
     public ApnsClient(final File p12File, final String password, final EventLoopGroup eventLoopGroup) throws SSLException {
         this(ApnsClient.getSslContextWithP12File(p12File, password), eventLoopGroup);
+    }
+
+    public ApnsClient(final File certificatePemFile, final File privateKeyPkcs8File, final String privateKeyPassword) throws SSLException {
+        this(certificatePemFile, privateKeyPkcs8File, privateKeyPassword, null);
     }
 
     /**
@@ -120,6 +130,10 @@ public class ApnsClient<T extends ApnsPushNotification> {
     public ApnsClient(final File certificatePemFile, final File privateKeyPkcs8File, final String privateKeyPassword, final EventLoopGroup eventLoopGroup) throws SSLException {
         this(ApnsClient.getSslContextWithCertificateAndPrivateKeyFiles(certificatePemFile, privateKeyPkcs8File, privateKeyPassword),
                 eventLoopGroup);
+    }
+
+    public ApnsClient(final X509Certificate certificate, final PrivateKey privateKey, final String privateKeyPassword) throws SSLException {
+        this(certificate, privateKey, privateKeyPassword, null);
     }
 
     /**
@@ -204,7 +218,15 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     protected ApnsClient(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
         this.bootstrap = new Bootstrap();
-        this.bootstrap.group(eventLoopGroup);
+
+        if (eventLoopGroup != null) {
+            this.bootstrap.group(eventLoopGroup);
+            this.shouldShutDownEventLoopGroup = false;
+        } else {
+            this.bootstrap.group(new NioEventLoopGroup(1));
+            this.shouldShutDownEventLoopGroup = true;
+        }
+
         this.bootstrap.channel(NioSocketChannel.class);
         this.bootstrap.option(ChannelOption.TCP_NODELAY, true);
         this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
@@ -510,6 +532,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @return a {@code Future} that will be marked as complete when the connection has been closed
      */
+    @SuppressWarnings({ "unchecked", "rawtypes" })
     public Future<Void> disconnect() {
         log.info("Disconnecting.");
         final Future<Void> disconnectFuture;
@@ -517,10 +540,39 @@ public class ApnsClient<T extends ApnsPushNotification> {
         synchronized (this.bootstrap) {
             this.reconnectionPromise = null;
 
+            final Future<Void> channelCloseFuture;
+
             if (this.connectionReadyPromise != null) {
-                disconnectFuture = this.connectionReadyPromise.channel().close();
+                channelCloseFuture = this.connectionReadyPromise.channel().close();
             } else {
-                disconnectFuture = new SucceededFuture<Void>(GlobalEventExecutor.INSTANCE, null);
+                channelCloseFuture = new SucceededFuture<Void>(GlobalEventExecutor.INSTANCE, null);
+            }
+
+            if (this.shouldShutDownEventLoopGroup) {
+                // Wait for the channel to close before we try to shut down the event loop group
+                channelCloseFuture.addListener(new GenericFutureListener<Future<Void>>() {
+
+                    @Override
+                    public void operationComplete(final Future<Void> future) throws Exception {
+                        ApnsClient.this.bootstrap.group().shutdownGracefully();
+                    }
+                });
+
+                // Since the termination future for the event loop group is a Future<?> instead of a Future<Void>,
+                // we'll need to create our own promise and then notify it when the termination future completes.
+                disconnectFuture = new DefaultPromise<Void>(GlobalEventExecutor.INSTANCE);
+
+                this.bootstrap.group().terminationFuture().addListener(new GenericFutureListener() {
+
+                    @Override
+                    public void operationComplete(final Future future) throws Exception {
+                        assert disconnectFuture instanceof DefaultPromise;
+                        ((DefaultPromise<Void>) disconnectFuture).trySuccess(null);
+                    }
+                });
+            } else {
+                // We're done once we've closed the channel, so we can return the closure future directly.
+                disconnectFuture = channelCloseFuture;
             }
         }
 
