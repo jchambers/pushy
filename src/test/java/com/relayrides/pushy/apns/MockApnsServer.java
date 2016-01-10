@@ -8,7 +8,9 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+
 import javax.net.ssl.SSLSession;
+
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
@@ -21,8 +23,6 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.codec.http2.Http2Settings;
-import io.netty.handler.logging.LogLevel;
-import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
@@ -74,7 +74,6 @@ public class MockApnsServer {
         this.bootstrap = new ServerBootstrap();
         this.bootstrap.group(eventLoopGroup);
         this.bootstrap.channel(NioServerSocketChannel.class);
-        this.bootstrap.handler(new LoggingHandler(LogLevel.INFO));
         this.bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
 
             @Override
