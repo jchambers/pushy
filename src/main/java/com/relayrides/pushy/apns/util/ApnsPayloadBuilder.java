@@ -107,6 +107,8 @@ public class ApnsPayloadBuilder {
      * @param alertBody
      *            the literal message to be shown for this push notification
      *
+     * @return a reference to this payload builder
+     *
      * @see ApnsPayloadBuilder#setLocalizedAlertMessage(String, String[])
      */
     public ApnsPayloadBuilder setAlertBody(final String alertBody) {
@@ -135,6 +137,8 @@ public class ApnsPayloadBuilder {
      *            a key to a string in the receiving app's localized string list
      * @param alertArguments
      *            arguments to populate placeholders in the localized alert string; may be {@code null}
+     *
+     * @return a reference to this payload builder
      */
     public ApnsPayloadBuilder setLocalizedAlertMessage(final String localizedAlertKey, final String[] alertArguments) {
         if (localizedAlertKey != null && this.alertBody != null) {
@@ -167,6 +171,8 @@ public class ApnsPayloadBuilder {
      * @param alertTitle
      *            the description to be shown for this push notification
      *
+     * @return a reference to this payload builder
+     *
      * @see ApnsPayloadBuilder#setLocalizedAlertTitle(String, String[])
      */
     public ApnsPayloadBuilder setAlertTitle(final String alertTitle) {
@@ -192,6 +198,8 @@ public class ApnsPayloadBuilder {
      *            a key to a string in the receiving app's localized string list
      * @param alertTitleArguments
      *            arguments to populate placeholders in the localized alert string; may be {@code null}
+     *
+     * @return a reference to this payload builder
      */
     public ApnsPayloadBuilder setLocalizedAlertTitle(final String localizedAlertTitleKey,
             final String[] alertTitleArguments) {
@@ -226,6 +234,8 @@ public class ApnsPayloadBuilder {
      * @param launchImageFilename
      *            the filename of an image file in the receiving app's bundle to be shown when launching
      *            the app from the push notification
+     *
+     * @return a reference to this payload builder
      */
     public ApnsPayloadBuilder setLaunchImageFileName(final String launchImageFilename) {
         this.launchImageFileName = launchImageFilename;
@@ -247,6 +257,8 @@ public class ApnsPayloadBuilder {
      * @param showActionButton
      *            {@code true} to show an action button when the push notification is presented as an
      *            alert or {@code false} to show an alert with no action button
+     *
+     * @return a reference to this payload builder
      */
     public ApnsPayloadBuilder setShowActionButton(final boolean showActionButton) {
         this.showActionButton = showActionButton;
@@ -262,6 +274,8 @@ public class ApnsPayloadBuilder {
      *
      * @param localizedActionButtonKey
      *            a key to a string in the receiving app's localized string list
+     *
+     * @return a reference to this payload builder
      */
     public ApnsPayloadBuilder setLocalizedActionButtonKey(final String localizedActionButtonKey) {
         this.localizedActionButtonKey = localizedActionButtonKey;
@@ -277,6 +291,8 @@ public class ApnsPayloadBuilder {
      *
      * @param badgeNumber
      *            the number to display as the badge of application or {@code null} to leave the badge unchanged
+     *
+     * @return a reference to this payload builder
      */
     public ApnsPayloadBuilder setBadgeNumber(final Integer badgeNumber) {
         this.badgeNumber = badgeNumber;
@@ -290,6 +306,8 @@ public class ApnsPayloadBuilder {
      *
      * @param categoryName
      *            the action category name
+     *
+     * @return a reference to this payload builder
      */
     public ApnsPayloadBuilder setCategoryName(final String categoryName) {
         this.categoryName = categoryName;
@@ -313,6 +331,8 @@ public class ApnsPayloadBuilder {
      * @param soundFileName
      *            the name of the sound file to play, or {@code null} to send no sound
      *
+     * @return a reference to this payload builder
+     *
      * @see com.relayrides.pushy.apns.util.ApnsPayloadBuilder#DEFAULT_SOUND_FILENAME
      */
     public ApnsPayloadBuilder setSoundFileName(final String soundFileName) {
@@ -330,6 +350,8 @@ public class ApnsPayloadBuilder {
      * @param contentAvailable
      *            {@code true} to include a flag that indicates that new content is available to be
      *            downloaded in the background or {@code false} otherwise
+     *
+     * @return a reference to this payload builder
      *
      * @see <a href=
      *      "https://developer.apple.com/library/ios/documentation/iPhone/Conceptual/iPhoneOSProgrammingGuide/ManagingYourApplicationsFlow/ManagingYourApplicationsFlow.html#//apple_ref/doc/uid/TP40007072-CH4-SW24">
@@ -364,6 +386,8 @@ public class ApnsPayloadBuilder {
      *            the key of the custom property in the payload object
      * @param value
      *            the value of the custom property
+     *
+     * @return a reference to this payload builder
      */
     public ApnsPayloadBuilder addCustomProperty(final String key, final Object value) {
         this.customProperties.put(key, value);
