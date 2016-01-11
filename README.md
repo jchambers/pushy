@@ -31,7 +31,7 @@ Pushy itself requires Java 1.6 or newer to build and run.
 
 Before you can get started with Pushy, you'll need to do some provisioning work with Apple to register your app and get the required certificates. For details on this process, please see the [Provisioning and Development](https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ProvisioningDevelopment.html#//apple_ref/doc/uid/TP40008194-CH104-SW1) section of Apple's official documentation.
 
-Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an `ApnsClient`. Clients need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing):
+Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an [`ApnsClient`](http://relayrides.github.io/pushy/apidocs/0.5/com/relayrides/pushy/apns/ApnsClient.html). Clients need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing):
 
 ```java
 final ApnsClient<SimpleApnsPushNotification> apnsClient =
@@ -46,7 +46,7 @@ final Future<Void> connectFuture = apnsClient.connect(ApnsClient.DEVELOPMENT_APN
 connectFuture.await();
 ```
 
-Once the client has finished connecting to the APNs server, you can begin sending push notifications. At a minimum, push notifications need a destination token, a topic, and a payload.
+Once the client has finished connecting to the APNs server, you can begin sending push notifications. At a minimum, [push notifications](http://relayrides.github.io/pushy/apidocs/0.5/com/relayrides/pushy/apns/ApnsPushNotification.html) need a destination token, a topic, and a payload.
 
 ```java
 final SimpleApnsPushNotification pushNotification;
@@ -72,8 +72,8 @@ final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendNotificat
 The `Future` will complete in one of three circumstances:
 
 1. The gateway accepts the notification and will attempt to deliver it to the destination device.
-2. The gateway rejects the notification; this should be considered a permanent failure, and the notification should not be sent again. Additionally, the APNs gateway may indicate a timestamp at which the destination token became invalid. If that happens, you should stop trying to send *any* notification to that token unless the token has been re-registered since that timestamp.
-3. The `Future` fails with an exception. This should generally be considered a temporary failure, and callers should try to send the notification again when the problem has been resolved. In particular, the `Future` may fail with a `ClientNotConnectedException`, in which case callers may wait for the connection to be restored automatically by waiting for the `Future` returned by `ApnsClient#getReconnectionFuture()`.
+2. The gateway rejects the notification; this should be considered a permanent failure, and the notification should not be sent again. Additionally, the APNs gateway may indicate [a timestamp at which the destination token became invalid](https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW18). If that happens, you should stop trying to send *any* notification to that token unless the token has been re-registered since that timestamp.
+3. The `Future` fails with an exception. This should generally be considered a temporary failure, and callers should try to send the notification again when the problem has been resolved. In particular, the `Future` may fail with a [`ClientNotConnectedException`](http://relayrides.github.io/pushy/apidocs/0.5/com/relayrides/pushy/apns/ClientNotConnectedException.html), in which case callers may wait for the connection to be restored automatically by waiting for the `Future` returned by [`ApnsClient#getReconnectionFuture()`](http://relayrides.github.io/pushy/apidocs/0.5/com/relayrides/pushy/apns/ApnsClient.html#getReconnectionFuture--).
 
 An example:
 
@@ -114,7 +114,7 @@ disconnectFuture.await();
 
 ## System requirements
 
-The APNs protocol is built on top of the [HTTP/2 protocol](https://http2.github.io/). HTTP/2 is a relatively new protocol, and relies on some new technological developments that aren't yet wide-spread in the Java world. In particular:
+The APNs protocol is built on top of the [HTTP/2 protocol](https://http2.github.io/). HTTP/2 is a relatively new protocol, and relies on some new developments that aren't yet wide-spread in the Java world. In particular:
 
 1. HTTP/2 depends on [ALPN](https://tools.ietf.org/html/rfc7301), a TLS extension for protocol negotiation. No version of Java has native ALPN support at this time. The ALPN requirement may be met either by [using OpenSSL as an SSL provider](#using-native-openssl-as-an-ssl-provider) for Java 6, 7, and 8, or by [using Jetty's ALPN implementation](#using-jettys-alpn-implementation) under OpenJDK 7 or 8.
 2. The HTTP/2 specification requires the use of [ciphers](https://httpwg.github.io/specs/rfc7540.html#rfc.section.9.2.2) that weren't introduced in Java until Java 8. Using OpenSSL as an SSL provider is the best way to meet this requirement under Java 6 and 7. Using OpenSSL isn't a requirement under Java 8, but may still yield performance gains.
