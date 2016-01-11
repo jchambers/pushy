@@ -49,7 +49,44 @@ import io.netty.util.concurrent.Promise;
 import io.netty.util.concurrent.SucceededFuture;
 
 /**
- * An APNs client sends push notifications to the APNs gateway.
+ * <p>An APNs client sends push notifications to the APNs gateway. An APNs client connects to the APNs server and, as
+ * part of a TLS handshake, presents a certificate that identifies the client and the "topics" to which it can send
+ * push notifications. Please see Apple's
+ * <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/">Local
+ * and Remote Notification Programming Guide</a> for detailed discussion of
+ * <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html#//apple_ref/doc/uid/TP40008194-CH100-SW9">topics</a>
+ * and <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ProvisioningDevelopment.html#//apple_ref/doc/uid/TP40008194-CH104-SW1">certificate
+ * provisioning</a>.</p>
+ *
+ * <p>To construct a client, callers will need to provide the certificate provisioned by Apple and its accompanying
+ * private key. The certificate and key will be used to authenticate the client and identify the topics to which it can
+ * send notifications. Callers may optionally specify an {@link EventLoopGroup} when constructing a new client. If no
+ * event loop group is specified, clients will create and manage their own single-thread event loop group. If many
+ * clients are operating in parallel, specifying a shared event loop group serves as a mechanism to keep the total
+ * number of threads in check.</p>
+ *
+ * <p>Once a client has been constructed, it must connect to an APNs server before it can begin sending push
+ * notifications. Apple provides a production and development gateway; see {@link ApnsClient#PRODUCTION_APNS_HOST} and
+ * {@link ApnsClient#DEVELOPMENT_APNS_HOST}. See the
+ * <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">APNs
+ * Provider API</a> documentation for additional details.</p>
+ *
+ * <p>Once a connection has been established, an APNs client will attempt to restore that connection automatically if
+ * the connection closes unexpectedly. APNs clients employee an exponential back-off strategy to manage the rate of
+ * reconnection attempts. Clients will stop trying to reconnect automatically if disconnected via the
+ * {@link ApnsClient#disconnect()} method.</p>
+ *
+ * <p>Notifications sent by a client to an APNs server are sent asynchronously. A
+ * {@link io.netty.util.concurrent.Future io.netty.util.concurrent.Future} is returned immediately when a notification
+ * is sent, but will not complete until the attempt to send the notification has failed, the notification has been
+ * accepted by the APNs server, or the notification has been rejected by the APNs server. Please note that the
+ * {@code Future} returned is a {@code io.netty.util.concurrent.Future}, which is an extension of the
+ * {@link java.util.concurrent.Future java.util.concurrent.Future} interface that allows callers to attach listeners
+ * that will be notified when the {@code Future} completes.</p>
+ *
+ * <p>APNs clients are intended to be long-lived, persistent resources. Callers should shut them down when they are no
+ * longer needed (i.e. when shutting down the entire application). If an event loop group was specified at construction
+ * time, callers should shut down that event loop group when all clients using that group have been disconnected.</p>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
