@@ -29,7 +29,89 @@ Pushy itself requires Java 1.6 or newer to build and run.
 
 ## Sending push notifications
 
-TODO
+Before you can get started with Pushy, you'll need to do some provisioning work with Apple to register your app and get the required certificates. For details on this process, please see the [Provisioning and Development](https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ProvisioningDevelopment.html#//apple_ref/doc/uid/TP40008194-CH104-SW1) section of Apple's official documentation.
+
+Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an `ApnsClient`. Clients need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing):
+
+```java
+final ApnsClient<SimpleApnsPushNotification> apnsClient =
+        new ApnsClient<SimpleApnsPushNotification>(
+                new File("/path/to/certificate.p12"), "p12-file-password");
+```
+
+Once you've created a client, you can connect it to the APNs gateway. Note that this process is asynchronous; the client will return a Future right away, but you'll need to wait for it to complete before you can send any notifications. Note that this is a Netty [`Future`](http://netty.io/4.1/api/io/netty/util/concurrent/Future.html), which is an extension of the Java [`Future`](http://docs.oracle.com/javase/6/docs/api/java/util/concurrent/Future.html) interface that allows callers to add listeners and adds methods for checking the status of the `Future`.
+
+```java
+final Future<Void> connectFuture = apnsClient.connect(ApnsClient.DEVELOPMENT_APNS_HOST);
+connectFuture.await();
+```
+
+Once the client has finished connecting to the APNs server, you can begin sending push notifications. At a minimum, push notifications need a destination token, a topic, and a payload.
+
+```java
+final SimpleApnsPushNotification pushNotification;
+
+{
+    final ApnsPayloadBuilder payloadBuilder = new ApnsPayloadBuilder();
+    payloadBuilder.setAlertBody("Example!");
+
+    final String payload = payloadBuilder.buildWithDefaultMaximumLength();
+    final String token = TokenUtil.sanitizeTokenString("<efc7492 bdbd8209>");
+
+    pushNotification = new SimpleApnsPushNotification(token, "com.example.myApp", payload);
+}
+```
+
+Like connecting, sending notifications is an asynchronous process. You'll get a `Future` immediately, but will need to wait for the `Future` to complete before you'll know whether the notification was accepted or rejected by the APNs gateway.
+
+```java
+final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendNotificationFuture =
+        apnsClient.sendNotification(pushNotification);
+```
+
+The `Future` will complete in one of three circumstances:
+
+1. The gateway accepts the notification and will attempt to deliver it to the destination device.
+2. The gateway rejects the notification; this should be considered a permanent failure, and the notification should not be sent again. Additionally, the APNs gateway may indicate a timestamp at which the destination token became invalid. If that happens, you should stop trying to send *any* notification to that token unless the token has been re-registered since that timestamp.
+3. The `Future` fails with an exception. This should generally be considered a temporary failure, and callers should try to send the notification again when the problem has been resolved. In particular, the `Future` may fail with a `ClientNotConnectedException`, in which case callers may wait for the connection to be restored automatically by waiting for the `Future` returned by `ApnsClient#getReconnectionFuture()`.
+
+An example:
+
+```java
+try {
+    final PushNotificationResponse<SimpleApnsPushNotification> pushNotificationReponse =
+            sendNotificationFuture.get();
+
+    if (pushNotificationReponse.isAccepted()) {
+        System.out.println("Push notitification accepted by APNs gateway.");
+    } else {
+        System.out.println("Notification rejected by the APNs gateway: " +
+                pushNotificationReponse.getRejectionReason());
+
+        if (pushNotificationReponse.getTokenInvalidationTimestamp() != null) {
+            System.out.println("\t…and the token is invalid as of " +
+                pushNotificationReponse.getTokenInvalidationTimestamp());
+        }
+    }
+} catch (final ExecutionException e) {
+    // Something went wrong when trying to send the notification to the
+    // APNs gateway. The notification never actually reached the gateway,
+    // so we shouldn't consider this a permanent failure.
+    System.err.println("Failed to send push notification.");
+    e.printStackTrace();
+
+    if (e.getCause() instanceof ClientNotConnectedException) {
+        apnsClient.getReconnectionFuture().await();
+    }
+}
+```
+
+Finally, when your application is shutting down, you'll want to disconnect any active clients:
+
+```java
+final Future<Void> disconnectFuture = apnsClient.disconnect();
+disconnectFuture.await();
+```
 
 ## System requirements
 
