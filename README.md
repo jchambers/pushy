@@ -94,14 +94,13 @@ try {
         }
     }
 } catch (final ExecutionException e) {
-    // Something went wrong when trying to send the notification to the
-    // APNs gateway. The notification never actually reached the gateway,
-    // so we shouldn't consider this a permanent failure.
     System.err.println("Failed to send push notification.");
     e.printStackTrace();
 
     if (e.getCause() instanceof ClientNotConnectedException) {
+        System.out.println("Waiting for client to reconnect…");
         apnsClient.getReconnectionFuture().await();
+        System.out.println("Reconnected.");
     }
 }
 ```
