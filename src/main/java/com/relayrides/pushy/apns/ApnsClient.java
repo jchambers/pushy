@@ -60,6 +60,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private final Bootstrap bootstrap;
     private final boolean shouldShutDownEventLoopGroup;
 
+    private Long gracefulShutdownTimeoutMillis;
+
     private ChannelPromise connectionReadyPromise;
     private ChannelPromise reconnectionPromise;
     private long reconnectDelay = INITIAL_RECONNECT_DELAY;
@@ -316,11 +318,19 @@ public class ApnsClient<T extends ApnsPushNotification> {
                     @Override
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                            context.pipeline().addLast(new ApnsClientHandler.Builder<T>()
+                            final ApnsClientHandler<T> apnsClientHandler = new ApnsClientHandler.Builder<T>()
                                     .server(false)
                                     .apnsClient(ApnsClient.this)
                                     .encoderEnforceMaxConcurrentStreams(true)
-                                    .build());
+                                    .build();
+
+                            synchronized (ApnsClient.this.bootstrap) {
+                                if (ApnsClient.this.gracefulShutdownTimeoutMillis != null) {
+                                    apnsClientHandler.gracefulShutdownTimeoutMillis(ApnsClient.this.gracefulShutdownTimeoutMillis);
+                                }
+                            }
+
+                            context.pipeline().addLast(apnsClientHandler);
 
                             // Add this to the end of the queue so any events enqueued by the client handler happen
                             // before we declare victory.
@@ -606,7 +616,30 @@ public class ApnsClient<T extends ApnsPushNotification> {
         this.responsePromises.remove(response.getPushNotification()).setSuccess(response);
     }
 
-    // TODO Expose graceful shutdown timeout methods
+    /**
+     * Sets the amount of time (in milliseconds) clients should wait for in-progress requests to complete before closing
+     * a connection during a graceful shutdown.
+     *
+     * @param timeoutMillis the number of milliseconds to wait for in-progress requests to complete before closing a
+     * connection
+     *
+     * @see ApnsClient#disconnect()
+     */
+    public void setGracefulShutdownTimeout(final long timeoutMillis) {
+        synchronized (this.bootstrap) {
+            this.gracefulShutdownTimeoutMillis = timeoutMillis;
+
+            if (this.connectionReadyPromise != null) {
+                @SuppressWarnings("rawtypes")
+                final ApnsClientHandler handler =
+                this.connectionReadyPromise.channel().pipeline().get(ApnsClientHandler.class);
+
+                if (handler != null) {
+                    handler.gracefulShutdownTimeoutMillis(timeoutMillis);
+                }
+            }
+        }
+    }
 
     /**
      * <p>Gracefully disconnects from the APNs gateway. The disconnection process will wait until notifications in
