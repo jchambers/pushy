@@ -366,7 +366,17 @@ public class ApnsClient<T extends ApnsPushNotification> {
         });
     }
 
-    // TODO Expose connection/handshake timeout settings
+    /**
+     * Sets the maximum amount of time, in milliseconds, that a client will wait to establish a connection with the
+     * APNs server before the connection attempt is considered a failure.
+     *
+     * @param timeoutMillis the maximum amount of time in milliseconds to wait for a connection attempt to complete
+     */
+    public void setConnectionTimeout(final int timeoutMillis) {
+        synchronized (this.bootstrap) {
+            this.bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, timeoutMillis);
+        }
+    }
 
     /**
      * <p>Connects to the given APNs gateway on the default (HTTPS) port ({@value DEFAULT_APNS_PORT}).</p>
