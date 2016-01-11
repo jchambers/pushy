@@ -100,29 +100,84 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
+    /**
+     * <p>Creates a new APNs client that will identify itself to the APNs gateway with the certificate and key from the
+     * given PKCS#12 file. The PKCS#12 file <em>must</em> contain a single certificate/private key pair.</p>
+     *
+     * <p>Clients created using this method will use a default, internally-managed event loop group. Once the client
+     * has been disconnected via the {@link ApnsClient#disconnect()} method, its event loop will be shut down and the
+     * client cannot be reconnected.</p>
+     *
+     * @param p12File a PKCS#12-formatted file containing a the certificate and private key to be used to identify the
+     * client to the APNs server
+     * @param password the password to be used to decrypt the contents of the given PKCS#12 file
+     *
+     * @throws SSLException if the given PKCS#12 file could not be loaded or if any other SSL-related problem arises
+     * when constructing the context
+     */
     public ApnsClient(final File p12File, final String password) throws SSLException {
         this(p12File, password, null);
     }
 
+    /**
+     * <p>Creates a new APNs client that will identify itself to the APNs gateway with the certificate and key from the
+     * given PKCS#12 file. The PKCS#12 file <em>must</em> contain a single certificate/private key pair.</p>
+     *
+     * <p>Clients created using this method will use the provided event loop group, which may be useful in cases where
+     * multiple clients are running in parallel. If a client is created using this method, it is the responsibility of
+     * the caller to shut down the event loop group. Clients created with an externally-provided event loop group may be
+     * reconnected after being shut down via the {@link ApnsClient#disconnect()} method.</p>
+     *
+     * @param p12File a PKCS#12-formatted file containing a the certificate and private key to be used to identify the
+     * client to the APNs server
+     * @param password the password to be used to decrypt the contents of the given PKCS#12 file
+     * @param eventLoopGroup the event loop group to be used to handle I/O events for this client
+     *
+     * @throws SSLException if the given PKCS#12 file could not be loaded or if any other SSL-related problem arises
+     * when constructing the context
+     */
     public ApnsClient(final File p12File, final String password, final EventLoopGroup eventLoopGroup) throws SSLException {
         this(ApnsClient.getSslContextWithP12File(p12File, password), eventLoopGroup);
     }
 
-    public ApnsClient(final File certificatePemFile, final File privateKeyPkcs8File, final String privateKeyPassword) throws SSLException {
-        this(certificatePemFile, privateKeyPkcs8File, privateKeyPassword, null);
-    }
-
     /**
-     * Creates a new APNs client that will identify itself to the APNs gateway with the certificate and key from the
+     * <p>Creates a new APNs client that will identify itself to the APNs gateway with the certificate and key from the
      * given files. The certificate file <em>must</em> contain a PEM-formatted X.509 certificate, and the key file
-     * <em>must</em> contain a PKCS8-formatted private key.
+     * <em>must</em> contain a PKCS8-formatted private key.</p>
+     *
+     * <p>Clients created using this method will use a default, internally-managed event loop group. Once the client
+     * has been disconnected via the {@link ApnsClient#disconnect()} method, its event loop will be shut down and the
+     * client cannot be reconnected.</p>
      *
      * @param certificatePemFile a PEM-formatted file containing an X.509 certificate to be used to identify the client
      * to the APNs server
      * @param privateKeyPkcs8File a PKCS8-formatted file containing a private key for the client certificate
      * @param privateKeyPassword the password to be used to decrypt the private key; may be {@code null} if the private
      * key does not require a password
-     * @param eventLoopGroup TODO
+     *
+     * @throws SSLException if the given key or certificate could not be loaded or if any other SSL-related problem
+     * arises when constructing the context
+     */
+    public ApnsClient(final File certificatePemFile, final File privateKeyPkcs8File, final String privateKeyPassword) throws SSLException {
+        this(certificatePemFile, privateKeyPkcs8File, privateKeyPassword, null);
+    }
+
+    /**
+     * <p>Creates a new APNs client that will identify itself to the APNs gateway with the certificate and key from the
+     * given files. The certificate file <em>must</em> contain a PEM-formatted X.509 certificate, and the key file
+     * <em>must</em> contain a PKCS8-formatted private key.</p>
+     *
+     * <p>Clients created using this method will use the provided event loop group, which may be useful in cases where
+     * multiple clients are running in parallel. If a client is created using this method, it is the responsibility of
+     * the caller to shut down the event loop group. Clients created with an externally-provided event loop group may be
+     * reconnected after being shut down via the {@link ApnsClient#disconnect()} method.</p>
+     *
+     * @param certificatePemFile a PEM-formatted file containing an X.509 certificate to be used to identify the client
+     * to the APNs server
+     * @param privateKeyPkcs8File a PKCS8-formatted file containing a private key for the client certificate
+     * @param privateKeyPassword the password to be used to decrypt the private key; may be {@code null} if the private
+     * key does not require a password
+     * @param eventLoopGroup the event loop group to be used to handle I/O events for this client
      *
      * @throws SSLException if the given key or certificate could not be loaded or if any other SSL-related problem
      * arises when constructing the context
@@ -132,18 +187,40 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 eventLoopGroup);
     }
 
-    public ApnsClient(final X509Certificate certificate, final PrivateKey privateKey, final String privateKeyPassword) throws SSLException {
-        this(certificate, privateKey, privateKeyPassword, null);
-    }
-
     /**
-     * Creates a new APNs client that will identify itself to the APNs gateway with the given certificate and key.
+     * <p>Creates a new APNs client that will identify itself to the APNs gateway with the given certificate and
+     * key.</p>
+     *
+     * <p>Clients created using this method will use a default, internally-managed event loop group. Once the client
+     * has been disconnected via the {@link ApnsClient#disconnect()} method, its event loop will be shut down and the
+     * client cannot be reconnected.</p>
      *
      * @param certificate the certificate to be used to identify the client to the APNs server
      * @param privateKey the private key for the client certificate
      * @param privateKeyPassword the password to be used to decrypt the private key; may be {@code null} if the private
      * key does not require a password
-     * @param eventLoopGroup TODO
+     *
+     * @throws SSLException if the given key or certificate could not be loaded or if any other SSL-related problem
+     * arises when constructing the context
+     */
+    public ApnsClient(final X509Certificate certificate, final PrivateKey privateKey, final String privateKeyPassword) throws SSLException {
+        this(certificate, privateKey, privateKeyPassword, null);
+    }
+
+    /**
+     * <p>Creates a new APNs client that will identify itself to the APNs gateway with the given certificate and
+     * key.</p>
+     *
+     * <p>Clients created using this method will use the provided event loop group, which may be useful in cases where
+     * multiple clients are running in parallel. If a client is created using this method, it is the responsibility of
+     * the caller to shut down the event loop group. Clients created with an externally-provided event loop group may be
+     * reconnected after being shut down via the {@link ApnsClient#disconnect()} method.</p>
+     *
+     * @param certificate the certificate to be used to identify the client to the APNs server
+     * @param privateKey the private key for the client certificate
+     * @param privateKeyPassword the password to be used to decrypt the private key; may be {@code null} if the private
+     * key does not require a password
+     * @param eventLoopGroup the event loop group to be used to handle I/O events for this client
      *
      * @throws SSLException if the given key or certificate could not be loaded or if any other SSL-related problem
      * arises when constructing the context
