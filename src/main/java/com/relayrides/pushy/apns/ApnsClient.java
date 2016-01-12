@@ -72,7 +72,7 @@ import io.netty.util.concurrent.SucceededFuture;
  * Provider API</a> documentation for additional details.</p>
  *
  * <p>Once a connection has been established, an APNs client will attempt to restore that connection automatically if
- * the connection closes unexpectedly. APNs clients employee an exponential back-off strategy to manage the rate of
+ * the connection closes unexpectedly. APNs clients employ an exponential back-off strategy to manage the rate of
  * reconnection attempts. Clients will stop trying to reconnect automatically if disconnected via the
  * {@link ApnsClient#disconnect()} method.</p>
  *
