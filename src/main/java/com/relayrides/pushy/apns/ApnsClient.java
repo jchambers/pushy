@@ -99,8 +99,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private Long gracefulShutdownTimeoutMillis;
 
-    private ChannelPromise connectionReadyPromise;
-    private ChannelPromise reconnectionPromise;
+    private volatile ChannelPromise connectionReadyPromise;
+    private volatile ChannelPromise reconnectionPromise;
     private long reconnectDelay = INITIAL_RECONNECT_DELAY;
 
     private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises =
