@@ -198,4 +198,9 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
             context.write(message, promise);
         }
     }
+
+    @Override
+    public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) throws Exception {
+        log.warn("APNs client pipeline caught an exception.", cause);
+    }
 }
