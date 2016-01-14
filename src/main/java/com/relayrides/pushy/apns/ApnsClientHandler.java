@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
@@ -119,6 +120,11 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
             } else {
                 ApnsClientHandler.this.headersByStreamId.put(streamId, headers);
             }
+        }
+
+        @Override
+        public void onGoAwayRead(final ChannelHandlerContext context, final int lastStreamId, final long errorCode, final ByteBuf debugData) throws Http2Exception {
+            log.info("Received GOAWAY from APNs server: {}", debugData.toString(UTF8));
         }
     }
 
