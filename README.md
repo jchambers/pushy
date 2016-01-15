@@ -27,7 +27,7 @@ If you don't use Maven (or something else that understands Maven dependencies, l
 - [slf4j 1.7.6](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
 - Either `netty-tcnative` or `alpn-boot`, as discussed in the [system requirements](#system-requirements) section below
 
-Pushy itself requires Java 1.6 or newer to build and run.
+Pushy itself requires Java 6 or newer to build and run.
 
 ## Sending push notifications
 
@@ -117,6 +117,8 @@ disconnectFuture.await();
 ```
 
 ## System requirements
+
+Pushy works with Java 6 and newer, but has some additional dependencies depending on the environment in which it is running.
 
 The APNs protocol is built on top of the [HTTP/2 protocol](https://http2.github.io/). HTTP/2 is a relatively new protocol, and relies on some new developments that aren't yet wide-spread in the Java world. In particular:
 
