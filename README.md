@@ -168,6 +168,6 @@ Pushy uses logging levels as follows:
 
 ## License and status
 
-Pushy is available to the public under the [MIT License](http://opensource.org/licenses/MIT).
+Pushy is available under the [MIT License](http://opensource.org/licenses/MIT).
 
 The current version of Pushy is 0.5. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.

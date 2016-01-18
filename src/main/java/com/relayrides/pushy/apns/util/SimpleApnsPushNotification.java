@@ -42,7 +42,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
     private final String topic;
 
     /**
-     * Constructs a new push notification with the given token and payload. No expiration time is set for the
+     * Constructs a new push notification with the given token, topic, and payload. No expiration time is set for the
      * notification, so APNs will not attempt to store the notification for later delivery if the initial attempt fails.
      * An "immediate" delivery priority is used for the notification, and as such the payload should contain an alert,
      * sound, or badge component.
@@ -61,8 +61,8 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
     }
 
     /**
-     * Constructs a new push notification with the given token, payload, and expiration time. An "immediate" delivery
-     * priority is used for the notification, and as such the payload should contain an alert, sound, or badge
+     * Constructs a new push notification with the given token, topic, payload, and expiration time. An "immediate"
+     * delivery priority is used for the notification, and as such the payload should contain an alert, sound, or badge
      * component.
      *
      * @param token
@@ -82,7 +82,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
     }
 
     /**
-     * Constructs a new push notification with the given token, payload, delivery expiration time, and delivery
+     * Constructs a new push notification with the given token, topic, payload, delivery expiration time, and delivery
      * priority.
      *
      * @param token

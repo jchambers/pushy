@@ -21,7 +21,9 @@
 /**
  * <p>Contains classes and interfaces for interacting with the Apple Push Notification service (APNs).</p>
  *
- * <p>TODO</p>
+ * <p>Callers will primarily interact with the {@link com.relayrides.pushy.apns.ApnsClient} class to send push
+ * notifications. An {@code ApnsClient} maintains a single connection to the APNs gateway and sends notifications using
+ * the HTTP/2-based APNs protocol. Notifications are sent asynchronously.</p>
  *
  * <p>The {@link com.relayrides.pushy.apns.ApnsPushNotification} interface represents a single APNs push notification
  * sent to a single device. A simple concrete implementation of the {@code ApnsPushNotification} interface

@@ -321,16 +321,16 @@
     </profiles>
     <organization>
         <name>RelayRides</name>
-        <url>https://relayrides.com/</url>
+        <url>https://turo.com/</url>
     </organization>
     <developers>
         <developer>
             <id>jon</id>
             <name>Jon Chambers</name>
-            <email>jon@relayrides.com</email>
+            <email>jon@turo.com</email>
             <url>https://github.com/jchambers</url>
-            <organization>RelayRides</organization>
-            <organizationUrl>https://relayrides.com/</organizationUrl>
+            <organization>Turo</organization>
+            <organizationUrl>https://turo.com/</organizationUrl>
             <roles>
                 <role>developer</role>
             </roles>
