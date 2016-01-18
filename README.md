@@ -26,6 +26,7 @@ If you don't use Maven (or something else that understands Maven dependencies, l
 - [gson 2.5](https://github.com/google/gson)
 - [slf4j 1.7.6](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
 - Either `netty-tcnative` or `alpn-boot`, as discussed in the [system requirements](#system-requirements) section below
+  - [alpn-api](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html) if you've opted not to use `alpn-boot` (`alpn-api` is included in `alpn-boot`); please see the [system requirements](#system-requirements) section for details)
 
 Pushy itself requires Java 6 or newer to build and run.
 
@@ -131,13 +132,15 @@ Generally speaking, using OpenSSL as your SSL provider is the best way to fulfil
 
 Using OpenSSL as an SSL provider fulfills the ALPN and cipher suite requirements imposed by HTTP/2. To use OpenSSL as an SSL provider, you'll need OpenSSL 1.0.2 or newer installed. You'll also need to add `netty-tcnative` as a dependency to your project. The `netty-tcnative` wiki provides [detailed instructions](http://netty.io/wiki/forked-tomcat-native.html), but in short, you'll need to add one additional platform-specific dependency to your project. This approach will meet all requirements imposed by HTTP/2 for Java 6, 7, and 8.
 
+Additionally, you'll need [`alpn-api`](http://mvnrepository.com/artifact/org.eclipse.jetty.alpn/alpn-api) as a `runtime` dependency for your project. If you're managing dependencies manually, you'll just need to make sure the latest version of `alpn-api` is available on your classpath.
+
 Please note that, at least as recently as OS X 10.11 (El Capitan), Mac OS X did not ship with a version of OpenSSL that supports ALPN or the cipher suites required by HTTP/2. If you're using Mac OS X and intend to use OpenSSL as your SSL provider, you'll need to update OpenSSL 1.0.2 or newer.
 
 ### Using Jetty's ALPN implementation
 
 As an alternative to OpenSSL, you may use Jetty's ALPN implementation if you're using OpenJDK 8. Please note that if you're not using Java 8 or newer, you'll need to meet the cipher suite requirement separately; you may do so either by using OpenSSL (which also fulfills the ALPN requirement) or by using another cryptography provider (which is beyond the scope of this README).
 
-Using Jetty's ALPN implementation is somewhat more complicated than using using OpenSSL as an SSL provider. You'll need to choose a version of `alpn-boot` specific to the version (down to the update!) of OpenJDK you're using, and then add it to your *boot* class path. You'll also need to add `alpn-api` as a `provided` dependency to your project. [Detailed instructions](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html) are provided by Jetty.
+Using Jetty's ALPN implementation is somewhat more complicated than using using OpenSSL as an SSL provider. You'll need to choose a version of `alpn-boot` specific to the version (down to the update!) of OpenJDK you're using, and then add it to your *boot* class path. [Detailed instructions](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html) are provided by Jetty.
 
 If you know exactly which version of Java you'll be running, you can just add that specific version of `alpn-boot` to your boot class path. If your project might run on a number of different systems and if you use Maven, you can use a `<profile>` section in your `pom.xml` to choose the correct version on the fly. Please see [Pushy's own `pom.xml`](https://github.com/relayrides/pushy/blob/http2/pom.xml#L189) for an example for Java 8. At the time of this writing, [Netty's `pom.xml`](https://github.com/netty/netty/blob/4.1/pom.xml) includes profiles for both Java 7 and Java 8.
 
