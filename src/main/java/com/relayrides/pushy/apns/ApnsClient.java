@@ -44,7 +44,6 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.ChannelPromise;
-import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -80,7 +79,7 @@ import io.netty.util.concurrent.SucceededFuture;
  *
  * <p>To construct a client, callers will need to provide the certificate provisioned by Apple and its accompanying
  * private key. The certificate and key will be used to authenticate the client and identify the topics to which it can
- * send notifications. Callers may optionally specify an {@link EventLoopGroup} when constructing a new client. If no
+ * send notifications. Callers may optionally specify an {@link NioEventLoopGroup} when constructing a new client. If no
  * event loop group is specified, clients will create and manage their own single-thread event loop group. If many
  * clients are operating in parallel, specifying a shared event loop group serves as a mechanism to keep the total
  * number of threads in check.</p>
@@ -195,7 +194,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * @throws SSLException if the given PKCS#12 file could not be loaded or if any other SSL-related problem arises
      * when constructing the context
      */
-    public ApnsClient(final File p12File, final String password, final EventLoopGroup eventLoopGroup) throws SSLException {
+    public ApnsClient(final File p12File, final String password, final NioEventLoopGroup eventLoopGroup) throws SSLException {
         this(ApnsClient.getSslContextWithP12File(p12File, password), eventLoopGroup);
     }
 
@@ -237,7 +236,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * @throws SSLException if the given key or certificate could not be loaded or if any other SSL-related problem
      * arises when constructing the context
      */
-    public ApnsClient(final X509Certificate certificate, final PrivateKey privateKey, final String privateKeyPassword, final EventLoopGroup eventLoopGroup) throws SSLException {
+    public ApnsClient(final X509Certificate certificate, final PrivateKey privateKey, final String privateKeyPassword, final NioEventLoopGroup eventLoopGroup) throws SSLException {
         this(ApnsClient.getSslContextWithCertificateAndPrivateKey(certificate, privateKey, privateKeyPassword), eventLoopGroup);
     }
 
@@ -299,7 +298,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                 ApplicationProtocolNames.HTTP_2));
     }
 
-    protected ApnsClient(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
+    protected ApnsClient(final SslContext sslContext, final NioEventLoopGroup eventLoopGroup) {
         this.bootstrap = new Bootstrap();
 
         if (eventLoopGroup != null) {
