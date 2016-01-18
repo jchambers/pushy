@@ -2,14 +2,9 @@
 
 [![Build Status](https://travis-ci.org/relayrides/pushy.svg?branch=master)](https://travis-ci.org/relayrides/pushy)
 
-Pushy is a Java library for sending [APNs](http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Introduction.html) (iOS and OS X) push notifications. It is written and maintained by the engineers at [Turo](https://turo.com/) and is built on the [Netty framework](http://netty.io/).
+Pushy is a Java library for sending [APNs](https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html) (iOS and OS X) push notifications. It is written and maintained by the engineers at [Turo](https://turo.com/).
 
-Pushy was created because we found that the other APNs libraries for Java simply didn't meet our needs in terms of performance or (especially) reliability. Pushy distinguishes itself from other libraries with several important features:
-
-- Asynchronous network IO (via Netty) for [maximum performance](https://github.com/relayrides/pushy/wiki/Performance)
-- Efficient connection management
-- Graceful handling and reporting of permanent notification rejections and connection failures
-- Thorough [documentation](http://relayrides.github.io/pushy/apidocs/0.4/)
+Pushy sends push notifications using Apple's HTTP/2-based APNs protocol. It distinguishes itself from other push notification libraries with a focus on [thorough documentation](http://relayrides.github.io/pushy/apidocs/0.5/), asynchronous operation, and design for industrial-scale operation; with Pushy, it's easy and efficient to maintain multiple parallel connections to the APNs gateway to send large numbers of notifications to many different applications ("topics").
 
 We believe that Pushy is already the best tool for sending APNs push notifications from Java applications, and we hope you'll help us make it even better via bug reports and pull requests. If you have questions about using Pushy, please join us on [the Pushy mailing list](https://groups.google.com/d/forum/pushy-apns) or take a look at [the wiki](https://github.com/relayrides/pushy/wiki). Thanks!
 
@@ -21,152 +16,133 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 <dependency>
     <groupId>com.relayrides</groupId>
     <artifactId>pushy</artifactId>
-    <version>0.4.3</version>
+    <version>0.5</version>
 </dependency>
 ```
 
-If you don't use Maven, you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.4/pushy-0.4.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
+If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.5/pushy-0.5.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
-- [netty 4.0.26.Final](http://netty.io/)
-- [slf4j 1.7.6](http://www.slf4j.org/)
-- [json.simple 1.1.1](https://code.google.com/p/json-simple/)
+- [netty 4.1.0](http://netty.io/)
+- [gson 2.5](https://github.com/google/gson)
+- [slf4j 1.7.6](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
+- Either `netty-tcnative` or `alpn-boot`, as discussed in the [system requirements](#system-requirements) section below
+  - [alpn-api](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html) if you've opted not to use `alpn-boot` (`alpn-api` is included in `alpn-boot`); please see the [system requirements](#system-requirements) section for details)
 
-Pushy itself requires Java 1.6 or newer.
+Pushy itself requires Java 6 or newer to build and run.
 
-## Using Pushy
+## Sending push notifications
 
-The main public-facing part of Pushy is the [`PushManager`](http://relayrides.github.io/pushy/apidocs/0.4/com/relayrides/pushy/apns/PushManager.html) class, which manages connections to APNs and manages the queue of outbound notifications. Before you can create a `PushManager`, though, you'll need appropriate SSL certificates and keys from Apple. They can be obtained by following the steps in Apple's ["Provisioning and Development"](http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ProvisioningDevelopment.html#//apple_ref/doc/uid/TP40008194-CH104-SW1) guide.
+Before you can get started with Pushy, you'll need to do some provisioning work with Apple to register your app and get the required certificates. For details on this process, please see the [Provisioning and Development](https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ProvisioningDevelopment.html#//apple_ref/doc/uid/TP40008194-CH104-SW1) section of Apple's official documentation. Please note that there are [some caveats](https://github.com/relayrides/pushy/wiki/Certificates), particularly under Mac OS X 10.11 (El Capitan).
 
-Once you have your certificates and keys, you can construct a new `PushManager` like this:
+Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an [`ApnsClient`](http://relayrides.github.io/pushy/apidocs/0.5/com/relayrides/pushy/apns/ApnsClient.html). Clients need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing):
 
 ```java
-final PushManager<SimpleApnsPushNotification> pushManager =
-    new PushManager<SimpleApnsPushNotification>(
-        ApnsEnvironment.getSandboxEnvironment(),
-        SSLContextUtil.createDefaultSSLContext("path-to-key.p12", "my-password"),
-        null, // Optional: custom event loop group
-        null, // Optional: custom ExecutorService for calling listeners
-        null, // Optional: custom BlockingQueue implementation
-        new PushManagerConfiguration(),
-        "ExamplePushManager");
-
-pushManager.start();
+final ApnsClient<SimpleApnsPushNotification> apnsClient =
+        new ApnsClient<SimpleApnsPushNotification>(
+                new File("/path/to/certificate.p12"), "p12-file-password");
 ```
 
-Many aspects of a `PushManager`'s behavior can be customized. See the [`PushManager` documentation](http://relayrides.github.io/pushy/apidocs/0.4/com/relayrides/pushy/apns/PushManager.html) for details. Some important highlights:
-
-1. If you have multiple `PushManager` instances, you may want to share an event loop group and/or listener executor service between them to keep the number of active threads at a reasonable level.
-2. By default, a `PushManager` will use an unbounded public queue; depending on your use case, you may want to use a bounded [`BlockingQueue`](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/BlockingQueue.html) implementation or even a [`SynchronousQueue`](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/SynchronousQueue.html).
-3. Many other low-level options can be configured by providing a custom [`PushManagerConfiguration`](http://relayrides.github.io/pushy/apidocs/0.4/com/relayrides/pushy/apns/PushManagerConfiguration.html).
-
-Once you have your `PushManager` constructed and started, you're ready to start constructing and sending push notifications. Pushy provides utility classes for working with APNs tokens and payloads. Here's an example:
+Once you've created a client, you can connect it to the APNs gateway. Note that this process is asynchronous; the client will return a Future right away, but you'll need to wait for it to complete before you can send any notifications. Note that this is a Netty [`Future`](http://netty.io/4.1/api/io/netty/util/concurrent/Future.html), which is an extension of the Java [`Future`](http://docs.oracle.com/javase/6/docs/api/java/util/concurrent/Future.html) interface that allows callers to add listeners and adds methods for checking the status of the `Future`.
 
 ```java
-final byte[] token = TokenUtil.tokenStringToByteArray(
-    "<5f6aa01d 8e335894 9b7c25d4 61bb78ad 740f4707 462c7eaf bebcf74f a5ddb387>");
-
-final ApnsPayloadBuilder payloadBuilder = new ApnsPayloadBuilder();
-
-payloadBuilder.setAlertBody("Ring ring, Neo.");
-payloadBuilder.setSoundFileName("ring-ring.aiff");
-
-final String payload = payloadBuilder.buildWithDefaultMaximumLength();
-
-pushManager.getQueue().put(new SimpleApnsPushNotification(token, payload));
+final Future<Void> connectFuture = apnsClient.connect(ApnsClient.DEVELOPMENT_APNS_HOST);
+connectFuture.await();
 ```
 
-When your application shuts down, make sure to shut down the `PushManager`, too:
+Once the client has finished connecting to the APNs server, you can begin sending push notifications. At a minimum, [push notifications](http://relayrides.github.io/pushy/apidocs/0.5/com/relayrides/pushy/apns/ApnsPushNotification.html) need a destination token, a topic, and a payload.
 
 ```java
-pushManager.shutdown();
-```
+final SimpleApnsPushNotification pushNotification;
 
-When the `PushManager` takes a notification from the queue, it will keep trying to send that notification. By the time you shut down the `PushManager` (as long as you don't give the shutdown process a timeout), the notification is guaranteed to have either been accepted or rejected by the APNs gateway. An important corollary is that notifications that have *not* been taken from the queue by the time the `PushManager` is shut down will not be sent. Please see [the FAQ](https://github.com/relayrides/pushy/wiki/Frequently-asked-questions#i-started-a-push-manager-added-a-notification-to-the-queue-and-shut-down-the-push-manager-my-push-notification-never-got-sent-why-not) for additional discussion.
+{
+    final ApnsPayloadBuilder payloadBuilder = new ApnsPayloadBuilder();
+    payloadBuilder.setAlertBody("Example!");
 
-## Error handling
+    final String payload = payloadBuilder.buildWithDefaultMaximumLength();
+    final String token = TokenUtil.sanitizeTokenString("<efc7492 bdbd8209>");
 
-Pushy deals with most problems for you, but there are two classes of problems you may want to deal with on your own.
-
-### Rejected notifications
-
-Push notification providers communicate with APNs by opening a long-lived connection to Apple's push notification gateway and streaming push notification through that connection. Apple's gateway won't respond or acknowledge push notifications unless something goes wrong, in which case it will send an error code and close the connection (don't worry -- Pushy deals with all of this for you). To deal with notifications that are rejected by APNs, Pushy provides a notion of a [`RejectedNotificationListener`](http://relayrides.github.io/pushy/apidocs/0.4/com/relayrides/pushy/apns/RejectedNotificationListener.html). Rejected notification listeners are informed whenever APNs rejects a push notification. Here's an example of registering a simple listener:
-
-```java
-private class MyRejectedNotificationListener implements RejectedNotificationListener<SimpleApnsPushNotification> {
-
-    @Override
-    public void handleRejectedNotification(
-            final PushManager<? extends SimpleApnsPushNotification> pushManager,
-            final SimpleApnsPushNotification notification,
-            final RejectedNotificationReason reason) {
-
-        System.out.format("%s was rejected with rejection reason %s\n", notification, reason);
-    }
+    pushNotification = new SimpleApnsPushNotification(token, "com.example.myApp", payload);
 }
-
-// ...
-
-pushManager.registerRejectedNotificationListener(new MyRejectedNotificationListener());
 ```
 
-Lots of things can go wrong when sending notifications, but rejected notification listeners are only informed when Apple definitively rejects a push notification. All other IO problems are treated as temporary issues, and Pushy will automatically re-transmit notifications affected by IO problems later. You may register a rejected notification listener at any time before shutting down the `PushManager`.
-
-### Failed connections
-
-While running, a `PushManager` will attempt to re-open any connection that is closed by the gateway (i.e. if a notification was rejected). Occasionally, connection attempts will fail for benign (or at least temporary) reasons. Sometimes, though, connection failures can indicate a more permanent problem (like an expired certificate) that won't be resolved by retrying the connection, and letting the `PushManager` try to reconnect indefinitely won't help the situation.
-
-You can listen for connection failures with a [`FailedConnectionListener`](http://relayrides.github.io/pushy/apidocs/0.4/com/relayrides/pushy/apns/FailedConnectionListener.html) like this:
+Like connecting, sending notifications is an asynchronous process. You'll get a `Future` immediately, but will need to wait for the `Future` to complete before you'll know whether the notification was accepted or rejected by the APNs gateway.
 
 ```java
-private class MyFailedConnectionListener implements FailedConnectionListener<SimpleApnsPushNotification> {
+final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendNotificationFuture =
+        apnsClient.sendNotification(pushNotification);
+```
 
-    @Override
-    public void handleFailedConnection(
-            final PushManager<? extends SimpleApnsPushNotification> pushManager,
-            final Throwable cause) {
+The `Future` will complete in one of three circumstances:
 
-        if (cause instanceof SSLHandshakeException) {
-            // This is probably a permanent failure, and we should shut down
-            // the PushManager.
+1. The gateway accepts the notification and will attempt to deliver it to the destination device.
+2. The gateway rejects the notification; this should be considered a permanent failure, and the notification should not be sent again. Additionally, the APNs gateway may indicate [a timestamp at which the destination token became invalid](https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW18). If that happens, you should stop trying to send *any* notification to that token unless the token has been re-registered since that timestamp.
+3. The `Future` fails with an exception. This should generally be considered a temporary failure, and callers should try to send the notification again when the problem has been resolved. In particular, the `Future` may fail with a [`ClientNotConnectedException`](http://relayrides.github.io/pushy/apidocs/0.5/com/relayrides/pushy/apns/ClientNotConnectedException.html), in which case callers may wait for the connection to be restored automatically by waiting for the `Future` returned by [`ApnsClient#getReconnectionFuture()`](http://relayrides.github.io/pushy/apidocs/0.5/com/relayrides/pushy/apns/ApnsClient.html#getReconnectionFuture--).
+
+An example:
+
+```java
+try {
+    final PushNotificationResponse<SimpleApnsPushNotification> pushNotificationReponse =
+            sendNotificationFuture.get();
+
+    if (pushNotificationReponse.isAccepted()) {
+        System.out.println("Push notitification accepted by APNs gateway.");
+    } else {
+        System.out.println("Notification rejected by the APNs gateway: " +
+                pushNotificationReponse.getRejectionReason());
+
+        if (pushNotificationReponse.getTokenInvalidationTimestamp() != null) {
+            System.out.println("\t…and the token is invalid as of " +
+                pushNotificationReponse.getTokenInvalidationTimestamp());
         }
     }
-}
+} catch (final ExecutionException e) {
+    System.err.println("Failed to send push notification.");
+    e.printStackTrace();
 
-// ...
-
-pushManager.registerFailedConnectionListener(new MyFailedConnectionListener());
-```
-
-Generally, it's safe to ignore most failures (though you may want to log them). Failures that result from a `SSLHandshakeException`, though, likely indicate that your certificate is either invalid or expired, and you'll need to remedy the situation before reconnection attempts are likely to succeed. Poorly-timed connection issues may cause spurious exceptions, though, and it's wise to look for a pattern of failures before taking action.
-
-Like `RejectedNotificationListeners`, `FailedConnectionListeners` can be registered any time before the `PushManager` is shut down.
-
-## The feedback service
-
-Apple also provides a "feedback service" as part of APNs. The feedback service reports which tokens are no longer valid because the end user uninstalled the receiving app. Apple requires push notification providers to poll for expired tokens on a daily basis. See ["The Feedback Service"](http://developer.apple.com/library/mac/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW3) for additional details from Apple.
-
-To get expired device tokens with Pushy, you'll need to register an [`ExpiredTokenListener`](http://relayrides.github.io/pushy/apidocs/0.4/com/relayrides/pushy/apns/ExpiredTokenListener.html) with your `PushManager`, then call the `requestExpiredTokens` method. For example:
-
-```java
-private class MyExpiredTokenListener implements ExpiredTokenListener<SimpleApnsPushNotification> {
-
-    @Override
-    public void handleExpiredTokens(
-            final PushManager<? extends SimpleApnsPushNotification> pushManager,
-            final Collection<ExpiredToken> expiredTokens) {
-
-        for (final ExpiredToken expiredToken : expiredTokens) {
-            // Stop sending push notifications to each expired token if the expiration
-            // time is after the last time the app registered that token.
-        }
+    if (e.getCause() instanceof ClientNotConnectedException) {
+        System.out.println("Waiting for client to reconnect…");
+        apnsClient.getReconnectionFuture().await();
+        System.out.println("Reconnected.");
     }
 }
-
-// ...
-
-pushManager.registerExpiredTokenListener(new MyExpiredTokenListener());
-pushManager.requestExpiredTokens();
 ```
+
+Again, it's important to note that the returned `Future` supports listeners; waiting for each individual push notification is inefficient in practice, and most users will be better serverd by adding a listener to the `Future` instead of blocking until it completes.
+
+Finally, when your application is shutting down, you'll want to disconnect any active clients:
+
+```java
+final Future<Void> disconnectFuture = apnsClient.disconnect();
+disconnectFuture.await();
+```
+
+## System requirements
+
+Pushy works with Java 6 and newer, but has some additional dependencies depending on the environment in which it is running.
+
+The APNs protocol is built on top of the [HTTP/2 protocol](https://http2.github.io/). HTTP/2 is a relatively new protocol, and relies on some new developments that aren't yet wide-spread in the Java world. In particular:
+
+1. HTTP/2 depends on [ALPN](https://tools.ietf.org/html/rfc7301), a TLS extension for protocol negotiation. No version of Java has native ALPN support at this time. The ALPN requirement may be met either by [using OpenSSL as an SSL provider](#using-native-openssl-as-an-ssl-provider) for Java 6, 7, and 8, or by [using Jetty's ALPN implementation](#using-jettys-alpn-implementation) under OpenJDK 7 or 8.
+2. The HTTP/2 specification requires the use of [ciphers](https://httpwg.github.io/specs/rfc7540.html#rfc.section.9.2.2) that weren't introduced in Java until Java 8. Using OpenSSL as an SSL provider is the best way to meet this requirement under Java 6 and 7. Using OpenSSL isn't a requirement under Java 8, but may still yield performance gains.
+
+Generally speaking, using OpenSSL as your SSL provider is the best way to fulfill the system requirements imposed by HTTP/2 because installation is fairly straightforward, it works for Java 6 onward and generally offers better SSL performance than the JDK SSL provider.
+
+### Using OpenSSL as an SSL provider
+
+Using OpenSSL as an SSL provider fulfills the ALPN and cipher suite requirements imposed by HTTP/2. To use OpenSSL as an SSL provider, you'll need OpenSSL 1.0.2 or newer installed. You'll also need to add `netty-tcnative` as a dependency to your project. The `netty-tcnative` wiki provides [detailed instructions](http://netty.io/wiki/forked-tomcat-native.html), but in short, you'll need to add one additional platform-specific dependency to your project. This approach will meet all requirements imposed by HTTP/2 for Java 6, 7, and 8.
+
+Additionally, you'll need [`alpn-api`](http://mvnrepository.com/artifact/org.eclipse.jetty.alpn/alpn-api) as a `runtime` dependency for your project. If you're managing dependencies manually, you'll just need to make sure the latest version of `alpn-api` is available on your classpath.
+
+Please note that, at least as recently as OS X 10.11 (El Capitan), Mac OS X did not ship with a version of OpenSSL that supports ALPN or the cipher suites required by HTTP/2. If you're using Mac OS X and intend to use OpenSSL as your SSL provider, you'll need to update OpenSSL 1.0.2 or newer.
+
+### Using Jetty's ALPN implementation
+
+As an alternative to OpenSSL, you may use Jetty's ALPN implementation if you're using OpenJDK 8. Please note that if you're not using Java 8 or newer, you'll need to meet the cipher suite requirement separately; you may do so either by using OpenSSL (which also fulfills the ALPN requirement) or by using another cryptography provider (which is beyond the scope of this README).
+
+Using Jetty's ALPN implementation is somewhat more complicated than using using OpenSSL as an SSL provider. You'll need to choose a version of `alpn-boot` specific to the version (down to the update!) of OpenJDK you're using, and then add it to your *boot* class path. [Detailed instructions](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html) are provided by Jetty.
+
+If you know exactly which version of Java you'll be running, you can just add that specific version of `alpn-boot` to your boot class path. If your project might run on a number of different systems and if you use Maven, you can use a `<profile>` section in your `pom.xml` to choose the correct version on the fly. Please see [Pushy's own `pom.xml`](https://github.com/relayrides/pushy/blob/http2/pom.xml#L189) for an example for Java 8. At the time of this writing, [Netty's `pom.xml`](https://github.com/netty/netty/blob/4.1/pom.xml) includes profiles for both Java 7 and Java 8.
 
 ## Logging
 
@@ -190,18 +166,8 @@ Pushy uses logging levels as follows:
 | `debug`   | Minor lifecycle events; expected exceptions                                           |
 | `trace`   | Individual IO operations                                                              |
 
-## Limitations and known issues
-
-Although we make every effort to fix bugs and work around issues outside of our control, some problems appear to be unavoidable. The issues we know about at this time are:
-
-- In cases where we successfully write a push notification to the OS-controlled outbound buffer, but the notification has not yet been written to the network, the push notification will be silently lost if the TCP connection is closed before the OS sends the notification over the network. See [#14](https://github.com/relayrides/pushy/issues/14) for additional discussion.
-- Under Windows, if writing a notification fails after the APNs gateway has rejected a notification and closed the connection remotely, the rejection details may be lost. See [#6](https://github.com/relayrides/pushy/issues/14) for additional discussion.
-- We recommend against using Pushy in a container environment (e.g. a servlet container like Tomcat). Netty, by design, leaves behind some long-running threads and `ThreadLocal` instances that we can't reliably clean up, and this can cause leaks when shutting down your app. To be clear, Pushy will send notifications as expected from a container environment, but may not be cleaned up properly at shutdown. If you choose to use Pushy in a container environment, please be aware of the following issues:
-  - After shutting down Pushy, a `GlobalEventExecutor` owned by Netty will continue running for about a second. This can cause warnings in environments that look for thread/resource leaks (e.g. servlet containers), but there is no real harm because the `GlobalEventExecutor` will eventually shut itself down. To avoid warnings in these environments, you can add a `Thread.sleep(1000)` call after shutting down Pushy. See [#29](https://github.com/relayrides/pushy/issues/29) for additional discussion.
-  - A number of `ThreadLocal` instances will be left behind by Netty, and these are likely to cause memory leaks. See [#73](https://github.com/relayrides/pushy/issues/73) for details and additional discussion.
-
 ## License and status
 
-Pushy is available to the public under the [MIT License](http://opensource.org/licenses/MIT).
+Pushy is available under the [MIT License](http://opensource.org/licenses/MIT).
 
-The current version of Pushy is 0.4.3. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
+The current version of Pushy is 0.5. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.

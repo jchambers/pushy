@@ -1,4 +1,4 @@
-/* Copyright (c) 2013 RelayRides
+/* Copyright (c) 2013-2016 RelayRides
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -16,16 +16,14 @@
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
+ * THE SOFTWARE. */
 
 /**
  * <p>Contains classes and interfaces for interacting with the Apple Push Notification service (APNs).</p>
  *
- * <p>The {@link com.relayrides.pushy.apns.PushManager} class is the main public-facing class in Pushy. A
- * {@code PushManager} manages connections to APNs and manages the queue of outbound notifications. Generally, Pushy
- * users should create a single long-lived {@code PushManager} instance per "topic" (or receiving app) and use it
- * throughout the lifetime of their provider application.</p>
+ * <p>Callers will primarily interact with the {@link com.relayrides.pushy.apns.ApnsClient} class to send push
+ * notifications. An {@code ApnsClient} maintains a single connection to the APNs gateway and sends notifications using
+ * the HTTP/2-based APNs protocol. Notifications are sent asynchronously.</p>
  *
  * <p>The {@link com.relayrides.pushy.apns.ApnsPushNotification} interface represents a single APNs push notification
  * sent to a single device. A simple concrete implementation of the {@code ApnsPushNotification} interface

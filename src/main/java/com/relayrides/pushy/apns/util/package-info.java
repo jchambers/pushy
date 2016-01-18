@@ -1,4 +1,4 @@
-/* Copyright (c) 2013 RelayRides
+/* Copyright (c) 2013-2016 RelayRides
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -16,8 +16,7 @@
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
+ * THE SOFTWARE. */
 
 /**
  * <p>Contains classes for working with APNs tokens and payloads.</p>
@@ -28,11 +27,10 @@
  * APNs specification.</p>
  *
  * <p>Device tokens identify the device to which a push notification is being sent. Ultimately, tokens need to be
- * expressed as an array of bytes, but a common practice is to transmit tokens from a device to a push notification
- * provider as a string of hexadecimal characters (e.g. the output of
+ * expressed as a string of hexadecimal characters, but a common practice is to transmit tokens as the output of
  * <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/Foundation/Classes/NSData_Class/Reference/Reference.html#//apple_ref/occ/instm/NSData/description">
- * {@code [NSData describe]}</a>). The {@link com.relayrides.pushy.apns.util.TokenUtil} class provides methods for
- * converting tokens between hexadecimal strings and byte arrays.</p>
+ * {@code [NSData describe]}</a>. The {@link com.relayrides.pushy.apns.util.TokenUtil} class provides methods for
+ * sanitizing token strings so they can be sent safely to the APNs gateway.</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
