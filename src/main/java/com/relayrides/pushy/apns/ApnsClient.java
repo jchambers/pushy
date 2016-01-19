@@ -245,7 +245,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
         final PrivateKey privateKey;
 
         try {
-            final KeyStore.PasswordProtection keyStorePassword = (password != null) ? new KeyStore.PasswordProtection(password.toCharArray()) : null;
+            final KeyStore.PasswordProtection keyStorePassword = new KeyStore.PasswordProtection(password != null ? password.toCharArray() : null);
 
             final KeyStore keyStore = KeyStore.Builder.newInstance("PKCS12", null, p12File, keyStorePassword).getKeyStore();
 
