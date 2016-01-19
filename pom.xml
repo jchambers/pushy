@@ -34,6 +34,11 @@
             <artifactId>slf4j-api</artifactId>
             <version>1.7.6</version>
         </dependency>
+        <dependency>
+            <groupId>io.dropwizard.metrics</groupId>
+            <artifactId>metrics-core</artifactId>
+            <version>3.1.0</version>
+        </dependency>
         <!-- TODO This should go away; needing it here at all appears to be a Netty bug. -->
         <dependency>
             <groupId>com.twitter</groupId>
