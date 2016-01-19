@@ -144,6 +144,10 @@ Using Jetty's ALPN implementation is somewhat more complicated than using using 
 
 If you know exactly which version of Java you'll be running, you can just add that specific version of `alpn-boot` to your boot class path. If your project might run on a number of different systems and if you use Maven, you can use a `<profile>` section in your `pom.xml` to choose the correct version on the fly. Please see [Pushy's own `pom.xml`](https://github.com/relayrides/pushy/blob/http2/pom.xml#L189) for an example for Java 8. At the time of this writing, [Netty's `pom.xml`](https://github.com/netty/netty/blob/4.1/pom.xml) includes profiles for both Java 7 and Java 8.
 
+## Using a proxy
+
+If you need to use a proxy for outbound connections, you may specify a [`ProxyHandlerFactory`](http://relayrides.github.io/pushy/apidocs/0.6/com/relayrides/pushy/apns/proxy/ProxyHandlerFactory.html) before attempting to connect your `ApnsClient` instance. Concrete implementations of `ProxyHandlerFactory` are provided for HTTP, SOCKS4, and SOCKS5 proxies.
+
 ## Logging
 
 Pushy uses [SLF4J](http://www.slf4j.org/) for logging. If you're not already familiar with it, SLF4J is a facade that allows users to choose which logging library to use at deploy time by adding a specific "binding" to the classpath. To avoid making the choice for you, Pushy itself does *not* depend on any SLF4J bindings; you'll need to add one on your own (either by adding it as a dependency in your own project or by installing it directly). If you have no SLF4J bindings on your classpath, you'll probably see a warning that looks something like this:
