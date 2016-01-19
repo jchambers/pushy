@@ -18,7 +18,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE. */
 
-package com.relayrides.pushy.apns;
+package com.relayrides.pushy.apns.proxy;
+
+import com.relayrides.pushy.apns.ApnsClient;
 
 import io.netty.handler.proxy.ProxyHandler;
 
