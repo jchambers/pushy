@@ -114,6 +114,7 @@ import io.netty.util.concurrent.SucceededFuture;
 public class ApnsClient<T extends ApnsPushNotification> {
 
     private final Bootstrap bootstrap;
+    private volatile ProxyHandlerFactory proxyHandlerFactory;
     private final boolean shouldShutDownEventLoopGroup;
 
     private Long gracefulShutdownTimeoutMillis;
@@ -316,6 +317,13 @@ public class ApnsClient<T extends ApnsPushNotification> {
             @Override
             protected void initChannel(final SocketChannel channel) throws Exception {
                 final ChannelPipeline pipeline = channel.pipeline();
+
+                final ProxyHandlerFactory proxyHandlerFactory = ApnsClient.this.proxyHandlerFactory;
+
+                if (proxyHandlerFactory != null) {
+                    pipeline.addFirst(proxyHandlerFactory.createProxyHandler());
+                }
+
                 pipeline.addLast(sslContext.newHandler(channel.alloc()));
                 pipeline.addLast(new ApplicationProtocolNegotiationHandler("") {
                     @Override
@@ -379,6 +387,19 @@ public class ApnsClient<T extends ApnsPushNotification> {
         synchronized (this.bootstrap) {
             this.bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, timeoutMillis);
         }
+    }
+
+    /**
+     * Sets the proxy handler factory to be used to construct proxy handlers when establishing a new connection to the
+     * APNs gateway. Proxy handlers are added to the beginning of the client's pipeline. A client's proxy handler
+     * factory may be {@code null}, in which case the client will connect to the gateway directly and will not use a
+     * proxy. By default, clients will not use a proxy.
+     *
+     * @param proxyHandlerFactory the proxy handler factory to be used to construct proxy handlers, or {@code null} if
+     * this client should not use a proxy
+     */
+    public void setProxyHandlerFactory(final ProxyHandlerFactory proxyHandlerFactory) {
+        this.proxyHandlerFactory = proxyHandlerFactory;
     }
 
     /**
