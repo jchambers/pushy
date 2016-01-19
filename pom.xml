@@ -118,6 +118,7 @@
                     <show>public</show>
                     <links>
                         <link>http://netty.io/4.1/api/</link>
+                        <link>https://dropwizard.github.io/metrics/3.1.0/apidocs/</link>
                     </links>
                 </configuration>
                 <executions>

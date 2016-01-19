@@ -37,6 +37,13 @@ import javax.net.ssl.SSLException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.Metric;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.MetricSet;
+import com.codahale.metrics.Timer;
+
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
@@ -124,6 +131,18 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises =
             new IdentityHashMap<T, Promise<PushNotificationResponse<T>>>();
+
+    private final MetricRegistry metricRegistry = new MetricRegistry();
+
+    private final Meter reconnectionAttempts = this.metricRegistry.meter("reconnectionAttempts");
+
+    private final Counter pendingNotifications = this.metricRegistry.counter("pendingNotifications");
+    private final Meter acceptedNotifications = this.metricRegistry.meter("acceptedNotifications");
+    private final Meter rejectedNotifications = this.metricRegistry.meter("rejectedNotifications");
+    private final Meter failedWrites = this.metricRegistry.meter("failedWrites");
+
+    private final Timer responseTimes = this.metricRegistry.timer("responseTime");
+    private final Map<T, Timer.Context> responseTimerContexts = new IdentityHashMap<T, Timer.Context>();
 
     /**
      * The hostname for the production APNs gateway.
@@ -465,6 +484,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                         @Override
                                         public void run() {
                                             log.debug("Attempting to reconnect.");
+                                            ApnsClient.this.reconnectionAttempts.mark();
                                             ApnsClient.this.connect(host, port);
                                         }
                                     }, ApnsClient.this.reconnectDelay, TimeUnit.SECONDS);
@@ -600,22 +620,30 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
                 @Override
                 public void operationComplete(final ChannelFuture future) throws Exception {
-                    if (!future.isSuccess()) {
+                    if (future.isSuccess()) {
+                        ApnsClient.this.responseTimerContexts.put(notification, ApnsClient.this.responseTimes.time());
+                    } else {
                         log.debug("Failed to write push notification: {}", notification, future.cause());
 
                         // This will always be called from inside the channel's event loop, so we don't have to worry
                         // about synchronization.
                         ApnsClient.this.responsePromises.remove(notification);
                         responsePromise.setFailure(future.cause());
+
+                        ApnsClient.this.failedWrites.mark();
+                        ApnsClient.this.pendingNotifications.dec();
                     }
                 }
             });
 
+            this.pendingNotifications.inc();
             responseFuture = responsePromise;
         } else {
             log.debug("Failed to send push notification because client is not connected: {}", notification);
             responseFuture = new FailedFuture<PushNotificationResponse<T>>(
                     GlobalEventExecutor.INSTANCE, NOT_CONNECTED_EXCEPTION);
+
+            this.failedWrites.mark();
         }
 
         return responseFuture;
@@ -626,7 +654,54 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
         // This will always be called from inside the channel's event loop, so we don't have to worry about
         // synchronization.
-        this.responsePromises.remove(response.getPushNotification()).setSuccess(response);
+        final T pushNotification = response.getPushNotification();
+
+        this.responseTimerContexts.remove(pushNotification).stop();
+        this.responsePromises.remove(pushNotification).setSuccess(response);
+
+        if (response.isAccepted()) {
+            this.acceptedNotifications.mark();
+        } else {
+            this.rejectedNotifications.mark();
+        }
+
+        this.pendingNotifications.dec();
+    }
+
+    /**
+     * <p>Returns a set of metrics that detail the behavior of this client. The metrics in the set are:</p>
+     *
+     * <dl>
+     *  <dt>{@code reconnectionAttempts}</dt>
+     *  <dd>A {@link Meter} that reports the number of times this client has attempted to reconnect automatically to
+     *  the APNs server.</dd>
+     *
+     *  <dt>{@code pendingNotifications}</dt>
+     *  <dd>A {@link Counter} that reports the number of notifications that have been sent, but for which no reply has
+     *  been received.</dd>
+     *
+     *  <dt>{@code acceptedNotifications}</dt>
+     *  <dd>A {@link Meter} that reports the number of notifications accepted by the APNs server.</dd>
+     *
+     *  <dt>{@code rejectedNotifications}</dt>
+     *  <dd>A {@link Meter} that reports the number of notifications rejected by the APNs server.</dd>
+     *
+     *  <dt>{@code failedWrites}</dt>
+     *  <dd>A {@link Meter} that reports the number of notifications that could not be written (and thus never reached
+     *  the APNs server).</dd>
+     *
+     *  <dt>{@code responseTimes}</dt>
+     *  <dd>A {@link Timer} that reports the response times from the APNs server. Note that this includes both accepted
+     *  and rejected notifications, but does not include failed writes.</dd>
+     * </dl>
+     *
+     * <p>Note that the returned metric set is itself a {@link Metric}, and thus can be added to a
+     * {@link MetricRegistry} with a name prefix via the {@link MetricRegistry#register(String, Metric)} method.</p>
+     *
+     * @return a set of metrics that detail the behavior of this client
+     */
+    public MetricSet getMetrics() {
+        return this.metricRegistry;
     }
 
     /**
