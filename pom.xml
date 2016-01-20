@@ -34,12 +34,6 @@
             <artifactId>slf4j-api</artifactId>
             <version>1.7.6</version>
         </dependency>
-        <!-- TODO This should go away; needing it here at all appears to be a Netty bug. -->
-        <dependency>
-            <groupId>com.twitter</groupId>
-            <artifactId>hpack</artifactId>
-            <version>0.11.0</version>
-        </dependency>
         <!-- Test dependencies -->
         <dependency>
             <groupId>junit</groupId>
