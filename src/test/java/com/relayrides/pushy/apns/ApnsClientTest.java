@@ -95,7 +95,7 @@ public class ApnsClientTest {
     @Before
     public void setUp() throws Exception {
         this.server = new MockApnsServer(EVENT_LOOP_GROUP);
-        this.server.start(PORT).await().isSuccess();
+        this.server.start(PORT).await();
 
         this.client = new ApnsClient<SimpleApnsPushNotification>(
                 ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_CERTIFICATE, SINGLE_TOPIC_CLIENT_PRIVATE_KEY),
@@ -106,8 +106,8 @@ public class ApnsClientTest {
 
     @After
     public void tearDown() throws Exception {
-        this.client.disconnect().await().isSuccess();
-        this.server.shutdown().await().isSuccess();
+        this.client.disconnect().await();
+        this.server.shutdown().await();
     }
 
     @AfterClass
