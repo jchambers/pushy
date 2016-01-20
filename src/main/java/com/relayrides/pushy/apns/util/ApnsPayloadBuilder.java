@@ -74,7 +74,7 @@ public class ApnsPayloadBuilder {
 
     private final HashMap<String, Object> customProperties = new HashMap<String, Object>();
 
-    private static final int DEFAULT_PAYLOAD_SIZE = 2048;
+    private static final int DEFAULT_PAYLOAD_SIZE = 4096;
 
     private static final Charset UTF8 = Charset.forName("UTF-8");
 
