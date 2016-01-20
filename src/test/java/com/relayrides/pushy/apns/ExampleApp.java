@@ -1,12 +1,13 @@
 package com.relayrides.pushy.apns;
 
 import java.io.File;
+import java.net.InetSocketAddress;
 import java.util.concurrent.ExecutionException;
 
+import com.relayrides.pushy.apns.proxy.Socks5ProxyHandlerFactory;
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 import com.relayrides.pushy.apns.util.TokenUtil;
-
 import io.netty.util.concurrent.Future;
 
 /**
@@ -27,6 +28,11 @@ public class ExampleApp {
         final ApnsClient<SimpleApnsPushNotification> apnsClient =
                 new ApnsClient<SimpleApnsPushNotification>(
                         new File("/path/to/certificate.p12"), "p12-file-password");
+
+        // Optional: we can set a proxy handler factory if we must use a proxy.
+        apnsClient.setProxyHandlerFactory(
+                new Socks5ProxyHandlerFactory(
+                        new InetSocketAddress("my.proxy.com", 1080), "username", "password"));
 
         // Once we've created a client, we can connect it to the APNs gateway.
         // Note that this process is asynchronous; we'll get a Future right
