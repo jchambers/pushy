@@ -148,6 +148,21 @@ If you know exactly which version of Java you'll be running, you can just add th
 
 If you need to use a proxy for outbound connections, you may specify a [`ProxyHandlerFactory`](http://relayrides.github.io/pushy/apidocs/0.6/com/relayrides/pushy/apns/proxy/ProxyHandlerFactory.html) before attempting to connect your `ApnsClient` instance. Concrete implementations of `ProxyHandlerFactory` are provided for HTTP, SOCKS4, and SOCKS5 proxies.
 
+An example:
+
+```java
+final ApnsClient<SimpleApnsPushNotification> apnsClient =
+        new ApnsClient<SimpleApnsPushNotification>(
+                new File("/path/to/certificate.p12"), "p12-file-password");
+
+apnsClient.setProxyHandlerFactory(
+        new Socks5ProxyHandlerFactory(
+                new InetSocketAddress("my.proxy.com", 1080), "username", "password"));
+
+final Future<Void> connectFuture = apnsClient.connect(ApnsClient.DEVELOPMENT_APNS_HOST);
+connectFuture.await();
+```
+
 ## Logging
 
 Pushy uses [SLF4J](http://www.slf4j.org/) for logging. If you're not already familiar with it, SLF4J is a facade that allows users to choose which logging library to use at deploy time by adding a specific "binding" to the classpath. To avoid making the choice for you, Pushy itself does *not* depend on any SLF4J bindings; you'll need to add one on your own (either by adding it as a dependency in your own project or by installing it directly). If you have no SLF4J bindings on your classpath, you'll probably see a warning that looks something like this:
