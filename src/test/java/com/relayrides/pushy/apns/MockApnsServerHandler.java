@@ -177,8 +177,6 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
                 // If the client didn't send us a UUID, make one up (for now)
                 apnsId = UUID.randomUUID();
             }
-
-            this.requestsWaitingForDataFrame.put(streamId, apnsId);
         }
 
         if (endOfStream) {
@@ -254,6 +252,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
                     if (expirationTimestamp != null) {
                         context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.UNREGISTERED, expirationTimestamp));
+                        return;
                     }
 
                     if (!this.apnsServer.isTokenRegisteredForTopic(tokenString, topic)) {
@@ -266,6 +265,8 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
                 return;
             }
         }
+
+        this.requestsWaitingForDataFrame.put(streamId, apnsId);
     }
 
     @Override
