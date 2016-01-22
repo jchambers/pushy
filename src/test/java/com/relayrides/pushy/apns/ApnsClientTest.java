@@ -107,6 +107,14 @@ public class ApnsClientTest {
     @After
     public void tearDown() throws Exception {
         this.client.disconnect().await();
+
+        // Mild hack: there's a harmless race condition where we can try to write a `GOAWAY` from the server to the
+        // client in the time between when the client closes the connection and the server notices the connection has
+        // been closed. That results in a harmless but slightly alarming warning about failing to write a `GOAWAY` frame
+        // and already-closed SSL engines. By sleeping here, we reduce the probability of that warning popping up in
+        // test output and frightening users.
+        Thread.sleep(10);
+
         this.server.shutdown().await();
     }
 
