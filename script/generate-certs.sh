@@ -29,4 +29,4 @@ openssl pkcs12 -export -in single-topic-client.pem -inkey single-topic-client.ke
 
 # Clean up intermediate files
 rm *.key
-rm server.pem single-topic-client.pem multi-topic-client.pem untrusted-client.pem
+rm server.pem untrusted-client.pem
