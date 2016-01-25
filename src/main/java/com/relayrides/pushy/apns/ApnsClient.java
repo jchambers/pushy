@@ -21,12 +21,14 @@
 package com.relayrides.pushy.apns;
 
 import java.io.File;
-import java.security.KeyStore;
+import java.io.IOException;
+import java.security.KeyStore.PrivateKeyEntry;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.UnrecoverableEntryException;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -245,22 +247,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
         final PrivateKey privateKey;
 
         try {
-            final KeyStore.PasswordProtection keyStorePassword = new KeyStore.PasswordProtection(password != null ? password.toCharArray() : null);
-
-            final KeyStore keyStore = KeyStore.Builder.newInstance("PKCS12", null, p12File, keyStorePassword).getKeyStore();
-
-            if (keyStore.size() != 1) {
-                throw new KeyStoreException("Key store must contain exactly one entry, and that entry must be a private key entry.");
-            }
-
-            final String alias = keyStore.aliases().nextElement();
-            final KeyStore.Entry entry = keyStore.getEntry(alias, keyStorePassword);
-
-            if (!(entry instanceof KeyStore.PrivateKeyEntry)) {
-                throw new KeyStoreException("Key store must contain exactly one entry, and that entry must be a private key entry.");
-            }
-
-            final KeyStore.PrivateKeyEntry privateKeyEntry = (KeyStore.PrivateKeyEntry) entry;
+            final PrivateKeyEntry privateKeyEntry = P12Util.getPrivateKeyEntryFromP12File(p12File, password);
 
             final Certificate certificate = privateKeyEntry.getCertificate();
 
@@ -275,6 +262,10 @@ public class ApnsClient<T extends ApnsPushNotification> {
         } catch (final NoSuchAlgorithmException e) {
             throw new SSLException(e);
         } catch (final UnrecoverableEntryException e) {
+            throw new SSLException(e);
+        } catch (final CertificateException e) {
+            throw new SSLException(e);
+        } catch (final IOException e) {
             throw new SSLException(e);
         }
 

@@ -1,7 +1,9 @@
 package com.relayrides.pushy.apns;
 
 import java.io.File;
+import java.security.KeyStore.PrivateKeyEntry;
 import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -46,17 +48,18 @@ public class MockApnsServer {
     private ChannelGroup allChannels;
 
     private static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
-    private static final String SERVER_CERTIFICATE_FILENAME = "/server.pem";
-    private static final String SERVER_PRIVATE_KEY_FILENAME = "/server.pk8";
+    private static final String SERVER_KEYSTORE = "/server.p12";
+    private static final String SERVER_KEYSTORE_PASSWORD = "pushy-test";
 
     public MockApnsServer(final EventLoopGroup eventLoopGroup) {
         final SslContext sslContext;
         try {
             final File caCertificateFile = new File(MockApnsServer.class.getResource(CA_CERTIFICATE_FILENAME).toURI());
-            final File serverCertificateFile = new File(MockApnsServer.class.getResource(SERVER_CERTIFICATE_FILENAME).toURI());
-            final File serverPrivateKeyFile = new File(MockApnsServer.class.getResource(SERVER_PRIVATE_KEY_FILENAME).toURI());
+            final File serverKeystore = new File(MockApnsServer.class.getResource(SERVER_KEYSTORE).toURI());
 
-            sslContext = SslContextBuilder.forServer(serverCertificateFile, serverPrivateKeyFile)
+            final PrivateKeyEntry privateKeyEntry = P12Util.getPrivateKeyEntryFromP12File(serverKeystore, SERVER_KEYSTORE_PASSWORD);
+
+            sslContext = SslContextBuilder.forServer(privateKeyEntry.getPrivateKey(), (X509Certificate) privateKeyEntry.getCertificate())
                     .sslProvider(OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK)
                     .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
                     .trustManager(caCertificateFile)

@@ -18,8 +18,15 @@ openssl req -new -keyout multi-topic-client.key -nodes -newkey rsa:2048 -subj "/
 openssl req -new -keyout untrusted-client.key -nodes -newkey rsa:2048 -subj "/CN=Apple Push Services: com.relayrides.pushy/UID=com.relayrides.pushy" | \
     openssl x509 -extfile ./apns-extensions.cnf -extensions apns_single_topic_client_extensions -req -days 36500  -set_serial $RANDOM -signkey untrusted-client.key -out untrusted-client.pem
 
-# If we want things to work with both the JDK and OpenSSL providers, we'll need the keys in PKCS8 format
-openssl pkcs8 -topk8 -nocrypt -in server.key -out server.pk8
-openssl pkcs8 -topk8 -nocrypt -in single-topic-client.key -out single-topic-client.pk8
-openssl pkcs8 -topk8 -nocrypt -in multi-topic-client.key -out multi-topic-client.pk8
-openssl pkcs8 -topk8 -nocrypt -in untrusted-client.key -out untrusted-client.pk8
+# For simplicity, squish everything down into PKCS#12 keystores
+openssl pkcs12 -export -in server.pem -inkey server.key -out server.p12 -password pass:pushy-test
+openssl pkcs12 -export -in single-topic-client.pem -inkey single-topic-client.key -out single-topic-client.p12 -password pass:pushy-test
+openssl pkcs12 -export -in multi-topic-client.pem -inkey multi-topic-client.key -out multi-topic-client.p12 -password pass:pushy-test
+openssl pkcs12 -export -in untrusted-client.pem -inkey untrusted-client.key -out untrusted-client.p12 -password pass:pushy-test
+
+# We'll also want one keystore with an unprotected key to make sure no-password constructors behave correctly
+openssl pkcs12 -export -in single-topic-client.pem -inkey single-topic-client.key -out single-topic-client-unprotected.p12 -nodes -password pass:pushy-test
+
+# Clean up intermediate files
+rm *.key
+rm server.pem untrusted-client.pem
