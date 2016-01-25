@@ -24,8 +24,8 @@ openssl pkcs12 -export -in single-topic-client.pem -inkey single-topic-client.ke
 openssl pkcs12 -export -in multi-topic-client.pem -inkey multi-topic-client.key -out multi-topic-client.p12 -password pass:pushy-test
 openssl pkcs12 -export -in untrusted-client.pem -inkey untrusted-client.key -out untrusted-client.p12 -password pass:pushy-test
 
-# We'll also want one keystore that's not password-protected to make sure the no-password constructors behave correctly
-openssl pkcs12 -export -in single-topic-client.pem -inkey single-topic-client.key -out single-topic-client-unprotected.p12 -nodes -password pass:
+# We'll also want one keystore with an unprotected key to make sure no-password constructors behave correctly
+openssl pkcs12 -export -in single-topic-client.pem -inkey single-topic-client.key -out single-topic-client-unprotected.p12 -nodes -password pass:pushy-test
 
 # Clean up intermediate files
 rm *.key

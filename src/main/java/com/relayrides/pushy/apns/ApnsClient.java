@@ -21,12 +21,14 @@
 package com.relayrides.pushy.apns;
 
 import java.io.File;
+import java.io.IOException;
 import java.security.KeyStore.PrivateKeyEntry;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.UnrecoverableEntryException;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -260,6 +262,10 @@ public class ApnsClient<T extends ApnsPushNotification> {
         } catch (final NoSuchAlgorithmException e) {
             throw new SSLException(e);
         } catch (final UnrecoverableEntryException e) {
+            throw new SSLException(e);
+        } catch (final CertificateException e) {
+            throw new SSLException(e);
+        } catch (final IOException e) {
             throw new SSLException(e);
         }
 

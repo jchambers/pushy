@@ -120,6 +120,35 @@ public class ApnsClientTest {
     }
 
     @Test
+    public void testApnsClientWithPasswordProtectedP12File() throws Exception {
+        // We're happy here as long as nothing throws an exception
+        new ApnsClient<SimpleApnsPushNotification>(SINGLE_TOPIC_CLIENT_KEYSTORE, KEYSTORE_PASSWORD);
+    }
+
+    // TODO Add a test for completely unprotected P12 files (i.e. with a null password) if it turns out it's actually
+    // possible to create such a thing (signs point to "no" right now)
+
+    @Test
+    public void testApnsClientWithCertificateAndPasswordProtectedKey() throws Exception {
+        // We're happy here as long as nothing throws an exception
+        final PrivateKeyEntry privateKeyEntry =
+                P12Util.getPrivateKeyEntryFromP12File(SINGLE_TOPIC_CLIENT_KEYSTORE, KEYSTORE_PASSWORD);
+
+        new ApnsClient<SimpleApnsPushNotification>(
+                (X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey(), KEYSTORE_PASSWORD);
+    }
+
+    @Test
+    public void testApnsClientWithCertificateAndUnprotectedKey() throws Exception {
+        // We DO need a password to unlock the keystore, but the key itself should be unprotected
+        final PrivateKeyEntry privateKeyEntry =
+                P12Util.getPrivateKeyEntryFromP12File(SINGLE_TOPIC_CLIENT_KEYSTORE_UNPROTECTED, KEYSTORE_PASSWORD);
+
+        new ApnsClient<SimpleApnsPushNotification>(
+                (X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey(), null);
+    }
+
+    @Test
     public void testApnsClientWithManagedEventLoopGroup() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> managedGroupClient = new ApnsClient<SimpleApnsPushNotification>(
                 ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_KEYSTORE, KEYSTORE_PASSWORD), null);
