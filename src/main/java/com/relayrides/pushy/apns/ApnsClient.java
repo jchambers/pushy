@@ -34,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLException;
 
+import com.relayrides.pushy.apns.metrics.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -125,6 +126,17 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises =
             new IdentityHashMap<T, Promise<PushNotificationResponse<T>>>();
 
+    private final PushyMetrics metrics;
+    private final Counter handshakeFailureCounter;
+    private final Counter connectionAttemptsCounter;
+    private final Counter connectFailedCounter;
+    private final Counter connectSuccessCounter;
+    private final Counter pushWriteFailedCounter;
+    private final Counter pushWriteSuccessCounter;
+    private final Timer connectionTimer;
+
+    private volatile Timer.Context runningConnectionTimer = new NullTimerContext();
+
     /**
      * The hostname for the production APNs gateway.
      */
@@ -195,7 +207,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * when constructing the context
      */
     public ApnsClient(final File p12File, final String password, final NioEventLoopGroup eventLoopGroup) throws SSLException {
-        this(ApnsClient.getSslContextWithP12File(p12File, password), eventLoopGroup);
+        this(ApnsClient.getSslContextWithP12File(p12File, password), eventLoopGroup, new NullMetrics());
     }
 
     /**
@@ -237,7 +249,12 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * arises when constructing the context
      */
     public ApnsClient(final X509Certificate certificate, final PrivateKey privateKey, final String privateKeyPassword, final NioEventLoopGroup eventLoopGroup) throws SSLException {
-        this(ApnsClient.getSslContextWithCertificateAndPrivateKey(certificate, privateKey, privateKeyPassword), eventLoopGroup);
+        this(ApnsClient.getSslContextWithCertificateAndPrivateKey(certificate, privateKey, privateKeyPassword), eventLoopGroup, new NullMetrics());
+    }
+
+    public ApnsClient(final X509Certificate certificate, final PrivateKey privateKey, final String privateKeyPassword,
+                      final NioEventLoopGroup eventLoopGroup, PushyMetrics metrics) throws SSLException {
+        this(ApnsClient.getSslContextWithCertificateAndPrivateKey(certificate, privateKey, privateKeyPassword), eventLoopGroup, metrics);
     }
 
     private static SslContext getSslContextWithP12File(final File p12File, final String password) throws SSLException {
@@ -298,7 +315,16 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                 ApplicationProtocolNames.HTTP_2));
     }
 
-    protected ApnsClient(final SslContext sslContext, final NioEventLoopGroup eventLoopGroup) {
+    protected ApnsClient(final SslContext sslContext, final NioEventLoopGroup eventLoopGroup, PushyMetrics metrics) {
+        this.metrics = metrics;
+        this.handshakeFailureCounter = metrics.counter("handShakeFailure");
+        this.connectionAttemptsCounter = metrics.counter("connectionAttempts");
+        this.connectFailedCounter = metrics.counter("connectFailed");
+        this.connectSuccessCounter = metrics.counter("connectSuccess");
+        this.pushWriteFailedCounter = metrics.counter("pushWriteFailed");
+        this.pushWriteSuccessCounter = metrics.counter("pushWriteSuccess");
+        this.connectionTimer = metrics.timer("connectionTimer");
+
         this.bootstrap = new Bootstrap();
 
         if (eventLoopGroup != null) {
@@ -357,6 +383,9 @@ public class ApnsClient<T extends ApnsPushNotification> {
                     @Override
                     protected void handshakeFailure(final ChannelHandlerContext context, final Throwable cause) throws Exception {
                         super.handshakeFailure(context, cause);
+
+                        ApnsClient.this.handshakeFailureCounter.inc();
+                        runningConnectionTimer.stop();
 
                         final ChannelPromise connectionReadyPromise = ApnsClient.this.connectionReadyPromise;
 
@@ -422,6 +451,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
      */
     public Future<Void> connect(final String host, final int port) {
         final Future<Void> connectionReadyFuture;
+        connectionAttemptsCounter.inc();
 
         if (this.bootstrap.group().isShuttingDown() || this.bootstrap.group().isShutdown()) {
             connectionReadyFuture = new FailedFuture<Void>(GlobalEventExecutor.INSTANCE,
@@ -433,6 +463,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 if (this.connectionReadyPromise == null) {
                     final ChannelFuture connectFuture = this.bootstrap.connect(host, port);
                     this.connectionReadyPromise = connectFuture.channel().newPromise();
+                    this.runningConnectionTimer = connectionTimer.start();
 
                     connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
 
@@ -440,6 +471,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
                         public void operationComplete(final ChannelFuture future) throws Exception {
                             if (!future.isSuccess()) {
                                 log.debug("Failed to connect.", future.cause());
+                                connectFailedCounter.inc();
+                                runningConnectionTimer.stop();
                                 ApnsClient.this.connectionReadyPromise.tryFailure(future.cause());
                             }
                         }
@@ -453,6 +486,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
                             // it has already succeeded, this will have no effect.
                             ApnsClient.this.connectionReadyPromise.tryFailure(
                                     new IllegalStateException("Channel closed before HTTP/2 preface completed."));
+                            connectFailedCounter.inc();
+                            runningConnectionTimer.stop();
 
                             synchronized (ApnsClient.this.bootstrap) {
                                 ApnsClient.this.connectionReadyPromise = null;
@@ -487,12 +522,14 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                     } else {
                                         log.info("Connected to {}.", future.channel().remoteAddress());
                                     }
+                                    connectSuccessCounter.inc();
 
                                     ApnsClient.this.reconnectDelay = INITIAL_RECONNECT_DELAY;
                                     ApnsClient.this.reconnectionPromise = future.channel().newPromise();
                                 }
                             } else {
                                 log.info("Failed to connect.", future.cause());
+                                connectFailedCounter.inc();
                             }
                         }});
                 }
@@ -602,11 +639,14 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 public void operationComplete(final ChannelFuture future) throws Exception {
                     if (!future.isSuccess()) {
                         log.debug("Failed to write push notification: {}", notification, future.cause());
+                        pushWriteFailedCounter.inc();
 
                         // This will always be called from inside the channel's event loop, so we don't have to worry
                         // about synchronization.
                         ApnsClient.this.responsePromises.remove(notification);
                         responsePromise.setFailure(future.cause());
+                    } else {
+                        pushWriteSuccessCounter.inc();
                     }
                 }
             });
@@ -616,6 +656,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
             log.debug("Failed to send push notification because client is not connected: {}", notification);
             responseFuture = new FailedFuture<PushNotificationResponse<T>>(
                     GlobalEventExecutor.INSTANCE, NOT_CONNECTED_EXCEPTION);
+            pushWriteFailedCounter.inc();
         }
 
         return responseFuture;

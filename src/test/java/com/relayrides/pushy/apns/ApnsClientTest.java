@@ -19,6 +19,7 @@ import java.util.UUID;
 
 import javax.net.ssl.SSLException;
 
+import com.relayrides.pushy.apns.metrics.NullMetrics;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -99,7 +100,7 @@ public class ApnsClientTest {
 
         this.client = new ApnsClient<SimpleApnsPushNotification>(
                 ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_CERTIFICATE, SINGLE_TOPIC_CLIENT_PRIVATE_KEY),
-                EVENT_LOOP_GROUP);
+                EVENT_LOOP_GROUP, new NullMetrics());
 
         this.client.connect(HOST, PORT).await();
     }
@@ -126,7 +127,7 @@ public class ApnsClientTest {
     @Test
     public void testApnsClientWithManagedEventLoopGroup() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> managedGroupClient = new ApnsClient<SimpleApnsPushNotification>(
-                ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_CERTIFICATE, SINGLE_TOPIC_CLIENT_PRIVATE_KEY), null);
+                ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_CERTIFICATE, SINGLE_TOPIC_CLIENT_PRIVATE_KEY), null, new NullMetrics());
 
         assertTrue(managedGroupClient.connect(HOST, PORT).await().isSuccess());
         assertTrue(managedGroupClient.disconnect().await().isSuccess());
@@ -135,7 +136,7 @@ public class ApnsClientTest {
     @Test
     public void testRestartApnsClientWithManagedEventLoopGroup() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> managedGroupClient = new ApnsClient<SimpleApnsPushNotification>(
-                ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_CERTIFICATE, SINGLE_TOPIC_CLIENT_PRIVATE_KEY), null);
+                ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_CERTIFICATE, SINGLE_TOPIC_CLIENT_PRIVATE_KEY), null, new NullMetrics());
 
         assertTrue(managedGroupClient.connect(HOST, PORT).await().isSuccess());
         assertTrue(managedGroupClient.disconnect().await().isSuccess());
@@ -193,7 +194,7 @@ public class ApnsClientTest {
     public void testGetReconnectionFutureWhenNotConnected() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> unconnectedClient = new ApnsClient<SimpleApnsPushNotification>(
                 ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_CERTIFICATE, SINGLE_TOPIC_CLIENT_PRIVATE_KEY),
-                EVENT_LOOP_GROUP);
+                EVENT_LOOP_GROUP, new NullMetrics());
 
         final Future<Void> reconnectionFuture = unconnectedClient.getReconnectionFuture();
 
@@ -206,7 +207,7 @@ public class ApnsClientTest {
     public void testConnectWithUntrustedCertificate() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> untrustedClient = new ApnsClient<SimpleApnsPushNotification>(
                 ApnsClientTest.getSslContextForTestClient(UNTRUSTED_CLIENT_CERTIFICATE, UNTRUSTED_CLIENT_PRIVATE_KEY),
-                EVENT_LOOP_GROUP);
+                EVENT_LOOP_GROUP, new NullMetrics());
 
         final Future<Void> connectFuture = untrustedClient.connect(HOST, PORT).await();
         assertFalse(connectFuture.isSuccess());
@@ -218,7 +219,7 @@ public class ApnsClientTest {
     public void testSendNotificationBeforeConnected() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> unconnectedClient = new ApnsClient<SimpleApnsPushNotification>(
                 ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_CERTIFICATE, SINGLE_TOPIC_CLIENT_PRIVATE_KEY),
-                EVENT_LOOP_GROUP);
+                EVENT_LOOP_GROUP, new NullMetrics());
 
         final String testToken = ApnsClientTest.generateRandomToken();
 
@@ -296,7 +297,7 @@ public class ApnsClientTest {
     public void testSendNotificationWithMissingTopic() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> multiTopicClient = new ApnsClient<SimpleApnsPushNotification>(
                 ApnsClientTest.getSslContextForTestClient(MULTI_TOPIC_CLIENT_CERTIFICATE, MULTI_TOPIC_CLIENT_PRIVATE_KEY),
-                EVENT_LOOP_GROUP);
+                EVENT_LOOP_GROUP, new NullMetrics());
 
         multiTopicClient.connect(HOST, PORT).await();
 
@@ -320,7 +321,7 @@ public class ApnsClientTest {
     public void testSendNotificationWithSpecifiedTopic() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> multiTopicClient = new ApnsClient<SimpleApnsPushNotification>(
                 ApnsClientTest.getSslContextForTestClient(MULTI_TOPIC_CLIENT_CERTIFICATE, MULTI_TOPIC_CLIENT_PRIVATE_KEY),
-                EVENT_LOOP_GROUP);
+                EVENT_LOOP_GROUP, new NullMetrics());
 
         multiTopicClient.connect(HOST, PORT).await();
 
