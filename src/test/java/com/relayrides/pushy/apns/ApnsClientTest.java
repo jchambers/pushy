@@ -19,6 +19,7 @@ import java.util.UUID;
 
 import javax.net.ssl.SSLException;
 
+import com.relayrides.pushy.apns.metrics.NullMetrics;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
