@@ -34,33 +34,17 @@ package com.relayrides.pushy.apns;
 public enum DeliveryPriority {
 
     /**
-     * <p>
-     * According to Apple's documentation:
-     * </p>
+     * <p>Indicates that the APNs server should attempt to deliver a notification immediately. Additionally, according
+     * to Apple's documentation:</p>
      *
-     * <blockquote>
-     * <p>
-     * The push message is sent immediately.
-     * </p>
-     * <p>
-     * The push notification must trigger an alert, sound, or badge on the device. It is an error to use this
-     * priority for a push that contains only the {@code content-available} key.
-     * </p>
-     * </blockquote>
+     * <blockquote><p>The push notification must trigger an alert, sound, or badge on the device. It is an error to use
+     * this priority for a push that contains only the {@code content-available} key.</p></blockquote>
      */
     IMMEDIATE(10),
 
     /**
-     * <p>
-     * According to Apple's documentation:
-     * </p>
-     *
-     * <blockquote>
-     * <p>
-     * The push message is sent at a time that conserves power on the device receiving
-     * it.
-     * </p>
-     * </blockquote>
+     * <p>Indicates that the APNs server should attempt to deliver a notification "at a time that conserves power on
+     * the device receiving it."</p>
      */
     CONSERVE_POWER(5);
 
