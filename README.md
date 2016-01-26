@@ -37,9 +37,8 @@ Before you can get started with Pushy, you'll need to do some provisioning work 
 Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an [`ApnsClient`](http://relayrides.github.io/pushy/apidocs/0.5/com/relayrides/pushy/apns/ApnsClient.html). Clients need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing):
 
 ```java
-final ApnsClient<SimpleApnsPushNotification> apnsClient =
-        new ApnsClient<SimpleApnsPushNotification>(
-                new File("/path/to/certificate.p12"), "p12-file-password");
+final ApnsClient<SimpleApnsPushNotification> apnsClient = new ApnsClient<>(
+        new File("/path/to/certificate.p12"), "p12-file-password");
 ```
 
 Once you've created a client, you can connect it to the APNs gateway. Note that this process is asynchronous; the client will return a Future right away, but you'll need to wait for it to complete before you can send any notifications. Note that this is a Netty [`Future`](http://netty.io/4.1/api/io/netty/util/concurrent/Future.html), which is an extension of the Java [`Future`](http://docs.oracle.com/javase/6/docs/api/java/util/concurrent/Future.html) interface that allows callers to add listeners and adds methods for checking the status of the `Future`.

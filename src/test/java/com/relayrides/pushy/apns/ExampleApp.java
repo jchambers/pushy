@@ -24,9 +24,8 @@ public class ExampleApp {
         // certificate and private key to authenticate with the APNs server. The
         // most common way to store the certificate and key is in a
         // password-protected PKCS#12 file.
-        final ApnsClient<SimpleApnsPushNotification> apnsClient =
-                new ApnsClient<SimpleApnsPushNotification>(
-                        new File("/path/to/certificate.p12"), "p12-file-password");
+        final ApnsClient<SimpleApnsPushNotification> apnsClient = new ApnsClient<>(
+                new File("/path/to/certificate.p12"), "p12-file-password");
 
         // Once we've created a client, we can connect it to the APNs gateway.
         // Note that this process is asynchronous; we'll get a Future right

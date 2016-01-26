@@ -91,7 +91,7 @@ public class ApnsClientTest {
         this.server = new MockApnsServer(EVENT_LOOP_GROUP);
         this.server.start(PORT).await();
 
-        this.client = new ApnsClient<SimpleApnsPushNotification>(
+        this.client = new ApnsClient<>(
                 ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_KEYSTORE, KEYSTORE_PASSWORD),
                 EVENT_LOOP_GROUP);
 
@@ -148,7 +148,7 @@ public class ApnsClientTest {
 
     @Test
     public void testApnsClientWithManagedEventLoopGroup() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> managedGroupClient = new ApnsClient<SimpleApnsPushNotification>(
+        final ApnsClient<SimpleApnsPushNotification> managedGroupClient = new ApnsClient<>(
                 ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_KEYSTORE, KEYSTORE_PASSWORD), null);
 
         assertTrue(managedGroupClient.connect(HOST, PORT).await().isSuccess());
@@ -157,7 +157,7 @@ public class ApnsClientTest {
 
     @Test
     public void testRestartApnsClientWithManagedEventLoopGroup() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> managedGroupClient = new ApnsClient<SimpleApnsPushNotification>(
+        final ApnsClient<SimpleApnsPushNotification> managedGroupClient = new ApnsClient<>(
                 ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_KEYSTORE, KEYSTORE_PASSWORD), null);
 
         assertTrue(managedGroupClient.connect(HOST, PORT).await().isSuccess());
@@ -214,7 +214,7 @@ public class ApnsClientTest {
 
     @Test
     public void testGetReconnectionFutureWhenNotConnected() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> unconnectedClient = new ApnsClient<SimpleApnsPushNotification>(
+        final ApnsClient<SimpleApnsPushNotification> unconnectedClient = new ApnsClient<>(
                 ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_KEYSTORE, KEYSTORE_PASSWORD),
                 EVENT_LOOP_GROUP);
 
@@ -228,7 +228,7 @@ public class ApnsClientTest {
 
     @Test
     public void testConnectWithUntrustedCertificate() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> untrustedClient = new ApnsClient<SimpleApnsPushNotification>(
+        final ApnsClient<SimpleApnsPushNotification> untrustedClient = new ApnsClient<>(
                 ApnsClientTest.getSslContextForTestClient(UNTRUSTED_CLIENT_KEYSTORE, KEYSTORE_PASSWORD),
                 EVENT_LOOP_GROUP);
 
@@ -240,7 +240,7 @@ public class ApnsClientTest {
 
     @Test
     public void testSendNotificationBeforeConnected() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> unconnectedClient = new ApnsClient<SimpleApnsPushNotification>(
+        final ApnsClient<SimpleApnsPushNotification> unconnectedClient = new ApnsClient<>(
                 ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_KEYSTORE, KEYSTORE_PASSWORD),
                 EVENT_LOOP_GROUP);
 
@@ -273,7 +273,7 @@ public class ApnsClientTest {
     public void testSendManyNotifications() throws Exception {
         final int notificationCount = 1000;
 
-        final List<SimpleApnsPushNotification> pushNotifications = new ArrayList<SimpleApnsPushNotification>();
+        final List<SimpleApnsPushNotification> pushNotifications = new ArrayList<>();
 
         for (int i = 0; i < notificationCount; i++) {
             final String token = ApnsClientTest.generateRandomToken();
@@ -283,8 +283,7 @@ public class ApnsClientTest {
             pushNotifications.add(new SimpleApnsPushNotification(token, DEFAULT_TOPIC, payload));
         }
 
-        final List<Future<PushNotificationResponse<SimpleApnsPushNotification>>> futures =
-                new ArrayList<Future<PushNotificationResponse<SimpleApnsPushNotification>>>();
+        final List<Future<PushNotificationResponse<SimpleApnsPushNotification>>> futures = new ArrayList<>();
 
         for (final SimpleApnsPushNotification pushNotification : pushNotifications) {
             futures.add(this.client.sendNotification(pushNotification));
@@ -318,7 +317,7 @@ public class ApnsClientTest {
 
     @Test
     public void testSendNotificationWithMissingTopic() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> multiTopicClient = new ApnsClient<SimpleApnsPushNotification>(
+        final ApnsClient<SimpleApnsPushNotification> multiTopicClient = new ApnsClient<>(
                 ApnsClientTest.getSslContextForTestClient(MULTI_TOPIC_CLIENT_KEYSTORE, KEYSTORE_PASSWORD),
                 EVENT_LOOP_GROUP);
 
@@ -342,7 +341,7 @@ public class ApnsClientTest {
 
     @Test
     public void testSendNotificationWithSpecifiedTopic() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> multiTopicClient = new ApnsClient<SimpleApnsPushNotification>(
+        final ApnsClient<SimpleApnsPushNotification> multiTopicClient = new ApnsClient<>(
                 ApnsClientTest.getSslContextForTestClient(MULTI_TOPIC_CLIENT_KEYSTORE, KEYSTORE_PASSWORD),
                 EVENT_LOOP_GROUP);
 

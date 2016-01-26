@@ -53,8 +53,8 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
     private int nextStreamId = 1;
 
-    private final Map<Integer, T> pushNotificationsByStreamId = new HashMap<Integer, T>();
-    private final Map<Integer, Http2Headers> headersByStreamId = new HashMap<Integer, Http2Headers>();
+    private final Map<Integer, T> pushNotificationsByStreamId = new HashMap<>();
+    private final Map<Integer, Http2Headers> headersByStreamId = new HashMap<>();
 
     private ApnsClient<T> apnsClient;
 
@@ -88,7 +88,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
         @Override
         public ApnsClientHandler<S> build0(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder) {
-            final ApnsClientHandler<S> handler = new ApnsClientHandler<S>(decoder, encoder, this.initialSettings(), this.apnsClient());
+            final ApnsClientHandler<S> handler = new ApnsClientHandler<>(decoder, encoder, this.initialSettings(), this.apnsClient());
             this.frameListener(handler.new ApnsClientHandlerFrameAdapter());
             return handler;
         }
@@ -108,7 +108,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
                 final boolean success = HttpResponseStatus.OK.equals(HttpResponseStatus.parseLine(headers.status()));
                 final ErrorResponse errorResponse = gson.fromJson(data.toString(UTF8), ErrorResponse.class);
 
-                ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(new SimplePushNotificationResponse<T>(
+                ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(new SimplePushNotificationResponse<>(
                         pushNotification, success, errorResponse.getReason(), errorResponse.getTimestamp()));
             } else {
                 log.error("Gateway sent a DATA frame that was not the end of a stream.");
@@ -135,7 +135,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
                 final T pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
 
-                ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(new SimplePushNotificationResponse<T>(
+                ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(new SimplePushNotificationResponse<>(
                         pushNotification, success, null, null));
             } else {
                 ApnsClientHandler.this.headersByStreamId.put(streamId, headers);
