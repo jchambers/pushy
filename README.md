@@ -28,7 +28,7 @@ If you don't use Maven (or something else that understands Maven dependencies, l
 - Either `netty-tcnative` or `alpn-boot`, as discussed in the [system requirements](#system-requirements) section below
   - [alpn-api](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html) if you've opted not to use `alpn-boot` (`alpn-api` is included in `alpn-boot`); please see the [system requirements](#system-requirements) section for details)
 
-Pushy itself requires Java 6 or newer to build and run.
+Pushy itself requires Java 7 or newer to build and run.
 
 ## Sending push notifications
 
@@ -37,12 +37,11 @@ Before you can get started with Pushy, you'll need to do some provisioning work 
 Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an [`ApnsClient`](http://relayrides.github.io/pushy/apidocs/0.5/com/relayrides/pushy/apns/ApnsClient.html). Clients need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing):
 
 ```java
-final ApnsClient<SimpleApnsPushNotification> apnsClient =
-        new ApnsClient<SimpleApnsPushNotification>(
-                new File("/path/to/certificate.p12"), "p12-file-password");
+final ApnsClient<SimpleApnsPushNotification> apnsClient = new ApnsClient<>(
+        new File("/path/to/certificate.p12"), "p12-file-password");
 ```
 
-Once you've created a client, you can connect it to the APNs gateway. Note that this process is asynchronous; the client will return a Future right away, but you'll need to wait for it to complete before you can send any notifications. Note that this is a Netty [`Future`](http://netty.io/4.1/api/io/netty/util/concurrent/Future.html), which is an extension of the Java [`Future`](http://docs.oracle.com/javase/6/docs/api/java/util/concurrent/Future.html) interface that allows callers to add listeners and adds methods for checking the status of the `Future`.
+Once you've created a client, you can connect it to the APNs gateway. Note that this process is asynchronous; the client will return a Future right away, but you'll need to wait for it to complete before you can send any notifications. Note that this is a Netty [`Future`](http://netty.io/4.1/api/io/netty/util/concurrent/Future.html), which is an extension of the Java [`Future`](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/Future.html) interface that allows callers to add listeners and adds methods for checking the status of the `Future`.
 
 ```java
 final Future<Void> connectFuture = apnsClient.connect(ApnsClient.DEVELOPMENT_APNS_HOST);
@@ -119,18 +118,18 @@ disconnectFuture.await();
 
 ## System requirements
 
-Pushy works with Java 6 and newer, but has some additional dependencies depending on the environment in which it is running.
+Pushy works with Java 7 and newer, but has some additional dependencies depending on the environment in which it is running.
 
 The APNs protocol is built on top of the [HTTP/2 protocol](https://http2.github.io/). HTTP/2 is a relatively new protocol, and relies on some new developments that aren't yet wide-spread in the Java world. In particular:
 
-1. HTTP/2 depends on [ALPN](https://tools.ietf.org/html/rfc7301), a TLS extension for protocol negotiation. No version of Java has native ALPN support at this time. The ALPN requirement may be met either by [using OpenSSL as an SSL provider](#using-native-openssl-as-an-ssl-provider) for Java 6, 7, and 8, or by [using Jetty's ALPN implementation](#using-jettys-alpn-implementation) under OpenJDK 7 or 8.
-2. The HTTP/2 specification requires the use of [ciphers](https://httpwg.github.io/specs/rfc7540.html#rfc.section.9.2.2) that weren't introduced in Java until Java 8. Using OpenSSL as an SSL provider is the best way to meet this requirement under Java 6 and 7. Using OpenSSL isn't a requirement under Java 8, but may still yield performance gains.
+1. HTTP/2 depends on [ALPN](https://tools.ietf.org/html/rfc7301), a TLS extension for protocol negotiation. No version of Java has native ALPN support at this time. The ALPN requirement may be met either by [using OpenSSL as an SSL provider](#using-native-openssl-as-an-ssl-provider) or by [using Jetty's ALPN implementation](#using-jettys-alpn-implementation) under OpenJDK 7 or 8.
+2. The HTTP/2 specification requires the use of [ciphers](https://httpwg.github.io/specs/rfc7540.html#rfc.section.9.2.2) that weren't introduced in Java until Java 8. Using OpenSSL as an SSL provider is the best way to meet this requirement under Java 7. Using OpenSSL isn't a requirement under Java 8, but may still yield performance gains.
 
-Generally speaking, using OpenSSL as your SSL provider is the best way to fulfill the system requirements imposed by HTTP/2 because installation is fairly straightforward, it works for Java 6 onward and generally offers better SSL performance than the JDK SSL provider.
+Generally speaking, using OpenSSL as your SSL provider is the best way to fulfill the system requirements imposed by HTTP/2 because installation is fairly straightforward, it works for Java 7 onward and generally offers better SSL performance than the JDK SSL provider.
 
 ### Using OpenSSL as an SSL provider
 
-Using OpenSSL as an SSL provider fulfills the ALPN and cipher suite requirements imposed by HTTP/2. To use OpenSSL as an SSL provider, you'll need OpenSSL 1.0.2 or newer installed. You'll also need to add `netty-tcnative` as a dependency to your project. The `netty-tcnative` wiki provides [detailed instructions](http://netty.io/wiki/forked-tomcat-native.html), but in short, you'll need to add one additional platform-specific dependency to your project. This approach will meet all requirements imposed by HTTP/2 for Java 6, 7, and 8.
+Using OpenSSL as an SSL provider fulfills the ALPN and cipher suite requirements imposed by HTTP/2. To use OpenSSL as an SSL provider, you'll need OpenSSL 1.0.2 or newer installed. You'll also need to add `netty-tcnative` as a dependency to your project. The `netty-tcnative` wiki provides [detailed instructions](http://netty.io/wiki/forked-tomcat-native.html), but in short, you'll need to add one additional platform-specific dependency to your project. This approach will meet all requirements imposed by HTTP/2 under Java 7 and 8.
 
 Additionally, you'll need [`alpn-api`](http://mvnrepository.com/artifact/org.eclipse.jetty.alpn/alpn-api) as a `runtime` dependency for your project. If you're managing dependencies manually, you'll just need to make sure the latest version of `alpn-api` is available on your classpath.
 

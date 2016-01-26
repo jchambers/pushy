@@ -36,13 +36,9 @@ public class TopicUtilTest {
     }
 
     private static Certificate loadCertificateFromResource(final String resourceName) throws CertificateException, IOException {
-        final InputStream certificateInputStream = TopicUtilTest.class.getResourceAsStream(resourceName);
-
-        try {
+        try (final InputStream certificateInputStream = TopicUtilTest.class.getResourceAsStream(resourceName)) {
             final CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
             return certificateFactory.generateCertificate(certificateInputStream);
-        } finally {
-            certificateInputStream.close();
         }
     }
 }

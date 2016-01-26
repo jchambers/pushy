@@ -35,7 +35,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     private final MockApnsServer apnsServer;
     private final Set<String> topics;
 
-    private final Map<Integer, UUID> requestsWaitingForDataFrame = new HashMap<Integer, UUID>();
+    private final Map<Integer, UUID> requestsWaitingForDataFrame = new HashMap<>();
 
     private static final Http2Headers SUCCESS_HEADERS = new DefaultHttp2Headers()
             .status(HttpResponseStatus.OK.codeAsText());
@@ -316,7 +316,6 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     public void onUnknownFrame(final ChannelHandlerContext ctx, final byte frameType, final int streamId, final Http2Flags flags, final ByteBuf payload) throws Http2Exception {
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise promise) throws Exception {
         if (message instanceof AcceptNotificationResponse) {

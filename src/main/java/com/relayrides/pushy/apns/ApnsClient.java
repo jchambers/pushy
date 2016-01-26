@@ -124,8 +124,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private volatile ChannelPromise reconnectionPromise;
     private long reconnectDelay = INITIAL_RECONNECT_DELAY;
 
-    private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises =
-            new IdentityHashMap<T, Promise<PushNotificationResponse<T>>>();
+    private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
 
     /**
      * The hostname for the production APNs gateway.
@@ -415,7 +414,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
         final Future<Void> connectionReadyFuture;
 
         if (this.bootstrap.group().isShuttingDown() || this.bootstrap.group().isShutdown()) {
-            connectionReadyFuture = new FailedFuture<Void>(GlobalEventExecutor.INSTANCE,
+            connectionReadyFuture = new FailedFuture<>(GlobalEventExecutor.INSTANCE,
                     new IllegalStateException("Client's event loop group has been shut down and cannot be restarted."));
         } else {
             synchronized (this.bootstrap) {
@@ -530,7 +529,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
             } else {
                 // We're not connected and have no reconnection future, which means we've either never connected or have
                 // explicitly disconnected.
-                reconnectionFuture = new FailedFuture<Void>(GlobalEventExecutor.INSTANCE,
+                reconnectionFuture = new FailedFuture<>(GlobalEventExecutor.INSTANCE,
                         new IllegalStateException("Client was not previously connected."));
             }
         }
@@ -575,7 +574,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
         if (connectionReadyPromise != null && connectionReadyPromise.isSuccess() && connectionReadyPromise.channel().isActive()) {
             final DefaultPromise<PushNotificationResponse<T>> responsePromise =
-                    new DefaultPromise<PushNotificationResponse<T>>(connectionReadyPromise.channel().eventLoop());
+                    new DefaultPromise<>(connectionReadyPromise.channel().eventLoop());
 
             connectionReadyPromise.channel().eventLoop().submit(new Runnable() {
 
@@ -605,7 +604,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
             responseFuture = responsePromise;
         } else {
             log.debug("Failed to send push notification because client is not connected: {}", notification);
-            responseFuture = new FailedFuture<PushNotificationResponse<T>>(
+            responseFuture = new FailedFuture<>(
                     GlobalEventExecutor.INSTANCE, NOT_CONNECTED_EXCEPTION);
         }
 
@@ -670,7 +669,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
             if (this.connectionReadyPromise != null) {
                 channelCloseFuture = this.connectionReadyPromise.channel().close();
             } else {
-                channelCloseFuture = new SucceededFuture<Void>(GlobalEventExecutor.INSTANCE, null);
+                channelCloseFuture = new SucceededFuture<>(GlobalEventExecutor.INSTANCE, null);
             }
 
             if (this.shouldShutDownEventLoopGroup) {
@@ -685,7 +684,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
                 // Since the termination future for the event loop group is a Future<?> instead of a Future<Void>,
                 // we'll need to create our own promise and then notify it when the termination future completes.
-                disconnectFuture = new DefaultPromise<Void>(GlobalEventExecutor.INSTANCE);
+                disconnectFuture = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
 
                 this.bootstrap.group().terminationFuture().addListener(new GenericFutureListener() {
 

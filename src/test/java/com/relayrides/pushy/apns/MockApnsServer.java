@@ -43,7 +43,7 @@ public class MockApnsServer {
 
     private final ServerBootstrap bootstrap;
 
-    final Map<String, Map<String, Date>> tokenExpirationsByTopic = new HashMap<String, Map<String, Date>>();
+    final Map<String, Map<String, Date>> tokenExpirationsByTopic = new HashMap<>();
 
     private ChannelGroup allChannels;
 
@@ -89,7 +89,7 @@ public class MockApnsServer {
                     @Override
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) throws Exception {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                            final Set<String> topics = new HashSet<String>();
+                            final Set<String> topics = new HashSet<>();
                             {
                                 final SSLSession sslSession = sslHandler.engine().getSession();
 
