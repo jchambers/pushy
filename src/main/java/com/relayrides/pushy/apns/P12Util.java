@@ -10,7 +10,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableEntryException;
 import java.security.cert.CertificateException;
 
-public class P12Util {
+class P12Util {
 
     public static PrivateKeyEntry getPrivateKeyEntryFromP12File(final File p12File, final String password) throws KeyStoreException, NoSuchAlgorithmException, UnrecoverableEntryException, CertificateException, IOException {
         try (final FileInputStream p12InputStream = new FileInputStream(p12File)) {
