@@ -1,6 +1,6 @@
-name: Pushy v0.5
-date: January 18, 2016
-tag: https://github.com/relayrides/pushy/releases/tag/pushy-0.5
-jar: https://github.com/relayrides/pushy/releases/download/pushy-0.5/pushy-0.5.jar
-source: https://github.com/relayrides/pushy/archive/pushy-0.5.tar.gz
+name: Pushy v0.5.1
+date: January 26, 2016
+tag: https://github.com/relayrides/pushy/releases/tag/pushy-0.5.1
+jar: https://github.com/relayrides/pushy/releases/download/pushy-0.5.1/pushy-0.5.1.jar
+source: https://github.com/relayrides/pushy/archive/pushy-0.5.1.tar.gz
 javadoc: http://relayrides.github.io/pushy/apidocs/0.5/
