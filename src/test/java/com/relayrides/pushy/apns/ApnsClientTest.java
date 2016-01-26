@@ -19,8 +19,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
-import javax.net.ssl.SSLException;
-
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -228,6 +226,7 @@ public class ApnsClientTest {
         assertFalse(reconnectionFuture.isSuccess());
     }
 
+    @Test
     public void testConnectWithUntrustedCertificate() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> untrustedClient = new ApnsClient<SimpleApnsPushNotification>(
                 ApnsClientTest.getSslContextForTestClient(UNTRUSTED_CLIENT_KEYSTORE, KEYSTORE_PASSWORD),
@@ -235,11 +234,11 @@ public class ApnsClientTest {
 
         final Future<Void> connectFuture = untrustedClient.connect(HOST, PORT).await();
         assertFalse(connectFuture.isSuccess());
-        assertTrue(connectFuture.cause() instanceof SSLException);
 
         untrustedClient.disconnect().await();
     }
 
+    @Test
     public void testSendNotificationBeforeConnected() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> unconnectedClient = new ApnsClient<SimpleApnsPushNotification>(
                 ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_KEYSTORE, KEYSTORE_PASSWORD),
