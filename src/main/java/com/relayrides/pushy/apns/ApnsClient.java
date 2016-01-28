@@ -278,8 +278,23 @@ public class ApnsClient<T extends ApnsPushNotification> {
     }
 
     private static SslContextBuilder getBaseSslContextBuilder() {
+        final SslProvider sslProvider;
+
+        if (OpenSsl.isAvailable()) {
+            if (OpenSsl.isAlpnSupported()) {
+                log.info("OpenSSL (via netty-tcnative) is available and supports ALPN; will use OpenSSL.");
+                sslProvider = SslProvider.OPENSSL;
+            } else {
+                log.info("OpenSSL (via netty-tcnative) is available, but does not support ALPN; will use JDK SSL provider.");
+                sslProvider = SslProvider.JDK;
+            }
+        } else {
+            log.info("OpenSSL (via netty-tcnative) not available; will use JDK SSL provider.");
+            sslProvider = SslProvider.JDK;
+        }
+
         return SslContextBuilder.forClient()
-                .sslProvider(OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK)
+                .sslProvider(sslProvider)
                 .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
                 .applicationProtocolConfig(
                         new ApplicationProtocolConfig(Protocol.ALPN,
