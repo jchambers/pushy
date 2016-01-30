@@ -439,17 +439,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
                     final ChannelFuture connectFuture = this.bootstrap.connect(host, port);
                     this.connectionReadyPromise = connectFuture.channel().newPromise();
 
-                    connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
-
-                        @Override
-                        public void operationComplete(final ChannelFuture future) throws Exception {
-                            if (!future.isSuccess()) {
-                                log.debug("Failed to connect.", future.cause());
-                                ApnsClient.this.connectionReadyPromise.tryFailure(future.cause());
-                            }
-                        }
-                    });
-
                     connectFuture.channel().closeFuture().addListener(new GenericFutureListener<ChannelFuture> () {
 
                         @Override
