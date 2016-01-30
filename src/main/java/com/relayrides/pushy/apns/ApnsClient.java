@@ -256,15 +256,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
             x509Certificate = (X509Certificate) certificate;
             privateKey = privateKeyEntry.getPrivateKey();
-        } catch (final KeyStoreException e) {
-            throw new SSLException(e);
-        } catch (final NoSuchAlgorithmException e) {
-            throw new SSLException(e);
-        } catch (final UnrecoverableEntryException e) {
-            throw new SSLException(e);
-        } catch (final CertificateException e) {
-            throw new SSLException(e);
-        } catch (final IOException e) {
+        } catch (final KeyStoreException | NoSuchAlgorithmException | UnrecoverableEntryException | CertificateException | IOException e) {
             throw new SSLException(e);
         }
 
