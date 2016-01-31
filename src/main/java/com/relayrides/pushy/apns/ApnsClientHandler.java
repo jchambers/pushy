@@ -38,6 +38,7 @@ import io.netty.channel.ChannelPromise;
 import io.netty.channel.ChannelPromiseAggregator;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http2.AbstractHttp2ConnectionHandlerBuilder;
 import io.netty.handler.codec.http2.DefaultHttp2Headers;
 import io.netty.handler.codec.http2.Http2ConnectionDecoder;
 import io.netty.handler.codec.http2.Http2ConnectionEncoder;
@@ -73,11 +74,11 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientHandler.class);
 
-    public static class Builder<S extends ApnsPushNotification> extends BuilderBase<ApnsClientHandler<S>, Builder<S>> {
+    public static class ApnsClientHandlerBuilder<S extends ApnsPushNotification> extends AbstractHttp2ConnectionHandlerBuilder<ApnsClientHandler<S>, ApnsClientHandlerBuilder<S>> {
 
         private ApnsClient<S> apnsClient;
 
-        public Builder<S> apnsClient(final ApnsClient<S> apnsClient) {
+        public ApnsClientHandlerBuilder<S> apnsClient(final ApnsClient<S> apnsClient) {
             this.apnsClient = apnsClient;
             return this;
         }
@@ -87,10 +88,25 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
         }
 
         @Override
-        public ApnsClientHandler<S> build0(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder) {
-            final ApnsClientHandler<S> handler = new ApnsClientHandler<>(decoder, encoder, this.initialSettings(), this.apnsClient());
+        public ApnsClientHandlerBuilder<S> server(final boolean isServer) {
+            return super.server(isServer);
+        }
+
+        @Override
+        public ApnsClientHandlerBuilder<S> encoderEnforceMaxConcurrentStreams(final boolean enforceMaxConcurrentStreams) {
+            return super.encoderEnforceMaxConcurrentStreams(enforceMaxConcurrentStreams);
+        }
+
+        @Override
+        public ApnsClientHandler<S> build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
+            final ApnsClientHandler<S> handler = new ApnsClientHandler<>(decoder, encoder, initialSettings, this.apnsClient());
             this.frameListener(handler.new ApnsClientHandlerFrameAdapter());
             return handler;
+        }
+
+        @Override
+        public ApnsClientHandler<S> build() {
+            return super.build();
         }
     }
 

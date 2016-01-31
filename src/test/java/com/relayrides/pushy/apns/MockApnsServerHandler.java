@@ -19,6 +19,7 @@ import io.netty.channel.ChannelPromiseAggregator;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http2.AbstractHttp2ConnectionHandlerBuilder;
 import io.netty.handler.codec.http2.DefaultHttp2Headers;
 import io.netty.handler.codec.http2.Http2ConnectionDecoder;
 import io.netty.handler.codec.http2.Http2ConnectionEncoder;
@@ -52,7 +53,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             .registerTypeAdapter(Date.class, new DateAsSecondsSinceEpochTypeAdapter())
             .create();
 
-    public static final class Builder extends BuilderBase<MockApnsServerHandler, Builder> {
+    public static final class Builder extends AbstractHttp2ConnectionHandlerBuilder<MockApnsServerHandler, Builder> {
         private MockApnsServer apnsServer;
         private Set<String> topics;
 
@@ -75,10 +76,20 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
 
         @Override
-        public MockApnsServerHandler build0(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder) {
-            final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, this.initialSettings(), this.apnsServer(), this.topics());
+        public Builder initialSettings(final Http2Settings initialSettings) {
+            return super.initialSettings(initialSettings);
+        }
+
+        @Override
+        public MockApnsServerHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
+            final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, initialSettings, this.apnsServer(), this.topics());
             this.frameListener(handler);
             return handler;
+        }
+
+        @Override
+        public MockApnsServerHandler build() {
+            return super.build();
         }
     }
 
