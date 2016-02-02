@@ -53,11 +53,11 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             .registerTypeAdapter(Date.class, new DateAsSecondsSinceEpochTypeAdapter())
             .create();
 
-    public static final class Builder extends AbstractHttp2ConnectionHandlerBuilder<MockApnsServerHandler, Builder> {
+    public static final class MockApnsServerHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<MockApnsServerHandler, MockApnsServerHandlerBuilder> {
         private MockApnsServer apnsServer;
         private Set<String> topics;
 
-        public Builder apnsServer(final MockApnsServer apnsServer) {
+        public MockApnsServerHandlerBuilder apnsServer(final MockApnsServer apnsServer) {
             this.apnsServer = apnsServer;
             return this;
         }
@@ -66,7 +66,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             return this.apnsServer;
         }
 
-        public Builder topics(final Set<String> topics) {
+        public MockApnsServerHandlerBuilder topics(final Set<String> topics) {
             this.topics = topics;
             return this;
         }
@@ -76,7 +76,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
 
         @Override
-        public Builder initialSettings(final Http2Settings initialSettings) {
+        public MockApnsServerHandlerBuilder initialSettings(final Http2Settings initialSettings) {
             return super.initialSettings(initialSettings);
         }
 
