@@ -30,7 +30,9 @@ import java.security.UnrecoverableEntryException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -38,6 +40,9 @@ import javax.net.ssl.SSLException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.relayrides.pushy.apns.metrics.ApnsClientMetricsListener;
+import com.relayrides.pushy.apns.metrics.TimerContext;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
@@ -125,6 +130,9 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private long reconnectDelay = INITIAL_RECONNECT_DELAY;
 
     private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
+
+    private final List<ApnsClientMetricsListener> metricsListeners = new ArrayList<>();
+    private final List<TimerContext> connectionTimers = new ArrayList<>();
 
     /**
      * The hostname for the production APNs gateway.
@@ -375,6 +383,18 @@ public class ApnsClient<T extends ApnsPushNotification> {
     public void setConnectionTimeout(final int timeoutMillis) {
         synchronized (this.bootstrap) {
             this.bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, timeoutMillis);
+        }
+    }
+
+    public void registerMetricsListener(final ApnsClientMetricsListener listener) {
+        synchronized (this.metricsListeners) {
+            this.metricsListeners.add(listener);
+        }
+    }
+
+    public boolean unregisterMetricsListener(final ApnsClientMetricsListener listener) {
+        synchronized (this.metricsListeners) {
+            return this.metricsListeners.remove(listener);
         }
     }
 
