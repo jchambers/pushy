@@ -448,6 +448,12 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 // We only want to begin a connection attempt if one is not already in progress or complete; if we already
                 // have a connection future, just return the existing promise.
                 if (this.connectionReadyPromise == null) {
+                    synchronized (this.metricsListeners) {
+                        for (final ApnsClientMetricsListener listener : this.metricsListeners) {
+                            this.connectionTimers.add(listener.handleConnectionAttemptStarted());
+                        }
+                    }
+
                     final ChannelFuture connectFuture = this.bootstrap.connect(host, port);
                     this.connectionReadyPromise = connectFuture.channel().newPromise();
 
@@ -485,6 +491,12 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
                         @Override
                         public void operationComplete(final ChannelFuture future) throws Exception {
+                            for (final TimerContext timerContext : ApnsClient.this.connectionTimers) {
+                                timerContext.mark();
+                            }
+
+                            ApnsClient.this.connectionTimers.clear();
+
                             if (future.isSuccess()) {
                                 synchronized (ApnsClient.this.bootstrap) {
                                     if (ApnsClient.this.reconnectionPromise != null) {
@@ -497,10 +509,23 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                     ApnsClient.this.reconnectDelay = INITIAL_RECONNECT_DELAY;
                                     ApnsClient.this.reconnectionPromise = future.channel().newPromise();
                                 }
+
+                                synchronized (ApnsClient.this.metricsListeners) {
+                                    for (final ApnsClientMetricsListener listener : ApnsClient.this.metricsListeners) {
+                                        listener.handleConnectionAttemptSucceeded();
+                                    }
+                                }
                             } else {
                                 log.info("Failed to connect.", future.cause());
+
+                                synchronized (ApnsClient.this.metricsListeners) {
+                                    for (final ApnsClientMetricsListener listener : ApnsClient.this.metricsListeners) {
+                                        listener.handleConnectionAttemptFailed();
+                                    }
+                                }
                             }
-                        }});
+                        }
+                    });
                 }
 
                 connectionReadyFuture = this.connectionReadyPromise;
