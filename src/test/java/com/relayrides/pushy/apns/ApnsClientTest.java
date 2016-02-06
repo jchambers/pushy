@@ -68,7 +68,7 @@ public class ApnsClientTest {
     private ApnsClient<SimpleApnsPushNotification> client;
 
     @Rule
-    public Timeout globalTimeout = new Timeout(10000);
+    public Timeout globalTimeout = new Timeout(30000);
 
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {
