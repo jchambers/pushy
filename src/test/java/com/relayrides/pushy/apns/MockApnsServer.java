@@ -98,7 +98,7 @@ public class MockApnsServer {
                                 }
                             }
 
-                            context.pipeline().addLast(new MockApnsServerHandler.Builder()
+                            context.pipeline().addLast(new MockApnsServerHandler.MockApnsServerHandlerBuilder()
                                     .apnsServer(MockApnsServer.this)
                                     .topics(topics)
                                     .initialSettings(new Http2Settings().maxConcurrentStreams(8))

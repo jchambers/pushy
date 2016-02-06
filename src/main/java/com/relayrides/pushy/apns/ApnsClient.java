@@ -318,7 +318,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                     @Override
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                            final ApnsClientHandler<T> apnsClientHandler = new ApnsClientHandler.Builder<T>()
+                            final ApnsClientHandler<T> apnsClientHandler = new ApnsClientHandler.ApnsClientHandlerBuilder<T>()
                                     .server(false)
                                     .apnsClient(ApnsClient.this)
                                     .encoderEnforceMaxConcurrentStreams(true)
