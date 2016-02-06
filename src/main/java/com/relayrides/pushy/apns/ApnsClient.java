@@ -21,7 +21,10 @@
 package com.relayrides.pushy.apns;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.security.KeyStore.PrivateKeyEntry;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -167,14 +170,16 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * has been disconnected via the {@link ApnsClient#disconnect()} method, its event loop will be shut down and the
      * client cannot be reconnected.</p>
      *
-     * @param p12File a PKCS#12-formatted file containing a the certificate and private key to be used to identify the
+     * @param p12File a PKCS#12-formatted file containing the certificate and private key to be used to identify the
      * client to the APNs server
      * @param password the password to be used to decrypt the contents of the given PKCS#12 file
      *
      * @throws SSLException if the given PKCS#12 file could not be loaded or if any other SSL-related problem arises
      * when constructing the context
+     * @throws FileNotFoundException if the given PKCS#12 file could not be found
+     * @throws IOException if any IO problem occurs while attempting to read the given PKCS#12 file
      */
-    public ApnsClient(final File p12File, final String password) throws SSLException {
+    public ApnsClient(final File p12File, final String password) throws SSLException, FileNotFoundException, IOException {
         this(p12File, password, null);
     }
 
@@ -187,16 +192,60 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * the caller to shut down the event loop group. Clients created with an externally-provided event loop group may be
      * reconnected after being shut down via the {@link ApnsClient#disconnect()} method.</p>
      *
-     * @param p12File a PKCS#12-formatted file containing a the certificate and private key to be used to identify the
+     * @param p12File a PKCS#12-formatted file containing the certificate and private key to be used to identify the
      * client to the APNs server
      * @param password the password to be used to decrypt the contents of the given PKCS#12 file
      * @param eventLoopGroup the event loop group to be used to handle I/O events for this client
      *
      * @throws SSLException if the given PKCS#12 file could not be loaded or if any other SSL-related problem arises
      * when constructing the context
+     * @throws FileNotFoundException if the given PKCS#12 file could not be found
+     * @throws IOException if any IO problem occurs while attempting to read the given PKCS#12 file
      */
-    public ApnsClient(final File p12File, final String password, final NioEventLoopGroup eventLoopGroup) throws SSLException {
+    public ApnsClient(final File p12File, final String password, final NioEventLoopGroup eventLoopGroup) throws SSLException, FileNotFoundException, IOException {
         this(ApnsClient.getSslContextWithP12File(p12File, password), eventLoopGroup);
+    }
+
+    /**
+     * <p>Creates a new APNs client that will identify itself to the APNs gateway with the certificate and key from the
+     * given PKCS#12 input stream. The PKCS#12 input stream <em>must</em> contain a single certificate/private key
+     * pair.</p>
+     *
+     * <p>Clients created using this method will use a default, internally-managed event loop group. Once the client
+     * has been disconnected via the {@link ApnsClient#disconnect()} method, its event loop will be shut down and the
+     * client cannot be reconnected.</p>
+     *
+     * @param p12InputStream an input stream for PKCS#12-formatted data containing the certificate and private key to be
+     * used to identify the client to the APNs server
+     * @param password the password to be used to decrypt the contents of the given PKCS#12 data
+     *
+     * @throws SSLException if the given PKCS#12 data could not be loaded or if any other SSL-related problem arises
+     * when constructing the context
+     */
+    public ApnsClient(final InputStream p12InputStream, final String password) throws SSLException {
+        this(p12InputStream, password, null);
+    }
+
+    /**
+     * <p>Creates a new APNs client that will identify itself to the APNs gateway with the certificate and key from the
+     * given PKCS#12 input stream. The PKCS#12 input stream <em>must</em> contain a single certificate/private key
+     * pair.</p>
+     *
+     * <p>Clients created using this method will use the provided event loop group, which may be useful in cases where
+     * multiple clients are running in parallel. If a client is created using this method, it is the responsibility of
+     * the caller to shut down the event loop group. Clients created with an externally-provided event loop group may be
+     * reconnected after being shut down via the {@link ApnsClient#disconnect()} method.</p>
+     *
+     * @param p12InputStream an input stream for PKCS#12-formatted data containing the certificate and private key to be
+     * used to identify the client to the APNs server
+     * @param password the password to be used to decrypt the contents of the given PKCS#12 data
+     * @param eventLoopGroup the event loop group to be used to handle I/O events for this client
+     *
+     * @throws SSLException if the given PKCS#12 data could not be loaded or if any other SSL-related problem arises
+     * when constructing the context
+     */
+    public ApnsClient(final InputStream p12InputStream, final String password, final NioEventLoopGroup eventLoopGroup) throws SSLException {
+        this(ApnsClient.getSslContextWithP12InputStream(p12InputStream, password), eventLoopGroup);
     }
 
     /**
@@ -241,12 +290,18 @@ public class ApnsClient<T extends ApnsPushNotification> {
         this(ApnsClient.getSslContextWithCertificateAndPrivateKey(certificate, privateKey, privateKeyPassword), eventLoopGroup);
     }
 
-    private static SslContext getSslContextWithP12File(final File p12File, final String password) throws SSLException {
+    private static SslContext getSslContextWithP12File(final File p12File, final String password) throws FileNotFoundException, SSLException, IOException {
+        try (final InputStream p12InputStream = new FileInputStream(p12File)) {
+            return ApnsClient.getSslContextWithP12InputStream(p12InputStream, password);
+        }
+    }
+
+    private static SslContext getSslContextWithP12InputStream(final InputStream p12InputStream, final String password) throws SSLException {
         final X509Certificate x509Certificate;
         final PrivateKey privateKey;
 
         try {
-            final PrivateKeyEntry privateKeyEntry = P12Util.getPrivateKeyEntryFromP12File(p12File, password);
+            final PrivateKeyEntry privateKeyEntry = P12Util.getPrivateKeyEntryFromP12InputStream(p12InputStream, password);
 
             final Certificate certificate = privateKeyEntry.getCertificate();
 

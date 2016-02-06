@@ -54,10 +54,11 @@ public class MockApnsServer {
     public MockApnsServer(final EventLoopGroup eventLoopGroup) {
         final SslContext sslContext;
         try {
+            // TODO Load this as an input stream when Netty supports it
             final File caCertificateFile = new File(MockApnsServer.class.getResource(CA_CERTIFICATE_FILENAME).toURI());
-            final File serverKeystore = new File(MockApnsServer.class.getResource(SERVER_KEYSTORE).toURI());
 
-            final PrivateKeyEntry privateKeyEntry = P12Util.getPrivateKeyEntryFromP12File(serverKeystore, SERVER_KEYSTORE_PASSWORD);
+            final PrivateKeyEntry privateKeyEntry = P12Util.getPrivateKeyEntryFromP12InputStream(
+                    MockApnsServer.class.getResourceAsStream(SERVER_KEYSTORE), SERVER_KEYSTORE_PASSWORD);
 
             sslContext = SslContextBuilder.forServer(privateKeyEntry.getPrivateKey(), (X509Certificate) privateKeyEntry.getCertificate())
                     .sslProvider(OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK)
