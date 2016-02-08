@@ -28,7 +28,7 @@ import com.relayrides.pushy.apns.DeliveryPriority;
 /**
  * A simple and immutable implementation of the {@link com.relayrides.pushy.apns.ApnsPushNotification} interface.
  *
- * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
+ * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
  * @see ApnsPayloadBuilder
  */

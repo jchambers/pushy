@@ -31,11 +31,11 @@ import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
  * a JSON payload, and (optionally) a time at which the notification is invalid and should no longer be delivered.
  * </p>
  *
- * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
+ * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
  * @see <a href=
  *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html">
- *      Apple Push Notification Service</a>
+ *      Local and Remote Notification Programming Guide - Apple Push Notification Service</a>
  *
  * @see ApnsPayloadBuilder
  */

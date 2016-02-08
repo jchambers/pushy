@@ -32,6 +32,6 @@
  * {@code [NSData describe]}</a>. The {@link com.relayrides.pushy.apns.util.TokenUtil} class provides methods for
  * sanitizing token strings so they can be sent safely to the APNs gateway.</p>
  *
- * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
+ * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */
 package com.relayrides.pushy.apns.util;

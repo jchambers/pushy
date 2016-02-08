@@ -34,11 +34,11 @@ import com.google.gson.GsonBuilder;
  * are reusable, but are <em>not</em> thread-safe.
  * </p>
  *
- * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
+ * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
  * @see <a href=
- *      "http://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html#//apple_ref/doc/uid/TP40008194-CH100-SW1">
- *      Local and Push Notification Programming Guide - Apple Push Notification Service - The Notification Payload</a>
+ *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/TheNotificationPayload.html#//apple_ref/doc/uid/TP40008194-CH107-SW1">
+ *      Local and Push Notification Programming Guide - The Remote Notification Payload</a>
  */
 public class ApnsPayloadBuilder {
 
