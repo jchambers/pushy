@@ -9,17 +9,17 @@ import org.junit.Test;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonPrimitive;
 
-public class DateAsSecondsSinceEpochTypeAdapterTest {
+public class DateAsMillisecondsSinceEpochTypeAdapterTest {
 
     @Test
     public void testDeserialize() {
-        final DateAsSecondsSinceEpochTypeAdapter adapter = new DateAsSecondsSinceEpochTypeAdapter();
+        final DateAsMillisecondsSinceEpochTypeAdapter adapter = new DateAsMillisecondsSinceEpochTypeAdapter();
 
         assertNull(adapter.deserialize(JsonNull.INSTANCE, Date.class, null));
 
         {
-            final long timestampInSeconds = (System.currentTimeMillis() / 1000);
-            final Date dateFromTimestamp = new Date(timestampInSeconds * 1000);
+            final long timestampInSeconds = System.currentTimeMillis();
+            final Date dateFromTimestamp = new Date(timestampInSeconds);
 
             assertEquals(dateFromTimestamp, adapter.deserialize(new JsonPrimitive(timestampInSeconds), Date.class, null));
         }
@@ -27,13 +27,13 @@ public class DateAsSecondsSinceEpochTypeAdapterTest {
 
     @Test
     public void testSerialize() {
-        final DateAsSecondsSinceEpochTypeAdapter adapter = new DateAsSecondsSinceEpochTypeAdapter();
+        final DateAsMillisecondsSinceEpochTypeAdapter adapter = new DateAsMillisecondsSinceEpochTypeAdapter();
 
         assertEquals(JsonNull.INSTANCE, adapter.serialize(null, Date.class, null));
 
         {
-            final long timestampInSeconds = (System.currentTimeMillis() / 1000);
-            final Date dateFromTimestamp = new Date(timestampInSeconds * 1000);
+            final long timestampInSeconds = System.currentTimeMillis();
+            final Date dateFromTimestamp = new Date(timestampInSeconds);
 
             assertEquals(new JsonPrimitive(timestampInSeconds), adapter.serialize(dateFromTimestamp, Date.class, null));
         }

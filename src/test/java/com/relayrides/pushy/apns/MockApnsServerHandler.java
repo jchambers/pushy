@@ -50,7 +50,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     private static final Pattern TOKEN_PATTERN = Pattern.compile("[0-9a-fA-F]{64}");
 
     private static final Gson gson = new GsonBuilder()
-            .registerTypeAdapter(Date.class, new DateAsSecondsSinceEpochTypeAdapter())
+            .registerTypeAdapter(Date.class, new DateAsMillisecondsSinceEpochTypeAdapter())
             .create();
 
     public static final class MockApnsServerHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<MockApnsServerHandler, MockApnsServerHandlerBuilder> {

@@ -390,11 +390,9 @@ public class ApnsClientTest {
     public void testSendNotificationWithExpiredToken() throws Exception {
         final String testToken = ApnsClientTest.generateRandomToken();
 
-        // APNs uses timestamps rounded to the nearest second; for ease of comparison, we test with timestamps that
-        // just happen to fall on whole seconds.
-        final Date roundedNow = new Date((System.currentTimeMillis() / 1000) * 1000);
+        final Date now = new Date();
 
-        this.server.registerToken(DEFAULT_TOPIC, testToken, roundedNow);
+        this.server.registerToken(DEFAULT_TOPIC, testToken, now);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
         final PushNotificationResponse<SimpleApnsPushNotification> response =
@@ -402,7 +400,7 @@ public class ApnsClientTest {
 
         assertFalse(response.isAccepted());
         assertEquals("Unregistered", response.getRejectionReason());
-        assertEquals(roundedNow, response.getTokenInvalidationTimestamp());
+        assertEquals(now, response.getTokenInvalidationTimestamp());
     }
 
     private static SslContext getSslContextForTestClient(final String p12Filename, final String password) throws NoSuchAlgorithmException, KeyStoreException, IOException, CertificateException, UnrecoverableEntryException {

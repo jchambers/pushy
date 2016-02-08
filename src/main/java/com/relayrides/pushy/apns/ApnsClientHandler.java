@@ -67,7 +67,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     private static final int STREAM_ID_RESET_THRESHOLD = Integer.MAX_VALUE - 1;
 
     private static final Gson gson = new GsonBuilder()
-            .registerTypeAdapter(Date.class, new DateAsSecondsSinceEpochTypeAdapter())
+            .registerTypeAdapter(Date.class, new DateAsMillisecondsSinceEpochTypeAdapter())
             .create();
 
     private static final Charset UTF8 = Charset.forName("UTF-8");
