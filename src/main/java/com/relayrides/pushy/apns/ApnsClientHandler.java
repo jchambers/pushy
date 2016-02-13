@@ -51,7 +51,7 @@ import io.netty.util.concurrent.GenericFutureListener;
 
 class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionHandler {
 
-    private int nextStreamId = 1;
+    private long nextStreamId = 1;
 
     private final Map<Integer, T> pushNotificationsByStreamId = new HashMap<>();
     private final Map<Integer, Http2Headers> headersByStreamId = new HashMap<>();
@@ -63,7 +63,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
     private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
 
-    private static final int STREAM_ID_RESET_THRESHOLD = Integer.MAX_VALUE - 1;
+    private static final long STREAM_ID_RESET_THRESHOLD = Integer.MAX_VALUE - 1;
 
     private static final int INITIAL_PAYLOAD_BUFFER_CAPACITY = 4096;
 
@@ -178,7 +178,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
             // We'll catch class cast issues gracefully
             final T pushNotification = (T) message;
 
-            final int streamId = this.nextStreamId;
+            final int streamId = (int) this.nextStreamId;
 
             final ByteBuf payloadBuffer = context.alloc().ioBuffer(INITIAL_PAYLOAD_BUFFER_CAPACITY);
             payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(UTF8));
