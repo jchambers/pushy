@@ -32,7 +32,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.ChannelPromiseAggregator;
@@ -65,6 +64,8 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
 
     private static final int STREAM_ID_RESET_THRESHOLD = Integer.MAX_VALUE - 1;
+
+    private static final int INITIAL_PAYLOAD_BUFFER_CAPACITY = 4096;
 
     private static final Gson gson = new GsonBuilder()
             .registerTypeAdapter(Date.class, new DateAsMillisecondsSinceEpochTypeAdapter())
@@ -179,12 +180,13 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
             final int streamId = this.nextStreamId;
 
-            final byte[] payloadBytes = pushNotification.getPayload().getBytes(UTF8);
+            final ByteBuf payloadBuffer = context.alloc().ioBuffer(INITIAL_PAYLOAD_BUFFER_CAPACITY);
+            payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(UTF8));
 
             final Http2Headers headers = new DefaultHttp2Headers()
                     .method("POST")
                     .path(APNS_PATH_PREFIX + pushNotification.getToken())
-                    .addInt(HttpHeaderNames.CONTENT_LENGTH, payloadBytes.length)
+                    .addInt(HttpHeaderNames.CONTENT_LENGTH, payloadBuffer.readableBytes())
                     .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
 
             if (pushNotification.getPriority() != null) {
@@ -200,7 +202,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
             log.trace("Wrote headers on stream {}: {}", streamId, headers);
 
             final ChannelPromise dataPromise = context.newPromise();
-            this.encoder().writeData(context, streamId, Unpooled.wrappedBuffer(payloadBytes), 0, true, dataPromise);
+            this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
             log.trace("Wrote payload on stream {}: {}", streamId, pushNotification.getPayload());
 
             final ChannelPromiseAggregator promiseAggregator = new ChannelPromiseAggregator(promise);
