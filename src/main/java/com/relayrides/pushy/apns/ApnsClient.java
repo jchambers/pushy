@@ -42,7 +42,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.relayrides.pushy.apns.metrics.ApnsClientMetricsListener;
-import com.relayrides.pushy.apns.metrics.TimerContext;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
@@ -132,7 +131,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
 
     private final List<ApnsClientMetricsListener> metricsListeners = new ArrayList<>();
-    private final List<TimerContext> connectionTimers = new ArrayList<>();
 
     /**
      * The hostname for the production APNs gateway.
@@ -450,7 +448,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 if (this.connectionReadyPromise == null) {
                     synchronized (this.metricsListeners) {
                         for (final ApnsClientMetricsListener listener : this.metricsListeners) {
-                            this.connectionTimers.add(listener.handleConnectionAttemptStarted());
+                            listener.handleConnectionAttemptStarted();
                         }
                     }
 
@@ -491,12 +489,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
                         @Override
                         public void operationComplete(final ChannelFuture future) throws Exception {
-                            for (final TimerContext timerContext : ApnsClient.this.connectionTimers) {
-                                timerContext.mark();
-                            }
-
-                            ApnsClient.this.connectionTimers.clear();
-
                             if (future.isSuccess()) {
                                 synchronized (ApnsClient.this.bootstrap) {
                                     if (ApnsClient.this.reconnectionPromise != null) {

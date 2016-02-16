@@ -23,11 +23,11 @@ package com.relayrides.pushy.apns.metrics;
 public interface ApnsClientMetricsListener {
     void handleNotificationSendAttemptStarted();
     void handleWriteFailure();
-    TimerContext handleNotificationSent();
-    void handleNotificationAccepted();
-    void handleNotificationRejected();
+    void handleNotificationSent(long notificationId);
+    void handleNotificationAccepted(long notificationId);
+    void handleNotificationRejected(long notificationId);
 
-    TimerContext handleConnectionAttemptStarted();
+    void handleConnectionAttemptStarted();
     void handleConnectionAttemptSucceeded();
     void handleConnectionAttemptFailed();
 }
