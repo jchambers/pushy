@@ -27,4 +27,20 @@ package com.relayrides.pushy.apns;
  */
 public class ClientNotConnectedException extends IllegalStateException {
     private static final long serialVersionUID = 1L;
+
+    /**
+     * Constructs a new exception with no message.
+     */
+    public ClientNotConnectedException() {
+        super();
+    }
+
+    /**
+     * Constructs a new exception with the given message.
+     *
+     * @param message a short, human-readable explanation of the cause of this exception
+     */
+    public ClientNotConnectedException(final String message) {
+        super(message);
+    }
 }

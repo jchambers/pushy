@@ -536,6 +536,22 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                     ApnsClient.this.reconnectDelay = Math.min(ApnsClient.this.reconnectDelay, MAX_RECONNECT_DELAY);
                                 }
                             }
+
+                            // After everything else is done, clear the remaining "waiting for a response" promises. We
+                            // want to do this after everything else has wrapped up (i.e. we submit it to the end of the
+                            // event queue) so any promises that have "mark as success" jobs already in the queue have
+                            // a chance to fire first.
+                            future.channel().eventLoop().submit(new Runnable() {
+
+                                @Override
+                                public void run() {
+                                    for (final Promise<PushNotificationResponse<T>> responsePromise : ApnsClient.this.responsePromises.values()) {
+                                        responsePromise.tryFailure(new ClientNotConnectedException("Client disconnected unexpectedly."));
+                                    }
+
+                                    ApnsClient.this.responsePromises.clear();
+                                }
+                            });
                         }
                     });
 
