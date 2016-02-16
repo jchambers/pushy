@@ -35,6 +35,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.net.ssl.SSLException;
 
@@ -131,6 +132,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
 
     private final List<ApnsClientMetricsListener> metricsListeners = new ArrayList<>();
+    private final AtomicLong nextNotificationId = new AtomicLong(0);
 
     /**
      * The hostname for the production APNs gateway.
@@ -595,8 +597,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * APNs gateway
      */
     public Future<PushNotificationResponse<T>> sendNotification(final T notification) {
-
         final Future<PushNotificationResponse<T>> responseFuture;
+        final long notificationId = this.nextNotificationId.getAndIncrement();
 
         // Instead of synchronizing here, we keep a final reference to the connection ready promise. We can get away
         // with this because we're not changing the state of the connection or its promises. Keeping a reference ensures
@@ -623,7 +625,13 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
                 @Override
                 public void operationComplete(final ChannelFuture future) throws Exception {
-                    if (!future.isSuccess()) {
+                    if (future.isSuccess()) {
+                        synchronized (ApnsClient.this.metricsListeners) {
+                            for (final ApnsClientMetricsListener listener : ApnsClient.this.metricsListeners) {
+                                listener.handleNotificationSent(notificationId);
+                            }
+                        }
+                    } else {
                         log.debug("Failed to write push notification: {}", notification, future.cause());
 
                         // This will always be called from inside the channel's event loop, so we don't have to worry
@@ -640,6 +648,36 @@ public class ApnsClient<T extends ApnsPushNotification> {
             responseFuture = new FailedFuture<>(
                     GlobalEventExecutor.INSTANCE, NOT_CONNECTED_EXCEPTION);
         }
+
+        responseFuture.addListener(new GenericFutureListener<Future<PushNotificationResponse<T>>>() {
+
+            @Override
+            public void operationComplete(final Future<PushNotificationResponse<T>> future) throws Exception {
+                if (future.isSuccess()) {
+                    final PushNotificationResponse<T> response = future.getNow();
+
+                    if (response.isAccepted()) {
+                        synchronized (ApnsClient.this.metricsListeners) {
+                            for (final ApnsClientMetricsListener listener : ApnsClient.this.metricsListeners) {
+                                listener.handleNotificationAccepted(notificationId);
+                            }
+                        }
+                    } else {
+                        synchronized (ApnsClient.this.metricsListeners) {
+                            for (final ApnsClientMetricsListener listener : ApnsClient.this.metricsListeners) {
+                                listener.handleNotificationRejected(notificationId);
+                            }
+                        }
+                    }
+                } else {
+                    synchronized (ApnsClient.this.metricsListeners) {
+                        for (final ApnsClientMetricsListener listener : ApnsClient.this.metricsListeners) {
+                            listener.handleWriteFailure();
+                        }
+                    }
+                }
+            }
+        });
 
         return responseFuture;
     }
