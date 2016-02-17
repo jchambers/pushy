@@ -672,7 +672,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 } else {
                     synchronized (ApnsClient.this.metricsListeners) {
                         for (final ApnsClientMetricsListener listener : ApnsClient.this.metricsListeners) {
-                            listener.handleWriteFailure();
+                            listener.handleWriteFailure(notificationId);
                         }
                     }
                 }

@@ -21,7 +21,7 @@
 package com.relayrides.pushy.apns.metrics;
 
 public interface ApnsClientMetricsListener {
-    void handleWriteFailure();
+    void handleWriteFailure(long notificationId);
     void handleNotificationSent(long notificationId);
     void handleNotificationAccepted(long notificationId);
     void handleNotificationRejected(long notificationId);
