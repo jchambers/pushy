@@ -20,6 +20,18 @@
 
 package com.relayrides.pushy.apns.metrics;
 
+/**
+ * <p>A metrics listener receives events from an {@link ApnsClient} that can be used to measure the performance and
+ * behavior of the client. Although the information sent to a metrics listener is generally available by other means,
+ * it is provided to listeners in a simplified form for ease of consumption and aggregation.</p>
+ *
+ * <p>The information provided to metrics listeners is intended only to measure the performance and behavior of an
+ * {@code ApnsClient}; metrics listeners should never be used to drive business logic.</p>
+ *
+ * @see com.relayrides.pushy.apns.ApnsClient#registerMetricsListener(ApnsClientMetricsListener)
+ *
+ * @author <a href="https://github.com/jchambers">Jon Chambers</a>
+ */
 public interface ApnsClientMetricsListener {
     void handleWriteFailure(long notificationId);
     void handleNotificationSent(long notificationId);
