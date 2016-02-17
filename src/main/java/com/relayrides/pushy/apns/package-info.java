@@ -30,6 +30,6 @@
  * ({@link com.relayrides.pushy.apns.util.SimpleApnsPushNotification}) and tools for constructing push notification
  * payloads can be found in the {@code com.relayrides.pushy.apns.util} package.</p>
  *
- * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
+ * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */
 package com.relayrides.pushy.apns;

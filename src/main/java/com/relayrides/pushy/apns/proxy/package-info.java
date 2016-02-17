@@ -19,19 +19,14 @@
  * THE SOFTWARE. */
 
 /**
- * <p>Contains classes for working with APNs tokens and payloads.</p>
+ * <p>Contains classes and interfaces for working with proxies.</p>
  *
- * <p>Push notification payloads are <a href="http://json.org/">JSON</a> strings that contain information about how the
- * receiving device should handle and display the notification. The
- * {@link com.relayrides.pushy.apns.util.ApnsPayloadBuilder} class is a tool to construct payloads that comply with the
- * APNs specification.</p>
+ * <p>While {@link com.relayrides.pushy.apns.ApnsClient}s will connect to an APNs server directly by default, they may
+ * optionally be configured to connect through a proxy by setting a
+ * {@link com.relayrides.pushy.apns.proxy.ProxyHandlerFactory} via the
+ * {@link com.relayrides.pushy.apns.ApnsClient#setProxyHandlerFactory(ProxyHandlerFactory)} method. Proxy handler
+ * factory implementations are provided for HTTP, SOCKS4, and SOCKS5 proxies.</p>
  *
- * <p>Device tokens identify the device to which a push notification is being sent. Ultimately, tokens need to be
- * expressed as a string of hexadecimal characters, but a common practice is to transmit tokens as the output of
- * <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/Foundation/Classes/NSData_Class/Reference/Reference.html#//apple_ref/occ/instm/NSData/description">
- * {@code [NSData describe]}</a>. The {@link com.relayrides.pushy.apns.util.TokenUtil} class provides methods for
- * sanitizing token strings so they can be sent safely to the APNs gateway.</p>
- *
- * @author <a href="https://github.com/jchambers">Jon Chambers</a>
+ * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
  */
-package com.relayrides.pushy.apns.util;
+package com.relayrides.pushy.apns.proxy;

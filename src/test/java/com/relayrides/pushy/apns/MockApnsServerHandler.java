@@ -19,6 +19,7 @@ import io.netty.channel.ChannelPromiseAggregator;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http2.AbstractHttp2ConnectionHandlerBuilder;
 import io.netty.handler.codec.http2.DefaultHttp2Headers;
 import io.netty.handler.codec.http2.Http2ConnectionDecoder;
 import io.netty.handler.codec.http2.Http2ConnectionEncoder;
@@ -49,14 +50,14 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     private static final Pattern TOKEN_PATTERN = Pattern.compile("[0-9a-fA-F]{64}");
 
     private static final Gson gson = new GsonBuilder()
-            .registerTypeAdapter(Date.class, new DateAsSecondsSinceEpochTypeAdapter())
+            .registerTypeAdapter(Date.class, new DateAsMillisecondsSinceEpochTypeAdapter())
             .create();
 
-    public static final class Builder extends BuilderBase<MockApnsServerHandler, Builder> {
+    public static final class MockApnsServerHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<MockApnsServerHandler, MockApnsServerHandlerBuilder> {
         private MockApnsServer apnsServer;
         private Set<String> topics;
 
-        public Builder apnsServer(final MockApnsServer apnsServer) {
+        public MockApnsServerHandlerBuilder apnsServer(final MockApnsServer apnsServer) {
             this.apnsServer = apnsServer;
             return this;
         }
@@ -65,7 +66,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             return this.apnsServer;
         }
 
-        public Builder topics(final Set<String> topics) {
+        public MockApnsServerHandlerBuilder topics(final Set<String> topics) {
             this.topics = topics;
             return this;
         }
@@ -75,10 +76,20 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
 
         @Override
-        public MockApnsServerHandler build0(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder) {
-            final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, this.initialSettings(), this.apnsServer(), this.topics());
+        public MockApnsServerHandlerBuilder initialSettings(final Http2Settings initialSettings) {
+            return super.initialSettings(initialSettings);
+        }
+
+        @Override
+        public MockApnsServerHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
+            final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, initialSettings, this.apnsServer(), this.topics());
             this.frameListener(handler);
             return handler;
+        }
+
+        @Override
+        public MockApnsServerHandler build() {
+            return super.build();
         }
     }
 

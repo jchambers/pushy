@@ -16,11 +16,11 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 <dependency>
     <groupId>com.relayrides</groupId>
     <artifactId>pushy</artifactId>
-    <version>0.5.1</version>
+    <version>0.5.2</version>
 </dependency>
 ```
 
-If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.5.1/pushy-0.5.1.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
+If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.5.2/pushy-0.5.2.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
 - [netty 4.1.0](http://netty.io/)
 - [gson 2.5](https://github.com/google/gson)
@@ -143,6 +143,25 @@ Using Jetty's ALPN implementation is somewhat more complicated than using OpenSS
 
 If you know exactly which version of Java you'll be running, you can just add that specific version of `alpn-boot` to your boot class path. If your project might run on a number of different systems and if you use Maven, you can use a `<profile>` section in your `pom.xml` to choose the correct version on the fly. Please see [Pushy's own `pom.xml`](https://github.com/relayrides/pushy/blob/http2/pom.xml#L189) for an example for Java 8. At the time of this writing, [Netty's `pom.xml`](https://github.com/netty/netty/blob/4.1/pom.xml) includes profiles for both Java 7 and Java 8.
 
+## Using a proxy
+
+If you need to use a proxy for outbound connections, you may specify a [`ProxyHandlerFactory`](http://relayrides.github.io/pushy/apidocs/0.6/com/relayrides/pushy/apns/proxy/ProxyHandlerFactory.html) before attempting to connect your `ApnsClient` instance. Concrete implementations of `ProxyHandlerFactory` are provided for HTTP, SOCKS4, and SOCKS5 proxies.
+
+An example:
+
+```java
+final ApnsClient<SimpleApnsPushNotification> apnsClient =
+        new ApnsClient<SimpleApnsPushNotification>(
+                new File("/path/to/certificate.p12"), "p12-file-password");
+
+apnsClient.setProxyHandlerFactory(
+        new Socks5ProxyHandlerFactory(
+                new InetSocketAddress("my.proxy.com", 1080), "username", "password"));
+
+final Future<Void> connectFuture = apnsClient.connect(ApnsClient.DEVELOPMENT_APNS_HOST);
+connectFuture.await();
+```
+
 ## Logging
 
 Pushy uses [SLF4J](http://www.slf4j.org/) for logging. If you're not already familiar with it, SLF4J is a facade that allows users to choose which logging library to use at deploy time by adding a specific "binding" to the classpath. To avoid making the choice for you, Pushy itself does *not* depend on any SLF4J bindings; you'll need to add one on your own (either by adding it as a dependency in your own project or by installing it directly). If you have no SLF4J bindings on your classpath, you'll probably see a warning that looks something like this:
@@ -169,4 +188,4 @@ Pushy uses logging levels as follows:
 
 Pushy is available under the [MIT License](http://opensource.org/licenses/MIT).
 
-The current version of Pushy is 0.5.1. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
+The current version of Pushy is 0.5.2. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.

@@ -18,20 +18,22 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE. */
 
+package com.relayrides.pushy.apns.proxy;
+
+import com.relayrides.pushy.apns.ApnsClient;
+
+import io.netty.handler.proxy.ProxyHandler;
+
 /**
- * <p>Contains classes for working with APNs tokens and payloads.</p>
- *
- * <p>Push notification payloads are <a href="http://json.org/">JSON</a> strings that contain information about how the
- * receiving device should handle and display the notification. The
- * {@link com.relayrides.pushy.apns.util.ApnsPayloadBuilder} class is a tool to construct payloads that comply with the
- * APNs specification.</p>
- *
- * <p>Device tokens identify the device to which a push notification is being sent. Ultimately, tokens need to be
- * expressed as a string of hexadecimal characters, but a common practice is to transmit tokens as the output of
- * <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/Foundation/Classes/NSData_Class/Reference/Reference.html#//apple_ref/occ/instm/NSData/description">
- * {@code [NSData describe]}</a>. The {@link com.relayrides.pushy.apns.util.TokenUtil} class provides methods for
- * sanitizing token strings so they can be sent safely to the APNs gateway.</p>
+ * A proxy handler factory creates proxy handlers for use in an {@link ApnsClient}'s pipeline.
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */
-package com.relayrides.pushy.apns.util;
+public interface ProxyHandlerFactory {
+    /**
+     * Constructs a new proxy handler.
+     *
+     * @return a new proxy handler; must not be {@code null}
+     */
+    ProxyHandler createProxyHandler();
+}

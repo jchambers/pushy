@@ -32,14 +32,14 @@ import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 
-class DateAsSecondsSinceEpochTypeAdapter implements JsonSerializer<Date>, JsonDeserializer<Date> {
+class DateAsMillisecondsSinceEpochTypeAdapter implements JsonSerializer<Date>, JsonDeserializer<Date> {
 
     @Override
     public Date deserialize(final JsonElement json, final Type typeOfT, final JsonDeserializationContext context) throws JsonParseException {
         final Date date;
 
         if (json.isJsonPrimitive()) {
-            date = new Date(json.getAsLong() * 1000);
+            date = new Date(json.getAsLong());
         } else if (json.isJsonNull()) {
             date = null;
         } else {
@@ -54,7 +54,7 @@ class DateAsSecondsSinceEpochTypeAdapter implements JsonSerializer<Date>, JsonDe
         final JsonElement element;
 
         if (src != null) {
-            element = new JsonPrimitive(src.getTime() / 1000);
+            element = new JsonPrimitive(src.getTime());
         } else {
             element = JsonNull.INSTANCE;
         }
