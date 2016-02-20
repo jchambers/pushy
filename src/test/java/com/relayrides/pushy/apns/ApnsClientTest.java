@@ -99,12 +99,18 @@ public class ApnsClientTest {
 
         @Override
         public void handleNotificationAccepted(final long notificationId) {
-            this.acceptedNotifications.add(notificationId);
+            synchronized (this.acceptedNotifications) {
+                this.acceptedNotifications.add(notificationId);
+                this.acceptedNotifications.notifyAll();
+            }
         }
 
         @Override
         public void handleNotificationRejected(final long notificationId) {
-            this.rejectedNotifications.add(notificationId);
+            synchronized (this.rejectedNotifications) {
+                this.rejectedNotifications.add(notificationId);
+                this.rejectedNotifications.notifyAll();
+            }
         }
 
         @Override
@@ -132,6 +138,22 @@ public class ApnsClientTest {
             synchronized (this.writeFailures) {
                 while (this.writeFailures.isEmpty()) {
                     this.writeFailures.wait();
+                }
+            }
+        }
+
+        public void waitForNonZeroAcceptedNotifications() throws InterruptedException {
+            synchronized (this.acceptedNotifications) {
+                while (this.acceptedNotifications.isEmpty()) {
+                    this.acceptedNotifications.wait();
+                }
+            }
+        }
+
+        public void waitForNonZeroRejectedNotifications() throws InterruptedException {
+            synchronized (this.rejectedNotifications) {
+                while (this.rejectedNotifications.isEmpty()) {
+                    this.rejectedNotifications.wait();
                 }
             }
         }
@@ -543,6 +565,7 @@ public class ApnsClientTest {
         this.client.registerMetricsListener(metricsListener);
 
         this.testSendNotification();
+        metricsListener.waitForNonZeroAcceptedNotifications();
 
         assertEquals(1, metricsListener.getSentNotifications().size());
         assertEquals(metricsListener.getSentNotifications(), metricsListener.getAcceptedNotifications());
@@ -555,6 +578,7 @@ public class ApnsClientTest {
         this.client.registerMetricsListener(metricsListener);
 
         this.testSendNotificationWithBadTopic();
+        metricsListener.waitForNonZeroRejectedNotifications();
 
         assertEquals(1, metricsListener.getSentNotifications().size());
         assertEquals(metricsListener.getSentNotifications(), metricsListener.getRejectedNotifications());
@@ -573,8 +597,6 @@ public class ApnsClientTest {
         final Future<Void> connectionFuture = unconnectedClient.connect(HOST, PORT);
         connectionFuture.await();
 
-        // Metrics listeners may be notified of the outcome of connection attempts some time after the future actually
-        // completes
         metricsListener.waitForNonZeroSuccessfulConnections();
 
         assertTrue(connectionFuture.isSuccess());
@@ -597,8 +619,6 @@ public class ApnsClientTest {
         final Future<Void> connectionFuture = unconnectedClient.connect(HOST, PORT);
         connectionFuture.await();
 
-        // Metrics listeners may be notified of the outcome of failed attempts some time after the future actually
-        // completes
         metricsListener.waitForNonZeroFailedConnections();
 
         assertFalse(connectionFuture.isSuccess());
