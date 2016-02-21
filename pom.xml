@@ -22,12 +22,12 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-codec-http2</artifactId>
-            <version>4.1.0.CR2</version>
+            <version>${netty.version}</version>
         </dependency>
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-handler-proxy</artifactId>
-            <version>4.1.0.Beta8</version>
+            <version>${netty.version}</version>
         </dependency>
         <dependency>
             <groupId>com.google.code.gson</groupId>
@@ -80,6 +80,7 @@
         </dependency>
     </dependencies>
     <properties>
+        <netty.version>4.1.0.CR3</netty.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <jetty.alpn.path>${settings.localRepository}/org/mortbay/jetty/alpn/alpn-boot/${jetty.alpn.version}/alpn-boot-${jetty.alpn.version}.jar</jetty.alpn.path>
         <argLine.bootcp>-Xbootclasspath/p:${jetty.alpn.path}</argLine.bootcp>
