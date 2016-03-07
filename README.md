@@ -184,6 +184,12 @@ Pushy uses logging levels as follows:
 | `debug`   | Minor lifecycle events; expected exceptions                                           |
 | `trace`   | Individual IO operations                                                              |
 
+## Known issues
+
+Although we make every effort to fix bugs and work around issues outside of our control, some problems appear to be unavoidable. The issues we know about at this time are:
+
+- Pushy will work just fine in a container environment (like Tomcat), but Netty (the networking framework on which Pushy is built) creates some `ThreadLocal` instances that won't be cleaned up properly when your application shuts down. Most application containers have features designed to mitigate this kind of issue, but leaks are still possible. Users should be aware of the issue if using Pushy in an application container. See [#73](https://github.com/relayrides/pushy/issues/73) for additional discussion.
+
 ## License and status
 
 Pushy is available under the [MIT License](http://opensource.org/licenses/MIT).
