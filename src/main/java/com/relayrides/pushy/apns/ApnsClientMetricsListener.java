@@ -18,10 +18,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE. */
 
-package com.relayrides.pushy.apns.metrics;
-
-import com.relayrides.pushy.apns.ApnsClient;
-import com.relayrides.pushy.apns.ApnsPushNotification;
+package com.relayrides.pushy.apns;
 
 /**
  * <p>A metrics listener receives events from an {@link ApnsClient} that can be used to measure the performance and
@@ -34,6 +31,7 @@ import com.relayrides.pushy.apns.ApnsPushNotification;
  * @see com.relayrides.pushy.apns.ApnsClient#setMetricsListener(ApnsClientMetricsListener)
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
+ * @since 0.6
  */
 public interface ApnsClientMetricsListener {
 

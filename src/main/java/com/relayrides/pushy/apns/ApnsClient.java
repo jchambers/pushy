@@ -43,7 +43,6 @@ import javax.net.ssl.SSLException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.relayrides.pushy.apns.metrics.ApnsClientMetricsListener;
 import com.relayrides.pushy.apns.proxy.ProxyHandlerFactory;
 
 import io.netty.bootstrap.Bootstrap;
