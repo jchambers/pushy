@@ -28,7 +28,7 @@ package com.relayrides.pushy.apns.metrics;
  * <p>The information provided to metrics listeners is intended only to measure the performance and behavior of an
  * {@code ApnsClient}; metrics listeners should never be used to drive business logic.</p>
  *
- * @see com.relayrides.pushy.apns.ApnsClient#registerMetricsListener(ApnsClientMetricsListener)
+ * @see com.relayrides.pushy.apns.ApnsClient#setMetricsListener(ApnsClientMetricsListener)
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */

@@ -33,9 +33,7 @@ import java.security.UnrecoverableEntryException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
 import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -136,7 +134,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
 
-    private final List<ApnsClientMetricsListener> metricsListeners = new ArrayList<>();
+    private ApnsClientMetricsListener metricsListener;
     private final AtomicLong nextNotificationId = new AtomicLong(0);
 
     /**
@@ -450,16 +448,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
         }
     }
 
-    public void registerMetricsListener(final ApnsClientMetricsListener listener) {
-        synchronized (this.metricsListeners) {
-            this.metricsListeners.add(listener);
-        }
-    }
-
-    public boolean unregisterMetricsListener(final ApnsClientMetricsListener listener) {
-        synchronized (this.metricsListeners) {
-            return this.metricsListeners.remove(listener);
-        }
+    public void setMetricsListener(final ApnsClientMetricsListener metricsListener) {
+        this.metricsListener = metricsListener;
     }
 
     /**
@@ -522,13 +512,13 @@ public class ApnsClient<T extends ApnsPushNotification> {
                     new IllegalStateException("Client's event loop group has been shut down and cannot be restarted."));
         } else {
             synchronized (this.bootstrap) {
+                final ApnsClientMetricsListener metricsListener = this.metricsListener;
+
                 // We only want to begin a connection attempt if one is not already in progress or complete; if we already
                 // have a connection future, just return the existing promise.
                 if (this.connectionReadyPromise == null) {
-                    synchronized (this.metricsListeners) {
-                        for (final ApnsClientMetricsListener listener : this.metricsListeners) {
-                            listener.handleConnectionAttemptStarted();
-                        }
+                    if (metricsListener != null) {
+                        metricsListener.handleConnectionAttemptStarted();
                     }
 
                     final ChannelFuture connectFuture = this.bootstrap.connect(host, port);
@@ -597,18 +587,14 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                     ApnsClient.this.reconnectionPromise = future.channel().newPromise();
                                 }
 
-                                synchronized (ApnsClient.this.metricsListeners) {
-                                    for (final ApnsClientMetricsListener listener : ApnsClient.this.metricsListeners) {
-                                        listener.handleConnectionAttemptSucceeded();
-                                    }
+                                if (metricsListener != null) {
+                                    metricsListener.handleConnectionAttemptSucceeded();
                                 }
                             } else {
                                 log.info("Failed to connect.", future.cause());
 
-                                synchronized (ApnsClient.this.metricsListeners) {
-                                    for (final ApnsClientMetricsListener listener : ApnsClient.this.metricsListeners) {
-                                        listener.handleConnectionAttemptFailed();
-                                    }
+                                if (metricsListener != null) {
+                                    metricsListener.handleConnectionAttemptFailed();
                                 }
                             }
                         }
@@ -692,6 +678,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
     public Future<PushNotificationResponse<T>> sendNotification(final T notification) {
         final Future<PushNotificationResponse<T>> responseFuture;
         final long notificationId = this.nextNotificationId.getAndIncrement();
+        final ApnsClientMetricsListener metricsListener = this.metricsListener;
 
         // Instead of synchronizing here, we keep a final reference to the connection ready promise. We can get away
         // with this because we're not changing the state of the connection or its promises. Keeping a reference ensures
@@ -719,10 +706,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 @Override
                 public void operationComplete(final ChannelFuture future) throws Exception {
                     if (future.isSuccess()) {
-                        synchronized (ApnsClient.this.metricsListeners) {
-                            for (final ApnsClientMetricsListener listener : ApnsClient.this.metricsListeners) {
-                                listener.handleNotificationSent(notificationId);
-                            }
+                        if (metricsListener != null) {
+                            metricsListener.handleNotificationSent(notificationId);
                         }
                     } else {
                         log.debug("Failed to write push notification: {}", notification, future.cause());
@@ -746,27 +731,17 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
             @Override
             public void operationComplete(final Future<PushNotificationResponse<T>> future) throws Exception {
-                if (future.isSuccess()) {
-                    final PushNotificationResponse<T> response = future.getNow();
+                if (metricsListener != null) {
+                    if (future.isSuccess()) {
+                        final PushNotificationResponse<T> response = future.getNow();
 
-                    if (response.isAccepted()) {
-                        synchronized (ApnsClient.this.metricsListeners) {
-                            for (final ApnsClientMetricsListener listener : ApnsClient.this.metricsListeners) {
-                                listener.handleNotificationAccepted(notificationId);
-                            }
+                        if (response.isAccepted()) {
+                            metricsListener.handleNotificationAccepted(notificationId);
+                        } else {
+                            metricsListener.handleNotificationRejected(notificationId);
                         }
                     } else {
-                        synchronized (ApnsClient.this.metricsListeners) {
-                            for (final ApnsClientMetricsListener listener : ApnsClient.this.metricsListeners) {
-                                listener.handleNotificationRejected(notificationId);
-                            }
-                        }
-                    }
-                } else {
-                    synchronized (ApnsClient.this.metricsListeners) {
-                        for (final ApnsClientMetricsListener listener : ApnsClient.this.metricsListeners) {
-                            listener.handleWriteFailure(notificationId);
-                        }
+                        metricsListener.handleWriteFailure(notificationId);
                     }
                 }
             }

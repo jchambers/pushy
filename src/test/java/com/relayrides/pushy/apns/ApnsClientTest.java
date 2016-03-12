@@ -542,7 +542,7 @@ public class ApnsClientTest {
                 EVENT_LOOP_GROUP);
 
         final TestMetricsListener metricsListener = new TestMetricsListener();
-        unconnectedClient.registerMetricsListener(metricsListener);
+        unconnectedClient.setMetricsListener(metricsListener);
 
         final SimpleApnsPushNotification pushNotification =
                 new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), null, ApnsClientTest.generateRandomPayload());
@@ -562,7 +562,7 @@ public class ApnsClientTest {
     @Test
     public void testAcceptedNotificationMetrics() throws Exception {
         final TestMetricsListener metricsListener = new TestMetricsListener();
-        this.client.registerMetricsListener(metricsListener);
+        this.client.setMetricsListener(metricsListener);
 
         this.testSendNotification();
         metricsListener.waitForNonZeroAcceptedNotifications();
@@ -575,7 +575,7 @@ public class ApnsClientTest {
     @Test
     public void testRejectedNotificationMetrics() throws Exception {
         final TestMetricsListener metricsListener = new TestMetricsListener();
-        this.client.registerMetricsListener(metricsListener);
+        this.client.setMetricsListener(metricsListener);
 
         this.testSendNotificationWithBadTopic();
         metricsListener.waitForNonZeroRejectedNotifications();
@@ -592,7 +592,7 @@ public class ApnsClientTest {
                 EVENT_LOOP_GROUP);
 
         final TestMetricsListener metricsListener = new TestMetricsListener();
-        unconnectedClient.registerMetricsListener(metricsListener);
+        unconnectedClient.setMetricsListener(metricsListener);
 
         final Future<Void> connectionFuture = unconnectedClient.connect(HOST, PORT);
         connectionFuture.await();
@@ -612,7 +612,7 @@ public class ApnsClientTest {
                 EVENT_LOOP_GROUP);
 
         final TestMetricsListener metricsListener = new TestMetricsListener();
-        unconnectedClient.registerMetricsListener(metricsListener);
+        unconnectedClient.setMetricsListener(metricsListener);
 
         this.server.shutdown().await();
 
