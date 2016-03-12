@@ -20,6 +20,9 @@
 
 package com.relayrides.pushy.apns.metrics;
 
+import com.relayrides.pushy.apns.ApnsClient;
+import com.relayrides.pushy.apns.ApnsPushNotification;
+
 /**
  * <p>A metrics listener receives events from an {@link ApnsClient} that can be used to measure the performance and
  * behavior of the client. Although the information sent to a metrics listener is generally available by other means,
@@ -33,12 +36,12 @@ package com.relayrides.pushy.apns.metrics;
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */
 public interface ApnsClientMetricsListener {
-    void handleWriteFailure(long notificationId);
-    void handleNotificationSent(long notificationId);
-    void handleNotificationAccepted(long notificationId);
-    void handleNotificationRejected(long notificationId);
+    void handleWriteFailure(ApnsClient<? extends ApnsPushNotification> apnsClient, long notificationId);
+    void handleNotificationSent(ApnsClient<? extends ApnsPushNotification> apnsClient, long notificationId);
+    void handleNotificationAccepted(ApnsClient<? extends ApnsPushNotification> apnsClient, long notificationId);
+    void handleNotificationRejected(ApnsClient<? extends ApnsPushNotification> apnsClient, long notificationId);
 
-    void handleConnectionAttemptStarted();
-    void handleConnectionAttemptSucceeded();
-    void handleConnectionAttemptFailed();
+    void handleConnectionAttemptStarted(ApnsClient<? extends ApnsPushNotification> apnsClient);
+    void handleConnectionAttemptSucceeded(ApnsClient<? extends ApnsPushNotification> apnsClient);
+    void handleConnectionAttemptFailed(ApnsClient<? extends ApnsPushNotification> apnsClient);
 }

@@ -85,7 +85,7 @@ public class ApnsClientTest {
         private final AtomicInteger failedConnectionAttempts = new AtomicInteger(0);
 
         @Override
-        public void handleWriteFailure(final long notificationId) {
+        public void handleWriteFailure(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
             synchronized (this.writeFailures) {
                 this.writeFailures.add(notificationId);
                 this.writeFailures.notifyAll();
@@ -93,12 +93,12 @@ public class ApnsClientTest {
         }
 
         @Override
-        public void handleNotificationSent(final long notificationId) {
+        public void handleNotificationSent(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
             this.sentNotifications.add(notificationId);
         }
 
         @Override
-        public void handleNotificationAccepted(final long notificationId) {
+        public void handleNotificationAccepted(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
             synchronized (this.acceptedNotifications) {
                 this.acceptedNotifications.add(notificationId);
                 this.acceptedNotifications.notifyAll();
@@ -106,7 +106,7 @@ public class ApnsClientTest {
         }
 
         @Override
-        public void handleNotificationRejected(final long notificationId) {
+        public void handleNotificationRejected(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
             synchronized (this.rejectedNotifications) {
                 this.rejectedNotifications.add(notificationId);
                 this.rejectedNotifications.notifyAll();
@@ -114,12 +114,12 @@ public class ApnsClientTest {
         }
 
         @Override
-        public void handleConnectionAttemptStarted() {
+        public void handleConnectionAttemptStarted(final ApnsClient<? extends ApnsPushNotification> apnsClient) {
             this.connectionAttemptsStarted.getAndIncrement();
         }
 
         @Override
-        public void handleConnectionAttemptSucceeded() {
+        public void handleConnectionAttemptSucceeded(final ApnsClient<? extends ApnsPushNotification> apnsClient) {
             synchronized (this.successfulConnectionAttempts) {
                 this.successfulConnectionAttempts.getAndIncrement();
                 this.successfulConnectionAttempts.notifyAll();
@@ -127,7 +127,7 @@ public class ApnsClientTest {
         }
 
         @Override
-        public void handleConnectionAttemptFailed() {
+        public void handleConnectionAttemptFailed(final ApnsClient<? extends ApnsPushNotification> apnsClient) {
             synchronized (this.failedConnectionAttempts) {
                 this.failedConnectionAttempts.getAndIncrement();
                 this.failedConnectionAttempts.notifyAll();

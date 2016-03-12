@@ -518,7 +518,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 // have a connection future, just return the existing promise.
                 if (this.connectionReadyPromise == null) {
                     if (metricsListener != null) {
-                        metricsListener.handleConnectionAttemptStarted();
+                        metricsListener.handleConnectionAttemptStarted(this);
                     }
 
                     final ChannelFuture connectFuture = this.bootstrap.connect(host, port);
@@ -588,13 +588,13 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                 }
 
                                 if (metricsListener != null) {
-                                    metricsListener.handleConnectionAttemptSucceeded();
+                                    metricsListener.handleConnectionAttemptSucceeded(ApnsClient.this);
                                 }
                             } else {
                                 log.info("Failed to connect.", future.cause());
 
                                 if (metricsListener != null) {
-                                    metricsListener.handleConnectionAttemptFailed();
+                                    metricsListener.handleConnectionAttemptFailed(ApnsClient.this);
                                 }
                             }
                         }
@@ -707,7 +707,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 public void operationComplete(final ChannelFuture future) throws Exception {
                     if (future.isSuccess()) {
                         if (metricsListener != null) {
-                            metricsListener.handleNotificationSent(notificationId);
+                            metricsListener.handleNotificationSent(ApnsClient.this, notificationId);
                         }
                     } else {
                         log.debug("Failed to write push notification: {}", notification, future.cause());
@@ -736,12 +736,12 @@ public class ApnsClient<T extends ApnsPushNotification> {
                         final PushNotificationResponse<T> response = future.getNow();
 
                         if (response.isAccepted()) {
-                            metricsListener.handleNotificationAccepted(notificationId);
+                            metricsListener.handleNotificationAccepted(ApnsClient.this, notificationId);
                         } else {
-                            metricsListener.handleNotificationRejected(notificationId);
+                            metricsListener.handleNotificationRejected(ApnsClient.this, notificationId);
                         }
                     } else {
-                        metricsListener.handleWriteFailure(notificationId);
+                        metricsListener.handleWriteFailure(ApnsClient.this, notificationId);
                     }
                 }
             }
