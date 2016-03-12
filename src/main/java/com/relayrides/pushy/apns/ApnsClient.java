@@ -66,6 +66,7 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
+import io.netty.handler.timeout.WriteTimeoutHandler;
 import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.FailedFuture;
 import io.netty.util.concurrent.Future;
@@ -124,6 +125,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private volatile ProxyHandlerFactory proxyHandlerFactory;
     private final boolean shouldShutDownEventLoopGroup;
 
+    private long writeTimeoutMillis = DEFAULT_WRITE_TIMEOUT_MILLIS;
     private Long gracefulShutdownTimeoutMillis;
 
     private volatile ChannelPromise connectionReadyPromise;
@@ -131,6 +133,11 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private long reconnectDelay = INITIAL_RECONNECT_DELAY;
 
     private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
+
+    /**
+     * The default write timeout, in milliseconds.
+     */
+    public static final long DEFAULT_WRITE_TIMEOUT_MILLIS = 20_000;
 
     /**
      * The hostname for the production APNs gateway.
@@ -378,6 +385,10 @@ public class ApnsClient<T extends ApnsPushNotification> {
                     pipeline.addFirst(proxyHandlerFactory.createProxyHandler());
                 }
 
+                if (ApnsClient.this.writeTimeoutMillis > 0) {
+                    pipeline.addLast(new WriteTimeoutHandler(ApnsClient.this.writeTimeoutMillis, TimeUnit.MILLISECONDS));
+                }
+
                 pipeline.addLast(sslContext.newHandler(channel.alloc()));
                 pipeline.addLast(new ApplicationProtocolNegotiationHandler("") {
                     @Override
@@ -441,6 +452,25 @@ public class ApnsClient<T extends ApnsPushNotification> {
         synchronized (this.bootstrap) {
             this.bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, timeoutMillis);
         }
+    }
+
+    /**
+     * <p>Sets the write timeout for this client. If an attempt to send a notification to the APNs server takes longer
+     * than the given timeout, the connection will be closed (and automatically reconnected later). Note that write
+     * timeouts refer to the amount of time taken to <em>send</em> a notification to the server, and not the time taken
+     * by the server to process and respond to a notification.</p>
+     *
+     * <p>Write timeouts should generally be set before starting a connection attempt. Changes to a client's write
+     * timeout will take effect after the next connection attempt; changes made to an already-connected client will have
+     * no immediate effect.</p>
+     *
+     * <p>By default, clients have a write timeout of {@value ApnsClient#DEFAULT_WRITE_TIMEOUT_MILLIS} milliseconds.</p>
+     *
+     * @param writeTimeoutMillis the write timeout for this client in milliseconds; if zero, write attempts will never
+     * time out
+     */
+    public void setWriteTimeout(final long writeTimeoutMillis) {
+        this.writeTimeoutMillis = writeTimeoutMillis;
     }
 
     /**
