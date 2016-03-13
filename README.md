@@ -141,7 +141,7 @@ As an alternative to OpenSSL, you may use Jetty's ALPN implementation if you're 
 
 Using Jetty's ALPN implementation is somewhat more complicated than using OpenSSL as an SSL provider. You'll need to choose a version of `alpn-boot` specific to the version (down to the update!) of OpenJDK you're using, and then add it to your *boot* class path. [Detailed instructions](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html) are provided by Jetty.
 
-If you know exactly which version of Java you'll be running, you can just add that specific version of `alpn-boot` to your boot class path. If your project might run on a number of different systems and if you use Maven, you can use a `<profile>` section in your `pom.xml` to choose the correct version on the fly. Please see [Pushy's own `pom.xml`](https://github.com/relayrides/pushy/blob/http2/pom.xml#L189) for an example for Java 8. At the time of this writing, [Netty's `pom.xml`](https://github.com/netty/netty/blob/4.1/pom.xml) includes profiles for both Java 7 and Java 8.
+If you know exactly which version of Java you'll be running, you can just add that specific version of `alpn-boot` to your boot class path. If your project might run on a number of different systems and if you use Maven, you can use the [`jetty-alpn-agent`](https://github.com/jetty-project/jetty-alpn-agent) in your `pom.xml`, which loads the correct `alpn-boot` JAR file for the current Java version on the fly.
 
 ## Using a proxy
 
@@ -183,6 +183,12 @@ Pushy uses logging levels as follows:
 | `info`    | Important lifecycle events                                                            |
 | `debug`   | Minor lifecycle events; expected exceptions                                           |
 | `trace`   | Individual IO operations                                                              |
+
+## Known issues
+
+Although we make every effort to fix bugs and work around issues outside of our control, some problems appear to be unavoidable. The issues we know about at this time are:
+
+- Pushy will work just fine in a container environment (like Tomcat), but Netty (the networking framework on which Pushy is built) creates some `ThreadLocal` instances that won't be cleaned up properly when your application shuts down. Most application containers have features designed to mitigate this kind of issue, but leaks are still possible. Users should be aware of the issue if using Pushy in an application container. See [#73](https://github.com/relayrides/pushy/issues/73) for additional discussion.
 
 ## License and status
 
