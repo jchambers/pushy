@@ -19,6 +19,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 
 import org.junit.After;
 import org.junit.AfterClass;
@@ -44,6 +45,7 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 
 public class ApnsClientTest {
 
@@ -306,6 +308,44 @@ public class ApnsClientTest {
             assertTrue(future.isSuccess());
             assertTrue(future.get().isAccepted());
         }
+    }
+
+    @Test
+    public void testSendManyNotificationsWithListeners() throws Exception {
+        final int notificationCount = 1000;
+
+        final List<SimpleApnsPushNotification> pushNotifications = new ArrayList<>();
+
+        for (int i = 0; i < notificationCount; i++) {
+            final String token = ApnsClientTest.generateRandomToken();
+            final String payload = ApnsClientTest.generateRandomPayload();
+
+            this.server.registerToken(DEFAULT_TOPIC, token);
+            pushNotifications.add(new SimpleApnsPushNotification(token, DEFAULT_TOPIC, payload));
+        }
+
+        final CountDownLatch countDownLatch = new CountDownLatch(notificationCount);
+
+        for (final SimpleApnsPushNotification pushNotification : pushNotifications) {
+            final Future<PushNotificationResponse<SimpleApnsPushNotification>> future =
+                    this.client.sendNotification(pushNotification);
+
+            future.addListener(new GenericFutureListener<Future<PushNotificationResponse<SimpleApnsPushNotification>>>() {
+
+                @Override
+                public void operationComplete(final Future<PushNotificationResponse<SimpleApnsPushNotification>> future) throws Exception {
+                    if (future.isSuccess()) {
+                        final PushNotificationResponse<SimpleApnsPushNotification> pushNotificationResponse = future.get();
+
+                        if (pushNotificationResponse.isAccepted()) {
+                            countDownLatch.countDown();
+                        }
+                    }
+                }
+            });
+        }
+
+        countDownLatch.await();
     }
 
     @Test
