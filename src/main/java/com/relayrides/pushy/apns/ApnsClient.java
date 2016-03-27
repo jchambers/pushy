@@ -135,7 +135,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
 
-    private ApnsClientMetricsListener metricsListener;
+    private ApnsClientMetricsListener metricsListener = new NoopMetricsListener();
     private final AtomicLong nextNotificationId = new AtomicLong(0);
 
     /**
@@ -458,8 +458,14 @@ public class ApnsClient<T extends ApnsPushNotification> {
         }
     }
 
+    /**
+     * Sets the metrics listener for this client.
+     *
+     * @param metricsListener the metrics listener for this client, or {@code null} if this client should not report
+     * metrics to a listener
+     */
     public void setMetricsListener(final ApnsClientMetricsListener metricsListener) {
-        this.metricsListener = metricsListener;
+        this.metricsListener = metricsListener != null ? metricsListener : new NoopMetricsListener();
     }
 
     /**
@@ -541,14 +547,10 @@ public class ApnsClient<T extends ApnsPushNotification> {
                     new IllegalStateException("Client's event loop group has been shut down and cannot be restarted."));
         } else {
             synchronized (this.bootstrap) {
-                final ApnsClientMetricsListener metricsListener = this.metricsListener;
-
                 // We only want to begin a connection attempt if one is not already in progress or complete; if we already
                 // have a connection future, just return the existing promise.
                 if (this.connectionReadyPromise == null) {
-                    if (metricsListener != null) {
-                        metricsListener.handleConnectionAttemptStarted(this);
-                    }
+                    this.metricsListener.handleConnectionAttemptStarted(this);
 
                     final ChannelFuture connectFuture = this.bootstrap.connect(host, port);
                     this.connectionReadyPromise = connectFuture.channel().newPromise();
@@ -616,15 +618,11 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                     ApnsClient.this.reconnectionPromise = future.channel().newPromise();
                                 }
 
-                                if (metricsListener != null) {
-                                    metricsListener.handleConnectionAttemptSucceeded(ApnsClient.this);
-                                }
+                                ApnsClient.this.metricsListener.handleConnectionAttemptSucceeded(ApnsClient.this);
                             } else {
                                 log.info("Failed to connect.", future.cause());
 
-                                if (metricsListener != null) {
-                                    metricsListener.handleConnectionAttemptFailed(ApnsClient.this);
-                                }
+                                ApnsClient.this.metricsListener.handleConnectionAttemptFailed(ApnsClient.this);
                             }
                         }
                     });
@@ -707,7 +705,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
     public Future<PushNotificationResponse<T>> sendNotification(final T notification) {
         final Future<PushNotificationResponse<T>> responseFuture;
         final long notificationId = this.nextNotificationId.getAndIncrement();
-        final ApnsClientMetricsListener metricsListener = this.metricsListener;
 
         // Instead of synchronizing here, we keep a final reference to the connection ready promise. We can get away
         // with this because we're not changing the state of the connection or its promises. Keeping a reference ensures
@@ -735,9 +732,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 @Override
                 public void operationComplete(final ChannelFuture future) throws Exception {
                     if (future.isSuccess()) {
-                        if (metricsListener != null) {
-                            metricsListener.handleNotificationSent(ApnsClient.this, notificationId);
-                        }
+                        ApnsClient.this.metricsListener.handleNotificationSent(ApnsClient.this, notificationId);
                     } else {
                         log.debug("Failed to write push notification: {}", notification, future.cause());
 
@@ -760,18 +755,16 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
             @Override
             public void operationComplete(final Future<PushNotificationResponse<T>> future) throws Exception {
-                if (metricsListener != null) {
-                    if (future.isSuccess()) {
-                        final PushNotificationResponse<T> response = future.getNow();
+                if (future.isSuccess()) {
+                    final PushNotificationResponse<T> response = future.getNow();
 
-                        if (response.isAccepted()) {
-                            metricsListener.handleNotificationAccepted(ApnsClient.this, notificationId);
-                        } else {
-                            metricsListener.handleNotificationRejected(ApnsClient.this, notificationId);
-                        }
+                    if (response.isAccepted()) {
+                        ApnsClient.this.metricsListener.handleNotificationAccepted(ApnsClient.this, notificationId);
                     } else {
-                        metricsListener.handleWriteFailure(ApnsClient.this, notificationId);
+                        ApnsClient.this.metricsListener.handleNotificationRejected(ApnsClient.this, notificationId);
                     }
+                } else {
+                    ApnsClient.this.metricsListener.handleWriteFailure(ApnsClient.this, notificationId);
                 }
             }
         });
