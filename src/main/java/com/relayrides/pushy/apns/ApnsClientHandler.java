@@ -34,7 +34,6 @@ import com.google.gson.GsonBuilder;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
-import io.netty.channel.ChannelPromiseAggregator;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http2.AbstractHttp2ConnectionHandlerBuilder;
@@ -49,6 +48,7 @@ import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.timeout.WriteTimeoutException;
 import io.netty.util.AsciiString;
 import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.PromiseCombiner;
 
 class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionHandler {
 
@@ -174,7 +174,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
     @Override
     @SuppressWarnings("unchecked")
-    public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise promise) {
+    public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise writePromise) {
         try {
             // We'll catch class cast issues gracefully
             final T pushNotification = (T) message;
@@ -206,10 +206,11 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
             this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
             log.trace("Wrote payload on stream {}: {}", streamId, pushNotification.getPayload());
 
-            final ChannelPromiseAggregator promiseAggregator = new ChannelPromiseAggregator(promise);
-            promiseAggregator.add(headersPromise, dataPromise);
+            final PromiseCombiner promiseCombiner = new PromiseCombiner();
+            promiseCombiner.addAll(headersPromise, dataPromise);
+            promiseCombiner.finish(writePromise);
 
-            promise.addListener(new GenericFutureListener<ChannelPromise>() {
+            writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
 
                 @Override
                 public void operationComplete(final ChannelPromise future) throws Exception {
@@ -234,7 +235,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
         } catch (final ClassCastException e) {
             // This should never happen, but in case some foreign debris winds up in the pipeline, just pass it through.
             log.error("Unexpected object in pipeline: {}", message);
-            context.write(message, promise);
+            context.write(message, writePromise);
         }
     }
 

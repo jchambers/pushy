@@ -377,7 +377,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
             this.shouldShutDownEventLoopGroup = true;
         }
 
-        this.bootstrap.channel(getSocketChannelClass(eventLoopGroup));
+        this.bootstrap.channel(this.getSocketChannelClass(eventLoopGroup));
         this.bootstrap.option(ChannelOption.TCP_NODELAY, true);
         this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
@@ -455,7 +455,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * @return socket channel class
      * @throws IllegalArgumentException in case of null or unrecognized event loop group.
      */
-    private Class<? extends Channel> getSocketChannelClass(EventLoopGroup eventLoopGroup) {
+    private Class<? extends Channel> getSocketChannelClass(final EventLoopGroup eventLoopGroup) {
         if (eventLoopGroup == null) {
             log.warn("Asked for socket channel class to work with null event loop group, returning NioSocketChannel class.");
             return NioSocketChannel.class;
@@ -468,21 +468,21 @@ public class ApnsClient<T extends ApnsPushNotification> {
         }
 
         // epoll?
-        String className = eventLoopGroup.getClass().getName();
+        final String className = eventLoopGroup.getClass().getName();
         if (EPOLL_EVENT_LOOP_GROUP_CLASS.equals(className)) {
-            return loadSocketChannelClass(EPOLL_SOCKET_CHANNEL_CLASS);
+            return this.loadSocketChannelClass(EPOLL_SOCKET_CHANNEL_CLASS);
         }
 
         throw new IllegalArgumentException(
                 "Don't know which socket channel class to return for event loop group " + className);
     }
 
-    private Class<? extends Channel> loadSocketChannelClass(String className) {
+    private Class<? extends Channel> loadSocketChannelClass(final String className) {
         try {
-            Class<?> clazz = Class.forName(className);
+            final Class<?> clazz = Class.forName(className);
             log.debug("Loaded socket channel class: {}", clazz);
             return clazz.asSubclass(Channel.class);
-        } catch (ClassNotFoundException e) {
+        } catch (final ClassNotFoundException e) {
             throw new IllegalArgumentException(e.getMessage(), e);
         }
     }
@@ -799,7 +799,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
             if (this.connectionReadyPromise != null) {
                 final ApnsClientHandler handler =
-                this.connectionReadyPromise.channel().pipeline().get(ApnsClientHandler.class);
+                        this.connectionReadyPromise.channel().pipeline().get(ApnsClientHandler.class);
 
                 if (handler != null) {
                     handler.gracefulShutdownTimeoutMillis(timeoutMillis);
