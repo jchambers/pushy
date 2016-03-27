@@ -28,6 +28,9 @@ public class ExampleApp {
         final ApnsClient<SimpleApnsPushNotification> apnsClient = new ApnsClient<>(
                 new File("/path/to/certificate.p12"), "p12-file-password");
 
+        // Optional: we can listen for metrics by setting a metrics listener.
+        apnsClient.setMetricsListener(new NoopMetricsListener());
+
         // Optional: we can set a proxy handler factory if we must use a proxy.
         apnsClient.setProxyHandlerFactory(
                 new Socks5ProxyHandlerFactory(
