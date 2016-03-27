@@ -15,7 +15,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
-import io.netty.channel.ChannelPromiseAggregator;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -30,6 +29,7 @@ import io.netty.handler.codec.http2.Http2FrameListener;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.util.AsciiString;
+import io.netty.util.concurrent.PromiseCombiner;
 
 class MockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
 
@@ -328,10 +328,10 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     }
 
     @Override
-    public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise promise) throws Exception {
+    public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise writePromise) throws Exception {
         if (message instanceof AcceptNotificationResponse) {
             final AcceptNotificationResponse acceptNotificationResponse = (AcceptNotificationResponse) message;
-            this.encoder().writeHeaders(context, acceptNotificationResponse.getStreamId(), SUCCESS_HEADERS, 0, true, promise);
+            this.encoder().writeHeaders(context, acceptNotificationResponse.getStreamId(), SUCCESS_HEADERS, 0, true, writePromise);
         } else if (message instanceof RejectNotificationResponse) {
             final RejectNotificationResponse rejectNotificationResponse = (RejectNotificationResponse) message;
 
@@ -358,10 +358,11 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             final ChannelPromise dataPromise = context.newPromise();
             this.encoder().writeData(context, rejectNotificationResponse.getStreamId(), Unpooled.wrappedBuffer(payloadBytes), 0, true, dataPromise);
 
-            final ChannelPromiseAggregator promiseAggregator = new ChannelPromiseAggregator(promise);
-            promiseAggregator.add(headersPromise, dataPromise);
+            final PromiseCombiner promiseCombiner = new PromiseCombiner();
+            promiseCombiner.addAll(headersPromise, dataPromise);
+            promiseCombiner.finish(writePromise);
         } else {
-            context.write(message, promise);
+            context.write(message, writePromise);
         }
     }
 }
