@@ -789,7 +789,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                         // This will always be called from inside the channel's event loop, so we don't have to worry
                         // about synchronization.
                         ApnsClient.this.responsePromises.remove(notification);
-                        responsePromise.setFailure(future.cause());
+                        responsePromise.tryFailure(future.cause());
                     }
                 }
             });
