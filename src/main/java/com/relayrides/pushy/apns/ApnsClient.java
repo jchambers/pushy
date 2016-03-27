@@ -745,9 +745,14 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
                 @Override
                 public void run() {
-                    // We want to do this inside the channel's event loop so we can be sure that only one thread is
-                    // modifying responsePromises.
-                    ApnsClient.this.responsePromises.put(notification, responsePromise);
+                    if (ApnsClient.this.responsePromises.containsKey(notification)) {
+                        responsePromise.setFailure(new IllegalStateException(
+                                "The given notification has already been sent and not yet resolved."));
+                    } else {
+                        // We want to do this inside the channel's event loop so we can be sure that only one thread is
+                        // modifying responsePromises.
+                        ApnsClient.this.responsePromises.put(notification, responsePromise);
+                    }
                 }
             });
 

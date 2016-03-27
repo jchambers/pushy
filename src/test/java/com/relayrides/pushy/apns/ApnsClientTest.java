@@ -348,6 +348,34 @@ public class ApnsClientTest {
         countDownLatch.await();
     }
 
+    // See https://github.com/relayrides/pushy/issues/256
+    @Test
+    public void testRepeatedlySendSameNotification() throws Exception {
+        final int notificationCount = 1000;
+
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(
+                ApnsClientTest.generateRandomToken(), DEFAULT_TOPIC, ApnsClientTest.generateRandomPayload());
+
+        final CountDownLatch countDownLatch = new CountDownLatch(notificationCount);
+
+        for (int i = 0; i < notificationCount; i++) {
+            final Future<PushNotificationResponse<SimpleApnsPushNotification>> future =
+                    this.client.sendNotification(pushNotification);
+
+            future.addListener(new GenericFutureListener<Future<PushNotificationResponse<SimpleApnsPushNotification>>>() {
+
+                @Override
+                public void operationComplete(final Future<PushNotificationResponse<SimpleApnsPushNotification>> future) throws Exception {
+                    // All we're concerned with here is that the client told us SOMETHING about what happened to the
+                    // notification
+                    countDownLatch.countDown();
+                }
+            });
+        }
+
+        countDownLatch.await();
+    }
+
     @Test
     public void testSendNotificationWithBadTopic() throws Exception {
         final String testToken = ApnsClientTest.generateRandomToken();
