@@ -40,6 +40,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import javax.net.ssl.SSLException;
 
+import io.netty.channel.Channel;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.oio.OioEventLoopGroup;
+import io.netty.channel.socket.oio.OioSocketChannel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -88,7 +92,7 @@ import io.netty.util.concurrent.SucceededFuture;
  *
  * <p>To construct a client, callers will need to provide the certificate provisioned by Apple and its accompanying
  * private key. The certificate and key will be used to authenticate the client and identify the topics to which it can
- * send notifications. Callers may optionally specify an {@link NioEventLoopGroup} when constructing a new client. If no
+ * send notifications. Callers may optionally specify an {@link EventLoopGroup} when constructing a new client. If no
  * event loop group is specified, clients will create and manage their own single-thread event loop group. If many
  * clients are operating in parallel, specifying a shared event loop group serves as a mechanism to keep the total
  * number of threads in check.</p>
@@ -121,6 +125,8 @@ import io.netty.util.concurrent.SucceededFuture;
  * @param <T> the type of notification handled by the client
  */
 public class ApnsClient<T extends ApnsPushNotification> {
+    private static final String EPOLL_EVENT_LOOP_GROUP_CLASS = "io.netty.channel.epoll.EpollEventLoopGroup";
+    private static final String EPOLL_SOCKET_CHANNEL_CLASS = "io.netty.channel.epoll.EpollSocketChannel";
 
     private final Bootstrap bootstrap;
     private volatile ProxyHandlerFactory proxyHandlerFactory;
@@ -216,7 +222,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * @throws FileNotFoundException if the given PKCS#12 file could not be found
      * @throws IOException if any IO problem occurs while attempting to read the given PKCS#12 file
      */
-    public ApnsClient(final File p12File, final String password, final NioEventLoopGroup eventLoopGroup) throws SSLException, FileNotFoundException, IOException {
+    public ApnsClient(final File p12File, final String password, final EventLoopGroup eventLoopGroup) throws SSLException, FileNotFoundException, IOException {
         this(ApnsClient.getSslContextWithP12File(p12File, password), eventLoopGroup);
     }
 
@@ -258,7 +264,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * @throws SSLException if the given PKCS#12 data could not be loaded or if any other SSL-related problem arises
      * when constructing the context
      */
-    public ApnsClient(final InputStream p12InputStream, final String password, final NioEventLoopGroup eventLoopGroup) throws SSLException {
+    public ApnsClient(final InputStream p12InputStream, final String password, final EventLoopGroup eventLoopGroup) throws SSLException {
         this(ApnsClient.getSslContextWithP12InputStream(p12InputStream, password), eventLoopGroup);
     }
 
@@ -300,7 +306,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * @throws SSLException if the given key or certificate could not be loaded or if any other SSL-related problem
      * arises when constructing the context
      */
-    public ApnsClient(final X509Certificate certificate, final PrivateKey privateKey, final String privateKeyPassword, final NioEventLoopGroup eventLoopGroup) throws SSLException {
+    public ApnsClient(final X509Certificate certificate, final PrivateKey privateKey, final String privateKeyPassword, final EventLoopGroup eventLoopGroup) throws SSLException {
         this(ApnsClient.getSslContextWithCertificateAndPrivateKey(certificate, privateKey, privateKeyPassword), eventLoopGroup);
     }
 
@@ -364,7 +370,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                 ApplicationProtocolNames.HTTP_2));
     }
 
-    protected ApnsClient(final SslContext sslContext, final NioEventLoopGroup eventLoopGroup) {
+    protected ApnsClient(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
         this.bootstrap = new Bootstrap();
 
         if (eventLoopGroup != null) {
@@ -375,7 +381,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
             this.shouldShutDownEventLoopGroup = true;
         }
 
-        this.bootstrap.channel(NioSocketChannel.class);
+        this.bootstrap.channel(getSocketChannelClass(eventLoopGroup));
         this.bootstrap.option(ChannelOption.TCP_NODELAY, true);
         this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
@@ -444,6 +450,45 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 });
             }
         });
+    }
+
+    /**
+     * Returns socket channel class suitable for specified event loop group.
+     *
+     * @param eventLoopGroup
+     * @return socket channel class
+     * @throws IllegalArgumentException in case of null or unrecognized event loop group.
+     */
+    private Class<? extends Channel> getSocketChannelClass(EventLoopGroup eventLoopGroup) {
+        if (eventLoopGroup == null) {
+            log.warn("Asked for socket channel class to work with null event loop group, returning NioSocketChannel class.");
+            return NioSocketChannel.class;
+        }
+
+        if (eventLoopGroup instanceof NioEventLoopGroup) {
+            return NioSocketChannel.class;
+        } else if (eventLoopGroup instanceof OioEventLoopGroup) {
+            return OioSocketChannel.class;
+        }
+
+        // epoll?
+        String className = eventLoopGroup.getClass().getName();
+        if (EPOLL_EVENT_LOOP_GROUP_CLASS.equals(className)) {
+            return loadSocketChannelClass(EPOLL_SOCKET_CHANNEL_CLASS);
+        }
+
+        throw new IllegalArgumentException(
+                "Don't know which socket channel class to return for event loop group " + className);
+    }
+
+    private Class<? extends Channel> loadSocketChannelClass(String className) {
+        try {
+            Class<?> clazz = Class.forName(className);
+            log.debug("Loaded socket channel class: {}", clazz);
+            return clazz.asSubclass(Channel.class);
+        } catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException(e.getMessage(), e);
+        }
     }
 
     /**
@@ -794,7 +839,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
             this.gracefulShutdownTimeoutMillis = timeoutMillis;
 
             if (this.connectionReadyPromise != null) {
-                @SuppressWarnings("rawtypes")
                 final ApnsClientHandler handler =
                 this.connectionReadyPromise.channel().pipeline().get(ApnsClientHandler.class);
 
@@ -817,7 +861,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @return a {@code Future} that will be marked as complete when the connection has been closed
      */
-    @SuppressWarnings({ "unchecked", "rawtypes" })
     public Future<Void> disconnect() {
         log.info("Disconnecting.");
         final Future<Void> disconnectFuture;
