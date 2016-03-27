@@ -1,6 +1,6 @@
 package com.relayrides.pushy.apns;
 
-import java.io.File;
+import java.io.InputStream;
 import java.security.KeyStore.PrivateKeyEntry;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
@@ -53,17 +53,14 @@ public class MockApnsServer {
 
     public MockApnsServer(final EventLoopGroup eventLoopGroup) {
         final SslContext sslContext;
-        try {
-            // TODO Load this as an input stream when Netty supports it
-            final File caCertificateFile = new File(MockApnsServer.class.getResource(CA_CERTIFICATE_FILENAME).toURI());
-
+        try (final InputStream caInputStream = this.getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME)) {
             final PrivateKeyEntry privateKeyEntry = P12Util.getPrivateKeyEntryFromP12InputStream(
                     MockApnsServer.class.getResourceAsStream(SERVER_KEYSTORE), SERVER_KEYSTORE_PASSWORD);
 
             sslContext = SslContextBuilder.forServer(privateKeyEntry.getPrivateKey(), (X509Certificate) privateKeyEntry.getCertificate())
                     .sslProvider(OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK)
                     .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-                    .trustManager(caCertificateFile)
+                    .trustManager(caInputStream)
                     .clientAuth(ClientAuth.REQUIRE)
                     .applicationProtocolConfig(new ApplicationProtocolConfig(
                             Protocol.ALPN,
