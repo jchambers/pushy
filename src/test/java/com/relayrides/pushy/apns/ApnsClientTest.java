@@ -19,6 +19,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CountDownLatch;
 
 import org.junit.After;
@@ -72,6 +73,136 @@ public class ApnsClientTest {
 
     @Rule
     public Timeout globalTimeout = new Timeout(30000);
+
+    private static class TestMetricsListener implements ApnsClientMetricsListener {
+
+        private final List<Long> writeFailures = new ArrayList<>();
+        private final List<Long> sentNotifications = new ArrayList<>();
+        private final List<Long> acceptedNotifications = new ArrayList<>();
+        private final List<Long> rejectedNotifications = new ArrayList<>();
+
+        private final AtomicInteger connectionAttemptsStarted = new AtomicInteger(0);
+        private final AtomicInteger successfulConnectionAttempts = new AtomicInteger(0);
+        private final AtomicInteger failedConnectionAttempts = new AtomicInteger(0);
+
+        @Override
+        public void handleWriteFailure(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
+            synchronized (this.writeFailures) {
+                this.writeFailures.add(notificationId);
+                this.writeFailures.notifyAll();
+            }
+        }
+
+        @Override
+        public void handleNotificationSent(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
+            this.sentNotifications.add(notificationId);
+        }
+
+        @Override
+        public void handleNotificationAccepted(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
+            synchronized (this.acceptedNotifications) {
+                this.acceptedNotifications.add(notificationId);
+                this.acceptedNotifications.notifyAll();
+            }
+        }
+
+        @Override
+        public void handleNotificationRejected(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
+            synchronized (this.rejectedNotifications) {
+                this.rejectedNotifications.add(notificationId);
+                this.rejectedNotifications.notifyAll();
+            }
+        }
+
+        @Override
+        public void handleConnectionAttemptStarted(final ApnsClient<? extends ApnsPushNotification> apnsClient) {
+            this.connectionAttemptsStarted.getAndIncrement();
+        }
+
+        @Override
+        public void handleConnectionAttemptSucceeded(final ApnsClient<? extends ApnsPushNotification> apnsClient) {
+            synchronized (this.successfulConnectionAttempts) {
+                this.successfulConnectionAttempts.getAndIncrement();
+                this.successfulConnectionAttempts.notifyAll();
+            }
+        }
+
+        @Override
+        public void handleConnectionAttemptFailed(final ApnsClient<? extends ApnsPushNotification> apnsClient) {
+            synchronized (this.failedConnectionAttempts) {
+                this.failedConnectionAttempts.getAndIncrement();
+                this.failedConnectionAttempts.notifyAll();
+            }
+        }
+
+        public void waitForNonZeroWriteFailures() throws InterruptedException {
+            synchronized (this.writeFailures) {
+                while (this.writeFailures.isEmpty()) {
+                    this.writeFailures.wait();
+                }
+            }
+        }
+
+        public void waitForNonZeroAcceptedNotifications() throws InterruptedException {
+            synchronized (this.acceptedNotifications) {
+                while (this.acceptedNotifications.isEmpty()) {
+                    this.acceptedNotifications.wait();
+                }
+            }
+        }
+
+        public void waitForNonZeroRejectedNotifications() throws InterruptedException {
+            synchronized (this.rejectedNotifications) {
+                while (this.rejectedNotifications.isEmpty()) {
+                    this.rejectedNotifications.wait();
+                }
+            }
+        }
+
+        public void waitForNonZeroSuccessfulConnections() throws InterruptedException {
+            synchronized (this.successfulConnectionAttempts) {
+                while (this.successfulConnectionAttempts.get() == 0) {
+                    this.successfulConnectionAttempts.wait();
+                }
+            }
+        }
+
+        public void waitForNonZeroFailedConnections() throws InterruptedException {
+            synchronized (this.failedConnectionAttempts) {
+                while (this.failedConnectionAttempts.get() == 0) {
+                    this.failedConnectionAttempts.wait();
+                }
+            }
+        }
+
+        public List<Long> getWriteFailures() {
+            return this.writeFailures;
+        }
+
+        public List<Long> getSentNotifications() {
+            return this.sentNotifications;
+        }
+
+        public List<Long> getAcceptedNotifications() {
+            return this.acceptedNotifications;
+        }
+
+        public List<Long> getRejectedNotifications() {
+            return this.rejectedNotifications;
+        }
+
+        public AtomicInteger getConnectionAttemptsStarted() {
+            return this.connectionAttemptsStarted;
+        }
+
+        public AtomicInteger getSuccessfulConnectionAttempts() {
+            return this.successfulConnectionAttempts;
+        }
+
+        public AtomicInteger getFailedConnectionAttempts() {
+            return this.failedConnectionAttempts;
+        }
+    }
 
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {
@@ -469,6 +600,98 @@ public class ApnsClientTest {
         assertFalse(response.isAccepted());
         assertEquals("Unregistered", response.getRejectionReason());
         assertEquals(now, response.getTokenInvalidationTimestamp());
+    }
+
+    @Test
+    public void testWriteFailureMetrics() throws Exception {
+        final ApnsClient<SimpleApnsPushNotification> unconnectedClient = new ApnsClient<>(
+                ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME, KEYSTORE_PASSWORD),
+                EVENT_LOOP_GROUP);
+
+        final TestMetricsListener metricsListener = new TestMetricsListener();
+        unconnectedClient.setMetricsListener(metricsListener);
+
+        final SimpleApnsPushNotification pushNotification =
+                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), null, ApnsClientTest.generateRandomPayload());
+
+        final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
+                unconnectedClient.sendNotification(pushNotification);
+
+        sendFuture.await();
+
+        // Metrics listeners may be notified of write failures some time after the future actually fails
+        metricsListener.waitForNonZeroWriteFailures();
+
+        assertFalse(sendFuture.isSuccess());
+        assertEquals(1, metricsListener.getWriteFailures().size());
+    }
+
+    @Test
+    public void testAcceptedNotificationMetrics() throws Exception {
+        final TestMetricsListener metricsListener = new TestMetricsListener();
+        this.client.setMetricsListener(metricsListener);
+
+        this.testSendNotification();
+        metricsListener.waitForNonZeroAcceptedNotifications();
+
+        assertEquals(1, metricsListener.getSentNotifications().size());
+        assertEquals(metricsListener.getSentNotifications(), metricsListener.getAcceptedNotifications());
+        assertTrue(metricsListener.getRejectedNotifications().isEmpty());
+    }
+
+    @Test
+    public void testRejectedNotificationMetrics() throws Exception {
+        final TestMetricsListener metricsListener = new TestMetricsListener();
+        this.client.setMetricsListener(metricsListener);
+
+        this.testSendNotificationWithBadTopic();
+        metricsListener.waitForNonZeroRejectedNotifications();
+
+        assertEquals(1, metricsListener.getSentNotifications().size());
+        assertEquals(metricsListener.getSentNotifications(), metricsListener.getRejectedNotifications());
+        assertTrue(metricsListener.getAcceptedNotifications().isEmpty());
+    }
+
+    @Test
+    public void testSuccessfulConnectionMetrics() throws Exception {
+        final ApnsClient<SimpleApnsPushNotification> unconnectedClient = new ApnsClient<>(
+                ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME, KEYSTORE_PASSWORD),
+                EVENT_LOOP_GROUP);
+
+        final TestMetricsListener metricsListener = new TestMetricsListener();
+        unconnectedClient.setMetricsListener(metricsListener);
+
+        final Future<Void> connectionFuture = unconnectedClient.connect(HOST, PORT);
+        connectionFuture.await();
+
+        metricsListener.waitForNonZeroSuccessfulConnections();
+
+        assertTrue(connectionFuture.isSuccess());
+        assertEquals(1, metricsListener.getConnectionAttemptsStarted().get());
+        assertEquals(1, metricsListener.getSuccessfulConnectionAttempts().get());
+        assertEquals(0, metricsListener.getFailedConnectionAttempts().get());
+    }
+
+    @Test
+    public void testFailedConnectionMetrics() throws Exception {
+        final ApnsClient<SimpleApnsPushNotification> unconnectedClient = new ApnsClient<>(
+                ApnsClientTest.getSslContextForTestClient(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME, KEYSTORE_PASSWORD),
+                EVENT_LOOP_GROUP);
+
+        final TestMetricsListener metricsListener = new TestMetricsListener();
+        unconnectedClient.setMetricsListener(metricsListener);
+
+        this.server.shutdown().await();
+
+        final Future<Void> connectionFuture = unconnectedClient.connect(HOST, PORT);
+        connectionFuture.await();
+
+        metricsListener.waitForNonZeroFailedConnections();
+
+        assertFalse(connectionFuture.isSuccess());
+        assertEquals(1, metricsListener.getConnectionAttemptsStarted().get());
+        assertEquals(1, metricsListener.getFailedConnectionAttempts().get());
+        assertEquals(0, metricsListener.getSuccessfulConnectionAttempts().get());
     }
 
     private static SslContext getSslContextForTestClient(final String p12Filename, final String password) throws NoSuchAlgorithmException, KeyStoreException, IOException, CertificateException, UnrecoverableEntryException {

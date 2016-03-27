@@ -143,6 +143,16 @@ Using Jetty's ALPN implementation is somewhat more complicated than using OpenSS
 
 If you know exactly which version of Java you'll be running, you can just add that specific version of `alpn-boot` to your boot class path. If your project might run on a number of different systems and if you use Maven, you can use the [`jetty-alpn-agent`](https://github.com/jetty-project/jetty-alpn-agent) in your `pom.xml`, which loads the correct `alpn-boot` JAR file for the current Java version on the fly.
 
+## Metrics
+
+Pushy includes an interface for monitoring metrics that provide insight into clients' behavior and performance. You can write your own implementation of the `ApnsClientMetricsListener` interface to record and report metrics. To begin receiving metrics, use the client's `setMetricsListener` method:
+
+```java
+apnsClient.setMetricsListener(new MyCustomMetricsListener());
+```
+
+Please note that the metric-handling methods in your listener implementation should *never* call blocking code. It's appropriate to increment counters directly in the handler methods, but calls to databases or remote monitoring endpoints should be dispatched to separate threads.
+
 ## Using a proxy
 
 If you need to use a proxy for outbound connections, you may specify a [`ProxyHandlerFactory`](http://relayrides.github.io/pushy/apidocs/0.6/com/relayrides/pushy/apns/proxy/ProxyHandlerFactory.html) before attempting to connect your `ApnsClient` instance. Concrete implementations of `ProxyHandlerFactory` are provided for HTTP, SOCKS4, and SOCKS5 proxies.

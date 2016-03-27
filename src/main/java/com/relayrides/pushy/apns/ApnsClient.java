@@ -36,6 +36,7 @@ import java.security.cert.X509Certificate;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.net.ssl.SSLException;
 
@@ -139,6 +140,9 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private long reconnectDelay = INITIAL_RECONNECT_DELAY;
 
     private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
+
+    private ApnsClientMetricsListener metricsListener = new NoopMetricsListener();
+    private final AtomicLong nextNotificationId = new AtomicLong(0);
 
     /**
      * The default write timeout, in milliseconds.
@@ -500,6 +504,16 @@ public class ApnsClient<T extends ApnsPushNotification> {
     }
 
     /**
+     * Sets the metrics listener for this client.
+     *
+     * @param metricsListener the metrics listener for this client, or {@code null} if this client should not report
+     * metrics to a listener
+     */
+    public void setMetricsListener(final ApnsClientMetricsListener metricsListener) {
+        this.metricsListener = metricsListener != null ? metricsListener : new NoopMetricsListener();
+    }
+
+    /**
      * <p>Sets the write timeout for this client. If an attempt to send a notification to the APNs server takes longer
      * than the given timeout, the connection will be closed (and automatically reconnected later). Note that write
      * timeouts refer to the amount of time taken to <em>send</em> a notification to the server, and not the time taken
@@ -581,6 +595,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 // We only want to begin a connection attempt if one is not already in progress or complete; if we already
                 // have a connection future, just return the existing promise.
                 if (this.connectionReadyPromise == null) {
+                    this.metricsListener.handleConnectionAttemptStarted(this);
+
                     final ChannelFuture connectFuture = this.bootstrap.connect(host, port);
                     this.connectionReadyPromise = connectFuture.channel().newPromise();
 
@@ -646,10 +662,15 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                     ApnsClient.this.reconnectDelay = INITIAL_RECONNECT_DELAY;
                                     ApnsClient.this.reconnectionPromise = future.channel().newPromise();
                                 }
+
+                                ApnsClient.this.metricsListener.handleConnectionAttemptSucceeded(ApnsClient.this);
                             } else {
                                 log.info("Failed to connect.", future.cause());
+
+                                ApnsClient.this.metricsListener.handleConnectionAttemptFailed(ApnsClient.this);
                             }
-                        }});
+                        }
+                    });
                 }
 
                 connectionReadyFuture = this.connectionReadyPromise;
@@ -727,8 +748,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * APNs gateway
      */
     public Future<PushNotificationResponse<T>> sendNotification(final T notification) {
-
         final Future<PushNotificationResponse<T>> responseFuture;
+        final long notificationId = this.nextNotificationId.getAndIncrement();
 
         // Instead of synchronizing here, we keep a final reference to the connection ready promise. We can get away
         // with this because we're not changing the state of the connection or its promises. Keeping a reference ensures
@@ -760,7 +781,9 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
                 @Override
                 public void operationComplete(final ChannelFuture future) throws Exception {
-                    if (!future.isSuccess()) {
+                    if (future.isSuccess()) {
+                        ApnsClient.this.metricsListener.handleNotificationSent(ApnsClient.this, notificationId);
+                    } else {
                         log.debug("Failed to write push notification: {}", notification, future.cause());
 
                         // This will always be called from inside the channel's event loop, so we don't have to worry
@@ -777,6 +800,24 @@ public class ApnsClient<T extends ApnsPushNotification> {
             responseFuture = new FailedFuture<>(
                     GlobalEventExecutor.INSTANCE, NOT_CONNECTED_EXCEPTION);
         }
+
+        responseFuture.addListener(new GenericFutureListener<Future<PushNotificationResponse<T>>>() {
+
+            @Override
+            public void operationComplete(final Future<PushNotificationResponse<T>> future) throws Exception {
+                if (future.isSuccess()) {
+                    final PushNotificationResponse<T> response = future.getNow();
+
+                    if (response.isAccepted()) {
+                        ApnsClient.this.metricsListener.handleNotificationAccepted(ApnsClient.this, notificationId);
+                    } else {
+                        ApnsClient.this.metricsListener.handleNotificationRejected(ApnsClient.this, notificationId);
+                    }
+                } else {
+                    ApnsClient.this.metricsListener.handleWriteFailure(ApnsClient.this, notificationId);
+                }
+            }
+        });
 
         return responseFuture;
     }
