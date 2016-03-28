@@ -8,6 +8,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableEntryException;
 import java.security.cert.CertificateException;
+import java.util.Enumeration;
 
 class P12Util {
 
@@ -16,17 +17,35 @@ class P12Util {
 
         keyStore.load(p12InputStream, password != null ? password.toCharArray() : null);
 
-        if (keyStore.size() != 1) {
-            throw new KeyStoreException("Key store must contain exactly one entry, and that entry must be a private key entry.");
+        final Enumeration<String> aliases = keyStore.aliases();
+        KeyStore.PrivateKeyEntry privateKeyEntry = null;
+
+        final KeyStore.PasswordProtection passwordProtection = new KeyStore.PasswordProtection(password.toCharArray());
+
+        while (aliases.hasMoreElements()) {
+            final String alias = aliases.nextElement();
+
+            KeyStore.Entry entry;
+
+            try {
+                entry = keyStore.getEntry(alias, passwordProtection);
+            } catch (final UnsupportedOperationException e) {
+                entry = keyStore.getEntry(alias, null);
+            }
+
+            if (entry instanceof KeyStore.PrivateKeyEntry) {
+                if (privateKeyEntry != null) {
+                    throw new KeyStoreException("Key store must contain exactly one private key entry.");
+                }
+
+                privateKeyEntry = (PrivateKeyEntry) entry;
+            }
         }
 
-        final String alias = keyStore.aliases().nextElement();
-        final KeyStore.Entry entry = keyStore.getEntry(alias, password != null ? new KeyStore.PasswordProtection(password.toCharArray()) : null);
-
-        if (!(entry instanceof KeyStore.PrivateKeyEntry)) {
-            throw new KeyStoreException("Key store must contain exactly one entry, and that entry must be a private key entry.");
+        if (privateKeyEntry == null) {
+            throw new KeyStoreException("Key store must contain exactly one private key entry.");
         }
 
-        return (PrivateKeyEntry) entry;
+        return privateKeyEntry;
     }
 }
