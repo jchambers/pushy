@@ -28,6 +28,8 @@ import java.util.Date;
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
  * @param <T> the type of push notification
+ *
+ * @since 0.5
  */
 public interface PushNotificationResponse<T extends ApnsPushNotification> {
 
@@ -35,6 +37,8 @@ public interface PushNotificationResponse<T extends ApnsPushNotification> {
      * Returns the original push notification sent to the APNs gateway.
      *
      * @return the original push notification sent to the APNs gateway
+     *
+     * @since 0.5
      */
     T getPushNotification();
 
@@ -42,6 +46,8 @@ public interface PushNotificationResponse<T extends ApnsPushNotification> {
      * Indicates whether the push notification was accepted by the APNs gateway.
      *
      * @return {@code true} if the push notification was accepted or {@code false} if it was rejected
+     *
+     * @since 0.5
      */
     boolean isAccepted();
 
@@ -51,6 +57,8 @@ public interface PushNotificationResponse<T extends ApnsPushNotification> {
      *
      * @return the reason for rejection reported by the APNs gateway, or {@code null} if the notification was not
      * rejected
+     *
+     * @since 0.5
      */
     String getRejectionReason();
 
@@ -62,6 +70,8 @@ public interface PushNotificationResponse<T extends ApnsPushNotification> {
      *
      * @return the time at which the token for the sent push notification became invalid, or {@code null} if the push
      * notification was either accepted or rejected for a reason other than token invalidation
+     *
+     * @since 0.5
      */
     Date getTokenInvalidationTimestamp();
 }

@@ -28,12 +28,16 @@ import io.netty.handler.proxy.ProxyHandler;
  * A proxy handler factory creates proxy handlers for use in an {@link ApnsClient}'s pipeline.
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
+ *
+ * @since 0.6
  */
 public interface ProxyHandlerFactory {
     /**
      * Constructs a new proxy handler.
      *
      * @return a new proxy handler; must not be {@code null}
+     *
+     * @since 0.6
      */
     ProxyHandler createProxyHandler();
 }

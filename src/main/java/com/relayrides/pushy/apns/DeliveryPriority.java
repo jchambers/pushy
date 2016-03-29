@@ -30,6 +30,8 @@ package com.relayrides.pushy.apns;
  *      Local and Remote Notification Programming Guide - APNs Provider API - Notification API - Request</a>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
+ *
+ * @since 0.4
  */
 public enum DeliveryPriority {
 

@@ -29,6 +29,8 @@ import io.netty.handler.proxy.Socks4ProxyHandler;
  * A concrete {@link ProxyHandlerFactory} implementation that creates {@link Socks4ProxyHandler} instances.
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
+ *
+ * @since 0.6
  */
 public class Socks4ProxyHandlerFactory implements ProxyHandlerFactory {
 
@@ -40,6 +42,8 @@ public class Socks4ProxyHandlerFactory implements ProxyHandlerFactory {
      * address and that will not perform authentication.
      *
      * @param proxyAddress the address of the SOCKS4 proxy server
+     *
+     * @since 0.6
      */
     public Socks4ProxyHandlerFactory(final SocketAddress proxyAddress) {
         this(proxyAddress, null);
@@ -51,6 +55,8 @@ public class Socks4ProxyHandlerFactory implements ProxyHandlerFactory {
      *
      * @param proxyAddress the address of the SOCKS4 proxy server
      * @param username the username to use when connecting to the given proxy server
+     *
+     * @since 0.6
      */
     public Socks4ProxyHandlerFactory(final SocketAddress proxyAddress, final String username) {
         this.proxyAddress = proxyAddress;

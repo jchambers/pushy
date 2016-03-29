@@ -31,6 +31,7 @@ package com.relayrides.pushy.apns;
  * @see com.relayrides.pushy.apns.ApnsClient#setMetricsListener(ApnsClientMetricsListener)
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
+ *
  * @since 0.6
  */
 public interface ApnsClientMetricsListener {
@@ -44,6 +45,8 @@ public interface ApnsClientMetricsListener {
      * @param apnsClient the client that sent the notification
      * @param notificationId an opaque identifier for the push notification that can be used to correlate this event
      * with other events related to the same notification
+     *
+     * @since 0.6
      */
     void handleWriteFailure(ApnsClient<? extends ApnsPushNotification> apnsClient, long notificationId);
 
@@ -53,6 +56,8 @@ public interface ApnsClientMetricsListener {
      * @param apnsClient the client that sent the notification
      * @param notificationId an opaque identifier for the push notification that can be used to correlate this event
      * with other events related to the same notification
+     *
+     * @since 0.6
      */
     void handleNotificationSent(ApnsClient<? extends ApnsPushNotification> apnsClient, long notificationId);
 
@@ -62,6 +67,8 @@ public interface ApnsClientMetricsListener {
      * @param apnsClient the client that sent the notification
      * @param notificationId an opaque identifier for the push notification that can be used to correlate this event
      * with other events related to the same notification
+     *
+     * @since 0.6
      */
     void handleNotificationAccepted(ApnsClient<? extends ApnsPushNotification> apnsClient, long notificationId);
 
@@ -71,6 +78,8 @@ public interface ApnsClientMetricsListener {
      * @param apnsClient the client that sent the notification
      * @param notificationId an opaque identifier for the push notification that can be used to correlate this event
      * with other events related to the same notification
+     *
+     * @since 0.6
      */
     void handleNotificationRejected(ApnsClient<? extends ApnsPushNotification> apnsClient, long notificationId);
 
@@ -80,6 +89,8 @@ public interface ApnsClientMetricsListener {
      * started" events will be fired until the current attempt has resolved.
      *
      * @param apnsClient the client that started the connection attempt
+     *
+     * @since 0.6
      */
     void handleConnectionAttemptStarted(ApnsClient<? extends ApnsPushNotification> apnsClient);
 
@@ -87,6 +98,8 @@ public interface ApnsClientMetricsListener {
      * Indicates that a previously-started connection attempt completed successfully.
      *
      * @param apnsClient the client that started the connection attempt
+     *
+     * @since 0.6
      */
     void handleConnectionAttemptSucceeded(ApnsClient<? extends ApnsPushNotification> apnsClient);
 
@@ -94,6 +107,8 @@ public interface ApnsClientMetricsListener {
      * Indicates that a previously-started connection attempt failed.
      *
      * @param apnsClient the client that started the connection attempt
+     *
+     * @since 0.6
      */
     void handleConnectionAttemptFailed(ApnsClient<? extends ApnsPushNotification> apnsClient);
 }

@@ -29,6 +29,8 @@ import io.netty.handler.proxy.ProxyHandler;
  * A concrete {@link ProxyHandlerFactory} implementation that creates {@link HttpProxyHandler} instances.
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
+ *
+ * @since 0.6
  */
 public class HttpProxyHandlerFactory implements ProxyHandlerFactory {
 
@@ -42,6 +44,8 @@ public class HttpProxyHandlerFactory implements ProxyHandlerFactory {
      * address and that will not perform authentication.
      *
      * @param proxyAddress the address of the HTTP proxy server
+     *
+     * @since 0.6
      */
     public HttpProxyHandlerFactory(final SocketAddress proxyAddress) {
         this(proxyAddress, null, null);
@@ -54,6 +58,8 @@ public class HttpProxyHandlerFactory implements ProxyHandlerFactory {
      * @param proxyAddress the address of the HTTP proxy server
      * @param username the username to use when connecting to the given proxy server
      * @param password the password to use when connecting to the given proxy server
+     *
+     * @since 0.6
      */
     public HttpProxyHandlerFactory(final SocketAddress proxyAddress, final String username, final String password) {
         this.proxyAddress = proxyAddress;

@@ -123,6 +123,8 @@ import io.netty.util.concurrent.SucceededFuture;
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
  * @param <T> the type of notification handled by the client
+ *
+ * @since 0.5
  */
 public class ApnsClient<T extends ApnsPushNotification> {
     private static final String EPOLL_EVENT_LOOP_GROUP_CLASS = "io.netty.channel.epoll.EpollEventLoopGroup";
@@ -198,6 +200,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * when constructing the context
      * @throws FileNotFoundException if the given PKCS#12 file could not be found
      * @throws IOException if any IO problem occurs while attempting to read the given PKCS#12 file
+     *
+     * @since 0.5
      */
     public ApnsClient(final File p12File, final String password) throws SSLException, FileNotFoundException, IOException {
         this(p12File, password, null);
@@ -221,6 +225,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * when constructing the context
      * @throws FileNotFoundException if the given PKCS#12 file could not be found
      * @throws IOException if any IO problem occurs while attempting to read the given PKCS#12 file
+     *
+     * @since 0.5
      */
     public ApnsClient(final File p12File, final String password, final EventLoopGroup eventLoopGroup) throws SSLException, FileNotFoundException, IOException {
         this(ApnsClient.getSslContextWithP12File(p12File, password), eventLoopGroup);
@@ -241,6 +247,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @throws SSLException if the given PKCS#12 data could not be loaded or if any other SSL-related problem arises
      * when constructing the context
+     *
+     * @since 0.5.2
      */
     public ApnsClient(final InputStream p12InputStream, final String password) throws SSLException {
         this(p12InputStream, password, null);
@@ -263,6 +271,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @throws SSLException if the given PKCS#12 data could not be loaded or if any other SSL-related problem arises
      * when constructing the context
+     *
+     * @since 0.5.2
      */
     public ApnsClient(final InputStream p12InputStream, final String password, final EventLoopGroup eventLoopGroup) throws SSLException {
         this(ApnsClient.getSslContextWithP12InputStream(p12InputStream, password), eventLoopGroup);
@@ -283,6 +293,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @throws SSLException if the given key or certificate could not be loaded or if any other SSL-related problem
      * arises when constructing the context
+     *
+     * @since 0.5
      */
     public ApnsClient(final X509Certificate certificate, final PrivateKey privateKey, final String privateKeyPassword) throws SSLException {
         this(certificate, privateKey, privateKeyPassword, null);
@@ -305,6 +317,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @throws SSLException if the given key or certificate could not be loaded or if any other SSL-related problem
      * arises when constructing the context
+     *
+     * @since 0.5
      */
     public ApnsClient(final X509Certificate certificate, final PrivateKey privateKey, final String privateKeyPassword, final EventLoopGroup eventLoopGroup) throws SSLException {
         this(ApnsClient.getSslContextWithCertificateAndPrivateKey(certificate, privateKey, privateKeyPassword), eventLoopGroup);
@@ -496,6 +510,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * APNs server before the connection attempt is considered a failure.
      *
      * @param timeoutMillis the maximum amount of time in milliseconds to wait for a connection attempt to complete
+     *
+     * @since 0.5
      */
     public void setConnectionTimeout(final int timeoutMillis) {
         synchronized (this.bootstrap) {
@@ -508,6 +524,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @param metricsListener the metrics listener for this client, or {@code null} if this client should not report
      * metrics to a listener
+     *
+     * @since 0.6
      */
     public void setMetricsListener(final ApnsClientMetricsListener metricsListener) {
         this.metricsListener = metricsListener != null ? metricsListener : new NoopMetricsListener();
@@ -527,6 +545,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @param writeTimeoutMillis the write timeout for this client in milliseconds; if zero, write attempts will never
      * time out
+     *
+     * @since 0.6
      */
     public void setWriteTimeout(final long writeTimeoutMillis) {
         this.writeTimeoutMillis = writeTimeoutMillis;
@@ -540,6 +560,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @param proxyHandlerFactory the proxy handler factory to be used to construct proxy handlers, or {@code null} if
      * this client should not use a proxy
+     *
+     * @since 0.6
      */
     public void setProxyHandlerFactory(final ProxyHandlerFactory proxyHandlerFactory) {
         this.proxyHandlerFactory = proxyHandlerFactory;
@@ -560,6 +582,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @see ApnsClient#PRODUCTION_APNS_HOST
      * @see ApnsClient#DEVELOPMENT_APNS_HOST
+     *
+     * @since 0.5
      */
     public Future<Void> connect(final String host) {
         return this.connect(host, DEFAULT_APNS_PORT);
@@ -583,6 +607,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * @see ApnsClient#DEVELOPMENT_APNS_HOST
      * @see ApnsClient#DEFAULT_APNS_PORT
      * @see ApnsClient#ALTERNATE_APNS_PORT
+     *
+     * @since 0.5
      */
     public Future<Void> connect(final String host, final int port) {
         final Future<Void> connectionReadyFuture;
@@ -684,6 +710,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * Indicates whether this client is connected to the APNs gateway and ready to send push notifications.
      *
      * @return {@code true} if this client is connected and ready to send notifications or {@code false} otherwise
+     *
+     * @since 0.5
      */
     public boolean isConnected() {
         final ChannelPromise connectionReadyPromise = this.connectionReadyPromise;
@@ -701,6 +729,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * fail immediately with an {@link IllegalStateException}.</p>
      *
      * @return a {@code Future} that will succeed when the client has established a connection to the APNs gateway
+     *
+     * @since 0.5
      */
     public Future<Void> getReconnectionFuture() {
         final Future<Void> reconnectionFuture;
@@ -746,6 +776,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @return a {@code Future} that will complete when the notification has been either accepted or rejected by the
      * APNs gateway
+     *
+     * @since 0.5
      */
     public Future<PushNotificationResponse<T>> sendNotification(final T notification) {
         final Future<PushNotificationResponse<T>> responseFuture;
@@ -838,6 +870,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * connection
      *
      * @see ApnsClient#disconnect()
+     *
+     * @since 0.5
      */
     public void setGracefulShutdownTimeout(final long timeoutMillis) {
         synchronized (this.bootstrap) {
@@ -865,6 +899,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * restarted after they have been disconnected via this method.</p>
      *
      * @return a {@code Future} that will be marked as complete when the connection has been closed
+     *
+     * @since 0.5
      */
     public Future<Void> disconnect() {
         log.info("Disconnecting.");

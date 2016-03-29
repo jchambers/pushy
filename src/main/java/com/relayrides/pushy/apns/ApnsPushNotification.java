@@ -38,6 +38,8 @@ import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
  *      Local and Remote Notification Programming Guide - Apple Push Notification Service</a>
  *
  * @see ApnsPayloadBuilder
+ *
+ * @since 0.1
  */
 public interface ApnsPushNotification {
     /**
@@ -49,6 +51,8 @@ public interface ApnsPushNotification {
      * @see <a href=
      *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">
      *      APNs Provider API</a>
+     *
+     * @since 0.5
      */
     String getToken();
 
@@ -60,6 +64,8 @@ public interface ApnsPushNotification {
      * @see <a href=
      *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/TheNotificationPayload.html#//apple_ref/doc/uid/TP40008194-CH107-SW1">
      *      The Remote Notification Payload</a>
+     *
+     * @since 0.1
      */
     String getPayload();
 
@@ -73,6 +79,8 @@ public interface ApnsPushNotification {
      * @see <a href=
      *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">
      *      APNs Provider API</a>
+     *
+     * @since 0.5
      */
     Date getExpiration();
 
@@ -85,6 +93,8 @@ public interface ApnsPushNotification {
      * @see <a href=
      *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">
      *      APNs Provider API</a>
+     *
+     * @since 0.4
      */
     DeliveryPriority getPriority();
 
@@ -106,6 +116,8 @@ public interface ApnsPushNotification {
      * @see <a href=
      *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">
      *      APNs Provider API</a>
+     *
+     * @since 0.5
      */
     String getTopic();
 }
