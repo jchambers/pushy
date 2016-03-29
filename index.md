@@ -4,7 +4,7 @@ layout: default
 
 Pushy is a Java library for sending [APNs](https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html) (iOS and OS X) push notifications. It is written and maintained by the engineers at [Turo](https://turo.com/).
 
-Pushy sends push notifications using Apple's HTTP/2-based APNs protocol. It distinguishes itself from other push notification libraries with a focus on [thorough documentation](http://relayrides.github.io/pushy/apidocs/0.5/), asynchronous operation, and design for industrial-scale operation; with Pushy, it's easy and efficient to maintain multiple parallel connections to the APNs gateway to send large numbers of notifications to many different applications ("topics").
+Pushy sends push notifications using Apple's HTTP/2-based APNs protocol. It distinguishes itself from other push notification libraries with a focus on [thorough documentation](http://relayrides.github.io/pushy/apidocs/0.6/), asynchronous operation, and design for industrial-scale operation; with Pushy, it's easy and efficient to maintain multiple parallel connections to the APNs gateway to send large numbers of notifications to many different applications ("topics").
 
 We believe that Pushy is already the best tool for sending APNs push notifications from Java applications, and we hope you'll help us make it even better via bug reports and pull requests. If you have questions about using Pushy, please join us on [the Pushy mailing list](https://groups.google.com/d/forum/pushy-apns) or take a look at [the wiki](https://github.com/relayrides/pushy/wiki). Thanks!
 
@@ -16,11 +16,11 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 <dependency>
     <groupId>com.relayrides</groupId>
     <artifactId>pushy</artifactId>
-    <version>0.5.2</version>
+    <version>0.6</version>
 </dependency>
 ```
 
-If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.5.2/pushy-0.5.2.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
+If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.6/pushy-0.6.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
 - [netty 4.1.0](http://netty.io/)
 - [gson 2.5](https://github.com/google/gson)
@@ -34,7 +34,7 @@ Pushy itself requires Java 7 or newer to build and run.
 
 Before you can get started with Pushy, you'll need to do some provisioning work with Apple to register your app and get the required certificates. For details on this process, please see the [Provisioning and Development](https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ProvisioningDevelopment.html#//apple_ref/doc/uid/TP40008194-CH104-SW1) section of Apple's official documentation. Please note that there are [some caveats](https://github.com/relayrides/pushy/wiki/Certificates), particularly under Mac OS X 10.11 (El Capitan).
 
-Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an [`ApnsClient`](http://relayrides.github.io/pushy/apidocs/0.5/com/relayrides/pushy/apns/ApnsClient.html). Clients need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing):
+Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an [`ApnsClient`](http://relayrides.github.io/pushy/apidocs/0.6/com/relayrides/pushy/apns/ApnsClient.html). Clients need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing):
 
 ```java
 final ApnsClient<SimpleApnsPushNotification> apnsClient = new ApnsClient<>(
@@ -48,7 +48,7 @@ final Future<Void> connectFuture = apnsClient.connect(ApnsClient.DEVELOPMENT_APN
 connectFuture.await();
 ```
 
-Once the client has finished connecting to the APNs server, you can begin sending push notifications. At a minimum, [push notifications](http://relayrides.github.io/pushy/apidocs/0.5/com/relayrides/pushy/apns/ApnsPushNotification.html) need a destination token, a topic, and a payload.
+Once the client has finished connecting to the APNs server, you can begin sending push notifications. At a minimum, [push notifications](http://relayrides.github.io/pushy/apidocs/0.6/com/relayrides/pushy/apns/ApnsPushNotification.html) need a destination token, a topic, and a payload.
 
 ```java
 final SimpleApnsPushNotification pushNotification;
@@ -75,7 +75,7 @@ The `Future` will complete in one of three circumstances:
 
 1. The gateway accepts the notification and will attempt to deliver it to the destination device.
 2. The gateway rejects the notification; this should be considered a permanent failure, and the notification should not be sent again. Additionally, the APNs gateway may indicate [a timestamp at which the destination token became invalid](https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW18). If that happens, you should stop trying to send *any* notification to that token unless the token has been re-registered since that timestamp.
-3. The `Future` fails with an exception. This should generally be considered a temporary failure, and callers should try to send the notification again when the problem has been resolved. In particular, the `Future` may fail with a [`ClientNotConnectedException`](http://relayrides.github.io/pushy/apidocs/0.5/com/relayrides/pushy/apns/ClientNotConnectedException.html), in which case callers may wait for the connection to be restored automatically by waiting for the `Future` returned by [`ApnsClient#getReconnectionFuture()`](http://relayrides.github.io/pushy/apidocs/0.5/com/relayrides/pushy/apns/ApnsClient.html#getReconnectionFuture--).
+3. The `Future` fails with an exception. This should generally be considered a temporary failure, and callers should try to send the notification again when the problem has been resolved. In particular, the `Future` may fail with a [`ClientNotConnectedException`](http://relayrides.github.io/pushy/apidocs/0.6/com/relayrides/pushy/apns/ClientNotConnectedException.html), in which case callers may wait for the connection to be restored automatically by waiting for the `Future` returned by [`ApnsClient#getReconnectionFuture()`](http://relayrides.github.io/pushy/apidocs/0.6/com/relayrides/pushy/apns/ApnsClient.html#getReconnectionFuture--).
 
 An example:
 
@@ -139,9 +139,38 @@ Please note that, at least as recently as OS X 10.11 (El Capitan), Mac OS X did 
 
 As an alternative to OpenSSL, you may use Jetty's ALPN implementation if you're using OpenJDK 8. Please note that if you're not using Java 8 or newer, you'll need to meet the cipher suite requirement separately; you may do so either by using OpenSSL (which also fulfills the ALPN requirement) or by using another cryptography provider (which is beyond the scope of this README).
 
-Using Jetty's ALPN implementation is somewhat more complicated than using using OpenSSL as an SSL provider. You'll need to choose a version of `alpn-boot` specific to the version (down to the update!) of OpenJDK you're using, and then add it to your *boot* class path. [Detailed instructions](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html) are provided by Jetty.
+Using Jetty's ALPN implementation is somewhat more complicated than using OpenSSL as an SSL provider. You'll need to choose a version of `alpn-boot` specific to the version (down to the update!) of OpenJDK you're using, and then add it to your *boot* class path. [Detailed instructions](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html) are provided by Jetty.
 
-If you know exactly which version of Java you'll be running, you can just add that specific version of `alpn-boot` to your boot class path. If your project might run on a number of different systems and if you use Maven, you can use a `<profile>` section in your `pom.xml` to choose the correct version on the fly. Please see [Pushy's own `pom.xml`](https://github.com/relayrides/pushy/blob/http2/pom.xml#L189) for an example for Java 8. At the time of this writing, [Netty's `pom.xml`](https://github.com/netty/netty/blob/4.1/pom.xml) includes profiles for both Java 7 and Java 8.
+If you know exactly which version of Java you'll be running, you can just add that specific version of `alpn-boot` to your boot class path. If your project might run on a number of different systems and if you use Maven, you can use the [`jetty-alpn-agent`](https://github.com/jetty-project/jetty-alpn-agent) in your `pom.xml`, which loads the correct `alpn-boot` JAR file for the current Java version on the fly.
+
+## Metrics
+
+Pushy includes an interface for monitoring metrics that provide insight into clients' behavior and performance. You can write your own implementation of the `ApnsClientMetricsListener` interface to record and report metrics. To begin receiving metrics, use the client's `setMetricsListener` method:
+
+```java
+apnsClient.setMetricsListener(new MyCustomMetricsListener());
+```
+
+Please note that the metric-handling methods in your listener implementation should *never* call blocking code. It's appropriate to increment counters directly in the handler methods, but calls to databases or remote monitoring endpoints should be dispatched to separate threads.
+
+## Using a proxy
+
+If you need to use a proxy for outbound connections, you may specify a [`ProxyHandlerFactory`](http://relayrides.github.io/pushy/apidocs/0.6/com/relayrides/pushy/apns/proxy/ProxyHandlerFactory.html) before attempting to connect your `ApnsClient` instance. Concrete implementations of `ProxyHandlerFactory` are provided for HTTP, SOCKS4, and SOCKS5 proxies.
+
+An example:
+
+```java
+final ApnsClient<SimpleApnsPushNotification> apnsClient =
+        new ApnsClient<SimpleApnsPushNotification>(
+                new File("/path/to/certificate.p12"), "p12-file-password");
+
+apnsClient.setProxyHandlerFactory(
+        new Socks5ProxyHandlerFactory(
+                new InetSocketAddress("my.proxy.com", 1080), "username", "password"));
+
+final Future<Void> connectFuture = apnsClient.connect(ApnsClient.DEVELOPMENT_APNS_HOST);
+connectFuture.await();
+```
 
 ## Logging
 
@@ -165,8 +194,14 @@ Pushy uses logging levels as follows:
 | `debug`   | Minor lifecycle events; expected exceptions                                           |
 | `trace`   | Individual IO operations                                                              |
 
+## Known issues
+
+Although we make every effort to fix bugs and work around issues outside of our control, some problems appear to be unavoidable. The issues we know about at this time are:
+
+- Pushy will work just fine in a container environment (like Tomcat), but Netty (the networking framework on which Pushy is built) creates some `ThreadLocal` instances that won't be cleaned up properly when your application shuts down. Most application containers have features designed to mitigate this kind of issue, but leaks are still possible. Users should be aware of the issue if using Pushy in an application container. See [#73](https://github.com/relayrides/pushy/issues/73) for additional discussion.
+
 ## License and status
 
 Pushy is available under the [MIT License](http://opensource.org/licenses/MIT).
 
-The current version of Pushy is 0.5.2. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
+The current version of Pushy is 0.6. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
