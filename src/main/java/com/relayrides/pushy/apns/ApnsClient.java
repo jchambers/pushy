@@ -878,8 +878,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
             this.gracefulShutdownTimeoutMillis = timeoutMillis;
 
             if (this.connectionReadyPromise != null) {
-                final ApnsClientHandler handler =
-                        this.connectionReadyPromise.channel().pipeline().get(ApnsClientHandler.class);
+                @SuppressWarnings("rawtypes")
+                final ApnsClientHandler handler = this.connectionReadyPromise.channel().pipeline().get(ApnsClientHandler.class);
 
                 if (handler != null) {
                     handler.gracefulShutdownTimeoutMillis(timeoutMillis);
@@ -902,6 +902,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @since 0.5
      */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
     public Future<Void> disconnect() {
         log.info("Disconnecting.");
         final Future<Void> disconnectFuture;
