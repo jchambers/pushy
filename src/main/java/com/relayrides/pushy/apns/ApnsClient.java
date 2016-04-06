@@ -520,6 +520,19 @@ public class ApnsClient<T extends ApnsPushNotification> {
     }
 
     /**
+     * Enable TCP keepalive packets for the connection. Keepalive timeouts are managed by underlying OS.
+     * For Linux is default keepalive timeout 7200 seconds.
+     *
+     * @param enabled enable sending periodic TCP keepalive packets
+     *
+     */
+    public void setKeepalive(final boolean enabled) {
+        synchronized (this.bootstrap) {
+            this.bootstrap.option(ChannelOption.SO_KEEPALIVE, enabled);
+        }
+    }
+
+    /**
      * Sets the metrics listener for this client.
      *
      * @param metricsListener the metrics listener for this client, or {@code null} if this client should not report
