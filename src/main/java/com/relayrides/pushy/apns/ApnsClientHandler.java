@@ -86,18 +86,6 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientHandler.class);
 
-    private static class PingFrame {
-        private final long data;
-
-        public PingFrame(final long data) {
-            this.data = data;
-        }
-
-        public long getData() {
-            return this.data;
-        }
-    }
-
     public static class ApnsClientHandlerBuilder<S extends ApnsPushNotification> extends AbstractHttp2ConnectionHandlerBuilder<ApnsClientHandler<S>, ApnsClientHandlerBuilder<S>> {
 
         private ApnsClient<S> apnsClient;
@@ -211,76 +199,67 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     @Override
     @SuppressWarnings("unchecked")
     public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise writePromise) {
-        if (message instanceof PingFrame) {
-            final PingFrame pingFrame = (PingFrame) message;
+        try {
+            // We'll catch class cast issues gracefully
+            final T pushNotification = (T) message;
 
-            final ByteBuf pingDataBuffer = context.alloc().ioBuffer(8, 8);
-            pingDataBuffer.writeLong(pingFrame.getData());
+            final int streamId = (int) this.nextStreamId;
 
-            this.encoder().writePing(context, false, pingDataBuffer, writePromise);
-        } else {
-            try {
-                // We'll catch class cast issues gracefully
-                final T pushNotification = (T) message;
+            final ByteBuf payloadBuffer = context.alloc().ioBuffer(INITIAL_PAYLOAD_BUFFER_CAPACITY);
+            payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(UTF8));
 
-                final int streamId = (int) this.nextStreamId;
+            final Http2Headers headers = new DefaultHttp2Headers()
+                    .method("POST")
+                    .path(APNS_PATH_PREFIX + pushNotification.getToken())
+                    .addInt(HttpHeaderNames.CONTENT_LENGTH, payloadBuffer.readableBytes())
+                    .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
 
-                final ByteBuf payloadBuffer = context.alloc().ioBuffer(INITIAL_PAYLOAD_BUFFER_CAPACITY);
-                payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(UTF8));
-
-                final Http2Headers headers = new DefaultHttp2Headers()
-                        .method("POST")
-                        .path(APNS_PATH_PREFIX + pushNotification.getToken())
-                        .addInt(HttpHeaderNames.CONTENT_LENGTH, payloadBuffer.readableBytes())
-                        .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
-
-                if (pushNotification.getPriority() != null) {
-                    headers.addInt(APNS_PRIORITY_HEADER, pushNotification.getPriority().getCode());
-                }
-
-                if (pushNotification.getTopic() != null) {
-                    headers.add(APNS_TOPIC_HEADER, pushNotification.getTopic());
-                }
-
-                final ChannelPromise headersPromise = context.newPromise();
-                this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
-                log.trace("Wrote headers on stream {}: {}", streamId, headers);
-
-                final ChannelPromise dataPromise = context.newPromise();
-                this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
-                log.trace("Wrote payload on stream {}: {}", streamId, pushNotification.getPayload());
-
-                final PromiseCombiner promiseCombiner = new PromiseCombiner();
-                promiseCombiner.addAll(headersPromise, dataPromise);
-                promiseCombiner.finish(writePromise);
-
-                writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
-
-                    @Override
-                    public void operationComplete(final ChannelPromise future) throws Exception {
-                        if (future.isSuccess()) {
-                            ApnsClientHandler.this.pushNotificationsByStreamId.put(streamId, pushNotification);
-                        } else {
-                            log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
-                        }
-                    }
-                });
-
-                this.nextStreamId += 2;
-
-                if (this.nextStreamId >= STREAM_ID_RESET_THRESHOLD) {
-                    // This is very unlikely, but in the event that we run out of stream IDs (the maximum allowed is
-                    // 2^31, per https://httpwg.github.io/specs/rfc7540.html#StreamIdentifiers), we need to open a new
-                    // connection. Just closing the context should be enough; automatic reconnection should take things
-                    // from there.
-                    context.close();
-                }
-
-            } catch (final ClassCastException e) {
-                // This should never happen, but in case some foreign debris winds up in the pipeline, just pass it through.
-                log.error("Unexpected object in pipeline: {}", message);
-                context.write(message, writePromise);
+            if (pushNotification.getPriority() != null) {
+                headers.addInt(APNS_PRIORITY_HEADER, pushNotification.getPriority().getCode());
             }
+
+            if (pushNotification.getTopic() != null) {
+                headers.add(APNS_TOPIC_HEADER, pushNotification.getTopic());
+            }
+
+            final ChannelPromise headersPromise = context.newPromise();
+            this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
+            log.trace("Wrote headers on stream {}: {}", streamId, headers);
+
+            final ChannelPromise dataPromise = context.newPromise();
+            this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
+            log.trace("Wrote payload on stream {}: {}", streamId, pushNotification.getPayload());
+
+            final PromiseCombiner promiseCombiner = new PromiseCombiner();
+            promiseCombiner.addAll(headersPromise, dataPromise);
+            promiseCombiner.finish(writePromise);
+
+            writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
+
+                @Override
+                public void operationComplete(final ChannelPromise future) throws Exception {
+                    if (future.isSuccess()) {
+                        ApnsClientHandler.this.pushNotificationsByStreamId.put(streamId, pushNotification);
+                    } else {
+                        log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
+                    }
+                }
+            });
+
+            this.nextStreamId += 2;
+
+            if (this.nextStreamId >= STREAM_ID_RESET_THRESHOLD) {
+                // This is very unlikely, but in the event that we run out of stream IDs (the maximum allowed is
+                // 2^31, per https://httpwg.github.io/specs/rfc7540.html#StreamIdentifiers), we need to open a new
+                // connection. Just closing the context should be enough; automatic reconnection should take things
+                // from there.
+                context.close();
+            }
+
+        } catch (final ClassCastException e) {
+            // This should never happen, but in case some foreign debris winds up in the pipeline, just pass it through.
+            log.error("Unexpected object in pipeline: {}", message);
+            context.write(message, writePromise);
         }
     }
 
@@ -291,7 +270,10 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
             final long pingId = this.nextPingId++;
 
-            context.channel().writeAndFlush(new PingFrame(pingId)).addListener(new GenericFutureListener<ChannelFuture>() {
+            final ByteBuf pingDataBuffer = context.alloc().ioBuffer(8, 8);
+            pingDataBuffer.writeLong(pingId);
+
+            this.encoder().writePing(context, false, pingDataBuffer, context.newPromise()).addListener(new GenericFutureListener<ChannelFuture>() {
 
                 @Override
                 public void operationComplete(final ChannelFuture future) throws Exception {
@@ -312,6 +294,8 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
                     }
                 }
             });
+
+            context.flush();
         }
 
         super.userEventTriggered(context, event);
