@@ -65,7 +65,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     private ApnsClient<T> apnsClient;
 
     private long nextPingId = new Random().nextLong();
-    private final Map<Long, ScheduledFuture<?>> pingTimeoutFutures = new HashMap<>();
+    private ScheduledFuture<?> pingTimeoutFuture;
 
     private static final int PING_TIMEOUT = 30; // seconds
 
@@ -172,15 +172,11 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
         @Override
         public void onPingAckRead(final ChannelHandlerContext context, final ByteBuf data) {
-            final long pingData = data.readLong();
-            final ScheduledFuture<?> timeoutFuture = ApnsClientHandler.this.pingTimeoutFutures.get(pingData);
-
-            if (timeoutFuture != null) {
+            if (ApnsClientHandler.this.pingTimeoutFuture != null) {
                 log.trace("Received reply to ping.");
-                timeoutFuture.cancel(false);
+                ApnsClientHandler.this.pingTimeoutFuture.cancel(false);
             } else {
                 log.error("Received PING ACK, but no corresponding outbound PING found.");
-                context.close();
             }
         }
 
@@ -266,19 +262,20 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     @Override
     public void userEventTriggered(final ChannelHandlerContext context, final Object event) throws Exception {
         if (event instanceof IdleStateEvent) {
+
+            assert PING_TIMEOUT < ApnsClient.PING_IDLE_TIME;
+
             log.trace("Sending ping due to inactivity.");
 
-            final long pingId = this.nextPingId++;
-
             final ByteBuf pingDataBuffer = context.alloc().ioBuffer(8, 8);
-            pingDataBuffer.writeLong(pingId);
+            pingDataBuffer.writeLong(this.nextPingId++);
 
             this.encoder().writePing(context, false, pingDataBuffer, context.newPromise()).addListener(new GenericFutureListener<ChannelFuture>() {
 
                 @Override
                 public void operationComplete(final ChannelFuture future) throws Exception {
                     if (future.isSuccess()) {
-                        final ScheduledFuture<?> timeoutFuture = future.channel().eventLoop().schedule(new Runnable() {
+                        ApnsClientHandler.this.pingTimeoutFuture = future.channel().eventLoop().schedule(new Runnable() {
 
                             @Override
                             public void run() {
@@ -286,8 +283,6 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
                                 future.channel().close();
                             }
                         }, PING_TIMEOUT, TimeUnit.SECONDS);
-
-                        ApnsClientHandler.this.pingTimeoutFutures.put(pingId, timeoutFuture);
                     } else {
                         log.debug("Failed to write PING frame.", future.cause());
                         future.channel().close();

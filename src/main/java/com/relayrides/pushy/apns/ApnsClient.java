@@ -182,7 +182,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private static final long INITIAL_RECONNECT_DELAY = 1; // second
     private static final long MAX_RECONNECT_DELAY = 60; // seconds
-    private static final int PING_IDLE_TIME = 60; // seconds
+    static final int PING_IDLE_TIME = 60; // seconds
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
