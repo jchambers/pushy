@@ -188,7 +188,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
             final ScheduledFuture<?> timeoutFuture = ApnsClientHandler.this.pingTimeoutFutures.get(pingData);
 
             if (timeoutFuture != null) {
-                log.debug("Received reply to ping.");
+                log.trace("Received reply to ping.");
                 timeoutFuture.cancel(false);
             } else {
                 log.error("Received PING ACK, but no corresponding outbound PING found.");
@@ -287,7 +287,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     @Override
     public void userEventTriggered(final ChannelHandlerContext context, final Object event) throws Exception {
         if (event instanceof IdleStateEvent) {
-            log.debug("Sending ping due to inactivity.");
+            log.trace("Sending ping due to inactivity.");
 
             final long pingId = this.nextPingId++;
 
