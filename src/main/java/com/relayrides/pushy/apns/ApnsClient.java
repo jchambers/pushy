@@ -453,13 +453,13 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
                     @Override
                     protected void handshakeFailure(final ChannelHandlerContext context, final Throwable cause) throws Exception {
-                        super.handshakeFailure(context, cause);
-
                         final ChannelPromise connectionReadyPromise = ApnsClient.this.connectionReadyPromise;
 
                         if (connectionReadyPromise != null) {
                             connectionReadyPromise.tryFailure(cause);
                         }
+
+                        super.handshakeFailure(context, cause);
                     }
                 });
             }
