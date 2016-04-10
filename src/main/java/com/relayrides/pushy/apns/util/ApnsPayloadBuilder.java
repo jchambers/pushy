@@ -489,7 +489,7 @@ public class ApnsPayloadBuilder {
                 throw new IllegalArgumentException("Cannot abbreviate string to fewer than one character.");
             }
 
-            abbreviatedString = string.substring(0, maximumLength - 1) + ABBREVIATION_SUBSTRING;
+            abbreviatedString = string.substring(0, maximumLength - ABBREVIATION_SUBSTRING.length()) + ABBREVIATION_SUBSTRING;
         }
 
         return abbreviatedString;
