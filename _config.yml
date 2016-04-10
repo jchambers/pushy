@@ -1,6 +1,6 @@
 name: Pushy
 subtitle: A Java library for sending APNs (iOS/OS&nbsp;X) push notifications
-markdown: redcarpet
+markdown: kramdown
 pygments: true
 
 redcarpet:
