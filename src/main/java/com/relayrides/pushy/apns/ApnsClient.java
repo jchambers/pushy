@@ -630,13 +630,15 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
                         @Override
                         public void operationComplete(final ChannelFuture future) throws Exception {
-                            // We always want to try to fail the "connection ready" promise if the connection closes; if
-                            // it has already succeeded, this will have no effect.
-                            ApnsClient.this.connectionReadyPromise.tryFailure(
-                                    new IllegalStateException("Channel closed before HTTP/2 preface completed."));
-
                             synchronized (ApnsClient.this.bootstrap) {
-                                ApnsClient.this.connectionReadyPromise = null;
+                                if (ApnsClient.this.connectionReadyPromise != null) {
+                                    // We always want to try to fail the "connection ready" promise if the connection
+                                    // closes; if it has already succeeded, this will have no effect.
+                                    ApnsClient.this.connectionReadyPromise.tryFailure(
+                                            new IllegalStateException("Channel closed before HTTP/2 preface completed."));
+
+                                    ApnsClient.this.connectionReadyPromise = null;
+                                }
 
                                 if (ApnsClient.this.reconnectionPromise != null) {
                                     log.debug("Disconnected. Next automatic reconnection attempt in {} seconds.", ApnsClient.this.reconnectDelay);
