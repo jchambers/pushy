@@ -71,6 +71,7 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
+import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
 import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.FailedFuture;
@@ -181,6 +182,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private static final long INITIAL_RECONNECT_DELAY = 1; // second
     private static final long MAX_RECONNECT_DELAY = 60; // seconds
+    static final int PING_IDLE_TIME = 60; // seconds
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
@@ -430,6 +432,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                 }
                             }
 
+                            context.pipeline().addLast(new IdleStateHandler(0, 0, PING_IDLE_TIME));
                             context.pipeline().addLast(apnsClientHandler);
 
                             // Add this to the end of the queue so any events enqueued by the client handler happen

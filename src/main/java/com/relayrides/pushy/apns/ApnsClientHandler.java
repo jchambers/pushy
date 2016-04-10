@@ -24,6 +24,8 @@ import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +34,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.HttpHeaderNames;
@@ -45,10 +48,12 @@ import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.handler.codec.http2.Http2FrameAdapter;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Settings;
+import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.WriteTimeoutException;
 import io.netty.util.AsciiString;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.PromiseCombiner;
+import io.netty.util.concurrent.ScheduledFuture;
 
 class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionHandler {
 
@@ -58,6 +63,11 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     private final Map<Integer, Http2Headers> headersByStreamId = new HashMap<>();
 
     private ApnsClient<T> apnsClient;
+
+    private long nextPingId = new Random().nextLong();
+    private ScheduledFuture<?> pingTimeoutFuture;
+
+    private static final int PING_TIMEOUT = 30; // seconds
 
     private static final String APNS_PATH_PREFIX = "/3/device/";
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
@@ -161,6 +171,16 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
         }
 
         @Override
+        public void onPingAckRead(final ChannelHandlerContext context, final ByteBuf data) {
+            if (ApnsClientHandler.this.pingTimeoutFuture != null) {
+                log.trace("Received reply to ping.");
+                ApnsClientHandler.this.pingTimeoutFuture.cancel(false);
+            } else {
+                log.error("Received PING ACK, but no corresponding outbound PING found.");
+            }
+        }
+
+        @Override
         public void onGoAwayRead(final ChannelHandlerContext context, final int lastStreamId, final long errorCode, final ByteBuf debugData) throws Http2Exception {
             log.info("Received GOAWAY from APNs server: {}", debugData.toString(UTF8));
         }
@@ -237,6 +257,43 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
             log.error("Unexpected object in pipeline: {}", message);
             context.write(message, writePromise);
         }
+    }
+
+    @Override
+    public void userEventTriggered(final ChannelHandlerContext context, final Object event) throws Exception {
+        if (event instanceof IdleStateEvent) {
+
+            assert PING_TIMEOUT < ApnsClient.PING_IDLE_TIME;
+
+            log.trace("Sending ping due to inactivity.");
+
+            final ByteBuf pingDataBuffer = context.alloc().ioBuffer(8, 8);
+            pingDataBuffer.writeLong(this.nextPingId++);
+
+            this.encoder().writePing(context, false, pingDataBuffer, context.newPromise()).addListener(new GenericFutureListener<ChannelFuture>() {
+
+                @Override
+                public void operationComplete(final ChannelFuture future) throws Exception {
+                    if (future.isSuccess()) {
+                        ApnsClientHandler.this.pingTimeoutFuture = future.channel().eventLoop().schedule(new Runnable() {
+
+                            @Override
+                            public void run() {
+                                log.debug("Closing channel due to ping timeout.");
+                                future.channel().close();
+                            }
+                        }, PING_TIMEOUT, TimeUnit.SECONDS);
+                    } else {
+                        log.debug("Failed to write PING frame.", future.cause());
+                        future.channel().close();
+                    }
+                }
+            });
+
+            context.flush();
+        }
+
+        super.userEventTriggered(context, event);
     }
 
     @Override
