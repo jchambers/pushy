@@ -1,15 +1,15 @@
 /* Copyright (c) 2013 RelayRides
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,284 +25,307 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.lang.reflect.Type;
 import java.nio.charset.Charset;
+import java.util.List;
+import java.util.Map;
 
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+
 public class ApnsPayloadBuilderTest {
 
-	private ApnsPayloadBuilder builder;
-	private JSONParser parser;
-
-	@Before
-	public void setUp() {
-		this.parser = new JSONParser();
-		this.builder = new ApnsPayloadBuilder();
-	}
-
-	@Test
-	public void testSetAlertBody() throws ParseException {
-		final String alertBody = "This is a test alert message.";
-
-		this.builder.setAlertBody(alertBody);
-
-		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
-
-			// The alert property should be a string if all we're specifying is a literal alert message
-			assertEquals(alertBody, aps.get("alert"));
-		}
-
-		this.builder.setShowActionButton(false);
-
-		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
-			final JSONObject alert = (JSONObject) aps.get("alert");
-
-			assertEquals(alertBody, alert.get("body"));
-		}
-	}
-
-	@Test
-	public void testSetAlertTitle() throws ParseException {
-		final String alertTitle = "This is a test alert message.";
-
-		this.builder.setAlertTitle(alertTitle);
-
-		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
-			final JSONObject alert = (JSONObject) aps.get("alert");
-
-			assertEquals(alertTitle, alert.get("title"));
-		}
-	}
-
-	@Test
-	public void testSetAlertTitleAndBody() throws ParseException {
-		final String alertTitle = "This is a short alert title";
-		final String alertBody = "This is a longer alert body";
-
-		this.builder.setAlertBody(alertBody);
-		this.builder.setAlertTitle(alertTitle);
-
-		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
-			final JSONObject alert = (JSONObject) aps.get("alert");
-
-			assertEquals(alertTitle, alert.get("title"));
-			assertEquals(alertBody, alert.get("body"));
-		}
-	}
+    private ApnsPayloadBuilder builder;
+    private Gson gson;
 
-	@SuppressWarnings("unchecked")
-	@Test
-	public void testSetLocalizedAlertMessage() throws ParseException {
-		final String alertKey = "test.alert";
-		this.builder.setLocalizedAlertMessage(alertKey, null);
+    private static Type MAP_OF_STRING_TO_OBJECT = new TypeToken<Map<String, Object>>(){}.getType();
 
-		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
-			final JSONObject alert = (JSONObject) aps.get("alert");
+    @Before
+    public void setUp() {
+        this.gson = new Gson();
+        this.builder = new ApnsPayloadBuilder();
+    }
 
-			assertEquals(alertKey, alert.get("loc-key"));
-			assertNull(alert.get("loc-args"));
-		}
+    @Test
+    public void testSetAlertBody() {
+        final String alertBody = "This is a test alert message.";
 
-		final String[] alertArgs = new String[] { "Moose", "helicopter" };
-		this.builder.setLocalizedAlertMessage(alertKey, alertArgs);
+        this.builder.setAlertBody(alertBody);
 
-		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
-			final JSONObject alert = (JSONObject) aps.get("alert");
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
 
-			assertEquals(alertKey, alert.get("loc-key"));
+            // The alert property should be a string if all we're specifying is a literal alert message
+            assertEquals(alertBody, aps.get("alert"));
+        }
 
-			final JSONArray argsArray = (JSONArray) alert.get("loc-args");
-			assertEquals(alertArgs.length, argsArray.size());
-			assertTrue(argsArray.containsAll(java.util.Arrays.asList(alertArgs)));
-		}
-	}
+        this.builder.setShowActionButton(false);
 
-	@Test(expected = IllegalStateException.class)
-	public void testSetAlertBodyWithExistingLocalizedAlert() {
-		this.builder.setLocalizedAlertMessage("Test", null);
-		this.builder.setAlertBody("Test");
-	}
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
 
-	@Test(expected = IllegalStateException.class)
-	public void testSetLocalizedAlertWithExistingAlertBody() {
-		this.builder.setAlertBody("Test");
-		this.builder.setLocalizedAlertMessage("Test", null);
-	}
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
-	@Test(expected = IllegalStateException.class)
-	public void testSetAlertTitleWithExistingLocalizedAlertTitle() {
-		this.builder.setLocalizedAlertTitle("Test", null);
-		this.builder.setAlertTitle("Test");
-	}
+            assertEquals(alertBody, alert.get("body"));
+        }
+    }
 
-	@Test(expected = IllegalStateException.class)
-	public void testSetLocalizedAlertTitleWithExistingAlertTitle() {
-		this.builder.setAlertTitle("Test");
-		this.builder.setLocalizedAlertTitle("Test", null);
-	}
+    @Test
+    public void testSetAlertTitle() {
+        final String alertTitle = "This is a test alert message.";
 
-	@Test
-	public void testSetLaunchImage() throws ParseException {
-		final String launchImageFilename = "launch.png";
-		this.builder.setLaunchImageFileName(launchImageFilename);
+        this.builder.setAlertTitle(alertTitle);
 
-		final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
-		final JSONObject alert = (JSONObject) aps.get("alert");
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
 
-		assertEquals(launchImageFilename, alert.get("launch-image"));
-	}
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
-	@Test
-	public void testSetShowActionButton() throws ParseException {
-		this.builder.setShowActionButton(true);
+            assertEquals(alertTitle, alert.get("title"));
+        }
+    }
 
-		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+    @Test
+    public void testSetAlertTitleAndBody() {
+        final String alertTitle = "This is a short alert title";
+        final String alertBody = "This is a longer alert body";
 
-			assertNull(aps.get("alert"));
-		}
+        this.builder.setAlertBody(alertBody);
+        this.builder.setAlertTitle(alertTitle);
 
-		this.builder.setShowActionButton(false);
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
 
-		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
-			final JSONObject alert = (JSONObject) aps.get("alert");
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
-			assertTrue(alert.keySet().contains("action-loc-key"));
-			assertNull(alert.get("action-loc-key"));
-		}
+            assertEquals(alertTitle, alert.get("title"));
+            assertEquals(alertBody, alert.get("body"));
+        }
+    }
 
-		final String actionButtonKey = "action.key";
-		this.builder.setLocalizedActionButtonKey(actionButtonKey);
-		this.builder.setShowActionButton(true);
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testSetLocalizedAlertMessage() {
+        final String alertKey = "test.alert";
+        this.builder.setLocalizedAlertMessage(alertKey, null);
 
-		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
-			final JSONObject alert = (JSONObject) aps.get("alert");
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
-			assertEquals(actionButtonKey, alert.get("action-loc-key"));
-		}
+            assertEquals(alertKey, alert.get("loc-key"));
+            assertNull(alert.get("loc-args"));
+        }
 
-		this.builder.setShowActionButton(false);
+        final String[] alertArgs = new String[] { "Moose", "helicopter" };
+        this.builder.setLocalizedAlertMessage(alertKey, alertArgs);
 
-		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
-			final JSONObject alert = (JSONObject) aps.get("alert");
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
-			assertTrue(alert.keySet().contains("action-loc-key"));
-			assertNull(alert.get("action-loc-key"));
-		}
-	}
+            assertEquals(alertKey, alert.get("loc-key"));
 
-	@Test
-	public void testSetLocalizedActionButtonKey() throws ParseException {
-		final String actionButtonKey = "action.key";
-		this.builder.setLocalizedActionButtonKey(actionButtonKey);
+            final List<Object> argsArray = (List<Object>) alert.get("loc-args");
+            assertEquals(alertArgs.length, argsArray.size());
+            assertTrue(argsArray.containsAll(java.util.Arrays.asList(alertArgs)));
+        }
+    }
 
-		final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
-		final JSONObject alert = (JSONObject) aps.get("alert");
+    @Test(expected = IllegalStateException.class)
+    public void testSetAlertBodyWithExistingLocalizedAlert() {
+        this.builder.setLocalizedAlertMessage("Test", null);
+        this.builder.setAlertBody("Test");
+    }
 
-		assertEquals(actionButtonKey, alert.get("action-loc-key"));
-	}
+    @Test(expected = IllegalStateException.class)
+    public void testSetLocalizedAlertWithExistingAlertBody() {
+        this.builder.setAlertBody("Test");
+        this.builder.setLocalizedAlertMessage("Test", null);
+    }
 
-	@Test
-	public void testSetBadgeNumber() throws ParseException {
-		final int badgeNumber = 4;
-		this.builder.setBadgeNumber(badgeNumber);
+    @Test(expected = IllegalStateException.class)
+    public void testSetAlertTitleWithExistingLocalizedAlertTitle() {
+        this.builder.setLocalizedAlertTitle("Test", null);
+        this.builder.setAlertTitle("Test");
+    }
 
-		final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+    @Test(expected = IllegalStateException.class)
+    public void testSetLocalizedAlertTitleWithExistingAlertTitle() {
+        this.builder.setAlertTitle("Test");
+        this.builder.setLocalizedAlertTitle("Test", null);
+    }
 
-		assertEquals(badgeNumber, ((Number) aps.get("badge")).intValue());
-	}
+    @Test
+    public void testSetLaunchImage() {
+        final String launchImageFilename = "launch.png";
+        this.builder.setLaunchImageFileName(launchImageFilename);
 
-	@Test
-	public void testSetSoundFileName() throws ParseException {
-		final String soundFileName = "dying-giraffe.aiff";
-		this.builder.setSoundFileName(soundFileName);
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
 
-		final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
-		assertEquals(soundFileName, aps.get("sound"));
-	}
+        assertEquals(launchImageFilename, alert.get("launch-image"));
+    }
 
-	@Test
-	public void testSetCategoryName() throws ParseException {
-		final String categoryName = "INVITE";
-		this.builder.setCategoryName(categoryName);
+    @Test
+    public void testSetShowActionButton() {
+        this.builder.setShowActionButton(true);
 
-		final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
 
-		assertEquals(categoryName, aps.get("category"));
-	}
+            assertNull(aps.get("alert"));
+        }
 
-	@Test
-	public void testSetContentAvailable() throws ParseException {
-		{
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
-			assertNull(aps.get("content-available"));
-		}
+        this.builder.setShowActionButton(false);
 
-		{
-			this.builder.setContentAvailable(true);
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
 
-			final JSONObject aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
-			assertEquals(1L, aps.get("content-available"));
-		}
-	}
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
-	@Test
-	public void testAddCustomProperty() throws ParseException {
-		final String customKey = "string";
-		final String customValue = "Hello";
+            assertTrue(alert.keySet().contains("action-loc-key"));
+            assertNull(alert.get("action-loc-key"));
+        }
 
-		this.builder.addCustomProperty(customKey, customValue);
+        final String actionButtonKey = "action.key";
+        this.builder.setLocalizedActionButtonKey(actionButtonKey);
+        this.builder.setShowActionButton(true);
 
-		final JSONObject payload = (JSONObject) this.parser.parse(this.builder.buildWithDefaultMaximumLength());
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
 
-		assertEquals(customValue, payload.get(customKey));
-	}
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
-	@Test
-	public void testBuildWithMaximumLength() {
-		final String reallyLongAlertMessage =
-				"All non-glanded recruited mercenaries now engaging in training excercises are herefore and forever ordered to desist. Aforementioned activities have resulted in cost-defective damage to training areas.";
+            assertEquals(actionButtonKey, alert.get("action-loc-key"));
+        }
 
-		final int maxLength = 128;
+        this.builder.setShowActionButton(false);
 
-		this.builder.setAlertBody(reallyLongAlertMessage);
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
 
-		final String payloadString = this.builder.buildWithMaximumLength(maxLength);
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
-		assertTrue(payloadString.getBytes(Charset.forName("UTF-8")).length <= maxLength);
-	}
+            assertTrue(alert.keySet().contains("action-loc-key"));
+            assertNull(alert.get("action-loc-key"));
+        }
+    }
 
-	@Test(expected = IllegalArgumentException.class)
-	public void testBuildWithMaximumLengthAndUnshortenablePayload() {
-		final String reallyLongAlertKey =
-				"All non-glanded recruited mercenaries now engaging in training excercises are herefore and forever ordered to desist. Aforementioned activities have resulted in cost-defective damage to training areas.";
+    @Test
+    public void testSetLocalizedActionButtonKey() {
+        final String actionButtonKey = "action.key";
+        this.builder.setLocalizedActionButtonKey(actionButtonKey);
 
-		final int maxLength = 128;
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
 
-		this.builder.setLocalizedAlertMessage(reallyLongAlertKey, null);
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
-		final String payloadString = this.builder.buildWithMaximumLength(maxLength);
+        assertEquals(actionButtonKey, alert.get("action-loc-key"));
+    }
 
-		assertTrue(payloadString.getBytes(Charset.forName("UTF-8")).length <= maxLength);
-	}
+    @Test
+    public void testSetBadgeNumber() {
+        final int badgeNumber = 4;
+        this.builder.setBadgeNumber(badgeNumber);
 
-	private JSONObject extractApsObjectFromPayloadString(final String payloadString) throws ParseException {
-		final JSONObject payload = (JSONObject) this.parser.parse(payloadString);
-		return (JSONObject) payload.get("aps");
-	}
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+        assertEquals(badgeNumber, ((Number) aps.get("badge")).intValue());
+    }
+
+    @Test
+    public void testSetSoundFileName() {
+        final String soundFileName = "dying-giraffe.aiff";
+        this.builder.setSoundFileName(soundFileName);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+        assertEquals(soundFileName, aps.get("sound"));
+    }
+
+    @Test
+    public void testSetCategoryName() {
+        final String categoryName = "INVITE";
+        this.builder.setCategoryName(categoryName);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+        assertEquals(categoryName, aps.get("category"));
+    }
+
+    @Test
+    public void testSetContentAvailable() {
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            assertNull(aps.get("content-available"));
+        }
+
+        {
+            this.builder.setContentAvailable(true);
+
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            assertEquals(1, ((Number) aps.get("content-available")).intValue());
+        }
+    }
+
+    @Test
+    public void testAddCustomProperty() {
+        final String customKey = "string";
+        final String customValue = "Hello";
+
+        this.builder.addCustomProperty(customKey, customValue);
+
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> payload = (Map<String, Object>) this.gson.fromJson(
+                this.builder.buildWithDefaultMaximumLength(), MAP_OF_STRING_TO_OBJECT);
+
+        assertEquals(customValue, payload.get(customKey));
+    }
+
+    @Test
+    public void testBuildWithMaximumLength() {
+        final String reallyLongAlertMessage =
+                "All non-glanded recruited mercenaries now engaging in training excercises are herefore and forever ordered to desist. Aforementioned activities have resulted in cost-defective damage to training areas.";
+
+        final int maxLength = 128;
+
+        this.builder.setAlertBody(reallyLongAlertMessage);
+
+        final String payloadString = this.builder.buildWithMaximumLength(maxLength);
+
+        assertTrue(payloadString.getBytes(Charset.forName("UTF-8")).length <= maxLength);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testBuildWithMaximumLengthAndUnshortenablePayload() {
+        final String reallyLongAlertKey =
+                "All non-glanded recruited mercenaries now engaging in training excercises are herefore and forever ordered to desist. Aforementioned activities have resulted in cost-defective damage to training areas.";
+
+        final int maxLength = 128;
+
+        this.builder.setLocalizedAlertMessage(reallyLongAlertKey, null);
+
+        final String payloadString = this.builder.buildWithMaximumLength(maxLength);
+
+        assertTrue(payloadString.getBytes(Charset.forName("UTF-8")).length <= maxLength);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> extractApsObjectFromPayloadString(final String payloadString) {
+        final Map<String, Object> payload = this.gson.fromJson(payloadString, MAP_OF_STRING_TO_OBJECT);
+        return (Map<String, Object>) payload.get("aps");
+    }
 }
