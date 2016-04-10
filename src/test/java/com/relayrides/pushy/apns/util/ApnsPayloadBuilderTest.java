@@ -21,9 +21,7 @@
 
 package com.relayrides.pushy.apns.util;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import java.lang.reflect.Type;
 import java.nio.charset.Charset;
@@ -307,6 +305,16 @@ public class ApnsPayloadBuilderTest {
         final String payloadString = this.builder.buildWithMaximumLength(maxLength);
 
         assertTrue(payloadString.getBytes(Charset.forName("UTF-8")).length <= maxLength);
+    }
+
+    @Test
+    public void testBuildWithMaximumLengthAndAlreadyFittingMessageBody() {
+        final String shortAlertMessage = "This should just fit.";
+
+        this.builder.setAlertBody(shortAlertMessage);
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLength(Integer.MAX_VALUE));
+
+        assertEquals(shortAlertMessage, aps.get("alert"));
     }
 
     @Test(expected = IllegalArgumentException.class)
