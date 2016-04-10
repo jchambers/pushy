@@ -485,8 +485,8 @@ public class ApnsPayloadBuilder {
         if (string.length() <= maximumLength) {
             abbreviatedString = string;
         } else {
-            if (maximumLength <= 1) {
-                throw new IllegalArgumentException("Cannot abbreviate string to fewer than one character.");
+            if (maximumLength <= ABBREVIATION_SUBSTRING.length()) {
+                throw new IllegalArgumentException("String is too short to abbreviate.");
             }
 
             abbreviatedString = string.substring(0, maximumLength - ABBREVIATION_SUBSTRING.length()) + ABBREVIATION_SUBSTRING;
