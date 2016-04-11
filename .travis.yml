@@ -2,13 +2,10 @@ language: java
 jdk:
     - oraclejdk8
     - oraclejdk7
-    - openjdk7
 env:
     - PUSHY_SSL_PROVIDER=jdk
     - PUSHY_SSL_PROVIDER=native
 matrix:
     exclude:
         - jdk: oraclejdk7
-          env: PUSHY_SSL_PROVIDER=jdk
-        - jdk: openjdk7
           env: PUSHY_SSL_PROVIDER=jdk
