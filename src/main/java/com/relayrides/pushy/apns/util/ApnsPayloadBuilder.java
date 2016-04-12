@@ -75,6 +75,7 @@ public class ApnsPayloadBuilder {
     private static final int DEFAULT_PAYLOAD_SIZE = 4096;
 
     private static final Charset UTF8 = Charset.forName("UTF-8");
+    private static final String ABBREVIATION_SUBSTRING = "…";
 
     private static final Gson gson = new GsonBuilder().serializeNulls().create();
 
@@ -360,15 +361,15 @@ public class ApnsPayloadBuilder {
      * longer than the given maximum, the literal alert body will be shortened if possible. If the alert body cannot be
      * shortened or is not present, an {@code IllegalArgumentException} is thrown.</p>
      *
-     * @param maximumPayloadLength the maximum length of the payload in bytes
+     * @param maximumPayloadSize the maximum length of the payload in bytes
      *
      * @return a JSON representation of the payload under construction (possibly with an abbreviated alert body)
      */
-    public String buildWithMaximumLength(final int maximumPayloadLength) {
-        final HashMap<String, Object> payload = new HashMap<String, Object>();
+    public String buildWithMaximumLength(final int maximumPayloadSize) {
+        final Map<String, Object> payload = new HashMap<String, Object>();
 
         {
-            final HashMap<String, Object> aps = new HashMap<String, Object>();
+            final Map<String, Object> aps = new HashMap<String, Object>();
 
             if (this.badgeNumber != null) {
                 aps.put(BADGE_KEY, this.badgeNumber);
@@ -402,39 +403,61 @@ public class ApnsPayloadBuilder {
         final String payloadString = gson.toJson(payload);
         final int initialPayloadLength = payloadString.getBytes(UTF8).length;
 
-        if (initialPayloadLength <= maximumPayloadLength) {
+        if (initialPayloadLength <= maximumPayloadSize) {
             return payloadString;
         } else {
-            // TODO This could probably be more efficient
             if (this.alertBody != null) {
                 this.replaceMessageBody(payload, "");
-                final int payloadLengthWithEmptyMessage = gson.toJson(payload).getBytes(UTF8).length;
+                final int payloadSizeWithEmptyMessage = gson.toJson(payload).getBytes(UTF8).length;
 
-                if (payloadLengthWithEmptyMessage > maximumPayloadLength) {
+                if (payloadSizeWithEmptyMessage >= maximumPayloadSize) {
                     throw new IllegalArgumentException(
                             "Payload exceeds maximum length even with an empty message body.");
                 }
 
-                int maximumMessageBodyLength = maximumPayloadLength - payloadLengthWithEmptyMessage;
+                // We add 2 here because the escaped string will include opening and closing '"' characters that are
+                // already accounted for in payloadSizeWithEmptyMessage.
+                final int maximumEscapedMessageBodySize = maximumPayloadSize - payloadSizeWithEmptyMessage + 2;
 
-                this.replaceMessageBody(payload, this.abbreviateString(this.alertBody, maximumMessageBodyLength--));
+                // Characters in the message body may wind up representing different numbers of bytes as an escaped
+                // JSON string. Assuming a best case of one byte per character, we have a ceiling on the maximum number
+                // of characters we could possibly fit into the message body. Start there and then do a binary search
+                // to find the longest message we can get away with.
+                int left = 0;
+                int right = maximumEscapedMessageBodySize;
 
-                while (gson.toJson(payload).getBytes(UTF8).length > maximumPayloadLength) {
-                    this.replaceMessageBody(payload, this.abbreviateString(this.alertBody, maximumMessageBodyLength--));
+                String fittedMessageBody = null;
+
+                while (left < right) {
+                    final int middle = (left + right) / 2;
+
+                    fittedMessageBody = this.abbreviateString(this.alertBody, middle);
+                    final String escapedFittedMessageBody = gson.toJson(fittedMessageBody);
+
+                    final int fittedMessageBodySize = escapedFittedMessageBody.getBytes(UTF8).length;
+
+                    if (fittedMessageBodySize == maximumEscapedMessageBodySize) {
+                        break;
+                    } else if (fittedMessageBodySize < maximumEscapedMessageBodySize) {
+                        left = middle;
+                    } else {
+                        right = middle;
+                    }
                 }
 
-                return gson.toJson(payload);
+                this.replaceMessageBody(payload, fittedMessageBody);
 
+                return gson.toJson(payload);
             } else {
                 throw new IllegalArgumentException(String.format(
                         "Payload length is %d bytes (with a maximum of %d bytes) and cannot be shortened.",
-                        initialPayloadLength, maximumPayloadLength));
+                        initialPayloadLength, maximumPayloadSize));
             }
         }
     }
 
-    @SuppressWarnings("unchecked")
     private void replaceMessageBody(final Map<String, Object> payload, final String messageBody) {
+        @SuppressWarnings("unchecked")
         final Map<String, Object> aps = (Map<String, Object>) payload.get(APS_KEY);
         final Object alert = aps.get(ALERT_KEY);
 
@@ -442,6 +465,7 @@ public class ApnsPayloadBuilder {
             if (alert instanceof String) {
                 aps.put(ALERT_KEY, messageBody);
             } else {
+                @SuppressWarnings("unchecked")
                 final Map<String, Object> alertObject = (Map<String, Object>) alert;
 
                 if (alertObject.get(ALERT_BODY_KEY) != null) {
@@ -455,19 +479,20 @@ public class ApnsPayloadBuilder {
         }
     }
 
-    private final String abbreviateString(final String string, final int maximumLength) {
+    private String abbreviateString(final String string, final int maximumLength) {
+        final String abbreviatedString;
+
         if (string.length() <= maximumLength) {
-            return string;
+            abbreviatedString = string;
         } else {
-            if (maximumLength <= 3) {
-                throw new IllegalArgumentException("Cannot abbreviate string to fewer than three characters.");
+            if (maximumLength <= ABBREVIATION_SUBSTRING.length()) {
+                throw new IllegalArgumentException("String is too short to abbreviate.");
             }
 
-            // TODO Actually use a real ellipses character when
-            // https://code.google.com/p/json-simple/issues/detail?id=25 gets resolved
-            // TODO Make this locale-sensitive
-            return string.substring(0, maximumLength - 3) + "...";
+            abbreviatedString = string.substring(0, maximumLength - ABBREVIATION_SUBSTRING.length()) + ABBREVIATION_SUBSTRING;
         }
+
+        return abbreviatedString;
     }
 
     private Object createAlertObject() {
