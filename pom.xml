@@ -68,7 +68,7 @@
         </dependency>
     </dependencies>
     <properties>
-        <netty.version>4.1.0.CR6</netty.version>
+        <netty.version>4.1.0.CR7</netty.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
     <build>
