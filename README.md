@@ -81,18 +81,18 @@ An example:
 
 ```java
 try {
-    final PushNotificationResponse<SimpleApnsPushNotification> pushNotificationReponse =
+    final PushNotificationResponse<SimpleApnsPushNotification> pushNotificationResponse =
             sendNotificationFuture.get();
 
-    if (pushNotificationReponse.isAccepted()) {
+    if (pushNotificationResponse.isAccepted()) {
         System.out.println("Push notitification accepted by APNs gateway.");
     } else {
         System.out.println("Notification rejected by the APNs gateway: " +
-                pushNotificationReponse.getRejectionReason());
+                pushNotificationResponse.getRejectionReason());
 
-        if (pushNotificationReponse.getTokenInvalidationTimestamp() != null) {
+        if (pushNotificationResponse.getTokenInvalidationTimestamp() != null) {
             System.out.println("\t…and the token is invalid as of " +
-                pushNotificationReponse.getTokenInvalidationTimestamp());
+                pushNotificationResponse.getTokenInvalidationTimestamp());
         }
     }
 } catch (final ExecutionException e) {
