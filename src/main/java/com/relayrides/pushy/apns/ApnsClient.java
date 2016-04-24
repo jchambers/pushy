@@ -138,9 +138,12 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private long writeTimeoutMillis = DEFAULT_WRITE_TIMEOUT_MILLIS;
     private Long gracefulShutdownTimeoutMillis;
 
+    private int maxUnflushedNotifications = DEFAULT_MAX_UNFLUSHED_NOTIFICATIONS;
+    private long flushAfterIdleTimeMillis = DEFAULT_WRITE_TIMEOUT_MILLIS;
+
     private volatile ChannelPromise connectionReadyPromise;
     private volatile ChannelPromise reconnectionPromise;
-    private long reconnectDelay = INITIAL_RECONNECT_DELAY;
+    private long reconnectDelay = INITIAL_RECONNECT_DELAY_SECONDS;
 
     private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
 
@@ -151,6 +154,10 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * The default write timeout, in milliseconds.
      */
     public static final long DEFAULT_WRITE_TIMEOUT_MILLIS = 20_000;
+
+    public static final long DEFAULT_FLUSH_AFTER_IDLE_MILLIS = 50;
+
+    public static final int DEFAULT_MAX_UNFLUSHED_NOTIFICATIONS = 128;
 
     /**
      * The hostname for the production APNs gateway.
@@ -180,9 +187,9 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private static final ClientNotConnectedException NOT_CONNECTED_EXCEPTION = new ClientNotConnectedException();
 
-    private static final long INITIAL_RECONNECT_DELAY = 1; // second
-    private static final long MAX_RECONNECT_DELAY = 60; // seconds
-    static final int PING_IDLE_TIME = 60; // seconds
+    private static final long INITIAL_RECONNECT_DELAY_SECONDS = 1; // second
+    private static final long MAX_RECONNECT_DELAY_SECONDS = 60; // seconds
+    static final int PING_IDLE_TIME_MILLIS = 60_000; // milliseconds
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
@@ -423,6 +430,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                             final ApnsClientHandler<T> apnsClientHandler = new ApnsClientHandler.ApnsClientHandlerBuilder<T>()
                                     .server(false)
                                     .apnsClient(ApnsClient.this)
+                                    .maxUnflushedNotifications(ApnsClient.this.maxUnflushedNotifications)
                                     .encoderEnforceMaxConcurrentStreams(true)
                                     .build();
 
@@ -432,7 +440,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                 }
                             }
 
-                            context.pipeline().addLast(new IdleStateHandler(0, 0, PING_IDLE_TIME));
+                            context.pipeline().addLast(new IdleStateHandler(0, ApnsClient.this.flushAfterIdleTimeMillis, PING_IDLE_TIME_MILLIS, TimeUnit.MILLISECONDS));
                             context.pipeline().addLast(apnsClientHandler);
 
                             // Add this to the end of the queue so any events enqueued by the client handler happen
@@ -556,6 +564,23 @@ public class ApnsClient<T extends ApnsPushNotification> {
     }
 
     /**
+     * TODO
+     *
+     * @param notificationCount
+     * @param idleTimeMillis
+     */
+    public void setFlushThresholds(final int notificationCount, final long idleTimeMillis) {
+        if ((notificationCount > 0 && idleTimeMillis > 0) || (notificationCount == 0 && idleTimeMillis == 0)) {
+            synchronized (this.bootstrap) {
+                this.maxUnflushedNotifications = notificationCount;
+                this.flushAfterIdleTimeMillis = idleTimeMillis;
+            }
+        } else {
+            throw new IllegalArgumentException("Notification count and idle time must both be positive or both be zero.");
+        }
+    }
+
+    /**
      * Sets the proxy handler factory to be used to construct proxy handlers when establishing a new connection to the
      * APNs gateway. Proxy handlers are added to the beginning of the client's pipeline. A client's proxy handler
      * factory may be {@code null}, in which case the client will connect to the gateway directly and will not use a
@@ -655,7 +680,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                         }
                                     }, ApnsClient.this.reconnectDelay, TimeUnit.SECONDS);
 
-                                    ApnsClient.this.reconnectDelay = Math.min(ApnsClient.this.reconnectDelay, MAX_RECONNECT_DELAY);
+                                    ApnsClient.this.reconnectDelay = Math.min(ApnsClient.this.reconnectDelay, MAX_RECONNECT_DELAY_SECONDS);
                                 }
                             }
 
@@ -690,7 +715,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                         log.info("Connected to {}.", future.channel().remoteAddress());
                                     }
 
-                                    ApnsClient.this.reconnectDelay = INITIAL_RECONNECT_DELAY;
+                                    ApnsClient.this.reconnectDelay = INITIAL_RECONNECT_DELAY_SECONDS;
                                     ApnsClient.this.reconnectionPromise = future.channel().newPromise();
                                 }
 
@@ -814,7 +839,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 }
             });
 
-            connectionReadyPromise.channel().writeAndFlush(notification).addListener(new GenericFutureListener<ChannelFuture>() {
+            connectionReadyPromise.channel().write(notification).addListener(new GenericFutureListener<ChannelFuture>() {
 
                 @Override
                 public void operationComplete(final ChannelFuture future) throws Exception {
