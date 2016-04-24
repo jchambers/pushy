@@ -523,7 +523,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
     }
 
     /**
-     * Sets the metrics listener for this client.
+     * Sets the metrics listener for this client. Metrics listeners gather information that describes the performance
+     * and behavior of a client, and are completely optional.
      *
      * @param metricsListener the metrics listener for this client, or {@code null} if this client should not report
      * metrics to a listener
