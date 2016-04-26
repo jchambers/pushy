@@ -262,8 +262,12 @@ public class ApnsClientTest {
         }
     }
 
-    // TODO Add a test for completely unprotected P12 files (i.e. with a null password) if it turns out it's actually
-    // possible to create such a thing (signs point to "no" right now)
+    @Test(expected = NullPointerException.class)
+    public void testApnsClientWithNullPassword() throws Exception {
+        new ApnsClient<SimpleApnsPushNotification>(
+                new File(ApnsClientTest.class.getResource(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME).toURI()),
+                null);
+    }
 
     @Test
     public void testApnsClientWithCertificateAndPasswordProtectedKey() throws Exception {

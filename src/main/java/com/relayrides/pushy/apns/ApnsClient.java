@@ -40,25 +40,25 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import javax.net.ssl.SSLException;
 
-import io.netty.channel.Channel;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.oio.OioEventLoopGroup;
-import io.netty.channel.socket.oio.OioSocketChannel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.relayrides.pushy.apns.proxy.ProxyHandlerFactory;
 
 import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.ChannelPromise;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.oio.OioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.channel.socket.oio.OioSocketChannel;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
@@ -196,7 +196,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @param p12File a PKCS#12-formatted file containing the certificate and private key to be used to identify the
      * client to the APNs server
-     * @param password the password to be used to decrypt the contents of the given PKCS#12 file
+     * @param password the password to be used to decrypt the contents of the given PKCS#12 file; passwords may be blank
+     * (e.g. {@code ""}), but must not be {@code null}
      *
      * @throws SSLException if the given PKCS#12 file could not be loaded or if any other SSL-related problem arises
      * when constructing the context
@@ -220,7 +221,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @param p12File a PKCS#12-formatted file containing the certificate and private key to be used to identify the
      * client to the APNs server
-     * @param password the password to be used to decrypt the contents of the given PKCS#12 file
+     * @param password the password to be used to decrypt the contents of the given PKCS#12 file; passwords may be blank
+     * (e.g. {@code ""}), but must not be {@code null}
      * @param eventLoopGroup the event loop group to be used to handle I/O events for this client
      *
      * @throws SSLException if the given PKCS#12 file could not be loaded or if any other SSL-related problem arises
@@ -245,7 +247,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @param p12InputStream an input stream for PKCS#12-formatted data containing the certificate and private key to be
      * used to identify the client to the APNs server
-     * @param password the password to be used to decrypt the contents of the given PKCS#12 data
+     * @param password the password to be used to decrypt the contents of the given PKCS#12 data; passwords may be blank
+     * (e.g. {@code ""}), but must not be {@code null}
      *
      * @throws SSLException if the given PKCS#12 data could not be loaded or if any other SSL-related problem arises
      * when constructing the context
@@ -268,7 +271,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @param p12InputStream an input stream for PKCS#12-formatted data containing the certificate and private key to be
      * used to identify the client to the APNs server
-     * @param password the password to be used to decrypt the contents of the given PKCS#12 data
+     * @param password the password to be used to decrypt the contents of the given PKCS#12 data; passwords may be blank
+     * (e.g. {@code ""}), but must not be {@code null}
      * @param eventLoopGroup the event loop group to be used to handle I/O events for this client
      *
      * @throws SSLException if the given PKCS#12 data could not be loaded or if any other SSL-related problem arises

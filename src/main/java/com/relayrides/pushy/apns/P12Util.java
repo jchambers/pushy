@@ -9,13 +9,15 @@ import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableEntryException;
 import java.security.cert.CertificateException;
 import java.util.Enumeration;
+import java.util.Objects;
 
 class P12Util {
 
     public static PrivateKeyEntry getPrivateKeyEntryFromP12InputStream(final InputStream p12InputStream, final String password) throws KeyStoreException, NoSuchAlgorithmException, UnrecoverableEntryException, CertificateException, IOException {
-        final KeyStore keyStore = KeyStore.getInstance("PKCS12");
+        Objects.requireNonNull(password, "Password may be blank, but must not be null.");
 
-        keyStore.load(p12InputStream, password != null ? password.toCharArray() : null);
+        final KeyStore keyStore = KeyStore.getInstance("PKCS12");
+        keyStore.load(p12InputStream, password.toCharArray());
 
         final Enumeration<String> aliases = keyStore.aliases();
         KeyStore.PrivateKeyEntry privateKeyEntry = null;
