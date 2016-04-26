@@ -565,16 +565,30 @@ public class ApnsClient<T extends ApnsPushNotification> {
     }
 
     /**
-     * TODO
+     * <p>Sets the thresholds at which this client will flush notifications enqueued for sending to the APNs server. By
+     * default, notifications will be flushed after {@value ApnsClient#DEFAULT_MAX_UNFLUSHED_NOTIFICATIONS} unflushed
+     * notifications have been enqueued or {@value ApnsClient#DEFAULT_FLUSH_AFTER_IDLE_MILLIS} milliseconds of
+     * inactivity have elapsed.</p>
      *
-     * @param notificationCount
-     * @param idleTimeMillis
+     * <p>Callers may set both thresholds to zero to flush all notifications immediately, which will reduce latency at
+     * the expence of decreasing efficiency and throughput. Changes to the flushing thresholds will take effect on the
+     * next connection attempt.</p>
+     *
+     * @param maxUnflushedNotifications The maximum number of notifications that may be enqueued before the sending
+     * queue is flushed. Must be positive if {@code maxIdleTimeMillis} is also positive or zero if
+     * {@code maxIdleTimeMillis} is also zero. If zero, notifications are always sent immediately.
+     * @param maxIdleTimeMillis The maximum amount of time, in milliseconds, since the last attempt to send a
+     * notification that may elapse before the sending queue is flushed. Must be positive if
+     * {@code maxUnflushedNotifications} is also positive or zero if {@code maxUnflushedNotifications} is also zero. If
+     * zero, notifications are always sent immediately.
+     *
+     * @since 0.6.2
      */
-    public void setFlushThresholds(final int notificationCount, final long idleTimeMillis) {
-        if ((notificationCount > 0 && idleTimeMillis > 0) || (notificationCount == 0 && idleTimeMillis == 0)) {
+    public void setFlushThresholds(final int maxUnflushedNotifications, final long maxIdleTimeMillis) {
+        if ((maxUnflushedNotifications > 0 && maxIdleTimeMillis > 0) || (maxUnflushedNotifications == 0 && maxIdleTimeMillis == 0)) {
             synchronized (this.bootstrap) {
-                this.maxUnflushedNotifications = notificationCount;
-                this.flushAfterIdleTimeMillis = idleTimeMillis;
+                this.maxUnflushedNotifications = maxUnflushedNotifications;
+                this.flushAfterIdleTimeMillis = maxIdleTimeMillis;
             }
         } else {
             throw new IllegalArgumentException("Notification count and idle time must both be positive or both be zero.");
@@ -803,10 +817,15 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * automatically. Callers may wait for a reconnection attempt to complete by waiting for the {@code Future} returned
      * by the {@link ApnsClient#getReconnectionFuture()} method.</p>
      *
+     * <p>Note that, depending on this client's flushing thresholds, notifications may be enqueued so they may be sent
+     * in bulk to increase efficiency and throughput at the expense of latency.</p>
+     *
      * @param notification the notification to send to the APNs gateway
      *
      * @return a {@code Future} that will complete when the notification has been either accepted or rejected by the
      * APNs gateway
+     *
+     * @see ApnsClient#setFlushThresholds(int, long)
      *
      * @since 0.5
      */
