@@ -582,7 +582,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * {@code maxUnflushedNotifications} is also positive or zero if {@code maxUnflushedNotifications} is also zero. If
      * zero, notifications are always sent immediately.
      *
-     * @since 0.6.2
+     * @since 0.7
      */
     public void setFlushThresholds(final int maxUnflushedNotifications, final long maxIdleTimeMillis) {
         if ((maxUnflushedNotifications > 0 && maxIdleTimeMillis > 0) || (maxUnflushedNotifications == 0 && maxIdleTimeMillis == 0)) {
