@@ -122,7 +122,7 @@ Pushy works with Java 7 and newer, but has some additional dependencies dependin
 
 The APNs protocol is built on top of the [HTTP/2 protocol](https://http2.github.io/). HTTP/2 is a relatively new protocol, and relies on some new developments that aren't yet wide-spread in the Java world. In particular:
 
-1. HTTP/2 depends on [ALPN](https://tools.ietf.org/html/rfc7301), a TLS extension for protocol negotiation. No version of Java has native ALPN support at this time. The ALPN requirement may be met either by [using a native SSL provider](#using-a-native-ssl-provider) or by [using Jetty's ALPN implementation](#using-jettys-alpn-implementation) under OpenJDK 7 or 8.
+1. HTTP/2 depends on [ALPN](https://tools.ietf.org/html/rfc7301), a TLS extension for protocol negotiation. No version of Java has native ALPN support at this time. The ALPN requirement may be met either by [using a native SSL provider](#using-openssl-as-an-ssl-provider) or by [using Jetty's ALPN implementation](#using-jettys-alpn-implementation) under OpenJDK 7 or 8.
 2. The HTTP/2 specification requires the use of [ciphers](https://httpwg.github.io/specs/rfc7540.html#rfc.section.9.2.2) that weren't introduced in Java until Java 8. Using a native SSL provider is the best way to meet this requirement under Java 7. A native SSL provider isn't a requirement under Java 8, but may still yield performance gains.
 
 Generally speaking, a native SSL provider is the best way to fulfill the system requirements imposed by HTTP/2 because installation is fairly straightforward, it works for Java 7 onward and generally offers better SSL performance than the JDK SSL provider.
