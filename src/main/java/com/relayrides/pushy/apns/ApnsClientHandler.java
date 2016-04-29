@@ -48,6 +48,7 @@ import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.handler.codec.http2.Http2FrameAdapter;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Settings;
+import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.WriteTimeoutException;
 import io.netty.util.AsciiString;
@@ -66,6 +67,9 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
     private long nextPingId = new Random().nextLong();
     private ScheduledFuture<?> pingTimeoutFuture;
+
+    private final int maxUnflushedNotifications;
+    private int unflushedNotifications = 0;
 
     private static final int PING_TIMEOUT = 30; // seconds
 
@@ -89,6 +93,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     public static class ApnsClientHandlerBuilder<S extends ApnsPushNotification> extends AbstractHttp2ConnectionHandlerBuilder<ApnsClientHandler<S>, ApnsClientHandlerBuilder<S>> {
 
         private ApnsClient<S> apnsClient;
+        private int maxUnflushedNotifications = 0;
 
         public ApnsClientHandlerBuilder<S> apnsClient(final ApnsClient<S> apnsClient) {
             this.apnsClient = apnsClient;
@@ -97,6 +102,15 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
         public ApnsClient<S> apnsClient() {
             return this.apnsClient;
+        }
+
+        public ApnsClientHandlerBuilder<S> maxUnflushedNotifications(final int maxUnflushedNotifications) {
+            this.maxUnflushedNotifications = maxUnflushedNotifications;
+            return this;
+        }
+
+        public int maxUnflushedNotifications() {
+            return this.maxUnflushedNotifications;
         }
 
         @Override
@@ -111,7 +125,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
         @Override
         public ApnsClientHandler<S> build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
-            final ApnsClientHandler<S> handler = new ApnsClientHandler<>(decoder, encoder, initialSettings, this.apnsClient());
+            final ApnsClientHandler<S> handler = new ApnsClientHandler<>(decoder, encoder, initialSettings, this.apnsClient(), this.maxUnflushedNotifications());
             this.frameListener(handler.new ApnsClientHandlerFrameAdapter());
             return handler;
         }
@@ -186,15 +200,16 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
         }
     }
 
-    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final ApnsClient<T> apnsClient) {
+    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final ApnsClient<T> apnsClient, final int maxUnflushedNotifications) {
         super(decoder, encoder, initialSettings);
 
         this.apnsClient = apnsClient;
+        this.maxUnflushedNotifications = maxUnflushedNotifications;
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise writePromise) {
+    public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise writePromise) throws Http2Exception {
         try {
             // We'll catch class cast issues gracefully
             final T pushNotification = (T) message;
@@ -244,6 +259,10 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
             this.nextStreamId += 2;
 
+            if (++this.unflushedNotifications >= this.maxUnflushedNotifications) {
+                this.flush(context);
+            }
+
             if (this.nextStreamId >= STREAM_ID_RESET_THRESHOLD) {
                 // This is very unlikely, but in the event that we run out of stream IDs (the maximum allowed is
                 // 2^31, per https://httpwg.github.io/specs/rfc7540.html#StreamIdentifiers), we need to open a new
@@ -260,37 +279,51 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     }
 
     @Override
+    public void flush(final ChannelHandlerContext context) throws Http2Exception {
+        super.flush(context);
+
+        this.unflushedNotifications = 0;
+    }
+
+    @Override
     public void userEventTriggered(final ChannelHandlerContext context, final Object event) throws Exception {
         if (event instanceof IdleStateEvent) {
+            final IdleStateEvent idleStateEvent = (IdleStateEvent) event;
 
-            assert PING_TIMEOUT < ApnsClient.PING_IDLE_TIME;
-
-            log.trace("Sending ping due to inactivity.");
-
-            final ByteBuf pingDataBuffer = context.alloc().ioBuffer(8, 8);
-            pingDataBuffer.writeLong(this.nextPingId++);
-
-            this.encoder().writePing(context, false, pingDataBuffer, context.newPromise()).addListener(new GenericFutureListener<ChannelFuture>() {
-
-                @Override
-                public void operationComplete(final ChannelFuture future) throws Exception {
-                    if (future.isSuccess()) {
-                        ApnsClientHandler.this.pingTimeoutFuture = future.channel().eventLoop().schedule(new Runnable() {
-
-                            @Override
-                            public void run() {
-                                log.debug("Closing channel due to ping timeout.");
-                                future.channel().close();
-                            }
-                        }, PING_TIMEOUT, TimeUnit.SECONDS);
-                    } else {
-                        log.debug("Failed to write PING frame.", future.cause());
-                        future.channel().close();
-                    }
+            if (IdleState.WRITER_IDLE.equals(idleStateEvent.state())) {
+                if (idleStateEvent.isFirst()) {
+                    this.flush(context);
                 }
-            });
+            } else {
+                assert PING_TIMEOUT < ApnsClient.PING_IDLE_TIME_MILLIS;
 
-            context.flush();
+                log.trace("Sending ping due to inactivity.");
+
+                final ByteBuf pingDataBuffer = context.alloc().ioBuffer(8, 8);
+                pingDataBuffer.writeLong(this.nextPingId++);
+
+                this.encoder().writePing(context, false, pingDataBuffer, context.newPromise()).addListener(new GenericFutureListener<ChannelFuture>() {
+
+                    @Override
+                    public void operationComplete(final ChannelFuture future) throws Exception {
+                        if (future.isSuccess()) {
+                            ApnsClientHandler.this.pingTimeoutFuture = future.channel().eventLoop().schedule(new Runnable() {
+
+                                @Override
+                                public void run() {
+                                    log.debug("Closing channel due to ping timeout.");
+                                    future.channel().close();
+                                }
+                            }, PING_TIMEOUT, TimeUnit.SECONDS);
+                        } else {
+                            log.debug("Failed to write PING frame.", future.cause());
+                            future.channel().close();
+                        }
+                    }
+                });
+
+                this.flush(context);
+            }
         }
 
         super.userEventTriggered(context, event);
