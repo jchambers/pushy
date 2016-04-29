@@ -143,7 +143,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private volatile ChannelPromise connectionReadyPromise;
     private volatile ChannelPromise reconnectionPromise;
-    private long reconnectDelay = INITIAL_RECONNECT_DELAY_SECONDS;
+    private long reconnectDelaySeconds = INITIAL_RECONNECT_DELAY_SECONDS;
 
     private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
 
@@ -684,7 +684,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                 }
 
                                 if (ApnsClient.this.reconnectionPromise != null) {
-                                    log.debug("Disconnected. Next automatic reconnection attempt in {} seconds.", ApnsClient.this.reconnectDelay);
+                                    log.debug("Disconnected. Next automatic reconnection attempt in {} seconds.", ApnsClient.this.reconnectDelaySeconds);
 
                                     future.channel().eventLoop().schedule(new Runnable() {
 
@@ -693,9 +693,9 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                             log.debug("Attempting to reconnect.");
                                             ApnsClient.this.connect(host, port);
                                         }
-                                    }, ApnsClient.this.reconnectDelay, TimeUnit.SECONDS);
+                                    }, ApnsClient.this.reconnectDelaySeconds, TimeUnit.SECONDS);
 
-                                    ApnsClient.this.reconnectDelay = Math.min(ApnsClient.this.reconnectDelay, MAX_RECONNECT_DELAY_SECONDS);
+                                    ApnsClient.this.reconnectDelaySeconds = Math.min(ApnsClient.this.reconnectDelaySeconds, MAX_RECONNECT_DELAY_SECONDS);
                                 }
                             }
 
@@ -730,7 +730,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                         log.info("Connected to {}.", future.channel().remoteAddress());
                                     }
 
-                                    ApnsClient.this.reconnectDelay = INITIAL_RECONNECT_DELAY_SECONDS;
+                                    ApnsClient.this.reconnectDelaySeconds = INITIAL_RECONNECT_DELAY_SECONDS;
                                     ApnsClient.this.reconnectionPromise = future.channel().newPromise();
                                 }
 
