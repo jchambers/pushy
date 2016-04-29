@@ -80,7 +80,8 @@ public class ApnsPayloadBuilder {
     private static final Gson gson = new GsonBuilder().serializeNulls().create();
 
     /**
-     * The name of the iOS default push notification sound ({@value DEFAULT_SOUND_FILENAME}).
+     * The name of the iOS default push notification sound
+     * ({@value com.relayrides.pushy.apns.util.ApnsPayloadBuilder#DEFAULT_SOUND_FILENAME}).
      *
      * @see com.relayrides.pushy.apns.util.ApnsPayloadBuilder#setSoundFileName(String)
      */

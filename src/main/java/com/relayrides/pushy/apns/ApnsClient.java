@@ -578,7 +578,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * timeout will take effect after the next connection attempt; changes made to an already-connected client will have
      * no immediate effect.</p>
      *
-     * <p>By default, clients have a write timeout of {@value ApnsClient#DEFAULT_WRITE_TIMEOUT_MILLIS} milliseconds.</p>
+     * <p>By default, clients have a write timeout of
+     * {@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_WRITE_TIMEOUT_MILLIS} milliseconds.</p>
      *
      * @param writeTimeoutMillis the write timeout for this client in milliseconds; if zero, write attempts will never
      * time out
@@ -591,12 +592,13 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     /**
      * <p>Sets the thresholds at which this client will flush notifications enqueued for sending to the APNs server. By
-     * default, notifications will be flushed after {@value ApnsClient#DEFAULT_MAX_UNFLUSHED_NOTIFICATIONS} unflushed
-     * notifications have been enqueued or {@value ApnsClient#DEFAULT_FLUSH_AFTER_IDLE_MILLIS} milliseconds of
-     * inactivity have elapsed.</p>
+     * default, notifications will be flushed after
+     * {@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_MAX_UNFLUSHED_NOTIFICATIONS} unflushed
+     * notifications have been enqueued or {@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_FLUSH_AFTER_IDLE_MILLIS}
+     * milliseconds of inactivity have elapsed.</p>
      *
      * <p>Callers may set both thresholds to zero to flush all notifications immediately, which will reduce latency at
-     * the expence of decreasing efficiency and throughput. Changes to the flushing thresholds will take effect on the
+     * the expense of decreasing efficiency and throughput. Changes to the flushing thresholds will take effect on the
      * next connection attempt.</p>
      *
      * @param maxUnflushedNotifications The maximum number of notifications that may be enqueued before the sending
@@ -636,7 +638,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
     }
 
     /**
-     * <p>Connects to the given APNs gateway on the default (HTTPS) port ({@value DEFAULT_APNS_PORT}).</p>
+     * <p>Connects to the given APNs gateway on the default (HTTPS) port
+     * ({@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_APNS_PORT}).</p>
      *
      * <p>Once an initial connection has been established and until the client has been explicitly disconnected via the
      * {@link ApnsClient#disconnect()} method, the client will attempt to reconnect automatically if the connection
