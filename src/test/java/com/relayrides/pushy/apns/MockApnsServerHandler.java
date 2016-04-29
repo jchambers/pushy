@@ -217,7 +217,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
                 if (this.topics.contains(topicString)) {
                     topic = topicSequence.toString();
                 } else {
-                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.TOPIC_DIALLOWED));
+                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.TOPIC_DISALLOWED));
                     return;
                 }
             } else {

@@ -6,7 +6,7 @@ public enum ErrorReason {
     PAYLOAD_EMPTY("PayloadEmpty", HttpResponseStatus.BAD_REQUEST),
     PAYLOAD_TOO_LARGE("PayloadTooLarge", HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE),
     BAD_TOPIC("BadTopic", HttpResponseStatus.BAD_REQUEST),
-    TOPIC_DIALLOWED("TopicDisallowed", HttpResponseStatus.FORBIDDEN),
+    TOPIC_DISALLOWED("TopicDisallowed", HttpResponseStatus.FORBIDDEN),
     BAD_MESSAGE_ID("BadMessageId", HttpResponseStatus.BAD_REQUEST),
     BAD_EXPIRATION_DATE("BadExpirationDate", HttpResponseStatus.BAD_REQUEST),
     BAD_PRIORITY("BadPriority", HttpResponseStatus.BAD_REQUEST),
