@@ -152,25 +152,44 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     /**
      * The default write timeout, in milliseconds.
+     *
+     * @since 0.6
      */
     public static final long DEFAULT_WRITE_TIMEOUT_MILLIS = 20_000;
 
+    /**
+     * The default inactivity period after which all unflushed notifications will be sent to the APNs server.
+     *
+     * @since 0.7
+     */
     public static final long DEFAULT_FLUSH_AFTER_IDLE_MILLIS = 50;
 
+    /**
+     * The default maximum number of notifications that may be buffered by a client before being sent to the APNs
+     * server.
+     *
+     * @since 0.7
+     */
     public static final int DEFAULT_MAX_UNFLUSHED_NOTIFICATIONS = 128;
 
     /**
      * The hostname for the production APNs gateway.
+     *
+     * @since 0.5
      */
     public static final String PRODUCTION_APNS_HOST = "api.push.apple.com";
 
     /**
      * The hostname for the development APNs gateway.
+     *
+     * @since 0.5
      */
     public static final String DEVELOPMENT_APNS_HOST = "api.development.push.apple.com";
 
     /**
      * The default (HTTPS) port for communication with the APNs gateway.
+     *
+     * @since 0.5
      */
     public static final int DEFAULT_APNS_PORT = 443;
 
@@ -182,6 +201,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @see <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW12">APNs
      * Provider API, Connections</a>
+     *
+     * @since 0.5
      */
     public static final int ALTERNATE_APNS_PORT = 2197;
 
