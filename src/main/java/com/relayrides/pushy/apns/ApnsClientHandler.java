@@ -291,7 +291,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
             final IdleStateEvent idleStateEvent = (IdleStateEvent) event;
 
             if (IdleState.WRITER_IDLE.equals(idleStateEvent.state())) {
-                if (idleStateEvent.isFirst()) {
+                if (this.unflushedNotifications > 0) {
                     this.flush(context);
                 }
             } else {
