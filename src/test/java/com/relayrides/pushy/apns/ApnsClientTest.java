@@ -19,8 +19,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.After;
 import org.junit.AfterClass;
@@ -423,6 +423,25 @@ public class ApnsClientTest {
 
     @Test
     public void testSendNotification() throws Exception {
+        final String testToken = ApnsClientTest.generateRandomToken();
+
+        this.server.registerToken(DEFAULT_TOPIC, testToken);
+
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
+        final PushNotificationResponse<SimpleApnsPushNotification> response =
+                this.client.sendNotification(pushNotification).get();
+
+        assertTrue(response.isAccepted());
+    }
+
+    /*
+     * This addresses an issue identified in https://github.com/relayrides/pushy/issues/283 where the initial SETTINGS
+     * frame from the server would trigger a flush, which was masking some issues with the deferred flush code.
+     */
+    @Test
+    public void testSendNotificationAfterInitialSettings() throws Exception {
+        this.client.waitForInitialSettings();
+
         final String testToken = ApnsClientTest.generateRandomToken();
 
         this.server.registerToken(DEFAULT_TOPIC, testToken);

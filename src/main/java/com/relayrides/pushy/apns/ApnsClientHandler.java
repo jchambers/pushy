@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,6 +59,7 @@ import io.netty.util.concurrent.ScheduledFuture;
 
 class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionHandler {
 
+    private final AtomicBoolean receivedInitialSettings = new AtomicBoolean(false);
     private long nextStreamId = 1;
 
     private final Map<Integer, T> pushNotificationsByStreamId = new HashMap<>();
@@ -137,6 +139,16 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     }
 
     private class ApnsClientHandlerFrameAdapter extends Http2FrameAdapter {
+        @Override
+        public void onSettingsRead(final ChannelHandlerContext context, final Http2Settings settings) {
+            log.trace("Received settings from APNs gateway: {}", settings);
+
+            synchronized (ApnsClientHandler.this.receivedInitialSettings) {
+                ApnsClientHandler.this.receivedInitialSettings.set(true);
+                ApnsClientHandler.this.receivedInitialSettings.notifyAll();
+            }
+        }
+
         @Override
         public int onDataRead(final ChannelHandlerContext context, final int streamId, final ByteBuf data, final int padding, final boolean endOfStream) throws Http2Exception {
             log.trace("Received data from APNs gateway on stream {}: {}", streamId, data.toString(UTF8));
@@ -336,6 +348,17 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
             context.close();
         } else {
             log.warn("APNs client pipeline caught an exception.", cause);
+        }
+    }
+
+    /*
+     * Waits for the initial SETTINGS frame from the server after connecting. For testing purposes only.
+     */
+    void waitForInitialSettings() throws InterruptedException {
+        synchronized (this.receivedInitialSettings) {
+            while (!this.receivedInitialSettings.get()) {
+                this.receivedInitialSettings.wait();
+            }
         }
     }
 }

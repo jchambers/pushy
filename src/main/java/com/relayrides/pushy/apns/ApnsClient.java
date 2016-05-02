@@ -791,6 +791,13 @@ public class ApnsClient<T extends ApnsPushNotification> {
         return (connectionReadyPromise != null && connectionReadyPromise.isSuccess());
     }
 
+    /*
+     * Waits for the initial SETTINGS frame from the server after connecting. For testing purposes only.
+     */
+    void waitForInitialSettings() throws InterruptedException {
+        this.connectionReadyPromise.channel().pipeline().get(ApnsClientHandler.class).waitForInitialSettings();
+    }
+
     /**
      * <p>Returns a {@code Future} that will succeed when the client has re-established a connection to the APNs gateway.
      * Callers may use this method to determine when it is safe to resume sending notifications after a send attempt
