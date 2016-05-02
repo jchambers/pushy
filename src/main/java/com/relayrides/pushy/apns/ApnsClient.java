@@ -139,7 +139,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private Long gracefulShutdownTimeoutMillis;
 
     private int maxUnflushedNotifications = DEFAULT_MAX_UNFLUSHED_NOTIFICATIONS;
-    private long flushAfterIdleTimeMillis = DEFAULT_WRITE_TIMEOUT_MILLIS;
+    private long flushAfterIdleTimeMillis = DEFAULT_FLUSH_AFTER_IDLE_MILLIS;
 
     private volatile ChannelPromise connectionReadyPromise;
     private volatile ChannelPromise reconnectionPromise;
