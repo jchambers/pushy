@@ -1,17 +1,24 @@
 <?xml version="1.0"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
     <groupId>com.relayrides</groupId>
     <artifactId>pushy-parent</artifactId>
     <packaging>pom</packaging>
     <version>0.7.2-SNAPSHOT</version>
     <name>Pushy parent</name>
     <description>A Java library for sending push notifications</description>
+
     <parent>
         <groupId>org.sonatype.oss</groupId>
         <artifactId>oss-parent</artifactId>
         <version>7</version>
     </parent>
+
+    <modules>
+        <module>pushy</module>
+    </modules>
+
     <licenses>
         <license>
             <name>The MIT License (MIT)</name>
@@ -19,13 +26,12 @@
             <distribution>repo</distribution>
         </license>
     </licenses>
-    <modules>
-        <module>pushy</module>
-    </modules>
+
     <properties>
         <netty.version>4.1.0.CR7</netty.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+
     <build>
         <extensions>
             <extension>
@@ -79,6 +85,7 @@
             </plugin>
         </plugins>
     </build>
+
     <profiles>
         <profile>
             <id>release-sign-artifacts</id>
