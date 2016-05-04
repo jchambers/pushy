@@ -402,18 +402,19 @@ public class ApnsPayloadBuilder {
         }
 
         final String payloadString = gson.toJson(payload);
-        final int initialPayloadLength = payloadString.getBytes(UTF8).length;
+        final int initialPayloadSize = payloadString.getBytes(UTF8).length;
 
-        if (initialPayloadLength <= maximumPayloadSize) {
-            return payloadString;
+        final String fittedPayloadString;
+
+        if (initialPayloadSize <= maximumPayloadSize) {
+            fittedPayloadString = payloadString;
         } else {
             if (this.alertBody != null) {
                 this.replaceMessageBody(payload, "");
                 final int payloadSizeWithEmptyMessage = gson.toJson(payload).getBytes(UTF8).length;
 
                 if (payloadSizeWithEmptyMessage >= maximumPayloadSize) {
-                    throw new IllegalArgumentException(
-                            "Payload exceeds maximum length even with an empty message body.");
+                    throw new IllegalArgumentException("Payload exceeds maximum size even with an empty message body.");
                 }
 
                 // We add 2 here because the escaped string will include opening and closing '"' characters that are
@@ -422,9 +423,10 @@ public class ApnsPayloadBuilder {
 
                 // Characters in the message body may wind up representing different numbers of bytes as an escaped
                 // JSON string. Assuming a best case of one byte per character, we have a ceiling on the maximum number
-                // of characters we could possibly fit into the message body. Start there and then do a binary search
-                // to find the longest message we can get away with.
-                int left = 0;
+                // of characters we could possibly fit into the message body. We can also figure out a minimum number
+                // of characters; in the worst case (a unicode control character), a single character could expand to
+                // take up six bytes in the escaped JSON string.
+                int left = maximumEscapedMessageBodySize / 6;
                 int right = maximumEscapedMessageBodySize;
 
                 String fittedMessageBody = null;
@@ -433,28 +435,27 @@ public class ApnsPayloadBuilder {
                     final int middle = (left + right) / 2;
 
                     fittedMessageBody = this.abbreviateString(this.alertBody, middle);
-                    final String escapedFittedMessageBody = gson.toJson(fittedMessageBody);
+                    final int escapedMessageBodySize = gson.toJson(fittedMessageBody).getBytes(UTF8).length;
 
-                    final int fittedMessageBodySize = escapedFittedMessageBody.getBytes(UTF8).length;
-
-                    if (fittedMessageBodySize == maximumEscapedMessageBodySize) {
+                    if (escapedMessageBodySize == maximumEscapedMessageBodySize) {
                         break;
-                    } else if (fittedMessageBodySize < maximumEscapedMessageBodySize) {
-                        left = middle;
+                    } else if (escapedMessageBodySize < maximumEscapedMessageBodySize) {
+                        left = middle + 1;
                     } else {
-                        right = middle;
+                        right = middle - 1;
                     }
                 }
 
                 this.replaceMessageBody(payload, fittedMessageBody);
-
-                return gson.toJson(payload);
+                fittedPayloadString = gson.toJson(payload);
             } else {
                 throw new IllegalArgumentException(String.format(
-                        "Payload length is %d bytes (with a maximum of %d bytes) and cannot be shortened.",
-                        initialPayloadLength, maximumPayloadSize));
+                        "Payload size is %d bytes (with a maximum of %d bytes) and cannot be shortened.",
+                        initialPayloadSize, maximumPayloadSize));
             }
         }
+
+        return fittedPayloadString;
     }
 
     private void replaceMessageBody(final Map<String, Object> payload, final String messageBody) {
