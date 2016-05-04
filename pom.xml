@@ -17,7 +17,7 @@
 
     <modules>
         <module>pushy-core</module>
-        <module>benchmark</module>
+        <module>pushy-benchmark</module>
     </modules>
 
     <licenses>
