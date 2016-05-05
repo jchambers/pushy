@@ -20,6 +20,7 @@
 
 package com.relayrides.pushy.apns.util;
 
+import java.io.CharArrayWriter;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -53,6 +54,8 @@ public class ApnsPayloadBuilder {
     private String soundFileName = null;
     private String categoryName = null;
     private boolean contentAvailable = false;
+
+    private final CharArrayWriter buffer = new CharArrayWriter(DEFAULT_PAYLOAD_SIZE / 4);
 
     private static final String APS_KEY = "aps";
     private static final String ALERT_KEY = "alert";
@@ -401,7 +404,10 @@ public class ApnsPayloadBuilder {
             payload.put(entry.getKey(), entry.getValue());
         }
 
-        final String payloadString = gson.toJson(payload);
+        this.buffer.reset();
+        gson.toJson(payload, this.buffer);
+
+        final String payloadString = this.buffer.toString();
         final int initialPayloadSize = payloadString.getBytes(UTF8).length;
 
         final String fittedPayloadString;
@@ -411,7 +417,11 @@ public class ApnsPayloadBuilder {
         } else {
             if (this.alertBody != null) {
                 this.replaceMessageBody(payload, "");
-                final int payloadSizeWithEmptyMessage = gson.toJson(payload).getBytes(UTF8).length;
+
+                this.buffer.reset();
+                gson.toJson(payload, this.buffer);
+
+                final int payloadSizeWithEmptyMessage = this.buffer.toString().getBytes(UTF8).length;
 
                 if (payloadSizeWithEmptyMessage >= maximumPayloadSize) {
                     throw new IllegalArgumentException("Payload exceeds maximum size even with an empty message body.");
@@ -435,7 +445,11 @@ public class ApnsPayloadBuilder {
                     final int middle = (left + right) / 2;
 
                     fittedMessageBody = this.abbreviateString(this.alertBody, middle);
-                    final int escapedMessageBodySize = gson.toJson(fittedMessageBody).getBytes(UTF8).length;
+
+                    this.buffer.reset();
+                    gson.toJson(fittedMessageBody, this.buffer);
+
+                    final int escapedMessageBodySize = this.buffer.toString().getBytes(UTF8).length;
 
                     if (escapedMessageBodySize == maximumEscapedMessageBodySize) {
                         break;
@@ -447,7 +461,11 @@ public class ApnsPayloadBuilder {
                 }
 
                 this.replaceMessageBody(payload, fittedMessageBody);
-                fittedPayloadString = gson.toJson(payload);
+
+                this.buffer.reset();
+                gson.toJson(payload, this.buffer);
+
+                fittedPayloadString = this.buffer.toString();
             } else {
                 throw new IllegalArgumentException(String.format(
                         "Payload size is %d bytes (with a maximum of %d bytes) and cannot be shortened.",
