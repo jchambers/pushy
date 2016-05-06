@@ -24,7 +24,7 @@ package com.relayrides.pushy.apns.util;
 import static org.junit.Assert.*;
 
 import java.lang.reflect.Type;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -295,8 +295,9 @@ public class ApnsPayloadBuilderTest {
 
     @Test
     public void testBuildWithMaximumLength() {
-        final String reallyLongAlertMessage =
-                "All non-glanded recruited mercenaries now engaging in training excercises are herefore and forever ordered to desist. Aforementioned activities have resulted in cost-defective damage to training areas.";
+        final String reallyLongAlertMessage = "All non-glanded recruited mercenaries now engaging in training " +
+                "excercises are herefore and forever ordered to desist. Aforementioned activities have resulted in " +
+                "cost-defective damage to training areas.";
 
         final int maxLength = 128;
 
@@ -304,7 +305,8 @@ public class ApnsPayloadBuilderTest {
 
         final String payloadString = this.builder.buildWithMaximumLength(maxLength);
 
-        assertTrue(payloadString.getBytes(Charset.forName("UTF-8")).length <= maxLength);
+        assertTrue(reallyLongAlertMessage.getBytes(StandardCharsets.UTF_8).length > maxLength);
+        assertTrue(payloadString.getBytes(StandardCharsets.UTF_8).length == maxLength);
     }
 
     @Test
@@ -328,7 +330,7 @@ public class ApnsPayloadBuilderTest {
 
         final String payloadString = this.builder.buildWithMaximumLength(maxLength);
 
-        assertTrue(payloadString.getBytes(Charset.forName("UTF-8")).length <= maxLength);
+        assertTrue(payloadString.getBytes(StandardCharsets.UTF_8).length <= maxLength);
     }
 
     @SuppressWarnings("unchecked")
