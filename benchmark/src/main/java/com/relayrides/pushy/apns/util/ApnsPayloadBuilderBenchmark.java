@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.apache.commons.lang3.RandomStringUtils;
 import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -14,62 +15,44 @@ public class ApnsPayloadBuilderBenchmark {
 
     private ApnsPayloadBuilder apnsPayloadBuilder;
 
-    private static final int MAXIMUM_PAYLOAD_SIZE = 1024 * 8;
+    private static final int MAXIMUM_PAYLOAD_SIZE = 4096;
 
-    private String shortAsciiMessageBody;
-    private String longAsciiMessageBody;
-    private String shortChineseMessageBody;
-    private String longChineseMessageBody;
+    @Param({"512", "8192"})
+    public int messageBodyLength;
+
+    @Param({"BASIC_LATIN", "CJK_UNIFIED_IDEOGRAPHS"})
+    public String unicodeBlockName;
+
+    private String messageBody;
 
     @Setup
     public void setUp() {
         this.apnsPayloadBuilder = new ApnsPayloadBuilder();
 
-        this.shortAsciiMessageBody = RandomStringUtils.randomAscii(MAXIMUM_PAYLOAD_SIZE / 8);
-        this.longAsciiMessageBody = RandomStringUtils.randomAscii(MAXIMUM_PAYLOAD_SIZE * 2);
-
-        final char[] chineseCharacters;
+        final char[] messageBodyCharacters;
         {
-            final List<Character> cjkUnifiedIdeographs = new ArrayList<>(80388);
+            final Character.UnicodeBlock unicodeBlock = Character.UnicodeBlock.forName(this.unicodeBlockName);
+            final List<Character> charactersInBlock = new ArrayList<>();
 
             for (int codePoint = Character.MIN_CODE_POINT; codePoint < Character.MAX_CODE_POINT; codePoint++) {
-                if (Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS.equals(Character.UnicodeBlock.of(codePoint))) {
-                    cjkUnifiedIdeographs.add((char) codePoint);
+                if (unicodeBlock.equals(Character.UnicodeBlock.of(codePoint))) {
+                    charactersInBlock.add((char) codePoint);
                 }
             }
 
-            chineseCharacters = new char[cjkUnifiedIdeographs.size()];
+            messageBodyCharacters = new char[charactersInBlock.size()];
 
-            for (int i = 0; i < cjkUnifiedIdeographs.size(); i++) {
-                chineseCharacters[i] = cjkUnifiedIdeographs.get(i);
+            for (int i = 0; i < charactersInBlock.size(); i++) {
+                messageBodyCharacters[i] = charactersInBlock.get(i);
             }
         }
 
-        this.shortChineseMessageBody = RandomStringUtils.random(MAXIMUM_PAYLOAD_SIZE / 8, chineseCharacters);
-        this.longChineseMessageBody = RandomStringUtils.random(MAXIMUM_PAYLOAD_SIZE * 2, chineseCharacters);
+        this.messageBody = RandomStringUtils.random(this.messageBodyLength, messageBodyCharacters);
     }
 
     @Benchmark
     public String testShortAsciiMessageBody() {
-        this.apnsPayloadBuilder.setAlertBody(this.shortAsciiMessageBody);
-        return this.apnsPayloadBuilder.buildWithMaximumLength(MAXIMUM_PAYLOAD_SIZE);
-    }
-
-    @Benchmark
-    public String testLongAsciiMessageBody() {
-        this.apnsPayloadBuilder.setAlertBody(this.longAsciiMessageBody);
-        return this.apnsPayloadBuilder.buildWithMaximumLength(MAXIMUM_PAYLOAD_SIZE);
-    }
-
-    @Benchmark
-    public String testShortChineseMessageBody() {
-        this.apnsPayloadBuilder.setAlertBody(this.shortChineseMessageBody);
-        return this.apnsPayloadBuilder.buildWithMaximumLength(MAXIMUM_PAYLOAD_SIZE);
-    }
-
-    @Benchmark
-    public String testLongChineseMessageBody() {
-        this.apnsPayloadBuilder.setAlertBody(this.longChineseMessageBody);
+        this.apnsPayloadBuilder.setAlertBody(this.messageBody);
         return this.apnsPayloadBuilder.buildWithMaximumLength(MAXIMUM_PAYLOAD_SIZE);
     }
 }
