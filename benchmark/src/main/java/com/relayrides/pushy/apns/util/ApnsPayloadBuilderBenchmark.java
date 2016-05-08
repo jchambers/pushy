@@ -51,7 +51,7 @@ public class ApnsPayloadBuilderBenchmark {
     }
 
     @Benchmark
-    public String testShortAsciiMessageBody() {
+    public String testBuildWithMaximumLength() {
         this.apnsPayloadBuilder.setAlertBody(this.messageBody);
         return this.apnsPayloadBuilder.buildWithMaximumLength(MAXIMUM_PAYLOAD_SIZE);
     }
