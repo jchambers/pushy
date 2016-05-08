@@ -16,7 +16,7 @@
     </parent>
 
     <modules>
-        <module>pushy-core</module>
+        <module>pushy</module>
     </modules>
 
     <licenses>
