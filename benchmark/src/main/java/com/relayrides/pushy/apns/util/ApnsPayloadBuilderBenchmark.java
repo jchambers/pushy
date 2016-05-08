@@ -35,7 +35,7 @@ public class ApnsPayloadBuilderBenchmark {
             final List<Character> charactersInBlock = new ArrayList<>();
 
             for (int codePoint = Character.MIN_CODE_POINT; codePoint < Character.MAX_CODE_POINT; codePoint++) {
-                if (unicodeBlock.equals(Character.UnicodeBlock.of(codePoint))) {
+                if (unicodeBlock.equals(Character.UnicodeBlock.of(codePoint)) && !Character.isISOControl(codePoint)) {
                     charactersInBlock.add((char) codePoint);
                 }
             }
