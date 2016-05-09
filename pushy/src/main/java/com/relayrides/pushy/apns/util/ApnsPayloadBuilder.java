@@ -79,7 +79,7 @@ public class ApnsPayloadBuilder {
 
     private static final String ABBREVIATION_SUBSTRING = "…";
 
-    private static final Gson gson = new GsonBuilder().serializeNulls().create();
+    private static final Gson gson = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
 
     /**
      * The name of the iOS default push notification sound
@@ -430,7 +430,7 @@ public class ApnsPayloadBuilder {
                         ABBREVIATION_SUBSTRING.getBytes(StandardCharsets.UTF_8).length;
 
                 final String fittedMessageBody = this.alertBody.substring(0,
-                        this.getLengthOfJsonEscapedUtf8StringFittingSize(this.alertBody, maximumEscapedMessageBodySize));
+                        ApnsPayloadBuilder.getLengthOfJsonEscapedUtf8StringFittingSize(this.alertBody, maximumEscapedMessageBodySize));
 
                 this.replaceMessageBody(payload, fittedMessageBody + ABBREVIATION_SUBSTRING);
 
@@ -551,49 +551,52 @@ public class ApnsPayloadBuilder {
                 && this.localizedAlertArguments == null && this.localizedAlertTitleArguments == null;
     }
 
-    private int getLengthOfJsonEscapedUtf8StringFittingSize(final String string, final int maximumSize) {
+    static int getLengthOfJsonEscapedUtf8StringFittingSize(final String string, final int maximumSize) {
         int i = 0;
         int cumulativeSize = 0;
 
-        while (i < string.length()) {
+        for (i = 0; i < string.length(); i++) {
             final char c = string.charAt(i);
-
-            final int charSize;
-            final int step;
-
-            if (c == '"' || c == '\\' || c == '/' || c == '\b' || c == '\f' || c == '\n' || c == '\r' || c == '\t') {
-                // Character is backslash-escaped in JSON
-                charSize = 2;
-                step = 1;
-            } else if (Character.isISOControl(c)) {
-                charSize = 6;
-                step = 1;
-            } else {
-                // The character will be represented as an un-escaped UTF8 character
-                if (c <= 0x007F) {
-                    charSize = 1;
-                    step = 1;
-                } else if (c <= 0x07FF) {
-                    charSize = 2;
-                    step = 1;
-                } else if (Character.isHighSurrogate(c)) {
-                    charSize = 4;
-                    step = 2;
-                } else {
-                    charSize = 3;
-                    step = 1;
-                }
-            }
+            final int charSize = getSizeOfJsonEscapedUtf8Character(c);
 
             if (cumulativeSize + charSize > maximumSize) {
                 // The next character would put us over the edge; bail out here.
                 break;
-            } else {
-                i += step;
-                cumulativeSize += charSize;
+            }
+
+            cumulativeSize += charSize;
+
+            if (Character.isHighSurrogate(c)) {
+                // Skip the next character
+                i++;
             }
         }
 
         return i;
+    }
+
+    static int getSizeOfJsonEscapedUtf8Character(char c) {
+        final int charSize;
+
+        if (c == '"' || c == '\\' || c == '\b' || c == '\f' || c == '\n' || c == '\r' || c == '\t') {
+            // Character is backslash-escaped in JSON
+            charSize = 2;
+        } else if (c <= 0x001F || c == '\u2028' || c == '\u2029') {
+            // Character will be represented as an escaped control character
+            charSize = 6;
+        } else {
+            // The character will be represented as an un-escaped UTF8 character
+            if (c <= 0x007F) {
+                charSize = 1;
+            } else if (c <= 0x07FF) {
+                charSize = 2;
+            } else if (Character.isHighSurrogate(c)) {
+                charSize = 4;
+            } else {
+                charSize = 3;
+            }
+        }
+
+        return charSize;
     }
 }
