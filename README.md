@@ -26,7 +26,7 @@ If you don't use Maven (or something else that understands Maven dependencies, l
 - [netty 4.1.0](http://netty.io/)
 - [gson 2.5](https://github.com/google/gson)
 - [slf4j 1.7.6](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
-- Either `netty-tcnative` (1.1.33.Fork15 or newer) or `alpn-boot`, as discussed in the [system requirements](#system-requirements) section below
+- Either `netty-tcnative` (1.1.33.Fork17 or newer) or `alpn-boot`, as discussed in the [system requirements](#system-requirements) section below
   - [alpn-api](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html) if you've opted to use a native SSL provider (`alpn-api` is included in `alpn-boot`); please see the [system requirements](#system-requirements) section for details)
 
 Pushy itself requires Java 7 or newer to build and run.
@@ -130,11 +130,21 @@ Generally speaking, a native SSL provider is the best way to fulfill the system 
 
 ### Using a native SSL provider
 
-Using a native SSL provider (like [OpenSSL](https://www.openssl.org/), [BoringSSL](https://boringssl.googlesource.com/boringssl/), or [LibreSSL](http://www.libressl.org/)) (via `netty-tcnative`) fulfills the ALPN and cipher suite requirements imposed by HTTP/2 under all supported versions of Java. To use a native SSL provider, you'll need to add `netty-tcnative` as a dependency to your project. The `netty-tcnative` wiki provides [detailed instructions](http://netty.io/wiki/forked-tomcat-native.html), but in short, you'll need to add one additional platform-specific dependency to your project; we recommend using a statically-linked flavor if your platform supports it. This approach will meet all requirements imposed by HTTP/2 under Java 7 and 8.
+Using a native SSL provider (like [OpenSSL](https://www.openssl.org/), [BoringSSL](https://boringssl.googlesource.com/boringssl/), or [LibreSSL](http://www.libressl.org/)) (via `netty-tcnative`) fulfills the ALPN and cipher suite requirements imposed by HTTP/2 under all supported versions of Java. To use a native SSL provider, you'll need to add `netty-tcnative` as a dependency to your project. The `netty-tcnative` wiki provides [detailed instructions](http://netty.io/wiki/forked-tomcat-native.html), but in short, you'll need to add one additional platform-specific dependency to your project; we recommend using a statically-linked "uber jar" flavor for supported operating systems/CPU architectures (currently `linux-x86_64`, `osx-x86_64`, and `windows-x86_64`). This approach will meet all requirements imposed by HTTP/2 under Java 7 and 8.
 
-Please note that Pushy requires netty-tcnative 1.1.33.Fork15 or newer.
+To add the netty-tcnative uber-jar, you'll just need to add the following dependency (if you're using Maven):
 
-Additionally, you'll need [`alpn-api`](http://mvnrepository.com/artifact/org.eclipse.jetty.alpn/alpn-api) as a `runtime` dependency for your project. If you're managing dependencies manually, you'll just need to make sure the latest version of `alpn-api` is available on your classpath.
+```xml
+<dependency>
+    <groupId>io.netty</groupId>
+    <artifactId>netty-tcnative-boringssl-static</artifactId>
+    <version>1.1.33.Fork17</version>
+</dependency>
+```
+
+Otherwise, you may add the jar to your classpath by the means of your choice.
+
+Please note that Pushy requires netty-tcnative 1.1.33.Fork17 or newer. Additionally, you'll need [`alpn-api`](http://mvnrepository.com/artifact/org.eclipse.jetty.alpn/alpn-api) as a `runtime` dependency for your project. If you're managing dependencies manually, you'll just need to make sure the latest version of `alpn-api` is available on your classpath.
 
 ### Using Jetty's ALPN implementation
 
