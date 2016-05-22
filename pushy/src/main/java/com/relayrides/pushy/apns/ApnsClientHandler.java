@@ -38,7 +38,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
-import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http2.AbstractHttp2ConnectionHandlerBuilder;
 import io.netty.handler.codec.http2.DefaultHttp2Headers;
@@ -228,13 +228,9 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
             final int streamId = (int) this.nextStreamId;
 
-            final ByteBuf payloadBuffer = context.alloc().ioBuffer(INITIAL_PAYLOAD_BUFFER_CAPACITY);
-            payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(UTF8));
-
             final Http2Headers headers = new DefaultHttp2Headers()
-                    .method("POST")
+                    .method(HttpMethod.POST.asciiName())
                     .path(APNS_PATH_PREFIX + pushNotification.getToken())
-                    .addInt(HttpHeaderNames.CONTENT_LENGTH, payloadBuffer.readableBytes())
                     .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
 
             if (pushNotification.getPriority() != null) {
@@ -248,6 +244,9 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
             final ChannelPromise headersPromise = context.newPromise();
             this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
             log.trace("Wrote headers on stream {}: {}", streamId, headers);
+
+            final ByteBuf payloadBuffer = context.alloc().ioBuffer(INITIAL_PAYLOAD_BUFFER_CAPACITY);
+            payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(UTF8));
 
             final ChannelPromise dataPromise = context.newPromise();
             this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);

@@ -195,18 +195,6 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             return;
         }
 
-        {
-            final Integer contentLength = headers.getInt(HttpHeaderNames.CONTENT_LENGTH);
-
-            if (contentLength != null && contentLength > MAX_CONTENT_LENGTH) {
-                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.PAYLOAD_TOO_LARGE));
-                return;
-            } else if (contentLength == null) {
-                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.PAYLOAD_EMPTY));
-                return;
-            }
-        }
-
         final String topic;
         {
             final CharSequence topicSequence = headers.get(APNS_TOPIC_HEADER);
