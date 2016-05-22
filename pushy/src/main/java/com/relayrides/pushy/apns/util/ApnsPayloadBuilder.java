@@ -20,7 +20,8 @@
 
 package com.relayrides.pushy.apns.util;
 
-import java.nio.charset.Charset;
+import java.io.CharArrayWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -54,6 +55,8 @@ public class ApnsPayloadBuilder {
     private String categoryName = null;
     private boolean contentAvailable = false;
 
+    private final CharArrayWriter buffer = new CharArrayWriter(DEFAULT_PAYLOAD_SIZE / 4);
+
     private static final String APS_KEY = "aps";
     private static final String ALERT_KEY = "alert";
     private static final String BADGE_KEY = "badge";
@@ -74,10 +77,9 @@ public class ApnsPayloadBuilder {
 
     private static final int DEFAULT_PAYLOAD_SIZE = 4096;
 
-    private static final Charset UTF8 = Charset.forName("UTF-8");
     private static final String ABBREVIATION_SUBSTRING = "…";
 
-    private static final Gson gson = new GsonBuilder().serializeNulls().create();
+    private static final Gson gson = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
 
     /**
      * The name of the iOS default push notification sound
@@ -401,8 +403,11 @@ public class ApnsPayloadBuilder {
             payload.put(entry.getKey(), entry.getValue());
         }
 
-        final String payloadString = gson.toJson(payload);
-        final int initialPayloadSize = payloadString.getBytes(UTF8).length;
+        this.buffer.reset();
+        gson.toJson(payload, this.buffer);
+
+        final String payloadString = this.buffer.toString();
+        final int initialPayloadSize = payloadString.getBytes(StandardCharsets.UTF_8).length;
 
         final String fittedPayloadString;
 
@@ -411,43 +416,28 @@ public class ApnsPayloadBuilder {
         } else {
             if (this.alertBody != null) {
                 this.replaceMessageBody(payload, "");
-                final int payloadSizeWithEmptyMessage = gson.toJson(payload).getBytes(UTF8).length;
+
+                this.buffer.reset();
+                gson.toJson(payload, this.buffer);
+
+                final int payloadSizeWithEmptyMessage = this.buffer.toString().getBytes(StandardCharsets.UTF_8).length;
 
                 if (payloadSizeWithEmptyMessage >= maximumPayloadSize) {
                     throw new IllegalArgumentException("Payload exceeds maximum size even with an empty message body.");
                 }
 
-                // We add 2 here because the escaped string will include opening and closing '"' characters that are
-                // already accounted for in payloadSizeWithEmptyMessage.
-                final int maximumEscapedMessageBodySize = maximumPayloadSize - payloadSizeWithEmptyMessage + 2;
+                final int maximumEscapedMessageBodySize = maximumPayloadSize - payloadSizeWithEmptyMessage -
+                        ABBREVIATION_SUBSTRING.getBytes(StandardCharsets.UTF_8).length;
 
-                // Characters in the message body may wind up representing different numbers of bytes as an escaped
-                // JSON string. Assuming a best case of one byte per character, we have a ceiling on the maximum number
-                // of characters we could possibly fit into the message body. We can also figure out a minimum number
-                // of characters; in the worst case (a unicode control character), a single character could expand to
-                // take up six bytes in the escaped JSON string.
-                int left = maximumEscapedMessageBodySize / 6;
-                int right = maximumEscapedMessageBodySize;
+                final String fittedMessageBody = this.alertBody.substring(0,
+                        ApnsPayloadBuilder.getLengthOfJsonEscapedUtf8StringFittingSize(this.alertBody, maximumEscapedMessageBodySize));
 
-                String fittedMessageBody = null;
+                this.replaceMessageBody(payload, fittedMessageBody + ABBREVIATION_SUBSTRING);
 
-                while (left < right) {
-                    final int middle = (left + right) / 2;
+                this.buffer.reset();
+                gson.toJson(payload, this.buffer);
 
-                    fittedMessageBody = this.abbreviateString(this.alertBody, middle);
-                    final int escapedMessageBodySize = gson.toJson(fittedMessageBody).getBytes(UTF8).length;
-
-                    if (escapedMessageBodySize == maximumEscapedMessageBodySize) {
-                        break;
-                    } else if (escapedMessageBodySize < maximumEscapedMessageBodySize) {
-                        left = middle + 1;
-                    } else {
-                        right = middle - 1;
-                    }
-                }
-
-                this.replaceMessageBody(payload, fittedMessageBody);
-                fittedPayloadString = gson.toJson(payload);
+                fittedPayloadString = this.buffer.toString();
             } else {
                 throw new IllegalArgumentException(String.format(
                         "Payload size is %d bytes (with a maximum of %d bytes) and cannot be shortened.",
@@ -479,22 +469,6 @@ public class ApnsPayloadBuilder {
         } else {
             throw new IllegalArgumentException("Payload has no message body.");
         }
-    }
-
-    private String abbreviateString(final String string, final int maximumLength) {
-        final String abbreviatedString;
-
-        if (string.length() <= maximumLength) {
-            abbreviatedString = string;
-        } else {
-            if (maximumLength <= ABBREVIATION_SUBSTRING.length()) {
-                throw new IllegalArgumentException("String is too short to abbreviate.");
-            }
-
-            abbreviatedString = string.substring(0, maximumLength - ABBREVIATION_SUBSTRING.length()) + ABBREVIATION_SUBSTRING;
-        }
-
-        return abbreviatedString;
     }
 
     private Object createAlertObject() {
@@ -575,5 +549,54 @@ public class ApnsPayloadBuilder {
                 && this.localizedActionButtonKey == null && this.alertTitle == null
                 && this.localizedAlertTitleKey == null && this.localizedAlertKey == null
                 && this.localizedAlertArguments == null && this.localizedAlertTitleArguments == null;
+    }
+
+    static int getLengthOfJsonEscapedUtf8StringFittingSize(final String string, final int maximumSize) {
+        int i = 0;
+        int cumulativeSize = 0;
+
+        for (i = 0; i < string.length(); i++) {
+            final char c = string.charAt(i);
+            final int charSize = getSizeOfJsonEscapedUtf8Character(c);
+
+            if (cumulativeSize + charSize > maximumSize) {
+                // The next character would put us over the edge; bail out here.
+                break;
+            }
+
+            cumulativeSize += charSize;
+
+            if (Character.isHighSurrogate(c)) {
+                // Skip the next character
+                i++;
+            }
+        }
+
+        return i;
+    }
+
+    static int getSizeOfJsonEscapedUtf8Character(char c) {
+        final int charSize;
+
+        if (c == '"' || c == '\\' || c == '\b' || c == '\f' || c == '\n' || c == '\r' || c == '\t') {
+            // Character is backslash-escaped in JSON
+            charSize = 2;
+        } else if (c <= 0x001F || c == '\u2028' || c == '\u2029') {
+            // Character will be represented as an escaped control character
+            charSize = 6;
+        } else {
+            // The character will be represented as an un-escaped UTF8 character
+            if (c <= 0x007F) {
+                charSize = 1;
+            } else if (c <= 0x07FF) {
+                charSize = 2;
+            } else if (Character.isHighSurrogate(c)) {
+                charSize = 4;
+            } else {
+                charSize = 3;
+            }
+        }
+
+        return charSize;
     }
 }

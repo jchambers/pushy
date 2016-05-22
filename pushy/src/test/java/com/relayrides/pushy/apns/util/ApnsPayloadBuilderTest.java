@@ -21,10 +21,13 @@
 
 package com.relayrides.pushy.apns.util;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import java.lang.reflect.Type;
-import java.nio.charset.Charset;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -32,6 +35,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 
 public class ApnsPayloadBuilderTest {
@@ -43,7 +47,7 @@ public class ApnsPayloadBuilderTest {
 
     @Before
     public void setUp() {
-        this.gson = new Gson();
+        this.gson = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
         this.builder = new ApnsPayloadBuilder();
     }
 
@@ -295,8 +299,9 @@ public class ApnsPayloadBuilderTest {
 
     @Test
     public void testBuildWithMaximumLength() {
-        final String reallyLongAlertMessage =
-                "All non-glanded recruited mercenaries now engaging in training excercises are herefore and forever ordered to desist. Aforementioned activities have resulted in cost-defective damage to training areas.";
+        final String reallyLongAlertMessage = "All non-glanded recruited mercenaries now engaging in training " +
+                "excercises are herefore and forever ordered to desist. Aforementioned activities have resulted in " +
+                "cost-defective damage to training areas.";
 
         final int maxLength = 128;
 
@@ -304,7 +309,8 @@ public class ApnsPayloadBuilderTest {
 
         final String payloadString = this.builder.buildWithMaximumLength(maxLength);
 
-        assertTrue(payloadString.getBytes(Charset.forName("UTF-8")).length <= maxLength);
+        assertTrue(reallyLongAlertMessage.getBytes(StandardCharsets.UTF_8).length > maxLength);
+        assertTrue(payloadString.getBytes(StandardCharsets.UTF_8).length == maxLength);
     }
 
     @Test
@@ -328,7 +334,34 @@ public class ApnsPayloadBuilderTest {
 
         final String payloadString = this.builder.buildWithMaximumLength(maxLength);
 
-        assertTrue(payloadString.getBytes(Charset.forName("UTF-8")).length <= maxLength);
+        assertTrue(payloadString.getBytes(StandardCharsets.UTF_8).length <= maxLength);
+    }
+
+    @Test
+    public void testGetSizeOfJsonEscapedUtf8Character() {
+        final CharsetEncoder encoder = StandardCharsets.UTF_8.newEncoder();
+
+        for (int codePoint = Character.MIN_CODE_POINT; codePoint < Character.MAX_CODE_POINT; codePoint++) {
+            if (encoder.canEncode((char) codePoint)) {
+                // We subtract 2 here for the quotes that will appear on either end of a JSON string
+                assertEquals("Escaped/encoded lengths should match for code point " + codePoint,
+                        this.gson.toJson(String.valueOf((char) codePoint)).getBytes(StandardCharsets.UTF_8).length - 2,
+                        ApnsPayloadBuilder.getSizeOfJsonEscapedUtf8Character((char) codePoint));
+            }
+        }
+    }
+
+    @Test
+    public void testGetLengthOfJsonEscapedUtf8StringFittingSize() {
+        {
+            final String stringThatFits = "Test!";
+
+            assertEquals(stringThatFits.length(),
+                    ApnsPayloadBuilder.getLengthOfJsonEscapedUtf8StringFittingSize(stringThatFits, Integer.MAX_VALUE));
+        }
+
+        assertEquals(4, ApnsPayloadBuilder.getLengthOfJsonEscapedUtf8StringFittingSize("This string is too long.", 4));
+        assertEquals(2, ApnsPayloadBuilder.getLengthOfJsonEscapedUtf8StringFittingSize("\n\tThis string has escaped characters.", 4));
     }
 
     @SuppressWarnings("unchecked")

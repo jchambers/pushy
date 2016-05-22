@@ -20,7 +20,7 @@
 
 package com.relayrides.pushy.apns;
 
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -88,8 +88,6 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
             .registerTypeAdapter(Date.class, new DateAsMillisecondsSinceEpochTypeAdapter())
             .create();
 
-    private static final Charset UTF8 = Charset.forName("UTF-8");
-
     private static final Logger log = LoggerFactory.getLogger(ApnsClientHandler.class);
 
     public static class ApnsClientHandlerBuilder<S extends ApnsPushNotification> extends AbstractHttp2ConnectionHandlerBuilder<ApnsClientHandler<S>, ApnsClientHandlerBuilder<S>> {
@@ -151,7 +149,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
         @Override
         public int onDataRead(final ChannelHandlerContext context, final int streamId, final ByteBuf data, final int padding, final boolean endOfStream) throws Http2Exception {
-            log.trace("Received data from APNs gateway on stream {}: {}", streamId, data.toString(UTF8));
+            log.trace("Received data from APNs gateway on stream {}: {}", streamId, data.toString(StandardCharsets.UTF_8));
 
             final int bytesProcessed = data.readableBytes() + padding;
 
@@ -160,7 +158,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
                 final T pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
 
                 final boolean success = HttpResponseStatus.OK.equals(HttpResponseStatus.parseLine(headers.status()));
-                final ErrorResponse errorResponse = gson.fromJson(data.toString(UTF8), ErrorResponse.class);
+                final ErrorResponse errorResponse = gson.fromJson(data.toString(StandardCharsets.UTF_8), ErrorResponse.class);
 
                 ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(new SimplePushNotificationResponse<>(
                         pushNotification, success, errorResponse.getReason(), errorResponse.getTimestamp()));
@@ -208,7 +206,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
         @Override
         public void onGoAwayRead(final ChannelHandlerContext context, final int lastStreamId, final long errorCode, final ByteBuf debugData) throws Http2Exception {
-            log.info("Received GOAWAY from APNs server: {}", debugData.toString(UTF8));
+            log.info("Received GOAWAY from APNs server: {}", debugData.toString(StandardCharsets.UTF_8));
         }
     }
 
@@ -246,7 +244,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
             log.trace("Wrote headers on stream {}: {}", streamId, headers);
 
             final ByteBuf payloadBuffer = context.alloc().ioBuffer(INITIAL_PAYLOAD_BUFFER_CAPACITY);
-            payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(UTF8));
+            payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(StandardCharsets.UTF_8));
 
             final ChannelPromise dataPromise = context.newPromise();
             this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
