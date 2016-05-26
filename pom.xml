@@ -29,7 +29,7 @@
     </licenses>
 
     <properties>
-        <netty.version>4.1.0.CR7</netty.version>
+        <netty.version>4.1.0.Final</netty.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
