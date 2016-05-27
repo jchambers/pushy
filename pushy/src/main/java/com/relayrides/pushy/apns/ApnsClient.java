@@ -686,7 +686,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
     public Future<Void> connect(final String host, final int port) {
         final Future<Void> connectionReadyFuture;
 
-        if (this.bootstrap.group().isShuttingDown() || this.bootstrap.group().isShutdown()) {
+        if (this.bootstrap.config().group().isShuttingDown() || this.bootstrap.config().group().isShutdown()) {
             connectionReadyFuture = new FailedFuture<>(GlobalEventExecutor.INSTANCE,
                     new IllegalStateException("Client's event loop group has been shut down and cannot be restarted."));
         } else {
@@ -1011,7 +1011,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
                     @Override
                     public void operationComplete(final Future<Void> future) throws Exception {
-                        ApnsClient.this.bootstrap.group().shutdownGracefully();
+                        ApnsClient.this.bootstrap.config().group().shutdownGracefully();
                     }
                 });
 
@@ -1019,7 +1019,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 // we'll need to create our own promise and then notify it when the termination future completes.
                 disconnectFuture = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
 
-                this.bootstrap.group().terminationFuture().addListener(new GenericFutureListener() {
+                this.bootstrap.config().group().terminationFuture().addListener(new GenericFutureListener() {
 
                     @Override
                     public void operationComplete(final Future future) throws Exception {
