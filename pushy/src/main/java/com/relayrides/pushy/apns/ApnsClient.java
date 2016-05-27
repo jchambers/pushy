@@ -25,6 +25,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetSocketAddress;
 import java.security.KeyStore.PrivateKeyEntry;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -455,6 +456,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                             final ApnsClientHandler<T> apnsClientHandler = new ApnsClientHandler.ApnsClientHandlerBuilder<T>()
                                     .server(false)
                                     .apnsClient(ApnsClient.this)
+                                    .authority(((InetSocketAddress) context.channel().remoteAddress()).getHostName())
                                     .maxUnflushedNotifications(ApnsClient.this.maxUnflushedNotifications)
                                     .encoderEnforceMaxConcurrentStreams(true)
                                     .build();

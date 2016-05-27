@@ -24,6 +24,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -65,7 +66,8 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     private final Map<Integer, T> pushNotificationsByStreamId = new HashMap<>();
     private final Map<Integer, Http2Headers> headersByStreamId = new HashMap<>();
 
-    private ApnsClient<T> apnsClient;
+    private final ApnsClient<T> apnsClient;
+    private final String authority;
 
     private long nextPingId = new Random().nextLong();
     private ScheduledFuture<?> pingTimeoutFuture;
@@ -93,6 +95,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     public static class ApnsClientHandlerBuilder<S extends ApnsPushNotification> extends AbstractHttp2ConnectionHandlerBuilder<ApnsClientHandler<S>, ApnsClientHandlerBuilder<S>> {
 
         private ApnsClient<S> apnsClient;
+        private String authority;
         private int maxUnflushedNotifications = 0;
 
         public ApnsClientHandlerBuilder<S> apnsClient(final ApnsClient<S> apnsClient) {
@@ -102,6 +105,15 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
         public ApnsClient<S> apnsClient() {
             return this.apnsClient;
+        }
+
+        public ApnsClientHandlerBuilder<S> authority(final String authority) {
+            this.authority = authority;
+            return this;
+        }
+
+        public String authority() {
+            return this.authority;
         }
 
         public ApnsClientHandlerBuilder<S> maxUnflushedNotifications(final int maxUnflushedNotifications) {
@@ -125,7 +137,9 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
         @Override
         public ApnsClientHandler<S> build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
-            final ApnsClientHandler<S> handler = new ApnsClientHandler<>(decoder, encoder, initialSettings, this.apnsClient(), this.maxUnflushedNotifications());
+            Objects.requireNonNull(this.authority(), "Authority must be set before building an ApnsClientHandler.");
+
+            final ApnsClientHandler<S> handler = new ApnsClientHandler<>(decoder, encoder, initialSettings, this.apnsClient(), this.authority(), this.maxUnflushedNotifications());
             this.frameListener(handler.new ApnsClientHandlerFrameAdapter());
             return handler;
         }
@@ -210,10 +224,11 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
         }
     }
 
-    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final ApnsClient<T> apnsClient, final int maxUnflushedNotifications) {
+    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final ApnsClient<T> apnsClient, final String authority, final int maxUnflushedNotifications) {
         super(decoder, encoder, initialSettings);
 
         this.apnsClient = apnsClient;
+        this.authority = authority;
         this.maxUnflushedNotifications = maxUnflushedNotifications;
     }
 
@@ -228,6 +243,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
             final Http2Headers headers = new DefaultHttp2Headers()
                     .method(HttpMethod.POST.asciiName())
+                    .authority(this.authority)
                     .path(APNS_PATH_PREFIX + pushNotification.getToken())
                     .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
 
