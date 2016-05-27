@@ -27,6 +27,17 @@ openssl pkcs12 -export -in untrusted-client.pem -inkey untrusted-client.key -out
 # We'll also want one keystore with an unprotected key to make sure no-password constructors behave correctly
 openssl pkcs12 -export -in single-topic-client.pem -inkey single-topic-client.key -out single-topic-client-unprotected.p12 -nodes -password pass:pushy-test
 
+# Generate a PKCS#12 keystore with multiple keys
+for i in `seq 1 4`;
+do
+  # Couldn't find a way to get multiple keys into a PKCS#12 file using OpenSSL directly, so we'll take the long way
+  # around and construct a multi-key-pair keystore with keytool, then export to PKCS#12.
+  keytool -genkeypair -storepass pushy-test -keypass pushy-test -dname "CN=com.relayrides.pushy.{$i}" -keystore multiple-keys.jks -alias "pair${i}"
+done
+
+keytool -importkeystore -srckeystore multiple-keys.jks -destkeystore multiple-keys.p12 -srcstoretype JKS -deststoretype PKCS12 -srcstorepass pushy-test -deststorepass pushy-test
+
 # Clean up intermediate files
 rm *.key
+rm multiple-keys.jks
 rm server.pem untrusted-client.pem
