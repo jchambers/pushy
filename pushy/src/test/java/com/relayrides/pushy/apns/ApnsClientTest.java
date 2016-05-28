@@ -26,10 +26,7 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.Timeout;
-
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
@@ -70,9 +67,6 @@ public class ApnsClientTest {
 
     private MockApnsServer server;
     private ApnsClient<SimpleApnsPushNotification> client;
-
-    @Rule
-    public Timeout globalTimeout = new Timeout(90_000);
 
     private static class TestMetricsListener implements ApnsClientMetricsListener {
 
