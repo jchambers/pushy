@@ -37,6 +37,9 @@ done
 
 keytool -importkeystore -srckeystore multiple-keys.jks -destkeystore multiple-keys.p12 -srcstoretype JKS -deststoretype PKCS12 -srcstorepass pushy-test -deststorepass pushy-test
 
+# Generate a PKCS#12 with a certificate, but no private key
+openssl pkcs12 -export -in ca.pem -nokeys -out no-keys.p12 -password pass:pushy-test
+
 # Clean up intermediate files
 rm *.key
 rm multiple-keys.jks

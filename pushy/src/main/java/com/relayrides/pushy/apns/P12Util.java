@@ -11,17 +11,38 @@ import java.security.cert.CertificateException;
 import java.util.Enumeration;
 import java.util.Objects;
 
+/**
+ * Utility class for extracting private keys from P12 files.
+ *
+ * @author <a href="https://github.com/jchambers">Jon Chambers</a>
+ */
 class P12Util {
 
-    public static PrivateKeyEntry getPrivateKeyEntryFromP12InputStream(final InputStream p12InputStream, final String password) throws KeyStoreException, NoSuchAlgorithmException, UnrecoverableEntryException, CertificateException, IOException {
+    /**
+     * Returns the first private key entry found in the given keystore. If more than one private key is present, the
+     * key that is returned is undefined.
+     *
+     * @param p12InputStream an input stream for a PKCS#12 keystore
+     * @param password the password to be used to load the keystore and its entries; may be blank, but must not be
+     * {@code null}
+     *
+     * @return the first private key entry found in the given keystore
+     *
+     * @throws KeyStoreException if a private key entry could not be extracted from the given keystore for any reason
+     * @throws IOException if the given input stream could not be read for any reason
+     */
+    public static PrivateKeyEntry getFirstPrivateKeyEntryFromP12InputStream(final InputStream p12InputStream, final String password) throws KeyStoreException, IOException {
         Objects.requireNonNull(password, "Password may be blank, but must not be null.");
 
         final KeyStore keyStore = KeyStore.getInstance("PKCS12");
-        keyStore.load(p12InputStream, password.toCharArray());
+
+        try {
+            keyStore.load(p12InputStream, password.toCharArray());
+        } catch (NoSuchAlgorithmException | CertificateException e) {
+            throw new KeyStoreException(e);
+        }
 
         final Enumeration<String> aliases = keyStore.aliases();
-        KeyStore.PrivateKeyEntry privateKeyEntry = null;
-
         final KeyStore.PasswordProtection passwordProtection = new KeyStore.PasswordProtection(password.toCharArray());
 
         while (aliases.hasMoreElements()) {
@@ -30,24 +51,20 @@ class P12Util {
             KeyStore.Entry entry;
 
             try {
-                entry = keyStore.getEntry(alias, passwordProtection);
-            } catch (final UnsupportedOperationException e) {
-                entry = keyStore.getEntry(alias, null);
+                try {
+                    entry = keyStore.getEntry(alias, passwordProtection);
+                } catch (final UnsupportedOperationException e) {
+                    entry = keyStore.getEntry(alias, null);
+                }
+            } catch (final UnrecoverableEntryException | NoSuchAlgorithmException e) {
+                throw new KeyStoreException(e);
             }
 
             if (entry instanceof KeyStore.PrivateKeyEntry) {
-                if (privateKeyEntry != null) {
-                    throw new KeyStoreException("Key store must contain exactly one private key entry.");
-                }
-
-                privateKeyEntry = (PrivateKeyEntry) entry;
+                return (PrivateKeyEntry) entry;
             }
         }
 
-        if (privateKeyEntry == null) {
-            throw new KeyStoreException("Key store must contain exactly one private key entry.");
-        }
-
-        return privateKeyEntry;
+        throw new KeyStoreException("Key store did not contain any private key entries.");
     }
 }

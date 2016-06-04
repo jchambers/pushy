@@ -268,7 +268,7 @@ public class ApnsClientTest {
         // We're happy here as long as nothing throws an exception
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
             final PrivateKeyEntry privateKeyEntry =
-                    P12Util.getPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
+                    P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
 
             new ApnsClient<SimpleApnsPushNotification>(
                     (X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey(), KEYSTORE_PASSWORD);
@@ -281,7 +281,7 @@ public class ApnsClientTest {
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_UNPROTECTED_FILENAME)) {
 
             final PrivateKeyEntry privateKeyEntry =
-                    P12Util.getPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
+                    P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
 
             new ApnsClient<SimpleApnsPushNotification>(
                     (X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey(), null);
@@ -747,7 +747,7 @@ public class ApnsClientTest {
 
     private static SslContext getSslContextForTestClient(final String p12Filename, final String password) throws NoSuchAlgorithmException, KeyStoreException, IOException, CertificateException, UnrecoverableEntryException {
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(p12Filename)) {
-            final PrivateKeyEntry privateKeyEntry = P12Util.getPrivateKeyEntryFromP12InputStream(p12InputStream, password);
+            final PrivateKeyEntry privateKeyEntry = P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, password);
 
             return SslContextBuilder.forClient()
                     .sslProvider(OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK)

@@ -28,11 +28,8 @@ import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.security.KeyStore.PrivateKeyEntry;
 import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
-import java.security.UnrecoverableEntryException;
 import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -217,7 +214,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     /**
      * <p>Creates a new APNs client that will identify itself to the APNs gateway with the certificate and key from the
-     * given PKCS#12 file. The PKCS#12 file <em>must</em> contain a single certificate/private key pair.</p>
+     * given PKCS#12 file. The PKCS#12 file <em>must</em> contain a certificate/private key pair. If it contains more
+     * than one certificate/private key pair, the pair that will be used is undefined.</p>
      *
      * <p>Clients created using this method will use a default, internally-managed event loop group. Once the client
      * has been disconnected via the {@link ApnsClient#disconnect()} method, its event loop will be shut down and the
@@ -241,7 +239,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     /**
      * <p>Creates a new APNs client that will identify itself to the APNs gateway with the certificate and key from the
-     * given PKCS#12 file. The PKCS#12 file <em>must</em> contain a single certificate/private key pair.</p>
+     * given PKCS#12 file. The PKCS#12 file <em>must</em> contain a certificate/private key pair. If it contains more
+     * than one certificate/private key pair, the pair that will be used is undefined.</p>
      *
      * <p>Clients created using this method will use the provided event loop group, which may be useful in cases where
      * multiple clients are running in parallel. If a client is created using this method, it is the responsibility of
@@ -268,7 +267,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
     /**
      * <p>Creates a new APNs client that will identify itself to the APNs gateway with the certificate and key from the
      * given PKCS#12 input stream. The PKCS#12 input stream <em>must</em> contain a single certificate/private key
-     * pair.</p>
+     * pair. If it contains more than one certificate/private key pair, the pair that will be used is undefined.</p>
      *
      * <p>Clients created using this method will use a default, internally-managed event loop group. Once the client
      * has been disconnected via the {@link ApnsClient#disconnect()} method, its event loop will be shut down and the
@@ -291,7 +290,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
     /**
      * <p>Creates a new APNs client that will identify itself to the APNs gateway with the certificate and key from the
      * given PKCS#12 input stream. The PKCS#12 input stream <em>must</em> contain a single certificate/private key
-     * pair.</p>
+     * pair. If it contains more than one certificate/private key pair, the pair that will be used is undefined.</p>
      *
      * <p>Clients created using this method will use the provided event loop group, which may be useful in cases where
      * multiple clients are running in parallel. If a client is created using this method, it is the responsibility of
@@ -370,7 +369,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
         final PrivateKey privateKey;
 
         try {
-            final PrivateKeyEntry privateKeyEntry = P12Util.getPrivateKeyEntryFromP12InputStream(p12InputStream, password);
+            final PrivateKeyEntry privateKeyEntry = P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, password);
 
             final Certificate certificate = privateKeyEntry.getCertificate();
 
@@ -380,7 +379,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
             x509Certificate = (X509Certificate) certificate;
             privateKey = privateKeyEntry.getPrivateKey();
-        } catch (final KeyStoreException | NoSuchAlgorithmException | UnrecoverableEntryException | CertificateException | IOException e) {
+        } catch (final KeyStoreException | IOException e) {
             throw new SSLException(e);
         }
 

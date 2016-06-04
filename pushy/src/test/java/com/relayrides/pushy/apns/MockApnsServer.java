@@ -54,7 +54,7 @@ public class MockApnsServer {
     public MockApnsServer(final EventLoopGroup eventLoopGroup) {
         final SslContext sslContext;
         try (final InputStream caInputStream = this.getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME)) {
-            final PrivateKeyEntry privateKeyEntry = P12Util.getPrivateKeyEntryFromP12InputStream(
+            final PrivateKeyEntry privateKeyEntry = P12Util.getFirstPrivateKeyEntryFromP12InputStream(
                     MockApnsServer.class.getResourceAsStream(SERVER_KEYSTORE), SERVER_KEYSTORE_PASSWORD);
 
             sslContext = SslContextBuilder.forServer(privateKeyEntry.getPrivateKey(), (X509Certificate) privateKeyEntry.getCertificate())
