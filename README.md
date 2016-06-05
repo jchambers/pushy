@@ -123,7 +123,7 @@ Pushy works with Java 7 and newer, but has some additional dependencies dependin
 
 The APNs protocol is built on top of the [HTTP/2 protocol](https://http2.github.io/). HTTP/2 is a relatively new protocol, and relies on some new developments that aren't yet wide-spread in the Java world. In particular:
 
-1. HTTP/2 depends on [ALPN](https://tools.ietf.org/html/rfc7301), a TLS extension for protocol negotiation. No version of Java has native ALPN support at this time. The ALPN requirement may be met either by [using a native SSL provider](#using-a-native-ssl-provider) or by [using Jetty's ALPN implementation](#using-jettys-alpn-implementation) under OpenJDK 7 or 8.
+1. HTTP/2 depends on [ALPN](https://tools.ietf.org/html/rfc7301), a TLS extension for protocol negotiation. No version of Java has native ALPN support at this time. The ALPN requirement may be met either by [using a native SSL provider](#using-a-native-ssl-provider) or by [using Jetty's ALPN implementation](#using-jettys-alpn-implementation) under Java 7 or 8.
 2. The HTTP/2 specification requires the use of [ciphers](https://httpwg.github.io/specs/rfc7540.html#rfc.section.9.2.2) that weren't introduced in Java until Java 8. Using a native SSL provider is the best way to meet this requirement under Java 7. A native SSL provider isn't a requirement under Java 8, but may still yield performance gains.
 
 Generally speaking, a native SSL provider is the best way to fulfill the system requirements imposed by HTTP/2 because installation is fairly straightforward, it works for Java 7 onward and generally offers better SSL performance than the JDK SSL provider.
@@ -148,9 +148,9 @@ Please note that Pushy requires netty-tcnative 1.1.33.Fork17 or newer. Additiona
 
 ### Using Jetty's ALPN implementation
 
-As an alternative to a native SSL provider, you may use Jetty's ALPN implementation if you're using OpenJDK 8. Please note that if you're not using Java 8 or newer, you'll need to meet the cipher suite requirement separately; you may do so either by using a native SSL provider (which also fulfills the ALPN requirement) or by using another cryptography provider (which is beyond the scope of this document).
+As an alternative to a native SSL provider, Jetty's ALPN implementation. Please note that if you're not using Oracle JDK 8 or newer (or if you're using a JDK other than Oracle's), you'll need to meet the cipher suite requirement separately; you may do so either by using a native SSL provider (which also fulfills the ALPN requirement) or by using another cryptography provider (which is beyond the scope of this document).
 
-Using Jetty's ALPN implementation is somewhat more complicated than using a native SSL provider. You'll need to choose a version of `alpn-boot` specific to the version (down to the update!) of OpenJDK you're using, and then add it to your *boot* class path (note that this is *not* the same as your regular classpath). [Detailed instructions](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html) are provided by Jetty.
+Using Jetty's ALPN implementation is somewhat more complicated than using a native SSL provider. You'll need to choose a version of `alpn-boot` specific to the version (down to the update!) of the JDK you're using, and then add it to your *boot* class path (note that this is *not* the same as your regular classpath). [Detailed instructions](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html) are provided by Jetty.
 
 If you know exactly which version of Java you'll be running, you can just add that specific version of `alpn-boot` to your boot class path. If your project might run on a number of different systems and if you use Maven, you can use the [`jetty-alpn-agent`](https://github.com/jetty-project/jetty-alpn-agent) in your `pom.xml`, which loads the correct `alpn-boot` JAR file for the current Java version on the fly.
 
