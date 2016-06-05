@@ -24,4 +24,22 @@
             <version>3.1.0</version>
         </dependency>
     </dependencies>
+    
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>2.9.1</version>
+                <configuration>
+                    <overview>${basedir}/src/main/java/overview.html</overview>
+                    <show>public</show>
+                    <links>
+                        <link>http://relayrides.github.io/pushy/apidocs/0.7/</link>
+                        <link>http://metrics.dropwizard.io/3.1.0/apidocs/</link>
+                    </links>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
