@@ -215,6 +215,18 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
         return this;
     }
 
+    /**
+     * Sets the proxy handler factory to be used to construct proxy handlers when establishing a new connection to the
+     * APNs gateway. A client's proxy handler factory may be {@code null}, in which case the client will connect to the
+     * gateway directly and will not use a proxy. By default, clients will not use a proxy.
+     *
+     * @param proxyHandlerFactory the proxy handler factory to be used to construct proxy handlers, or {@code null} if
+     * this client should not use a proxy
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.8
+     */
     public ApnsClientBuilder<T> setProxyHandlerFactory(final ProxyHandlerFactory proxyHandlerFactory) {
         this.proxyHandlerFactory = proxyHandlerFactory;
         return this;
@@ -227,6 +239,20 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
         return this;
     }
 
+    /**
+     * <p>Sets the write timeout for the client to build. If an attempt to send a notification to the APNs server takes
+     * longer than the given timeout, the connection will be closed (and automatically reconnected later). Note that
+     * write timeouts refer to the amount of time taken to <em>send</em> a notification to the server, and not the time
+     * taken by the server to process and respond to a notification.</p>
+     *
+     * <p>By default, clients have a write timeout of
+     * {@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_WRITE_TIMEOUT_MILLIS} milliseconds.</p>
+     *
+     * @param writeTimeout the write timeout for the client to be built
+     * @param timeoutUnit the time unit for the given timeout
+     *
+     * @since 0.8
+     */
     public ApnsClientBuilder<T> setWriteTimeout(final long writeTimeout, final TimeUnit timeoutUnit) {
         this.writeTimeout = writeTimeout;
         this.writeTimeoutUnit = timeoutUnit;
@@ -241,6 +267,13 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
         return this;
     }
 
+    /**
+     * Constructs a new {@link ApnsClient} with the previously-set configuration.
+     *
+     * @return a new ApnsClient instance with the previously-set configuration
+     *
+     * @throws SSLException if an SSL context could not be created for the new client for any reason
+     */
     public ApnsClient<T> build() throws SSLException {
         Objects.requireNonNull(this.clientCertificate, "Client certificate must be set before building an APNs client.");
         Objects.requireNonNull(this.privateKey, "Private key must be set before building an APNs client.");
