@@ -74,6 +74,8 @@ import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
+import io.netty.resolver.DefaultAddressResolverGroup;
+import io.netty.resolver.NoopAddressResolverGroup;
 import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.FailedFuture;
 import io.netty.util.concurrent.Future;
@@ -637,6 +639,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
      */
     public void setProxyHandlerFactory(final ProxyHandlerFactory proxyHandlerFactory) {
         this.proxyHandlerFactory = proxyHandlerFactory;
+        this.bootstrap.resolver(proxyHandlerFactory == null ? DefaultAddressResolverGroup.INSTANCE : NoopAddressResolverGroup.INSTANCE);
     }
 
     /**
