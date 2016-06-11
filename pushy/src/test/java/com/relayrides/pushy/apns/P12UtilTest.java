@@ -12,6 +12,7 @@ public class P12UtilTest {
 
     private static final String SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME = "/single-topic-client.p12";
     private static final String MULTIPLE_KEY_KEYSTORE_FILENAME = "/multiple-keys.p12";
+    private static final String NO_KEY_KEYSTORE_FILENAME = "/no-keys.p12";
 
     private static final String KEYSTORE_PASSWORD = "pushy-test";
 
@@ -19,19 +20,26 @@ public class P12UtilTest {
     public void testGetPrivateKeyEntryFromP12InputStream() throws Exception {
         try (final InputStream p12InputStream = P12UtilTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
             final PrivateKeyEntry privateKeyEntry =
-                    P12Util.getPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
+                    P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
+
+            assertNotNull(privateKeyEntry);
+        }
+    }
+
+    @Test
+    public void testGetPrivateKeyEntryFromP12InputStreamWithMultipleKeys() throws Exception {
+        try (final InputStream p12InputStream = P12UtilTest.class.getResourceAsStream(MULTIPLE_KEY_KEYSTORE_FILENAME)) {
+            final PrivateKeyEntry privateKeyEntry =
+                    P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
 
             assertNotNull(privateKeyEntry);
         }
     }
 
     @Test(expected = KeyStoreException.class)
-    public void testGetPrivateKeyEntryFromP12InputStreamWithMultipleKeys() throws Exception {
-        try (final InputStream p12InputStream = P12UtilTest.class.getResourceAsStream(MULTIPLE_KEY_KEYSTORE_FILENAME)) {
-            final PrivateKeyEntry privateKeyEntry =
-                    P12Util.getPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
-
-            assertNotNull(privateKeyEntry);
+    public void testGetPrivateKeyEntryFromP12InputStreamWithNoKeys() throws Exception {
+        try (final InputStream p12InputStream = P12UtilTest.class.getResourceAsStream(NO_KEY_KEYSTORE_FILENAME)) {
+            P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
         }
     }
 }
