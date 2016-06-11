@@ -98,15 +98,60 @@ public class DropwizardApnsClientMetricsListener implements ApnsClientMetricsLis
 
     private final Meter connectionFailures;
 
+    /**
+     * The name of a {@link com.codahale.metrics.Timer} that measures round-trip time when sending notifications.
+     *
+     * @see DropwizardApnsClientMetricsListener#getMetrics()
+     */
     public static final String NOTIFICATION_TIMER_NAME = "notificationTimer";
 
+    /**
+     * The name of a {@link com.codahale.metrics.Meter} that measures write failure rates when sending notifications.
+     *
+     * @see DropwizardApnsClientMetricsListener#getMetrics()
+     */
     public static final String WRITE_FAILURES_METER_NAME = "writeFailures";
+
+    /**
+     * The name of a {@link com.codahale.metrics.Meter} that measures write throughput when sending notifications.
+     *
+     * @see DropwizardApnsClientMetricsListener#getMetrics()
+     */
     public static final String SENT_NOTIFICATIONS_METER_NAME = "sentNotifications";
+
+    /**
+     * The name of a {@link com.codahale.metrics.Meter} that measures notifications accepted by the APNs server.
+     *
+     * @see DropwizardApnsClientMetricsListener#getMetrics()
+     */
     public static final String ACCEPTED_NOTIFICATIONS_METER_NAME = "acceptedNotifications";
+
+    /**
+     * The name of a {@link com.codahale.metrics.Meter} that measures notifications rejected by the APNs server.
+     *
+     * @see DropwizardApnsClientMetricsListener#getMetrics()
+     */
     public static final String REJECTED_NOTIFICATIONS_METER_NAME = "rejectedNotifications";
 
+    /**
+     * The name of a {@link com.codahale.metrics.Gauge} that indicates whether a client is connected to the APNs server.
+     *
+     * @see DropwizardApnsClientMetricsListener#getMetrics()
+     */
     public static final String CONNECTION_GAUGE_NAME = "connected";
+
+    /**
+     * The name of a {@link com.codahale.metrics.Timer} that measures time taken to establish connections.
+     *
+     * @see DropwizardApnsClientMetricsListener#getMetrics()
+     */
     public static final String CONNECTION_TIMER_NAME = "connectionTimer";
+
+    /**
+     * The name of a {@link com.codahale.metrics.Meter} that measures connection failure rates.
+     *
+     * @see DropwizardApnsClientMetricsListener#getMetrics()
+     */
     public static final String CONNECTION_FAILURES_METER_NAME = "connectionFailures";
 
     /**
@@ -135,24 +180,52 @@ public class DropwizardApnsClientMetricsListener implements ApnsClientMetricsLis
         this.connectionFailures = this.metrics.meter(CONNECTION_FAILURES_METER_NAME);
     }
 
+    /**
+     * Records a failed attempt to send a notification and updates metrics accordingly.
+     *
+     * @param apnsClient the client that failed to write the notification; note that this is ignored by
+     * {@code DropwizardApnsClientMetricsListener} instances, which should always be used for exactly one client
+     * @param notificationId an opaque, unique identifier for the notification that could not be written
+     */
     @Override
     public void handleWriteFailure(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
         this.stopTimerForNotification(notificationId);
         this.writeFailures.mark();
     }
 
+    /**
+     * Records a successful attempt to send a notification and updates metrics accordingly.
+     *
+     * @param apnsClient the client that sent the notification; note that this is ignored by
+     * {@code DropwizardApnsClientMetricsListener} instances, which should always be used for exactly one client
+     * @param notificationId an opaque, unique identifier for the notification that was sent
+     */
     @Override
     public void handleNotificationSent(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
         this.sentNotifications.mark();
         this.notificationTimerContexts.put(notificationId, this.notificationTimer.time());
     }
 
+    /**
+     * Records that the APNs server accepted a previously-sent notification and updates metrics accordingly.
+     *
+     * @param apnsClient the client that sent the accepted notification; note that this is ignored by
+     * {@code DropwizardApnsClientMetricsListener} instances, which should always be used for exactly one client
+     * @param notificationId an opaque, unique identifier for the notification that was accepted
+     */
     @Override
     public void handleNotificationAccepted(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
         this.stopTimerForNotification(notificationId);
         this.acceptedNotifications.mark();
     }
 
+    /**
+     * Records that the APNs server rejected a previously-sent notification and updates metrics accordingly.
+     *
+     * @param apnsClient the client that sent the rejected notification; note that this is ignored by
+     * {@code DropwizardApnsClientMetricsListener} instances, which should always be used for exactly one client
+     * @param notificationId an opaque, unique identifier for the notification that was rejected
+     */
     @Override
     public void handleNotificationRejected(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
         this.stopTimerForNotification(notificationId);
@@ -167,18 +240,37 @@ public class DropwizardApnsClientMetricsListener implements ApnsClientMetricsLis
         }
     }
 
+    /**
+     * Records that a client started a new attempt to connect to the APNs server and updates metrics accordingly.
+     *
+     * @param apnsClient the client that started a connection attempt; note that this is ignored by
+     * {@code DropwizardApnsClientMetricsListener} instances, which should always be used for exactly one client
+     */
     @Override
     public void handleConnectionAttemptStarted(final ApnsClient<? extends ApnsPushNotification> apnsClient) {
         this.connectionTimerContext = this.connectionTimer.time();
         this.connected = false;
     }
 
+    /**
+     * Records that a previously-started attempt to connect to the APNs server succeeded and updates metrics
+     * accordingly.
+     *
+     * @param apnsClient the client that completed a connection attempt; note that this is ignored by
+     * {@code DropwizardApnsClientMetricsListener} instances, which should always be used for exactly one client
+     */
     @Override
     public void handleConnectionAttemptSucceeded(final ApnsClient<? extends ApnsPushNotification> apnsClient) {
         this.stopConnectionTimer();
         this.connected = true;
     }
 
+    /**
+     * Records that a previously-started attempt to connect to the APNs server failed and updates metrics accordingly.
+     *
+     * @param apnsClient the client that failed to connect; note that this is ignored by
+     * {@code DropwizardApnsClientMetricsListener} instances, which should always be used for exactly one client
+     */
     @Override
     public void handleConnectionAttemptFailed(final ApnsClient<? extends ApnsPushNotification> apnsClient) {
         this.stopConnectionTimer();
@@ -192,6 +284,20 @@ public class DropwizardApnsClientMetricsListener implements ApnsClientMetricsLis
         }
     }
 
+    /**
+     * Returns the metrics produced by this listener.
+     *
+     * @return a map of metric names to metrics
+     *
+     * @see DropwizardApnsClientMetricsListener#NOTIFICATION_TIMER_NAME
+     * @see DropwizardApnsClientMetricsListener#WRITE_FAILURES_METER_NAME
+     * @see DropwizardApnsClientMetricsListener#SENT_NOTIFICATIONS_METER_NAME
+     * @see DropwizardApnsClientMetricsListener#ACCEPTED_NOTIFICATIONS_METER_NAME
+     * @see DropwizardApnsClientMetricsListener#REJECTED_NOTIFICATIONS_METER_NAME
+     * @see DropwizardApnsClientMetricsListener#CONNECTION_GAUGE_NAME
+     * @see DropwizardApnsClientMetricsListener#CONNECTION_TIMER_NAME
+     * @see DropwizardApnsClientMetricsListener#CONNECTION_FAILURES_METER_NAME
+     */
     @Override
     public Map<String, Metric> getMetrics() {
         return this.metrics.getMetrics();
