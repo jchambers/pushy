@@ -9,7 +9,7 @@
     <parent>
         <groupId>com.relayrides</groupId>
         <artifactId>pushy-parent</artifactId>
-        <version>0.7.3-SNAPSHOT</version>
+        <version>0.8-SNAPSHOT</version>
     </parent>
 
     <dependencies>
