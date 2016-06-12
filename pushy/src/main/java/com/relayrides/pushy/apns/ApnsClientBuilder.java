@@ -80,6 +80,10 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
     private Long connectionTimeout;
     private TimeUnit connectionTimeoutUnit;
 
+    private Integer maxUnflushedNotifications;
+    private Long maxIdleTimeBeforeFlush;
+    private TimeUnit maxIdleTimeBeforeFlushUnits;
+
     private Long writeTimeout;
     private TimeUnit writeTimeoutUnit;
 
@@ -89,8 +93,8 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
     private static final Logger log = LoggerFactory.getLogger(ApnsClientBuilder.class);
 
     /**
-     * <p>Sets the credentials for the client to be built using the contents of the given PKCS#12 file. The PKCS#12 file
-     * <em>must</em> contain a single certificate/private key pair.</p>
+     * <p>Sets the credentials for the client under construction using the contents of the given PKCS#12 file. The
+     * PKCS#12 file <em>must</em> contain a certificate/private key pair.</p>
      *
      * @param p12File a PKCS#12-formatted file containing the certificate and private key to be used to identify the
      * client to the APNs server
@@ -99,8 +103,8 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
      *
      * @throws SSLException if the given PKCS#12 file could not be loaded or if any other SSL-related problem arises
      * when constructing the context
-     * @throws IOException if any IO problem occurs while attempting to read the given PKCS#12 file, or the PKCS#12 file
-     * could not be found
+     * @throws IOException if any IO problem occurred while attempting to read the given PKCS#12 file, or the PKCS#12
+     * file could not be found
      *
      * @return a reference to this builder
      *
@@ -113,18 +117,17 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
     }
 
     /**
-     * <p>Sets the credentials for the client to be built using the data from the given PKCS#12 input stream. The
-     * PKCS#12 data <em>must</em> contain a single certificate/private key pair.</p>
+     * <p>Sets the credentials for the client under construction using the data from the given PKCS#12 input stream. The
+     * PKCS#12 data <em>must</em> contain a certificate/private key pair.</p>
      *
-     * @param p12File an input stream to a PKCS#12-formatted file containing the certificate and private key to be used
-     * to identify the client to the APNs server
+     * @param p12InputStream an input stream to a PKCS#12-formatted file containing the certificate and private key to
+     * be used to identify the client to the APNs server
      * @param p12Password the password to be used to decrypt the contents of the given PKCS#12 file; passwords may be
      * blank (i.e. {@code ""}), but must not be {@code null}
      *
      * @throws SSLException if the given PKCS#12 file could not be loaded or if any other SSL-related problem arises
      * when constructing the context
-     * @throws IOException if any IO problem occurs while attempting to read the given PKCS#12 file, or the PKCS#12 file
-     * could not be found
+     * @throws IOException if any IO problem occurred while attempting to read the given PKCS#12 input stream
      *
      * @return a reference to this builder
      *
@@ -153,7 +156,7 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
     }
 
     /**
-     * <p>Sets the credentials for the client to be built.</p>
+     * <p>Sets the credentials for the client under construction.</p>
      *
      * @param clientCertificate the certificate to be used to identify the client to the APNs server
      * @param privateKey the private key for the client certificate
@@ -178,8 +181,8 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
     }
 
     /**
-     * <p>Sets the event loop group to be used by the client to be built. If not set (or if {@code null}), the client
-     * will create and manage its own event loop group.</p>
+     * <p>Sets the event loop group to be used by the client under construction. If not set (or if {@code null}), the
+     * client will create and manage its own event loop group.</p>
      *
      * <p>Generally speaking, callers don't need to set event loop groups for clients, but it may be useful to specify
      * an event loop group under certain circumstances. In particular, specifying an event loop group that is shared
@@ -200,8 +203,8 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
     }
 
     /**
-     * Sets the metrics listener for the client to be built. Metrics listeners gather information that describes the
-     * performance and behavior of a client, and are completely optional.
+     * Sets the metrics listener for the client under construction. Metrics listeners gather information that describes
+     * the performance and behavior of a client, and are completely optional.
      *
      * @param metricsListener the metrics listener for the client under construction, or {@code null} if this client
      * should not report metrics to a listener
@@ -232,9 +235,50 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
         return this;
     }
 
+    /**
+     * Sets the maximum amount of time, in milliseconds, that the client under construction will wait to establish a
+     * connection with the APNs server before the connection attempt is considered a failure.
+     *
+     * @param connectionTimeout the maximum amount of time to wait for a connection attempt to complete
+     * @param timeoutUnit the time unit for the given timeout
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.8
+     */
     public ApnsClientBuilder<T> setConnectionTimeout(final long connectionTimeout, final TimeUnit timeoutUnit) {
         this.connectionTimeout = connectionTimeout;
         this.connectionTimeoutUnit = timeoutUnit;
+
+        return this;
+    }
+
+    /**
+     * <p>Sets the thresholds at which this client under construction will flush notifications enqueued for sending to
+     * the APNs server. By default, notifications will be flushed after
+     * {@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_MAX_UNFLUSHED_NOTIFICATIONS} unflushed
+     * notifications have been enqueued or {@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_FLUSH_AFTER_IDLE_MILLIS}
+     * milliseconds of inactivity have elapsed.</p>
+     *
+     * <p>Callers may set both thresholds to zero to flush all notifications immediately, which will reduce latency at
+     * the expense of decreasing efficiency and throughput.</p>
+     *
+     * @param maxUnflushedNotifications The maximum number of notifications that may be enqueued before the sending
+     * queue is flushed. Must be positive if {@code maxIdleTimeMillis} is also positive or zero if
+     * {@code maxIdleTimeMillis} is also zero. If zero, notifications are always sent immediately.
+     * @param maxIdleTime The maximum amount of time since the last attempt to send a notification that may elapse
+     * before the sending queue is flushed. Must be positive if {@code maxUnflushedNotifications} is also positive or
+     * zero if {@code maxUnflushedNotifications} is also zero. If zero, notifications are always sent immediately.
+     * @param maxIdleTimeUnits the time unit for the given maximum idle time
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.8
+     */
+    public ApnsClientBuilder<T> setFlushThresholds(final int maxUnflushedNotifications, final long maxIdleTime, final TimeUnit maxIdleTimeUnits) {
+        this.maxUnflushedNotifications = maxUnflushedNotifications;
+        this.maxIdleTimeBeforeFlush = maxIdleTime;
+        this.maxIdleTimeBeforeFlushUnits = maxIdleTimeUnits;
 
         return this;
     }
@@ -248,8 +292,10 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
      * <p>By default, clients have a write timeout of
      * {@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_WRITE_TIMEOUT_MILLIS} milliseconds.</p>
      *
-     * @param writeTimeout the write timeout for the client to be built
+     * @param writeTimeout the write timeout for the client under construction
      * @param timeoutUnit the time unit for the given timeout
+     *
+     * @return a reference to this builder
      *
      * @since 0.8
      */
@@ -260,6 +306,20 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
         return this;
     }
 
+    /**
+     * Sets the amount of time clients should wait for in-progress requests to complete before closing a connection
+     * during a graceful shutdown.
+     *
+     * @param gracefulShutdownTimeout the amount of time to wait for in-progress requests to complete before closing a
+     * connection
+     * @param timeoutUnit the time unit for the given timeout
+     *
+     * @return a reference to this builder
+     *
+     * @see ApnsClient#disconnect()
+     *
+     * @since 0.8
+     */
     public ApnsClientBuilder<T> setGracefulShutdownTimeout(final long gracefulShutdownTimeout, final TimeUnit timeoutUnit) {
         this.gracefulShutdownTimeout = gracefulShutdownTimeout;
         this.gracefulShutdownTimeoutUnit = timeoutUnit;
@@ -273,6 +333,8 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
      * @return a new ApnsClient instance with the previously-set configuration
      *
      * @throws SSLException if an SSL context could not be created for the new client for any reason
+     *
+     * @since 0.8
      */
     public ApnsClient<T> build() throws SSLException {
         Objects.requireNonNull(this.clientCertificate, "Client certificate must be set before building an APNs client.");
@@ -319,6 +381,10 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
 
         if (this.connectionTimeout != null) {
             apnsClient.setConnectionTimeout((int) this.connectionTimeoutUnit.toMillis(this.connectionTimeout));
+        }
+
+        if (this.maxUnflushedNotifications != null) {
+            apnsClient.setFlushThresholds(this.maxUnflushedNotifications, this.maxIdleTimeBeforeFlushUnits.toMillis(this.maxIdleTimeBeforeFlush));
         }
 
         if (this.writeTimeout != null) {
