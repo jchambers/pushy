@@ -13,26 +13,39 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.ChannelGroupFuture;
 import io.netty.channel.group.DefaultChannelGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
+import io.netty.util.concurrent.DefaultPromise;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.GlobalEventExecutor;
 
 public class MockApnsServer {
 
     private final ServerBootstrap bootstrap;
+    private final boolean shouldShutDownEventLoopGroup;
 
     final Map<String, Map<String, Date>> tokenExpirationsByTopic = new HashMap<>();
 
     private ChannelGroup allChannels;
 
-    public MockApnsServer(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
+    protected MockApnsServer(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
         this.bootstrap = new ServerBootstrap();
-        this.bootstrap.group(eventLoopGroup);
-        this.bootstrap.channel(NioServerSocketChannel.class);
+
+        if (eventLoopGroup != null) {
+            this.bootstrap.group(eventLoopGroup);
+            this.shouldShutDownEventLoopGroup = false;
+        } else {
+            this.bootstrap.group(new NioEventLoopGroup(1));
+            this.shouldShutDownEventLoopGroup = true;
+        }
+
+        this.bootstrap.channel(SocketChannelClassUtil.getServerSocketChannelClass(eventLoopGroup));
         this.bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
 
             @Override
@@ -96,7 +109,38 @@ public class MockApnsServer {
         return tokensWithinTopic != null ? tokensWithinTopic.get(token) : null;
     }
 
-    public ChannelGroupFuture shutdown() {
-        return this.allChannels.close();
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    public Future<Void> shutdown() {
+        final ChannelGroupFuture channelCloseFuture = this.allChannels.close();
+        final Future<Void> disconnectFuture;
+
+        if (this.shouldShutDownEventLoopGroup) {
+            // Wait for the channel to close before we try to shut down the event loop group
+            channelCloseFuture.addListener(new GenericFutureListener<Future<Void>>() {
+
+                @Override
+                public void operationComplete(final Future<Void> future) throws Exception {
+                    MockApnsServer.this.bootstrap.config().group().shutdownGracefully();
+                }
+            });
+
+            // Since the termination future for the event loop group is a Future<?> instead of a Future<Void>,
+            // we'll need to create our own promise and then notify it when the termination future completes.
+            disconnectFuture = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
+
+            this.bootstrap.config().group().terminationFuture().addListener(new GenericFutureListener() {
+
+                @Override
+                public void operationComplete(final Future future) throws Exception {
+                    assert disconnectFuture instanceof DefaultPromise;
+                    ((DefaultPromise<Void>) disconnectFuture).trySuccess(null);
+                }
+            });
+        } else {
+            // We're done once we've closed all the channels, so we can return the closure future directly.
+            disconnectFuture = channelCloseFuture;
+        }
+
+        return disconnectFuture;
     }
 }
