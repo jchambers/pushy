@@ -24,9 +24,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.security.PrivateKey;
 import java.security.KeyStore.PrivateKeyEntry;
 import java.security.KeyStoreException;
+import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.Objects;
@@ -42,15 +42,15 @@ import com.relayrides.pushy.apns.proxy.ProxyHandlerFactory;
 import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
+import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
+import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
+import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.OpenSsl;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
-import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
 
 /**
  * <p>An {@code ApnsClientBuilder} constructs new {@link ApnsClient} instances. Callers must supply client credentials
@@ -70,6 +70,8 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
     private String privateKeyPassword;
 
     private File trustedServerCertificatePemFile;
+    private InputStream trustedServerCertificateInputStream;
+    private X509Certificate[] trustedServerCertificates;
 
     private EventLoopGroup eventLoopGroup;
 
@@ -175,8 +177,63 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
         return this;
     }
 
-    protected ApnsClientBuilder<T> setTrustedServerCertificate(final File trustedServerCertificatePemFile) {
-        this.trustedServerCertificatePemFile = trustedServerCertificatePemFile;
+    /**
+     * <p>Sets the trusted certificate chain for the client under construction using the contents of the given PEM
+     * file. If not set (or {@code null}), the client will use the JVM's default trust manager.</p>
+     *
+     * <p>Callers will generally not need to set a trusted server certificate chain in normal operation, but may wish
+     * to do so for <a href="https://www.owasp.org/index.php/Certificate_and_Public_Key_Pinning">certificate pinning</a>
+     * or connecting to a mock server for integration testing or benchmarking.</p>
+     *
+     * @param certificatePemFile a PEM file containing one or more trusted certificates
+     *
+     * @return a reference to this builder
+     */
+    public ApnsClientBuilder<T> setTrustedServerCertificateChain(final File certificatePemFile) {
+        this.trustedServerCertificatePemFile = certificatePemFile;
+        this.trustedServerCertificateInputStream = null;
+        this.trustedServerCertificates = null;
+
+        return this;
+    }
+
+    /**
+     * <p>Sets the trusted certificate chain for the client under construction using the contents of the given PEM
+     * input stream. If not set (or {@code null}), the client will use the JVM's default trust manager.</p>
+     *
+     * <p>Callers will generally not need to set a trusted server certificate chain in normal operation, but may wish
+     * to do so for <a href="https://www.owasp.org/index.php/Certificate_and_Public_Key_Pinning">certificate pinning</a>
+     * or connecting to a mock server for integration testing or benchmarking.</p>
+     *
+     * @param certificateInputStream an input stream to PEM-formatted data containing one or more trusted certificates
+     *
+     * @return a reference to this builder
+     */
+    public ApnsClientBuilder<T> setTrustedServerCertificateChain(final InputStream certificateInputStream) {
+        this.trustedServerCertificatePemFile = null;
+        this.trustedServerCertificateInputStream = certificateInputStream;
+        this.trustedServerCertificates = null;
+
+        return this;
+    }
+
+    /**
+     * <p>Sets the trusted certificate chain for the client under construction. If not set (or {@code null}), the
+     * client will use the JVM's default trust manager.</p>
+     *
+     * <p>Callers will generally not need to set a trusted server certificate chain in normal operation, but may wish
+     * to do so for <a href="https://www.owasp.org/index.php/Certificate_and_Public_Key_Pinning">certificate pinning</a>
+     * or connecting to a mock server for integration testing or benchmarking.</p>
+     *
+     * @param certificates one or more trusted certificates
+     *
+     * @return a reference to this builder
+     */
+    public ApnsClientBuilder<T> setTrustedServerCertificateChain(final X509Certificate... certificates) {
+        this.trustedServerCertificatePemFile = null;
+        this.trustedServerCertificateInputStream = null;
+        this.trustedServerCertificates = certificates;
+
         return this;
     }
 
@@ -369,6 +426,10 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
 
             if (this.trustedServerCertificatePemFile != null) {
                 sslContextBuilder.trustManager(this.trustedServerCertificatePemFile);
+            } else if (this.trustedServerCertificateInputStream != null) {
+                sslContextBuilder.trustManager(this.trustedServerCertificateInputStream);
+            } else if (this.trustedServerCertificates != null) {
+                sslContextBuilder.trustManager(this.trustedServerCertificates);
             }
 
             sslContext = sslContextBuilder.build();
