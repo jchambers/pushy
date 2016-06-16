@@ -25,8 +25,10 @@ public class ExampleApp {
         // certificate and private key to authenticate with the APNs server. The
         // most common way to store the certificate and key is in a
         // password-protected PKCS#12 file.
-        final ApnsClient<SimpleApnsPushNotification> apnsClient = new ApnsClient<>(
-                new File("/path/to/certificate.p12"), "p12-file-password");
+        final ApnsClient<SimpleApnsPushNotification> apnsClient =
+                new ApnsClientBuilder<SimpleApnsPushNotification>()
+                .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
+                .build();
 
         // Optional: we can listen for metrics by setting a metrics listener.
         apnsClient.setMetricsListener(new NoopMetricsListener());
