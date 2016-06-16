@@ -7,6 +7,8 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.InputStream;
+import java.security.KeyStore.PrivateKeyEntry;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -36,6 +38,10 @@ public class ApnsClientTest {
     private static final String SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME = "/single-topic-client.p12";
     private static final String MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME = "/multi-topic-client.p12";
     private static final String UNTRUSTED_CLIENT_KEYSTORE_FILENAME = "/untrusted-client.p12";
+
+    private static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
+    private static final String SERVER_KEYSTORE = "/server.p12";
+    private static final String SERVER_KEYSTORE_PASSWORD = "pushy-test";
 
     private static File CA_CERTIFICATE;
 
@@ -189,12 +195,22 @@ public class ApnsClientTest {
         // cases.
         ApnsClientTest.EVENT_LOOP_GROUP = new NioEventLoopGroup(4);
 
-        CA_CERTIFICATE = new File(ApnsClientTest.class.getResource("/ca.pem").toURI());
+        CA_CERTIFICATE = new File(ApnsClientTest.class.getResource(CA_CERTIFICATE_FILENAME).toURI());
     }
 
     @Before
     public void setUp() throws Exception {
-        this.server = new MockApnsServer(EVENT_LOOP_GROUP);
+        {
+            final PrivateKeyEntry privateKeyEntry = P12Util.getFirstPrivateKeyEntryFromP12InputStream(
+                    MockApnsServer.class.getResourceAsStream(SERVER_KEYSTORE), SERVER_KEYSTORE_PASSWORD);
+
+            this.server = new MockApnsServerBuilder()
+                    .setServerCredentials(privateKeyEntry.getPrivateKey(), (X509Certificate) privateKeyEntry.getCertificate())
+                    .setTrustedClientCertificateChain(CA_CERTIFICATE)
+                    .setEventLoopGroup(EVENT_LOOP_GROUP)
+                    .build();
+        }
+
         this.server.start(PORT).await();
 
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {

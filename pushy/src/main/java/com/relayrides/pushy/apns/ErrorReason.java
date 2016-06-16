@@ -2,7 +2,7 @@ package com.relayrides.pushy.apns;
 
 import io.netty.handler.codec.http.HttpResponseStatus;
 
-public enum ErrorReason {
+enum ErrorReason {
     PAYLOAD_EMPTY("PayloadEmpty", HttpResponseStatus.BAD_REQUEST),
     PAYLOAD_TOO_LARGE("PayloadTooLarge", HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE),
     BAD_TOPIC("BadTopic", HttpResponseStatus.BAD_REQUEST),

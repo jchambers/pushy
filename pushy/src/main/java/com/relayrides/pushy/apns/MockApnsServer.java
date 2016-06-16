@@ -1,8 +1,5 @@
 package com.relayrides.pushy.apns;
 
-import java.io.InputStream;
-import java.security.KeyStore.PrivateKeyEntry;
-import java.security.cert.X509Certificate;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -18,21 +15,11 @@ import io.netty.channel.group.ChannelGroupFuture;
 import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.codec.http2.Http2Settings;
-import io.netty.handler.ssl.ApplicationProtocolConfig;
-import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
-import io.netty.handler.ssl.ClientAuth;
-import io.netty.handler.ssl.OpenSsl;
 import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslHandler;
-import io.netty.handler.ssl.SslProvider;
-import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 
 public class MockApnsServer {
 
@@ -42,31 +29,7 @@ public class MockApnsServer {
 
     private ChannelGroup allChannels;
 
-    private static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
-    private static final String SERVER_KEYSTORE = "/server.p12";
-    private static final String SERVER_KEYSTORE_PASSWORD = "pushy-test";
-
-    public MockApnsServer(final EventLoopGroup eventLoopGroup) {
-        final SslContext sslContext;
-        try (final InputStream caInputStream = this.getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME)) {
-            final PrivateKeyEntry privateKeyEntry = P12Util.getFirstPrivateKeyEntryFromP12InputStream(
-                    MockApnsServer.class.getResourceAsStream(SERVER_KEYSTORE), SERVER_KEYSTORE_PASSWORD);
-
-            sslContext = SslContextBuilder.forServer(privateKeyEntry.getPrivateKey(), (X509Certificate) privateKeyEntry.getCertificate())
-                    .sslProvider(OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK)
-                    .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-                    .trustManager(caInputStream)
-                    .clientAuth(ClientAuth.REQUIRE)
-                    .applicationProtocolConfig(new ApplicationProtocolConfig(
-                            Protocol.ALPN,
-                            SelectorFailureBehavior.NO_ADVERTISE,
-                            SelectedListenerFailureBehavior.ACCEPT,
-                            ApplicationProtocolNames.HTTP_2))
-                    .build();
-        } catch (final Exception e) {
-            throw new RuntimeException("Failed to create SSL context for mock APNs server.", e);
-        }
-
+    public MockApnsServer(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
         this.bootstrap = new ServerBootstrap();
         this.bootstrap.group(eventLoopGroup);
         this.bootstrap.channel(NioServerSocketChannel.class);
