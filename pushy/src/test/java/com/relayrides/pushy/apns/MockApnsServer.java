@@ -2,16 +2,11 @@ package com.relayrides.pushy.apns;
 
 import java.io.InputStream;
 import java.security.KeyStore.PrivateKeyEntry;
-import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
-
-import javax.net.ssl.SSLSession;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -87,18 +82,8 @@ public class MockApnsServer {
                     @Override
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) throws Exception {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                            final Set<String> topics = new HashSet<>();
-                            {
-                                final SSLSession sslSession = sslHandler.engine().getSession();
-
-                                for (final Certificate certificate : sslSession.getPeerCertificates()) {
-                                    topics.addAll(TopicUtil.extractApnsTopicsFromCertificate(certificate));
-                                }
-                            }
-
                             context.pipeline().addLast(new MockApnsServerHandler.MockApnsServerHandlerBuilder()
                                     .apnsServer(MockApnsServer.this)
-                                    .topics(topics)
                                     .initialSettings(new Http2Settings().maxConcurrentStreams(8))
                                     .build());
 

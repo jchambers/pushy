@@ -3,7 +3,6 @@ package com.relayrides.pushy.apns;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,7 +33,6 @@ import io.netty.util.concurrent.PromiseCombiner;
 class MockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
 
     private final MockApnsServer apnsServer;
-    private final Set<String> topics;
 
     private final Map<Integer, UUID> requestsWaitingForDataFrame = new HashMap<>();
 
@@ -55,7 +53,6 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
     public static final class MockApnsServerHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<MockApnsServerHandler, MockApnsServerHandlerBuilder> {
         private MockApnsServer apnsServer;
-        private Set<String> topics;
 
         public MockApnsServerHandlerBuilder apnsServer(final MockApnsServer apnsServer) {
             this.apnsServer = apnsServer;
@@ -66,15 +63,6 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             return this.apnsServer;
         }
 
-        public MockApnsServerHandlerBuilder topics(final Set<String> topics) {
-            this.topics = topics;
-            return this;
-        }
-
-        public Set<String> topics() {
-            return this.topics;
-        }
-
         @Override
         public MockApnsServerHandlerBuilder initialSettings(final Http2Settings initialSettings) {
             return super.initialSettings(initialSettings);
@@ -82,7 +70,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
         @Override
         public MockApnsServerHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
-            final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, initialSettings, this.apnsServer(), this.topics());
+            final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, initialSettings, this.apnsServer());
             this.frameListener(handler);
             return handler;
         }
@@ -139,9 +127,8 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
     }
 
-    protected MockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final MockApnsServer apnsServer, final Set<String> topics) {
+    protected MockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final MockApnsServer apnsServer) {
         super(decoder, encoder, initialSettings);
-        this.topics = topics;
         this.apnsServer = apnsServer;
     }
 
@@ -198,24 +185,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         final String topic;
         {
             final CharSequence topicSequence = headers.get(APNS_TOPIC_HEADER);
-
-            if (topicSequence != null) {
-                final String topicString = topicSequence.toString();
-
-                if (this.topics.contains(topicString)) {
-                    topic = topicSequence.toString();
-                } else {
-                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.TOPIC_DISALLOWED));
-                    return;
-                }
-            } else {
-                if (this.topics.size() == 1) {
-                    topic = this.topics.iterator().next();
-                } else {
-                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.MISSING_TOPIC));
-                    return;
-                }
-            }
+            topic = (topicSequence != null) ? topicSequence.toString() : null;
         }
 
         {
