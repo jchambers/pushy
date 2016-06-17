@@ -752,10 +752,15 @@ public class ApnsClient<T extends ApnsPushNotification> {
     }
 
     /**
-     * <p>Gracefully disconnects from the APNs gateway. The disconnection process will wait until notifications in
-     * flight have been either accepted or rejected by the gateway. The returned {@code Future} will be marked as
-     * complete when the connection has closed completely. If the connection is already closed when this method is
-     * called, the returned {@code Future} will be marked as complete immediately.</p>
+     * <p>Gracefully disconnects from the APNs gateway. The disconnection process will wait until notifications that
+     * have been sent to the APNs server have been either accepted or rejected. Note that some notifications passed to
+     * {@link com.relayrides.pushy.apns.ApnsClient#sendNotification(ApnsPushNotification)} may still be enqueued and
+     * not yet sent by the time the shutdown process begins; the {@code Futures} associated with those notifications
+     * will fail.</p>
+     *
+     * <p>The returned {@code Future} will be marked as complete when the connection has closed completely. If the
+     * connection is already closed when this method is called, the returned {@code Future} will be marked as complete
+     * immediately.</p>
      *
      * <p>If a non-null {@code EventLoopGroup} was provided at construction time, clients may be reconnected and reused
      * after they have been disconnected. If no event loop group was provided at construction time, clients may not be

@@ -119,6 +119,8 @@ final Future<Void> disconnectFuture = apnsClient.disconnect();
 disconnectFuture.await();
 ```
 
+When shutting down, clients will wait for all sent-but-not-acknowledged notifications to receive a reply from the server. Notifications that have been passed to `sendNotification` but not yet sent to the server (i.e. notifications waiting in an internal queue) will fail immediately when disconnecting. Callers should generally make sure that all sent notifications have been acknowledged by the server before shutting down.
+
 ## System requirements
 
 Pushy works with Java 7 and newer, but has some additional dependencies depending on the environment in which it is running.
