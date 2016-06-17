@@ -28,11 +28,11 @@ public class TopicUtilTest {
 
     @Test
     public void testExtractApnsTopicsFromMultiTopicCertificate() throws Exception {
-        final Certificate singleTopicCertificate = TopicUtilTest.loadCertificateFromResource(MULTI_TOPIC_CERTIFICATE_FILE);
+        final Certificate multiTopicCertificate = TopicUtilTest.loadCertificateFromResource(MULTI_TOPIC_CERTIFICATE_FILE);
         final Set<String> expectedTopics = new HashSet<String>(
                 Arrays.asList("com.relayrides.pushy", "com.relayrides.pushy.voip", "com.relayrides.pushy.complication"));
 
-        assertEquals(expectedTopics, TopicUtil.extractApnsTopicsFromCertificate(singleTopicCertificate));
+        assertEquals(expectedTopics, TopicUtil.extractApnsTopicsFromCertificate(multiTopicCertificate));
     }
 
     private static Certificate loadCertificateFromResource(final String resourceName) throws CertificateException, IOException {
