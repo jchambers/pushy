@@ -68,16 +68,54 @@ public class MockApnsServerBuilder {
     private static final Logger log = LoggerFactory.getLogger(MockApnsServerBuilder.class);
 
     /**
-     * <p>Sets the credentials for the server under construction.</p>
+     * <p>Sets the credentials for the server under construction using the certificates in the given PEM file and the
+     * private key in the given PKCS#8 file.</p>
      *
-     * @param privateKey the private key for the server's certificate
-     * @param certificates a certificate chain including the server's own certificate
+     * @param certificatePemFile a PEM file containing the certificate chain for the server under construction
+     * @param privateKeyPkcs8File a PKCS#8 file containing the private key for the server under construction
+     * @param privateKeyPassword the password for the given private key, or {@code null} if the key is not
+     * password-protected
      *
      * @return a reference to this builder
      *
      * @since 0.8
      */
-    public MockApnsServerBuilder setServerCredentials(final PrivateKey privateKey, final X509Certificate... certificates) {
+    public MockApnsServerBuilder setServerCredentials(final File certificatePemFile, final File privateKeyPkcs8File, final String privateKeyPassword) {
+        return this;
+    }
+
+    /**
+     * <p>Sets the credentials for the server under construction using the certificates in the given PEM input stream
+     * and the private key in the given PKCS#8 input stream.</p>
+     *
+     * @param certificatePemInputStream a PEM input stream containing the certificate chain for the server under
+     * construction
+     * @param privateKeyPkcs8InputStream a PKCS#8 input stream containing the private key for the server under
+     * construction
+     * @param privateKeyPassword the password for the given private key, or {@code null} if the key is not
+     * password-protected
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.8
+     */
+    public MockApnsServerBuilder setServerCredentials(final InputStream certificatePemInputStream, final InputStream privateKeyPkcs8InputStream, final String privateKeyPassword) {
+        return this;
+    }
+
+    /**
+     * <p>Sets the credentials for the server under construction.</p>
+     *
+     * @param certificates a certificate chain including the server's own certificate
+     * @param privateKey the private key for the server's certificate
+     * @param privateKeyPassword the password for the given private key, or {@code null} if the key is not
+     * password-protected
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.8
+     */
+    public MockApnsServerBuilder setServerCredentials(final X509Certificate[] certificates, final PrivateKey privateKey, final String privateKeyPassword) {
         this.privateKey = privateKey;
         this.certificateChain = certificates;
 

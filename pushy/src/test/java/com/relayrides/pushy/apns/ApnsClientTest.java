@@ -205,7 +205,7 @@ public class ApnsClientTest {
                     MockApnsServer.class.getResourceAsStream(SERVER_KEYSTORE), SERVER_KEYSTORE_PASSWORD);
 
             this.server = new MockApnsServerBuilder()
-                    .setServerCredentials(privateKeyEntry.getPrivateKey(), (X509Certificate) privateKeyEntry.getCertificate())
+                    .setServerCredentials(new X509Certificate[] { (X509Certificate) privateKeyEntry.getCertificate() }, privateKeyEntry.getPrivateKey(), null)
                     .setTrustedClientCertificateChain(CA_CERTIFICATE)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
                     .build();
