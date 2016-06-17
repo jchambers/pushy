@@ -142,9 +142,18 @@ To add the netty-tcnative uber-jar, you'll just need to add the following depend
 </dependency>
 ```
 
-Otherwise, you may add the jar to your classpath by the means of your choice.
+Otherwise, you may add the jar to your classpath by the means of your choice. Please note that Pushy requires netty-tcnative 1.1.33.Fork17 or newer. 
 
-Please note that Pushy requires netty-tcnative 1.1.33.Fork17 or newer. Additionally, you'll need [`alpn-api`](http://mvnrepository.com/artifact/org.eclipse.jetty.alpn/alpn-api) as a `runtime` dependency for your project. If you're managing dependencies manually, you'll just need to make sure the latest version of `alpn-api` is available on your classpath.
+Additionally, you'll need [`alpn-api`](http://mvnrepository.com/artifact/org.eclipse.jetty.alpn/alpn-api) as a `runtime` dependency for your project. If you're managing dependencies manually, you'll just need to make sure the latest version of `alpn-api` is available on your classpath. If you use Maven, add the following dependency:
+
+```xml
+<dependency>
+    <groupId>org.eclipse.jetty.alpn</groupId>
+    <artifactId>alpn-api</artifactId>
+    <version>1.1.2.v20150522</version>
+    <scope>runtime</scope>
+</dependency>
+```
 
 ### Using Jetty's ALPN implementation
 
