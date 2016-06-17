@@ -24,7 +24,6 @@ import java.io.File;
 import java.io.InputStream;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
-import java.util.Objects;
 
 import javax.net.ssl.SSLException;
 
@@ -59,6 +58,14 @@ public class MockApnsServerBuilder {
     private X509Certificate[] certificateChain;
     private PrivateKey privateKey;
 
+    private File certificateChainPemFile;
+    private File privateKeyPkcs8File;
+
+    private InputStream certificateChainInputStream;
+    private InputStream privateKeyPkcs8InputStream;
+
+    private String privateKeyPassword;
+
     private File trustedClientCertificatePemFile;
     private InputStream trustedClientCertificateInputStream;
     private X509Certificate[] trustedClientCertificates;
@@ -81,6 +88,17 @@ public class MockApnsServerBuilder {
      * @since 0.8
      */
     public MockApnsServerBuilder setServerCredentials(final File certificatePemFile, final File privateKeyPkcs8File, final String privateKeyPassword) {
+        this.certificateChain = null;
+        this.privateKey = null;
+
+        this.certificateChainPemFile = certificatePemFile;
+        this.privateKeyPkcs8File = privateKeyPkcs8File;
+
+        this.certificateChainInputStream = null;
+        this.privateKeyPkcs8InputStream = null;
+
+        this.privateKeyPassword = privateKeyPassword;
+
         return this;
     }
 
@@ -100,6 +118,17 @@ public class MockApnsServerBuilder {
      * @since 0.8
      */
     public MockApnsServerBuilder setServerCredentials(final InputStream certificatePemInputStream, final InputStream privateKeyPkcs8InputStream, final String privateKeyPassword) {
+        this.certificateChain = null;
+        this.privateKey = null;
+
+        this.certificateChainPemFile = null;
+        this.privateKeyPkcs8File = null;
+
+        this.certificateChainInputStream = certificatePemInputStream;
+        this.privateKeyPkcs8InputStream = privateKeyPkcs8InputStream;
+
+        this.privateKeyPassword = privateKeyPassword;
+
         return this;
     }
 
@@ -116,8 +145,16 @@ public class MockApnsServerBuilder {
      * @since 0.8
      */
     public MockApnsServerBuilder setServerCredentials(final X509Certificate[] certificates, final PrivateKey privateKey, final String privateKeyPassword) {
-        this.privateKey = privateKey;
         this.certificateChain = certificates;
+        this.privateKey = privateKey;
+
+        this.certificateChainPemFile = null;
+        this.privateKeyPkcs8File = null;
+
+        this.certificateChainInputStream = null;
+        this.privateKeyPkcs8InputStream = null;
+
+        this.privateKeyPassword = privateKeyPassword;
 
         return this;
     }
@@ -208,9 +245,6 @@ public class MockApnsServerBuilder {
      * @since 0.8
      */
     public MockApnsServer build() throws SSLException {
-        Objects.requireNonNull(this.certificateChain, "Server certificate chain must be set before building a mock APNs server.");
-        Objects.requireNonNull(this.privateKey, "Private key must be set before building a mock APNs server.");
-
         final SslContext sslContext;
         {
             final SslProvider sslProvider;
@@ -228,8 +262,19 @@ public class MockApnsServerBuilder {
                 sslProvider = SslProvider.JDK;
             }
 
-            final SslContextBuilder sslContextBuilder = SslContextBuilder.forServer(this.privateKey, this.certificateChain)
-                    .sslProvider(sslProvider)
+            final SslContextBuilder sslContextBuilder;
+
+            if (this.certificateChain != null && this.privateKey != null) {
+                sslContextBuilder = SslContextBuilder.forServer(this.privateKey, this.privateKeyPassword, this.certificateChain);
+            } else if (this.certificateChainPemFile != null && this.privateKeyPkcs8File != null) {
+                sslContextBuilder = SslContextBuilder.forServer(this.certificateChainPemFile, this.privateKeyPkcs8File, this.privateKeyPassword);
+            } else if (this.certificateChainInputStream != null && this.privateKeyPkcs8InputStream != null) {
+                sslContextBuilder = SslContextBuilder.forServer(this.certificateChainInputStream, this.privateKeyPkcs8InputStream, this.privateKeyPassword);
+            } else {
+                throw new IllegalStateException("Must specify server credentials before building a mock server.");
+            }
+
+            sslContextBuilder.sslProvider(sslProvider)
                     .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
                     .clientAuth(ClientAuth.REQUIRE)
                     .applicationProtocolConfig(new ApplicationProtocolConfig(
