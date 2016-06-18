@@ -18,6 +18,7 @@
     <modules>
         <module>pushy</module>
         <module>benchmark</module>
+        <module>dropwizard-metrics-listener</module>
     </modules>
 
     <licenses>
