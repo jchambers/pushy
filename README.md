@@ -160,7 +160,7 @@ If you know exactly which version of Java you'll be running, you can just add th
 
 ## Metrics
 
-Pushy includes an interface for monitoring metrics that provide insight into clients' behavior and performance. You can write your own implementation of the `ApnsClientMetricsListener` interface to record and report metrics. To begin receiving metrics, set a listener when building a new client:
+Pushy includes an interface for monitoring metrics that provide insight into clients' behavior and performance. You can write your own implementation of the `ApnsClientMetricsListener` interface to record and report metrics. We also provide a [https://github.com/relayrides/pushy/tree/master/dropwizard-metrics-listener](metrics listener that uses the Dropwizard Metrics library) as a separate module. To begin receiving metrics, set a listener when building a new client:
 
 ```java
 final ApnsClient<SimpleApnsPushNotification> apnsClient =
