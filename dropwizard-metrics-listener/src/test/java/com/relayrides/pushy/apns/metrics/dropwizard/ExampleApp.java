@@ -1,7 +1,5 @@
 package com.relayrides.pushy.apns.metrics.dropwizard;
 
-import java.io.File;
-
 import com.codahale.metrics.MetricRegistry;
 import com.relayrides.pushy.apns.ApnsClient;
 import com.relayrides.pushy.apns.ApnsClientBuilder;
@@ -19,7 +17,6 @@ public class ExampleApp {
 
         final ApnsClient<SimpleApnsPushNotification> apnsClient =
                 new ApnsClientBuilder<SimpleApnsPushNotification>()
-                .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
                 .setMetricsListener(listener)
                 .build();
 
@@ -28,5 +25,7 @@ public class ExampleApp {
         // DropwizardApnsClientMetricsListeners are themselves Metrics and can
         // be added to a registry.
         registry.register("com.example.MyApnsClient", listener);
+
+        apnsClient.connect(ApnsClient.DEVELOPMENT_APNS_HOST);
     }
 }

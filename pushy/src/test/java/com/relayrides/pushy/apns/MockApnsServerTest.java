@@ -12,8 +12,8 @@ import io.netty.channel.nio.NioEventLoopGroup;
 
 public class MockApnsServerTest {
 
-    private static final String SERVER_CERTIFICATE_FILENAME = "/server.pem";
-    private static final String SERVER_KEY_FILENAME = "/server.key";
+    private static final String SERVER_CERTIFICATE_FILENAME = "/server-cert.pem";
+    private static final String SERVER_KEY_FILENAME = "/server-key.pem";
 
     private static final int PORT = 8443;
 
