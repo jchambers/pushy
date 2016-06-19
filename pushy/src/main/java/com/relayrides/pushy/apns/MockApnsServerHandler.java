@@ -3,7 +3,6 @@ package com.relayrides.pushy.apns;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,7 +33,6 @@ import io.netty.util.concurrent.PromiseCombiner;
 class MockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
 
     private final MockApnsServer apnsServer;
-    private final Set<String> topics;
 
     private final Map<Integer, UUID> requestsWaitingForDataFrame = new HashMap<>();
 
@@ -53,9 +51,50 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             .registerTypeAdapter(Date.class, new DateAsMillisecondsSinceEpochTypeAdapter())
             .create();
 
+    private enum ErrorReason {
+        PAYLOAD_EMPTY("PayloadEmpty", HttpResponseStatus.BAD_REQUEST),
+        PAYLOAD_TOO_LARGE("PayloadTooLarge", HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE),
+        BAD_TOPIC("BadTopic", HttpResponseStatus.BAD_REQUEST),
+        TOPIC_DISALLOWED("TopicDisallowed", HttpResponseStatus.FORBIDDEN),
+        BAD_MESSAGE_ID("BadMessageId", HttpResponseStatus.BAD_REQUEST),
+        BAD_EXPIRATION_DATE("BadExpirationDate", HttpResponseStatus.BAD_REQUEST),
+        BAD_PRIORITY("BadPriority", HttpResponseStatus.BAD_REQUEST),
+        MISSING_DEVICE_TOKEN("MissingDeviceToken", HttpResponseStatus.BAD_REQUEST),
+        BAD_DEVICE_TOKEN("BadDeviceToken", HttpResponseStatus.BAD_REQUEST),
+        DEVICE_TOKEN_NOT_FOR_TOPIC("DeviceTokenNotForTopic", HttpResponseStatus.BAD_REQUEST),
+        UNREGISTERED("Unregistered", HttpResponseStatus.GONE),
+        DUPLICATE_HEADERS("DuplicateHeaders", HttpResponseStatus.BAD_REQUEST),
+        BAD_CERTIFICATE_ENVIRONMENT("BadCertificateEnvironment", HttpResponseStatus.FORBIDDEN),
+        BAD_CERTIFICATE("BadCertificate", HttpResponseStatus.FORBIDDEN),
+        FORBIDDEN("Forbidden", HttpResponseStatus.FORBIDDEN),
+        BAD_PATH("BadPath", HttpResponseStatus.NOT_FOUND),
+        METHOD_NOT_ALLOWED("MethodNotAllowed", HttpResponseStatus.METHOD_NOT_ALLOWED),
+        TOO_MANY_REQUESTS("TooManyRequests", HttpResponseStatus.TOO_MANY_REQUESTS),
+        IDLE_TIMEOUT("IdleTimeout", HttpResponseStatus.BAD_REQUEST),
+        SHUTDOWN("Shutdown", HttpResponseStatus.BAD_REQUEST),
+        INTERNAL_SERVER_ERROR("InternalServerError", HttpResponseStatus.INTERNAL_SERVER_ERROR),
+        SERVICE_UNAVAILABLE("ServiceUnavailable", HttpResponseStatus.SERVICE_UNAVAILABLE),
+        MISSING_TOPIC("MissingTopic", HttpResponseStatus.BAD_REQUEST);
+
+        private final String reasonText;
+        private final HttpResponseStatus httpResponseStatus;
+
+        private ErrorReason(final String reasonText, final HttpResponseStatus httpResponseStatus) {
+            this.reasonText = reasonText;
+            this.httpResponseStatus = httpResponseStatus;
+        }
+
+        public String getReasonText() {
+            return reasonText;
+        }
+
+        public HttpResponseStatus getHttpResponseStatus() {
+            return httpResponseStatus;
+        }
+    }
+
     public static final class MockApnsServerHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<MockApnsServerHandler, MockApnsServerHandlerBuilder> {
         private MockApnsServer apnsServer;
-        private Set<String> topics;
 
         public MockApnsServerHandlerBuilder apnsServer(final MockApnsServer apnsServer) {
             this.apnsServer = apnsServer;
@@ -66,15 +105,6 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             return this.apnsServer;
         }
 
-        public MockApnsServerHandlerBuilder topics(final Set<String> topics) {
-            this.topics = topics;
-            return this;
-        }
-
-        public Set<String> topics() {
-            return this.topics;
-        }
-
         @Override
         public MockApnsServerHandlerBuilder initialSettings(final Http2Settings initialSettings) {
             return super.initialSettings(initialSettings);
@@ -82,7 +112,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
         @Override
         public MockApnsServerHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
-            final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, initialSettings, this.apnsServer(), this.topics());
+            final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, initialSettings, this.apnsServer());
             this.frameListener(handler);
             return handler;
         }
@@ -139,9 +169,8 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
     }
 
-    protected MockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final MockApnsServer apnsServer, final Set<String> topics) {
+    protected MockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final MockApnsServer apnsServer) {
         super(decoder, encoder, initialSettings);
-        this.topics = topics;
         this.apnsServer = apnsServer;
     }
 
@@ -198,24 +227,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         final String topic;
         {
             final CharSequence topicSequence = headers.get(APNS_TOPIC_HEADER);
-
-            if (topicSequence != null) {
-                final String topicString = topicSequence.toString();
-
-                if (this.topics.contains(topicString)) {
-                    topic = topicSequence.toString();
-                } else {
-                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.TOPIC_DISALLOWED));
-                    return;
-                }
-            } else {
-                if (this.topics.size() == 1) {
-                    topic = this.topics.iterator().next();
-                } else {
-                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.MISSING_TOPIC));
-                    return;
-                }
-            }
+            topic = (topicSequence != null) ? topicSequence.toString() : null;
         }
 
         {

@@ -32,7 +32,6 @@ import org.slf4j.LoggerFactory;
 import com.relayrides.pushy.apns.proxy.ProxyHandlerFactory;
 
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
@@ -41,10 +40,7 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.oio.OioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.channel.socket.oio.OioSocketChannel;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
@@ -108,9 +104,6 @@ import io.netty.util.concurrent.SucceededFuture;
  * @since 0.5
  */
 public class ApnsClient<T extends ApnsPushNotification> {
-    private static final String EPOLL_EVENT_LOOP_GROUP_CLASS = "io.netty.channel.epoll.EpollEventLoopGroup";
-    private static final String EPOLL_SOCKET_CHANNEL_CLASS = "io.netty.channel.epoll.EpollSocketChannel";
-
     private final Bootstrap bootstrap;
     private volatile ProxyHandlerFactory proxyHandlerFactory;
     private final boolean shouldShutDownEventLoopGroup;
@@ -205,7 +198,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
             this.shouldShutDownEventLoopGroup = true;
         }
 
-        this.bootstrap.channel(this.getSocketChannelClass(this.bootstrap.config().group()));
+        this.bootstrap.channel(SocketChannelClassUtil.getSocketChannelClass(this.bootstrap.config().group()));
         this.bootstrap.option(ChannelOption.TCP_NODELAY, true);
         this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
@@ -277,45 +270,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 });
             }
         });
-    }
-
-    /**
-     * Returns socket channel class suitable for specified event loop group.
-     *
-     * @param eventLoopGroup
-     * @return socket channel class
-     * @throws IllegalArgumentException in case of null or unrecognized event loop group.
-     */
-    private Class<? extends Channel> getSocketChannelClass(final EventLoopGroup eventLoopGroup) {
-        if (eventLoopGroup == null) {
-            log.warn("Asked for socket channel class to work with null event loop group, returning NioSocketChannel class.");
-            return NioSocketChannel.class;
-        }
-
-        if (eventLoopGroup instanceof NioEventLoopGroup) {
-            return NioSocketChannel.class;
-        } else if (eventLoopGroup instanceof OioEventLoopGroup) {
-            return OioSocketChannel.class;
-        }
-
-        // epoll?
-        final String className = eventLoopGroup.getClass().getName();
-        if (EPOLL_EVENT_LOOP_GROUP_CLASS.equals(className)) {
-            return this.loadSocketChannelClass(EPOLL_SOCKET_CHANNEL_CLASS);
-        }
-
-        throw new IllegalArgumentException(
-                "Don't know which socket channel class to return for event loop group " + className);
-    }
-
-    private Class<? extends Channel> loadSocketChannelClass(final String className) {
-        try {
-            final Class<?> clazz = Class.forName(className);
-            log.debug("Loaded socket channel class: {}", clazz);
-            return clazz.asSubclass(Channel.class);
-        } catch (final ClassNotFoundException e) {
-            throw new IllegalArgumentException(e.getMessage(), e);
-        }
     }
 
     /**

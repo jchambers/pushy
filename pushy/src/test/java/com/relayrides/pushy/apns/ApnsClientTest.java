@@ -7,6 +7,8 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.InputStream;
+import java.security.KeyStore.PrivateKeyEntry;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -19,6 +21,7 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
@@ -35,6 +38,10 @@ public class ApnsClientTest {
     private static final String SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME = "/single-topic-client.p12";
     private static final String MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME = "/multi-topic-client.p12";
     private static final String UNTRUSTED_CLIENT_KEYSTORE_FILENAME = "/untrusted-client.p12";
+
+    private static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
+    private static final String SERVER_KEYSTORE = "/server.p12";
+    private static final String SERVER_KEYSTORE_PASSWORD = "pushy-test";
 
     private static File CA_CERTIFICATE;
 
@@ -188,12 +195,22 @@ public class ApnsClientTest {
         // cases.
         ApnsClientTest.EVENT_LOOP_GROUP = new NioEventLoopGroup(4);
 
-        CA_CERTIFICATE = new File(ApnsClientTest.class.getResource("/ca.pem").toURI());
+        CA_CERTIFICATE = new File(ApnsClientTest.class.getResource(CA_CERTIFICATE_FILENAME).toURI());
     }
 
     @Before
     public void setUp() throws Exception {
-        this.server = new MockApnsServer(EVENT_LOOP_GROUP);
+        {
+            final PrivateKeyEntry privateKeyEntry = P12Util.getFirstPrivateKeyEntryFromP12InputStream(
+                    MockApnsServer.class.getResourceAsStream(SERVER_KEYSTORE), SERVER_KEYSTORE_PASSWORD);
+
+            this.server = new MockApnsServerBuilder()
+                    .setServerCredentials(new X509Certificate[] { (X509Certificate) privateKeyEntry.getCertificate() }, privateKeyEntry.getPrivateKey(), null)
+                    .setTrustedClientCertificateChain(CA_CERTIFICATE)
+                    .setEventLoopGroup(EVENT_LOOP_GROUP)
+                    .build();
+        }
+
         this.server.start(PORT).await();
 
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
@@ -373,7 +390,7 @@ public class ApnsClientTest {
 
         final String testToken = ApnsClientTest.generateRandomToken();
 
-        this.server.registerToken(DEFAULT_TOPIC, testToken);
+        this.server.addToken(DEFAULT_TOPIC, testToken, null);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
         final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
@@ -387,9 +404,9 @@ public class ApnsClientTest {
     public void testSendNotification() throws Exception {
         final String testToken = ApnsClientTest.generateRandomToken();
 
-        this.server.registerToken(DEFAULT_TOPIC, testToken);
+        this.server.addToken(DEFAULT_TOPIC, testToken, null);
 
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 this.client.sendNotification(pushNotification).get();
 
@@ -406,9 +423,9 @@ public class ApnsClientTest {
 
         final String testToken = ApnsClientTest.generateRandomToken();
 
-        this.server.registerToken(DEFAULT_TOPIC, testToken);
+        this.server.addToken(DEFAULT_TOPIC, testToken, null);
 
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 this.client.sendNotification(pushNotification).get();
 
@@ -423,9 +440,9 @@ public class ApnsClientTest {
 
         final String testToken = ApnsClientTest.generateRandomToken();
 
-        this.server.registerToken(DEFAULT_TOPIC, testToken);
+        this.server.addToken(DEFAULT_TOPIC, testToken, null);
 
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 this.client.sendNotification(pushNotification).get();
 
@@ -442,7 +459,7 @@ public class ApnsClientTest {
             final String token = ApnsClientTest.generateRandomToken();
             final String payload = ApnsClientTest.generateRandomPayload();
 
-            this.server.registerToken(DEFAULT_TOPIC, token);
+            this.server.addToken(DEFAULT_TOPIC, token, null);
             pushNotifications.add(new SimpleApnsPushNotification(token, DEFAULT_TOPIC, payload));
         }
 
@@ -470,7 +487,7 @@ public class ApnsClientTest {
             final String token = ApnsClientTest.generateRandomToken();
             final String payload = ApnsClientTest.generateRandomPayload();
 
-            this.server.registerToken(DEFAULT_TOPIC, token);
+            this.server.addToken(DEFAULT_TOPIC, token, null);
             pushNotifications.add(new SimpleApnsPushNotification(token, DEFAULT_TOPIC, payload));
         }
 
@@ -530,7 +547,7 @@ public class ApnsClientTest {
     public void testSendNotificationWithBadTopic() throws Exception {
         final String testToken = ApnsClientTest.generateRandomToken();
 
-        this.server.registerToken(DEFAULT_TOPIC, testToken);
+        this.server.addToken(DEFAULT_TOPIC, testToken, null);
 
         final SimpleApnsPushNotification pushNotification =
                 new SimpleApnsPushNotification(testToken, "Definitely not a real topic", "test-payload", null,
@@ -540,11 +557,12 @@ public class ApnsClientTest {
                 this.client.sendNotification(pushNotification).get();
 
         assertFalse(response.isAccepted());
-        assertEquals("TopicDisallowed", response.getRejectionReason());
+        assertEquals("DeviceTokenNotForTopic", response.getRejectionReason());
         assertNull(response.getTokenInvalidationTimestamp());
     }
 
     @Test
+    @Ignore("Ignored until auth tokens are implemented; see https://github.com/relayrides/pushy/issues/313 for details")
     public void testSendNotificationWithMissingTopic() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> multiTopicClient;
 
@@ -560,7 +578,7 @@ public class ApnsClientTest {
 
         final String testToken = ApnsClientTest.generateRandomToken();
 
-        this.server.registerToken(DEFAULT_TOPIC, testToken);
+        this.server.addToken(DEFAULT_TOPIC, testToken, null);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
 
@@ -590,7 +608,7 @@ public class ApnsClientTest {
 
         final String testToken = ApnsClientTest.generateRandomToken();
 
-        this.server.registerToken(DEFAULT_TOPIC, testToken);
+        this.server.addToken(DEFAULT_TOPIC, testToken, null);
 
         final SimpleApnsPushNotification pushNotification =
                 new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload", null, DeliveryPriority.IMMEDIATE);
@@ -622,9 +640,9 @@ public class ApnsClientTest {
 
         final Date now = new Date();
 
-        this.server.registerToken(DEFAULT_TOPIC, testToken, now);
+        this.server.addToken(DEFAULT_TOPIC, testToken, now);
 
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 this.client.sendNotification(pushNotification).get();
 
