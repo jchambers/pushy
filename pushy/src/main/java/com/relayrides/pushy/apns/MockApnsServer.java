@@ -143,8 +143,13 @@ public class MockApnsServer {
     }
 
     /**
-     * Shuts down this server and releases the port to which this server was bound. If a {@code null} event loop group
-     * was provided at construction time, the server will also shut down its internally-managed event loop group.
+     * <p>Shuts down this server and releases the port to which this server was bound. If a {@code null} event loop
+     * group was provided at construction time, the server will also shut down its internally-managed event loop
+     * group.</p>
+     *
+     * <p>If a non-null {@code EventLoopGroup} was provided at construction time, mock servers may be reconnected and
+     * reused after they have been shut down. If no event loop group was provided at construction time, mock servers may
+     * not be restarted after they have been shut down via this method.</p>
      *
      * @return a {@code Future} that will succeed once the server has finished unbinding from its port and, if the
      * server was managing its own event loop group, its event loop group has shut down
