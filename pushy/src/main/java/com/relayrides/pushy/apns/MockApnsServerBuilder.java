@@ -37,7 +37,6 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
 import io.netty.handler.ssl.ApplicationProtocolNames;
-import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.OpenSsl;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -275,13 +274,12 @@ public class MockApnsServerBuilder {
             }
 
             sslContextBuilder.sslProvider(sslProvider)
-                    .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-                    .clientAuth(ClientAuth.REQUIRE)
-                    .applicationProtocolConfig(new ApplicationProtocolConfig(
-                            Protocol.ALPN,
-                            SelectorFailureBehavior.NO_ADVERTISE,
-                            SelectedListenerFailureBehavior.ACCEPT,
-                            ApplicationProtocolNames.HTTP_2));
+            .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
+            .applicationProtocolConfig(new ApplicationProtocolConfig(
+                    Protocol.ALPN,
+                    SelectorFailureBehavior.NO_ADVERTISE,
+                    SelectedListenerFailureBehavior.ACCEPT,
+                    ApplicationProtocolNames.HTTP_2));
 
             if (this.trustedClientCertificatePemFile != null) {
                 sslContextBuilder.trustManager(this.trustedClientCertificatePemFile);

@@ -6,7 +6,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
-import java.io.InputStream;
 import java.security.KeyStore.PrivateKeyEntry;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -35,17 +34,11 @@ public class ApnsClientTest {
 
     private static NioEventLoopGroup EVENT_LOOP_GROUP;
 
-    private static final String SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME = "/single-topic-client.p12";
-    private static final String MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME = "/multi-topic-client.p12";
-    private static final String UNTRUSTED_CLIENT_KEYSTORE_FILENAME = "/untrusted-client.p12";
-
     private static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
     private static final String SERVER_KEYSTORE = "/server.p12";
     private static final String SERVER_KEYSTORE_PASSWORD = "pushy-test";
 
     private static File CA_CERTIFICATE;
-
-    private static final String KEYSTORE_PASSWORD = "pushy-test";
 
     private static final String HOST = "localhost";
     private static final int PORT = 8443;
@@ -213,13 +206,10 @@ public class ApnsClientTest {
 
         this.server.start(PORT).await();
 
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            this.client = new ApnsClientBuilder<SimpleApnsPushNotification>()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
+        this.client = new ApnsClientBuilder<SimpleApnsPushNotification>()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .build();
 
         this.client.connect(HOST, PORT).await();
     }
@@ -247,12 +237,9 @@ public class ApnsClientTest {
     public void testApnsClientWithManagedEventLoopGroup() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> managedGroupClient;
 
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            managedGroupClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .build();
-        }
+        managedGroupClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .build();
 
         assertTrue(managedGroupClient.connect(HOST, PORT).await().isSuccess());
         assertTrue(managedGroupClient.disconnect().await().isSuccess());
@@ -279,12 +266,9 @@ public class ApnsClientTest {
     public void testRestartApnsClientWithManagedEventLoopGroup() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> managedGroupClient;
 
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            managedGroupClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .build();
-        }
+        managedGroupClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .build();
 
         assertTrue(managedGroupClient.connect(HOST, PORT).await().isSuccess());
         assertTrue(managedGroupClient.disconnect().await().isSuccess());
@@ -342,13 +326,10 @@ public class ApnsClientTest {
     public void testGetReconnectionFutureWhenNotConnected() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> unconnectedClient;
 
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            unconnectedClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
+        unconnectedClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .build();
 
         final Future<Void> reconnectionFuture = unconnectedClient.getReconnectionFuture();
 
@@ -359,34 +340,13 @@ public class ApnsClientTest {
     }
 
     @Test
-    public void testConnectWithUntrustedCertificate() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> untrustedClient;
-
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(UNTRUSTED_CLIENT_KEYSTORE_FILENAME)) {
-            untrustedClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
-
-        final Future<Void> connectFuture = untrustedClient.connect(HOST, PORT).await();
-        assertFalse(connectFuture.isSuccess());
-
-        untrustedClient.disconnect().await();
-    }
-
-    @Test
     public void testSendNotificationBeforeConnected() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> unconnectedClient;
 
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            unconnectedClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
+        unconnectedClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .build();
 
         final String testToken = ApnsClientTest.generateRandomToken();
 
@@ -566,13 +526,10 @@ public class ApnsClientTest {
     public void testSendNotificationWithMissingTopic() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> multiTopicClient;
 
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            multiTopicClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
+        multiTopicClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .build();
 
         multiTopicClient.connect(HOST, PORT).await();
 
@@ -596,13 +553,10 @@ public class ApnsClientTest {
     public void testSendNotificationWithSpecifiedTopic() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> multiTopicClient;
 
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            multiTopicClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
+        multiTopicClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .build();
 
         multiTopicClient.connect(HOST, PORT).await();
 
@@ -655,13 +609,10 @@ public class ApnsClientTest {
     public void testWriteFailureMetrics() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> unconnectedClient;
 
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            unconnectedClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
+        unconnectedClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .build();
 
         final TestMetricsListener metricsListener = new TestMetricsListener();
         unconnectedClient.setMetricsListener(metricsListener);
@@ -711,13 +662,10 @@ public class ApnsClientTest {
     public void testSuccessfulConnectionMetrics() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> unconnectedClient;
 
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            unconnectedClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
+        unconnectedClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .build();
 
         final TestMetricsListener metricsListener = new TestMetricsListener();
         unconnectedClient.setMetricsListener(metricsListener);
@@ -737,13 +685,10 @@ public class ApnsClientTest {
     public void testFailedConnectionMetrics() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> unconnectedClient;
 
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            unconnectedClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
+        unconnectedClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .build();
 
         final TestMetricsListener metricsListener = new TestMetricsListener();
         unconnectedClient.setMetricsListener(metricsListener);
