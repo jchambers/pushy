@@ -58,7 +58,7 @@ public class MockApnsServer {
             this.shouldShutDownEventLoopGroup = true;
         }
 
-        this.bootstrap.channel(SocketChannelClassUtil.getServerSocketChannelClass(eventLoopGroup));
+        this.bootstrap.channel(SocketChannelClassUtil.getServerSocketChannelClass(this.bootstrap.config().group()));
         this.bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
 
             @Override
@@ -154,35 +154,35 @@ public class MockApnsServer {
         final Future<Void> channelCloseFuture = (this.allChannels != null) ?
                 this.allChannels.close() : new SucceededFuture<Void>(GlobalEventExecutor.INSTANCE, null);
 
-        final Future<Void> disconnectFuture;
+                final Future<Void> disconnectFuture;
 
-        if (this.shouldShutDownEventLoopGroup) {
-            // Wait for the channel to close before we try to shut down the event loop group
-            channelCloseFuture.addListener(new GenericFutureListener<Future<Void>>() {
+                if (this.shouldShutDownEventLoopGroup) {
+                    // Wait for the channel to close before we try to shut down the event loop group
+                    channelCloseFuture.addListener(new GenericFutureListener<Future<Void>>() {
 
-                @Override
-                public void operationComplete(final Future<Void> future) throws Exception {
-                    MockApnsServer.this.bootstrap.config().group().shutdownGracefully();
+                        @Override
+                        public void operationComplete(final Future<Void> future) throws Exception {
+                            MockApnsServer.this.bootstrap.config().group().shutdownGracefully();
+                        }
+                    });
+
+                    // Since the termination future for the event loop group is a Future<?> instead of a Future<Void>,
+                    // we'll need to create our own promise and then notify it when the termination future completes.
+                    disconnectFuture = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
+
+                    this.bootstrap.config().group().terminationFuture().addListener(new GenericFutureListener() {
+
+                        @Override
+                        public void operationComplete(final Future future) throws Exception {
+                            assert disconnectFuture instanceof DefaultPromise;
+                            ((DefaultPromise<Void>) disconnectFuture).trySuccess(null);
+                        }
+                    });
+                } else {
+                    // We're done once we've closed all the channels, so we can return the closure future directly.
+                    disconnectFuture = channelCloseFuture;
                 }
-            });
 
-            // Since the termination future for the event loop group is a Future<?> instead of a Future<Void>,
-            // we'll need to create our own promise and then notify it when the termination future completes.
-            disconnectFuture = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
-
-            this.bootstrap.config().group().terminationFuture().addListener(new GenericFutureListener() {
-
-                @Override
-                public void operationComplete(final Future future) throws Exception {
-                    assert disconnectFuture instanceof DefaultPromise;
-                    ((DefaultPromise<Void>) disconnectFuture).trySuccess(null);
-                }
-            });
-        } else {
-            // We're done once we've closed all the channels, so we can return the closure future directly.
-            disconnectFuture = channelCloseFuture;
-        }
-
-        return disconnectFuture;
+                return disconnectFuture;
     }
 }
