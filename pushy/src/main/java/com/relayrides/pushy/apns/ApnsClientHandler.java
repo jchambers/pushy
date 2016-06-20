@@ -87,7 +87,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     private static final int INITIAL_PAYLOAD_BUFFER_CAPACITY = 4096;
 
     private static final Gson gson = new GsonBuilder()
-            .registerTypeAdapter(Date.class, new DateAsMillisecondsSinceEpochTypeAdapter())
+            .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
             .create();
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientHandler.class);
