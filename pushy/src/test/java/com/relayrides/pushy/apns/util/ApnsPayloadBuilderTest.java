@@ -93,6 +93,22 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
+    public void testSetAlertSubTitle() {
+        final String alertSubtitle = "This is a test alert message.";
+
+        this.builder.setAlertSubtitle(alertSubtitle);
+
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+            assertEquals(alertSubtitle, alert.get("subtitle"));
+        }
+    }
+
+    @Test
     public void testSetAlertTitleAndBody() {
         final String alertTitle = "This is a short alert title";
         final String alertBody = "This is a longer alert body";
@@ -280,6 +296,21 @@ public class ApnsPayloadBuilderTest {
 
             final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
             assertEquals(1, ((Number) aps.get("content-available")).intValue());
+        }
+    }
+
+    @Test
+    public void testSetMutableContent() {
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            assertNull(aps.get("mutable-content"));
+        }
+
+        {
+            this.builder.setMutableContent(true);
+
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            assertEquals(1, ((Number) aps.get("mutable-content")).intValue());
         }
     }
 
