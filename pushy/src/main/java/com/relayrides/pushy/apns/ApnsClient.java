@@ -31,6 +31,7 @@ import java.security.KeyStoreException;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -149,6 +150,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private ApnsClientMetricsListener metricsListener = new NoopMetricsListener();
     private final AtomicLong nextNotificationId = new AtomicLong(0);
+    private ArrayList<String> identities;
 
     /**
      * The default write timeout, in milliseconds.
@@ -264,6 +266,9 @@ public class ApnsClient<T extends ApnsPushNotification> {
      */
     public ApnsClient(final File p12File, final String password, final EventLoopGroup eventLoopGroup) throws SSLException, FileNotFoundException, IOException {
         this(ApnsClient.getSslContextWithP12File(p12File, password), eventLoopGroup);
+        try (final InputStream p12InputStream = new FileInputStream(p12File)) {
+        	buildIdentifiers(p12InputStream,password);
+        }
     }
 
     /**
@@ -312,9 +317,20 @@ public class ApnsClient<T extends ApnsPushNotification> {
      */
     public ApnsClient(final InputStream p12InputStream, final String password, final EventLoopGroup eventLoopGroup) throws SSLException {
         this(ApnsClient.getSslContextWithP12InputStream(p12InputStream, password), eventLoopGroup);
+        buildIdentifiers(p12InputStream,password);
     }
 
-    /**
+    private void buildIdentifiers(InputStream p12InputStream, String password) {
+    	try {
+			this.identities = P12Util.getIdentitiesForP12File(p12InputStream, password);
+		} catch (KeyStoreException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	/**
      * <p>Creates a new APNs client that will identify itself to the APNs gateway with the given certificate and
      * key.</p>
      *
@@ -372,7 +388,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
         try {
             final PrivateKeyEntry privateKeyEntry = P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, password);
-
+            
             final Certificate certificate = privateKeyEntry.getCertificate();
 
             if (!(certificate instanceof X509Certificate)) {
@@ -871,6 +887,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
     public Future<PushNotificationResponse<T>> sendNotification(final T notification) {
         final Future<PushNotificationResponse<T>> responseFuture;
         final long notificationId = this.nextNotificationId.getAndIncrement();
+        
+        verifyTopic(notification);
 
         // Instead of synchronizing here, we keep a final reference to the connection ready promise. We can get away
         // with this because we're not changing the state of the connection or its promises. Keeping a reference ensures
@@ -943,7 +961,15 @@ public class ApnsClient<T extends ApnsPushNotification> {
         return responseFuture;
     }
 
-    protected void handlePushNotificationResponse(final PushNotificationResponse<T> response) {
+    private void verifyTopic(T notification) {
+    	if(notification.getTopic() == null 
+    			&& this.identities != null
+    			&& !this.identities.isEmpty()) {
+    		notification.setTopic(this.identities.get(0));
+    	}
+	}
+
+	protected void handlePushNotificationResponse(final PushNotificationResponse<T> response) {
         log.debug("Received response from APNs gateway: {}", response);
 
         // This will always be called from inside the channel's event loop, so we don't have to worry about
