@@ -615,17 +615,17 @@ public class ApnsClient<T extends ApnsPushNotification> {
         }
     }
 
-    protected AuthenticationTokenSupplier getAuthenticationTokenSupplierForTopic(final String topic) throws NoSigningKeyForTopicException {
+    protected AuthenticationTokenSupplier getAuthenticationTokenSupplierForTopic(final String topic) throws NoKeyForTopicException {
         final String teamId = this.teamIdsByTopic.get(topic);
 
         if (teamId == null) {
-            throw new NoSigningKeyForTopicException("No team found for topic " + topic);
+            throw new NoKeyForTopicException("No team found for topic " + topic);
         }
 
         final AuthenticationTokenSupplier supplier = this.authenticationTokenSuppliersByTeamId.get(teamId);
 
         if (supplier == null) {
-            throw new NoSigningKeyForTopicException("No signing key found for topic " + topic);
+            throw new NoKeyForTopicException("No signing key found for topic " + topic);
         }
 
         return supplier;

@@ -16,4 +16,12 @@ class AuthenticationTokenClaims {
         this.issuer = issuer;
         this.issuedAt = issuedAt;
     }
+
+    public String getIssuer() {
+        return issuer;
+    }
+
+    public Date getIssuedAt() {
+        return issuedAt;
+    }
 }

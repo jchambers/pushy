@@ -302,7 +302,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
                     context.close();
                 }
 
-            } catch (NoSigningKeyForTopicException | SignatureException e) {
+            } catch (NoKeyForTopicException | SignatureException e) {
                 writePromise.tryFailure(e);
             }
 

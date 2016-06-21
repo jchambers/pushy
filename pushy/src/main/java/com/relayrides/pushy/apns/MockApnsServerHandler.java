@@ -1,5 +1,11 @@
 package com.relayrides.pushy.apns;
 
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+import java.security.Signature;
+import java.security.SignatureException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,6 +21,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
+import io.netty.handler.codec.base64.Base64;
+import io.netty.handler.codec.base64.Base64Dialect;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -37,6 +45,8 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
     private final Map<Integer, UUID> requestsWaitingForDataFrame = new HashMap<>();
 
+    private final Signature signature;
+
     private static final Http2Headers SUCCESS_HEADERS = new DefaultHttp2Headers()
             .status(HttpResponseStatus.OK.codeAsText());
 
@@ -48,8 +58,14 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     private static final int MAX_CONTENT_LENGTH = 4096;
     private static final Pattern TOKEN_PATTERN = Pattern.compile("[0-9a-fA-F]{64}");
 
-    private static final Gson gson = new GsonBuilder()
+    private static final long AUTH_TOKEN_EXPIRATION_MILLIS = TimeUnit.HOURS.toMillis(1);
+
+    private static final Gson PAYLOAD_GSON = new GsonBuilder()
             .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
+            .create();
+
+    private static final Gson AUTH_GSON = new GsonBuilder()
+            .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.SECONDS))
             .create();
 
     private enum ErrorReason {
@@ -112,7 +128,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
 
         @Override
-        public MockApnsServerHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
+        public MockApnsServerHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) throws NoSuchAlgorithmException {
             final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, initialSettings, this.apnsServer());
             this.frameListener(handler);
             return handler;
@@ -170,9 +186,11 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
     }
 
-    protected MockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final MockApnsServer apnsServer) {
+    protected MockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final MockApnsServer apnsServer) throws NoSuchAlgorithmException {
         super(decoder, encoder, initialSettings);
+
         this.apnsServer = apnsServer;
+        this.signature = Signature.getInstance("SHA256withECDSA");
     }
 
     @Override
@@ -350,7 +368,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
                         new ErrorResponse(rejectNotificationResponse.getErrorReason().getReasonText(),
                                 rejectNotificationResponse.getTimestamp());
 
-                payloadBytes = gson.toJson(errorResponse).getBytes();
+                payloadBytes = PAYLOAD_GSON.toJson(errorResponse).getBytes();
             }
 
             final ChannelPromise headersPromise = context.newPromise();
@@ -364,6 +382,78 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             promiseCombiner.finish(writePromise);
         } else {
             context.write(message, writePromise);
+        }
+    }
+
+    protected void validateAuthenticationTokenForTopic(final String authenticationToken, final String topic) throws InvalidAuthenticationTokenException, ExpiredAuthenticationTokenException {
+        final ByteBuf tokenBuffer = Unpooled.wrappedBuffer(authenticationToken.getBytes(StandardCharsets.US_ASCII));
+
+        final AuthenticationTokenHeader header;
+        final AuthenticationTokenClaims claims;
+        final byte[] headerAndClaimsBytes;
+        final byte[] expectedSignature;
+
+        try {
+            {
+                final ByteBuf decodedHeaderBuffer = Base64.decode(tokenBuffer.readSlice(tokenBuffer.bytesBefore((byte) '.')), Base64Dialect.URL_SAFE);
+
+                header = AUTH_GSON.fromJson(decodedHeaderBuffer.toString(StandardCharsets.US_ASCII),
+                        AuthenticationTokenHeader.class);
+
+                decodedHeaderBuffer.release();
+            }
+
+            tokenBuffer.skipBytes(1);
+
+            {
+                final ByteBuf decodedClaimsBuffer = Base64.decode(tokenBuffer.readSlice(tokenBuffer.bytesBefore((byte) '.')), Base64Dialect.URL_SAFE);
+
+                claims = AUTH_GSON.fromJson(decodedClaimsBuffer.toString(StandardCharsets.US_ASCII),
+                        AuthenticationTokenClaims.class);
+
+                decodedClaimsBuffer.release();
+            }
+
+            headerAndClaimsBytes = new byte[tokenBuffer.readerIndex()];
+            tokenBuffer.getBytes(0, headerAndClaimsBytes, 0, tokenBuffer.readerIndex());
+
+            tokenBuffer.skipBytes(1);
+
+            {
+                final ByteBuf decodedSignatureBuffer = Base64.decode(tokenBuffer, Base64Dialect.URL_SAFE);
+
+                expectedSignature = new byte[decodedSignatureBuffer.readableBytes()];
+                decodedSignatureBuffer.readBytes(expectedSignature);
+
+                decodedSignatureBuffer.release();
+            }
+        } catch (RuntimeException e) {
+            throw new InvalidAuthenticationTokenException(e);
+        } finally {
+            tokenBuffer.release();
+        }
+
+        final Date oldestAllowableIssueDate = new Date(System.currentTimeMillis() - AUTH_TOKEN_EXPIRATION_MILLIS);
+
+        if (claims.getIssuedAt().before(oldestAllowableIssueDate)) {
+            throw new ExpiredAuthenticationTokenException();
+        }
+
+        final PublicKey publicKey = this.apnsServer.getPublicKeyForTeamId(claims.getIssuer());
+
+        if (publicKey == null) {
+            throw new InvalidAuthenticationTokenException();
+        }
+
+        try {
+            this.signature.initVerify(publicKey);
+            this.signature.update(headerAndClaimsBytes);
+
+            if (!this.signature.verify(expectedSignature)) {
+                throw new InvalidAuthenticationTokenException();
+            }
+        } catch (InvalidKeyException | SignatureException e) {
+            throw new InvalidAuthenticationTokenException(e);
         }
     }
 }
