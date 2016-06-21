@@ -82,10 +82,6 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
     private Long connectionTimeout;
     private TimeUnit connectionTimeoutUnit;
 
-    private Integer maxUnflushedNotifications;
-    private Long maxIdleTimeBeforeFlush;
-    private TimeUnit maxIdleTimeBeforeFlushUnits;
-
     private Long writeTimeout;
     private TimeUnit writeTimeoutUnit;
 
@@ -311,36 +307,6 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
     }
 
     /**
-     * <p>Sets the thresholds at which this client under construction will flush notifications enqueued for sending to
-     * the APNs server. By default, notifications will be flushed after
-     * {@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_MAX_UNFLUSHED_NOTIFICATIONS} unflushed
-     * notifications have been enqueued or {@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_FLUSH_AFTER_IDLE_MILLIS}
-     * milliseconds of inactivity have elapsed.</p>
-     *
-     * <p>Callers may set both thresholds to zero to flush all notifications immediately, which will reduce latency at
-     * the expense of decreasing efficiency and throughput.</p>
-     *
-     * @param maxUnflushedNotifications The maximum number of notifications that may be enqueued before the sending
-     * queue is flushed. Must be positive if {@code maxIdleTimeMillis} is also positive or zero if
-     * {@code maxIdleTimeMillis} is also zero. If zero, notifications are always sent immediately.
-     * @param maxIdleTime The maximum amount of time since the last attempt to send a notification that may elapse
-     * before the sending queue is flushed. Must be positive if {@code maxUnflushedNotifications} is also positive or
-     * zero if {@code maxUnflushedNotifications} is also zero. If zero, notifications are always sent immediately.
-     * @param maxIdleTimeUnits the time unit for the given maximum idle time
-     *
-     * @return a reference to this builder
-     *
-     * @since 0.8
-     */
-    public ApnsClientBuilder<T> setFlushThresholds(final int maxUnflushedNotifications, final long maxIdleTime, final TimeUnit maxIdleTimeUnits) {
-        this.maxUnflushedNotifications = maxUnflushedNotifications;
-        this.maxIdleTimeBeforeFlush = maxIdleTime;
-        this.maxIdleTimeBeforeFlushUnits = maxIdleTimeUnits;
-
-        return this;
-    }
-
-    /**
      * <p>Sets the write timeout for the client to build. If an attempt to send a notification to the APNs server takes
      * longer than the given timeout, the connection will be closed (and automatically reconnected later). Note that
      * write timeouts refer to the amount of time taken to <em>send</em> a notification to the server, and not the time
@@ -442,10 +408,6 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
 
         if (this.connectionTimeout != null) {
             apnsClient.setConnectionTimeout((int) this.connectionTimeoutUnit.toMillis(this.connectionTimeout));
-        }
-
-        if (this.maxUnflushedNotifications != null) {
-            apnsClient.setFlushThresholds(this.maxUnflushedNotifications, this.maxIdleTimeBeforeFlushUnits.toMillis(this.maxIdleTimeBeforeFlush));
         }
 
         if (this.writeTimeout != null) {

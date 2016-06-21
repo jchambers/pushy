@@ -259,23 +259,6 @@ public class ApnsClientTest {
     }
 
     @Test
-    public void testSetFlushThresholds() {
-        // We're happy here as long as nothing explodes
-        this.client.setFlushThresholds(0, 0);
-        this.client.setFlushThresholds(1, 1);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void testSetFlushThresholdsWithZeroNotificationCount() {
-        this.client.setFlushThresholds(0, 1);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void testSetFlushThresholdsWithZeroTimeout() {
-        this.client.setFlushThresholds(1,  0);
-    }
-
-    @Test
     public void testRestartApnsClientWithManagedEventLoopGroup() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> managedGroupClient;
 
@@ -420,23 +403,6 @@ public class ApnsClientTest {
     @Test
     public void testSendNotificationAfterInitialSettings() throws Exception {
         this.client.waitForInitialSettings();
-
-        final String testToken = ApnsClientTest.generateRandomToken();
-
-        this.server.addToken(DEFAULT_TOPIC, testToken, null);
-
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
-        final PushNotificationResponse<SimpleApnsPushNotification> response =
-                this.client.sendNotification(pushNotification).get();
-
-        assertTrue(response.isAccepted());
-    }
-
-    @Test
-    public void testSendNotificationWithImmediateFlush() throws Exception {
-        this.client.disconnect().await();
-        this.client.setFlushThresholds(0, 0);
-        this.client.connect(HOST, PORT).await();
 
         final String testToken = ApnsClientTest.generateRandomToken();
 
