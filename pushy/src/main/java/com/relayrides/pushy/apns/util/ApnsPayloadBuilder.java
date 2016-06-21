@@ -570,7 +570,7 @@ public class ApnsPayloadBuilder {
     private boolean hasAlertContent() {
         return this.alertBody != null || this.alertTitle != null || this.localizedAlertTitleKey != null
                 || this.localizedAlertKey != null || this.localizedActionButtonKey != null
-                || this.launchImageFileName != null || this.showActionButton == false;
+                || this.launchImageFileName != null || this.showActionButton == false || alertSubtitle != null;
     }
 
     /**
@@ -586,7 +586,7 @@ public class ApnsPayloadBuilder {
      */
     private boolean shouldRepresentAlertAsString() {
         return this.alertBody != null && this.launchImageFileName == null && this.showActionButton
-                && this.localizedActionButtonKey == null && this.alertTitle == null
+                && this.localizedActionButtonKey == null && this.alertTitle == null && this.alertSubtitle == null
                 && this.localizedAlertTitleKey == null && this.localizedAlertKey == null
                 && this.localizedAlertArguments == null && this.localizedAlertTitleArguments == null;
     }
