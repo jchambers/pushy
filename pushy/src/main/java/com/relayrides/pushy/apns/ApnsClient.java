@@ -21,6 +21,12 @@
 package com.relayrides.pushy.apns;
 
 import java.net.InetSocketAddress;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -105,8 +111,10 @@ import io.netty.util.concurrent.SucceededFuture;
  */
 public class ApnsClient<T extends ApnsPushNotification> {
     private final Bootstrap bootstrap;
-    private volatile ProxyHandlerFactory proxyHandlerFactory;
     private final boolean shouldShutDownEventLoopGroup;
+
+    private final Map<String, AuthenticationTokenSupplier> authenticationTokenSuppliersByTeamId = new HashMap<>();
+    private final Map<String, String> teamIdsByTopic = new HashMap<>();
 
     private long writeTimeoutMillis = DEFAULT_WRITE_TIMEOUT_MILLIS;
     private Long gracefulShutdownTimeoutMillis;
@@ -120,7 +128,9 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
 
+    private volatile ProxyHandlerFactory proxyHandlerFactory;
     private ApnsClientMetricsListener metricsListener = new NoopMetricsListener();
+
     private final AtomicLong nextNotificationId = new AtomicLong(0);
 
     /**
@@ -589,6 +599,36 @@ public class ApnsClient<T extends ApnsPushNotification> {
         }
 
         return reconnectionFuture;
+    }
+
+    public void registerSigningKey(final String teamId, final PrivateKey signingKey) throws InvalidKeyException, NoSuchAlgorithmException {
+        this.authenticationTokenSuppliersByTeamId.put(teamId, new AuthenticationTokenSupplier(signingKey, teamId));
+    }
+
+    public void registerTopicsForTeamId(final String teamId, final String... topics) {
+        this.registerTopicsForTeamId(teamId, Arrays.asList(topics));
+    }
+
+    public void registerTopicsForTeamId(final String teamId, final Collection<String> topics) {
+        for (final String topic : topics) {
+            this.teamIdsByTopic.put(topic, teamId);
+        }
+    }
+
+    protected AuthenticationTokenSupplier getAuthenticationTokenSupplierForTopic(final String topic) throws NoSigningKeyForTopicException {
+        final String teamId = this.teamIdsByTopic.get(topic);
+
+        if (teamId == null) {
+            throw new NoSigningKeyForTopicException("No team found for topic " + topic);
+        }
+
+        final AuthenticationTokenSupplier supplier = this.authenticationTokenSuppliersByTeamId.get(teamId);
+
+        if (supplier == null) {
+            throw new NoSigningKeyForTopicException("No signing key found for topic " + topic);
+        }
+
+        return supplier;
     }
 
     /**

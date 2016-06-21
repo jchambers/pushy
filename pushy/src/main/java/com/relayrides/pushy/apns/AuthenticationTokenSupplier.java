@@ -16,14 +16,13 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.base64.Base64;
 import io.netty.handler.codec.base64.Base64Dialect;
-import io.netty.util.AsciiString;
 
 class AuthenticationTokenSupplier {
 
     private final Signature signature;
     private final String issuer;
 
-    private AsciiString token;
+    private String token;
 
     private static final Gson gson = new GsonBuilder()
             .disableHtmlEscaping()
@@ -37,11 +36,11 @@ class AuthenticationTokenSupplier {
         this.issuer = issuer;
     }
 
-    public AsciiString getToken() throws SignatureException {
+    public String getToken() throws SignatureException {
         return this.getToken(new Date());
     }
 
-    protected AsciiString getToken(final Date issuedAt) throws SignatureException {
+    protected String getToken(final Date issuedAt) throws SignatureException {
         if (this.token == null) {
             final String header = gson.toJson(new AuthenticationTokenHeader("TODO"));
             final String claims = gson.toJson(new AuthenticationTokenClaims(this.issuer, issuedAt));
@@ -56,8 +55,8 @@ class AuthenticationTokenSupplier {
                 signatureBytes = this.signature.sign();
             }
 
-            this.token = new AsciiString(String.format("%s.%s", payloadWithoutSignature,
-                    base64UrlEncodeWithoutPadding(signatureBytes)));
+            this.token = String.format("%s.%s", payloadWithoutSignature,
+                    base64UrlEncodeWithoutPadding(signatureBytes));
         }
 
         return this.token;
