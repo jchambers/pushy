@@ -6,8 +6,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.Signature;
 import java.security.SignatureException;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -25,7 +25,10 @@ class AuthenticationTokenSupplier {
 
     private AsciiString token;
 
-    private static final Gson gson = new GsonBuilder().disableHtmlEscaping().create();
+    private static final Gson gson = new GsonBuilder()
+            .disableHtmlEscaping()
+            .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.SECONDS))
+            .create();
 
     public AuthenticationTokenSupplier(final PrivateKey privateKey, final String issuer) throws NoSuchAlgorithmException, InvalidKeyException {
         this.signature = Signature.getInstance("SHA256withECDSA");
@@ -35,27 +38,13 @@ class AuthenticationTokenSupplier {
     }
 
     public AsciiString getToken() throws SignatureException {
+        return this.getToken(new Date());
+    }
+
+    protected AsciiString getToken(final Date issuedAt) throws SignatureException {
         if (this.token == null) {
-            final String header;
-            {
-                final Map<String, String> headerMap = new HashMap<String, String>();
-
-                headerMap.put("alg", "ES256");
-                headerMap.put("typ", "JWT");
-                headerMap.put("kid", "TODO");
-
-                header = gson.toJson(headerMap);
-            }
-
-            final String claims;
-            {
-                final Map<String, String> claimsMap = new HashMap<String, String>();
-
-                claimsMap.put("iss", this.issuer);
-                claimsMap.put("iat", String.valueOf(System.currentTimeMillis() / 1000));
-
-                claims = gson.toJson(claimsMap);
-            }
+            final String header = gson.toJson(new AuthenticationTokenHeader("TODO"));
+            final String claims = gson.toJson(new AuthenticationTokenClaims(this.issuer, issuedAt));
 
             final String payloadWithoutSignature = String.format("%s.%s",
                     base64UrlEncodeWithoutPadding(header.getBytes(StandardCharsets.US_ASCII)),
