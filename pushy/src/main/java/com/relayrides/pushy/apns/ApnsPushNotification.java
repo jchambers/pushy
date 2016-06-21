@@ -120,4 +120,6 @@ public interface ApnsPushNotification {
      * @since 0.5
      */
     String getTopic();
+    
+    void setTopic(String topic);
 }

@@ -38,7 +38,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
     private final String payload;
     private final Date invalidationTime;
     private final DeliveryPriority priority;
-    private final String topic;
+    private String topic;
 
     /**
      * Constructs a new push notification with the given token, topic, and payload. No expiration time is set for the
@@ -55,7 +55,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      *
      * @see DeliveryPriority#IMMEDIATE
      */
-    public SimpleApnsPushNotification(final String token, final String topic, final String payload) {
+    public SimpleApnsPushNotification(final String token, String topic, final String payload) {
         this(token, topic, payload, null, DeliveryPriority.IMMEDIATE);
     }
 
@@ -154,6 +154,14 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
     @Override
     public String getTopic() {
         return this.topic;
+    }
+    
+    /**
+     * Defines the topic to which this push notification should be sent
+     */
+    @Override
+    public void setTopic(String topic) {
+    	this.topic = topic;
     }
 
     /* (non-Javadoc)
