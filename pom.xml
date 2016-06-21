@@ -5,7 +5,7 @@
     <groupId>com.relayrides</groupId>
     <artifactId>pushy-parent</artifactId>
     <packaging>pom</packaging>
-    <version>0.9</version>
+    <version>0.8.1</version>
     <name>Pushy parent</name>
     <description>A Java library for sending push notifications</description>
 

@@ -156,6 +156,9 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
         return this.topic;
     }
     
+    /**
+     * Defines the topic to which this push notification should be sent
+     */
     @Override
     public void setTopic(String topic) {
     	this.topic = topic;

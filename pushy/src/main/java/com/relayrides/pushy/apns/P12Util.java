@@ -67,6 +67,15 @@ class P12Util {
         throw new KeyStoreException("Key store did not contain any private key entries.");
     }
     
+    /**
+     * Returns identity based on certificate for usage as the topic of push notification
+     * 
+     * @param p12InputStream
+     * @param password
+     * @return
+     * @throws KeyStoreException
+     * @throws IOException
+     */
     public static ArrayList<String> getIdentitiesForP12File(final InputStream p12InputStream, final String password) throws KeyStoreException, IOException {
     	KeyStore keyStore = loadPCKS12KeyStore(p12InputStream, password);
     	final Enumeration<String> aliases = keyStore.aliases();
@@ -89,6 +98,15 @@ class P12Util {
     	return identifiers;
     }
     
+    /**
+     * Returns the PKCS12 KeyStore instance based on InputStream and password
+     * 
+     * @param p12InputStream
+     * @param password
+     * @return
+     * @throws KeyStoreException
+     * @throws IOException
+     */
     private static KeyStore loadPCKS12KeyStore(final InputStream p12InputStream, final String password) throws KeyStoreException, IOException {
     	final KeyStore keyStore = KeyStore.getInstance("PKCS12");
 

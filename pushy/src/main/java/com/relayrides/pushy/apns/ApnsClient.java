@@ -267,7 +267,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
     public ApnsClient(final File p12File, final String password, final EventLoopGroup eventLoopGroup) throws SSLException, FileNotFoundException, IOException {
         this(ApnsClient.getSslContextWithP12File(p12File, password), eventLoopGroup);
         try (final InputStream p12InputStream = new FileInputStream(p12File)) {
-        	buildIdentifiers(p12InputStream,password);
+        	loadIdentifiers(p12InputStream,password);
         }
     }
 
@@ -317,10 +317,16 @@ public class ApnsClient<T extends ApnsPushNotification> {
      */
     public ApnsClient(final InputStream p12InputStream, final String password, final EventLoopGroup eventLoopGroup) throws SSLException {
         this(ApnsClient.getSslContextWithP12InputStream(p12InputStream, password), eventLoopGroup);
-        buildIdentifiers(p12InputStream,password);
+        loadIdentifiers(p12InputStream,password);
     }
 
-    private void buildIdentifiers(InputStream p12InputStream, String password) {
+    /**
+     * Load identifiers for push notification topic from certificate metadata
+     * 
+     * @param p12InputStream
+     * @param password
+     */
+    private void loadIdentifiers(InputStream p12InputStream, String password) {
     	try {
 			this.identities = P12Util.getIdentitiesForP12File(p12InputStream, password);
 		} catch (KeyStoreException e) {
@@ -961,6 +967,11 @@ public class ApnsClient<T extends ApnsPushNotification> {
         return responseFuture;
     }
 
+    /**
+     * Verifies if there is a topic to send to apple service, if doesn't have, fill it with the first identity found at the certificate
+     * 
+     * @param notification
+     */
     private void verifyTopic(T notification) {
     	if(notification.getTopic() == null 
     			&& this.identities != null
