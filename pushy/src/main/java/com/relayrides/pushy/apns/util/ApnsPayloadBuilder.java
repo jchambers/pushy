@@ -45,6 +45,7 @@ public class ApnsPayloadBuilder {
     private String localizedAlertKey = null;
     private String[] localizedAlertArguments = null;
     private String alertTitle = null;
+    private String alertSubtitle = null;
     private String localizedAlertTitleKey = null;
     private String[] localizedAlertTitleArguments = null;
     private String launchImageFileName = null;
@@ -54,6 +55,7 @@ public class ApnsPayloadBuilder {
     private String soundFileName = null;
     private String categoryName = null;
     private boolean contentAvailable = false;
+    private boolean mutableContent = false;
 
     private final CharArrayWriter buffer = new CharArrayWriter(DEFAULT_PAYLOAD_SIZE / 4);
 
@@ -63,8 +65,10 @@ public class ApnsPayloadBuilder {
     private static final String SOUND_KEY = "sound";
     private static final String CATEGORY_KEY = "category";
     private static final String CONTENT_AVAILABLE_KEY = "content-available";
+    private static final String MUTABLE_CONTENT_KEY = "mutable-content";
 
     private static final String ALERT_TITLE_KEY = "title";
+    private static final String ALERT_SUBTITLE_KEY = "subtitle";
     private static final String ALERT_BODY_KEY = "body";
     private static final String ALERT_TITLE_LOC_KEY = "title-loc-key";
     private static final String ALERT_TITLE_ARGS_KEY = "title-loc-args";
@@ -169,6 +173,18 @@ public class ApnsPayloadBuilder {
 
         this.alertTitle = alertTitle;
 
+        return this;
+    }
+
+    /**
+     * <p>The subtitle for ios 10</p>
+     *
+     * @param alertSubtitle the subtitle for ios 10
+     *
+     * @return a reference to this payload builder
+     */
+    public ApnsPayloadBuilder setAlertSubtitle(final String alertSubtitle) {
+        this.alertSubtitle = alertSubtitle;
         return this;
     }
 
@@ -328,6 +344,22 @@ public class ApnsPayloadBuilder {
     }
 
     /**
+     * <p>mutable-content for ios 10</p>
+     *
+     * @param mutableContent {@code true} to include a flag that intercept the payload and mutate or replace it or {@code false} otherwise
+     *
+     * @return a reference to this payload builder
+     *
+     * @see <a href=
+     *      "https://developer.apple.com/reference/usernotifications/unnotificationserviceextension">
+     *      UNNotificationServiceExtension</a>
+     */
+    public ApnsPayloadBuilder setMutableContent(final boolean mutableContent) {
+        this.mutableContent = mutableContent;
+        return this;
+    }
+
+    /**
      * <p>Adds a custom property to the payload. According to Apple's documentation:</p>
      *
      * <blockquote>Providers can specify custom payload values outside the Apple-reserved {@code aps} namespace. Custom
@@ -388,6 +420,10 @@ public class ApnsPayloadBuilder {
 
             if (this.contentAvailable) {
                 aps.put(CONTENT_AVAILABLE_KEY, 1);
+            }
+
+            if (this.mutableContent) {
+                aps.put(MUTABLE_CONTENT_KEY, 1);
             }
 
             final Object alertObject = this.createAlertObject();
@@ -486,6 +522,10 @@ public class ApnsPayloadBuilder {
                     alert.put(ALERT_TITLE_KEY, this.alertTitle);
                 }
 
+                if (this.alertSubtitle != null) {
+                    alert.put(ALERT_SUBTITLE_KEY, this.alertSubtitle);
+                }
+
                 if (this.showActionButton) {
                     if (this.localizedActionButtonKey != null) {
                         alert.put(ACTION_LOC_KEY, this.localizedActionButtonKey);
@@ -530,7 +570,7 @@ public class ApnsPayloadBuilder {
     private boolean hasAlertContent() {
         return this.alertBody != null || this.alertTitle != null || this.localizedAlertTitleKey != null
                 || this.localizedAlertKey != null || this.localizedActionButtonKey != null
-                || this.launchImageFileName != null || this.showActionButton == false;
+                || this.launchImageFileName != null || this.showActionButton == false || alertSubtitle != null;
     }
 
     /**
@@ -546,7 +586,7 @@ public class ApnsPayloadBuilder {
      */
     private boolean shouldRepresentAlertAsString() {
         return this.alertBody != null && this.launchImageFileName == null && this.showActionButton
-                && this.localizedActionButtonKey == null && this.alertTitle == null
+                && this.localizedActionButtonKey == null && this.alertTitle == null && this.alertSubtitle == null
                 && this.localizedAlertTitleKey == null && this.localizedAlertKey == null
                 && this.localizedAlertArguments == null && this.localizedAlertTitleArguments == null;
     }
