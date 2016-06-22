@@ -7,6 +7,7 @@ import java.security.SignatureException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -258,20 +259,28 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             }
         }
 
+        final String topic;
+        {
+            final CharSequence topicSequence = headers.get(APNS_TOPIC_HEADER);
+            topic = (topicSequence != null) ? topicSequence.toString() : null;
+        }
+
         try {
-            this.validateAuthenticationToken(authenticationToken);
+            final AuthenticationTokenClaims claims =
+                    this.getValidatedClaimsFromAuthenticationToken(authenticationToken);
+
+            final Set<String> topics = this.apnsServer.getTopicsForTeamId(claims.getIssuer());
+
+            if (topics == null || !topics.contains(topic)) {
+                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.DEVICE_TOKEN_NOT_FOR_TOPIC));
+                return;
+            }
         } catch (final InvalidAuthenticationTokenException e) {
             context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.INVALID_PROVIDER_TOKEN));
             return;
         } catch (final ExpiredAuthenticationTokenException e) {
             context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.EXPIRED_PROVIDER_TOKEN));
             return;
-        }
-
-        final String topic;
-        {
-            final CharSequence topicSequence = headers.get(APNS_TOPIC_HEADER);
-            topic = (topicSequence != null) ? topicSequence.toString() : null;
         }
 
         {
@@ -410,7 +419,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
     }
 
-    protected void validateAuthenticationToken(final String authenticationToken) throws InvalidAuthenticationTokenException, ExpiredAuthenticationTokenException {
+    protected AuthenticationTokenClaims getValidatedClaimsFromAuthenticationToken(final String authenticationToken) throws InvalidAuthenticationTokenException, ExpiredAuthenticationTokenException {
         if (authenticationToken == null) {
             throw new InvalidAuthenticationTokenException();
         }
@@ -484,6 +493,16 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         } catch (final SignatureException e) {
             throw new InvalidAuthenticationTokenException(e);
         }
+
+        // At this point, we know that the claims and header were signed by the private key identified in the header,
+        // but we still need to verify that the key belongs to the team named in the claims.
+        final String teamId = this.apnsServer.getTeamIdForKeyId(header.getKeyId());
+
+        if (!header.getKeyId().equals(teamId)) {
+            throw new InvalidAuthenticationTokenException();
+        }
+
+        return claims;
     }
 
     private ByteBuf padAndBase64Decode(final ByteBuf source) {

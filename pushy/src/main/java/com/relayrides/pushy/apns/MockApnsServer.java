@@ -55,6 +55,7 @@ public class MockApnsServer {
     private final Map<String, Map<String, Date>> tokenExpirationsByTopic = new HashMap<>();
 
     private final Map<String, Signature> signaturesByKeyId = new HashMap<>();
+    private final Map<String, String> teamIdsByKeyId = new HashMap<>();
     private final Map<String, Set<String>> topicsByTeamId = new HashMap<>();
 
     private ChannelGroup allChannels;
@@ -115,11 +116,12 @@ public class MockApnsServer {
         return channelFuture;
     }
 
-    public void registerPublicKey(final String keyId, final PublicKey publicKey) throws NoSuchAlgorithmException, InvalidKeyException {
+    public void registerPublicKey(final String teamId, final String keyId, final PublicKey publicKey) throws NoSuchAlgorithmException, InvalidKeyException {
         final Signature signature = Signature.getInstance("SHA256withECDSA");
         signature.initVerify(publicKey);
 
         this.signaturesByKeyId.put(keyId, signature);
+        this.teamIdsByKeyId.put(keyId, teamId);
     }
 
     public void registerTopicsForTeamId(final String teamId, final String... topics) {
@@ -136,6 +138,14 @@ public class MockApnsServer {
 
     protected Signature getSignatureForKeyId(final String keyId) {
         return this.signaturesByKeyId.get(keyId);
+    }
+
+    protected String getTeamIdForKeyId(final String keyId) {
+        return this.teamIdsByKeyId.get(keyId);
+    }
+
+    protected Set<String> getTopicsForTeamId(final String teamId) {
+        return this.getTopicsForTeamId(teamId);
     }
 
     /**

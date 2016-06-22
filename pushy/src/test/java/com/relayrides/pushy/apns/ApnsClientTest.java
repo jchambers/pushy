@@ -206,7 +206,7 @@ public class ApnsClientTest {
                     .build();
         }
 
-        this.server.registerPublicKey(DEFAULT_KEY_ID, keyPair.getPublic());
+        this.server.registerPublicKey(DEFAULT_TEAM, DEFAULT_KEY_ID, keyPair.getPublic());
         this.server.registerTopicsForTeamId(DEFAULT_TEAM, DEFAULT_TOPIC);
 
         this.server.start(PORT).await();
