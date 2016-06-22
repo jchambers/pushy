@@ -601,8 +601,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
         return reconnectionFuture;
     }
 
-    public void registerSigningKey(final String teamId, final PrivateKey signingKey) throws InvalidKeyException, NoSuchAlgorithmException {
-        this.authenticationTokenSuppliersByTeamId.put(teamId, new AuthenticationTokenSupplier(signingKey, teamId));
+    public void registerSigningKey(final String teamId, final String keyId, final PrivateKey signingKey) throws InvalidKeyException, NoSuchAlgorithmException {
+        this.authenticationTokenSuppliersByTeamId.put(teamId, new AuthenticationTokenSupplier(teamId, keyId, signingKey));
     }
 
     public void registerTopicsForTeamId(final String teamId, final String... topics) {

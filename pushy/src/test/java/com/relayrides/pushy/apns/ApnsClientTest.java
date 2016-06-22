@@ -44,6 +44,7 @@ public class ApnsClientTest {
     private static final int PORT = 8443;
 
     private static final String DEFAULT_TEAM = "TEST";
+    private static final String DEFAULT_KEY_ID = "test-key";
     private static final String DEFAULT_TOPIC = "com.relayrides.pushy";
 
     private static final int TOKEN_LENGTH = 32; // bytes
@@ -205,7 +206,7 @@ public class ApnsClientTest {
                     .build();
         }
 
-        this.server.registerPublicKey(DEFAULT_TEAM, keyPair.getPublic());
+        this.server.registerPublicKey(DEFAULT_KEY_ID, keyPair.getPublic());
         this.server.registerTopicsForTeamId(DEFAULT_TEAM, DEFAULT_TOPIC);
 
         this.server.start(PORT).await();
@@ -217,7 +218,7 @@ public class ApnsClientTest {
                     .build();
         }
 
-        this.client.registerSigningKey(DEFAULT_TEAM, keyPair.getPrivate());
+        this.client.registerSigningKey(DEFAULT_TEAM, DEFAULT_KEY_ID, keyPair.getPrivate());
         this.client.registerTopicsForTeamId(DEFAULT_TEAM, DEFAULT_TOPIC);
 
         this.client.connect(HOST, PORT).await();

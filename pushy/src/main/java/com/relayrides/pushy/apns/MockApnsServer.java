@@ -1,7 +1,10 @@
 package com.relayrides.pushy.apns;
 
 
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.security.Signature;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
@@ -51,10 +54,8 @@ public class MockApnsServer {
 
     private final Map<String, Map<String, Date>> tokenExpirationsByTopic = new HashMap<>();
 
-    private final Map<String, PublicKey> publicKeysByTeamId = new HashMap<>();
+    private final Map<String, Signature> signaturesByKeyId = new HashMap<>();
     private final Map<String, Set<String>> topicsByTeamId = new HashMap<>();
-
-    private final Map<String, Date> authenticationTokens = new HashMap<>();
 
     private ChannelGroup allChannels;
 
@@ -114,8 +115,11 @@ public class MockApnsServer {
         return channelFuture;
     }
 
-    public void registerPublicKey(final String teamId, final PublicKey publicKey) {
-        this.publicKeysByTeamId.put(teamId, publicKey);
+    public void registerPublicKey(final String keyId, final PublicKey publicKey) throws NoSuchAlgorithmException, InvalidKeyException {
+        final Signature signature = Signature.getInstance("SHA256withECDSA");
+        signature.initVerify(publicKey);
+
+        this.signaturesByKeyId.put(keyId, signature);
     }
 
     public void registerTopicsForTeamId(final String teamId, final String... topics) {
@@ -130,8 +134,8 @@ public class MockApnsServer {
         this.topicsByTeamId.get(teamId).addAll(topics);
     }
 
-    protected PublicKey getPublicKeyForTeamId(final String teamId) {
-        return this.publicKeysByTeamId.get(teamId);
+    protected Signature getSignatureForKeyId(final String keyId) {
+        return this.signaturesByKeyId.get(keyId);
     }
 
     /**

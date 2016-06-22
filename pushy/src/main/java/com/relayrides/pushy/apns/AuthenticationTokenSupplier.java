@@ -7,6 +7,7 @@ import java.security.PrivateKey;
 import java.security.Signature;
 import java.security.SignatureException;
 import java.util.Date;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import com.google.gson.Gson;
@@ -20,7 +21,9 @@ import io.netty.handler.codec.base64.Base64Dialect;
 class AuthenticationTokenSupplier {
 
     private final Signature signature;
+
     private final String issuer;
+    private final String keyId;
 
     private String token;
 
@@ -29,11 +32,16 @@ class AuthenticationTokenSupplier {
             .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.SECONDS))
             .create();
 
-    public AuthenticationTokenSupplier(final PrivateKey privateKey, final String issuer) throws NoSuchAlgorithmException, InvalidKeyException {
+    public AuthenticationTokenSupplier(final String issuer, final String keyId, final PrivateKey privateKey) throws NoSuchAlgorithmException, InvalidKeyException {
+        Objects.requireNonNull(issuer);
+        Objects.requireNonNull(keyId);
+        Objects.requireNonNull(privateKey);
+
         this.signature = Signature.getInstance("SHA256withECDSA");
         this.signature.initSign(privateKey);
 
         this.issuer = issuer;
+        this.keyId = keyId;
     }
 
     public String getToken() throws SignatureException {
@@ -42,7 +50,7 @@ class AuthenticationTokenSupplier {
 
     protected String getToken(final Date issuedAt) throws SignatureException {
         if (this.token == null) {
-            final String header = gson.toJson(new AuthenticationTokenHeader("TODO"));
+            final String header = gson.toJson(new AuthenticationTokenHeader(this.keyId));
             final String claims = gson.toJson(new AuthenticationTokenClaims(this.issuer, issuedAt));
 
             final String payloadWithoutSignature = String.format("%s.%s",

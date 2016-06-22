@@ -18,4 +18,16 @@ class AuthenticationTokenHeader {
     public AuthenticationTokenHeader(final String keyId) {
         this.keyId = keyId;
     }
+
+    public String getAlgorithm() {
+        return this.algorithm;
+    }
+
+    public String getTokenType() {
+        return this.tokenType;
+    }
+
+    public String getKeyId() {
+        return this.keyId;
+    }
 }
