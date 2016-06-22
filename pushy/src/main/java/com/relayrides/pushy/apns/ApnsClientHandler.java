@@ -313,8 +313,6 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
                     }
                 }
             });
-
-            this.flush(context);
         }
 
         super.userEventTriggered(context, event);

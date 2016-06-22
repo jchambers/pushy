@@ -182,6 +182,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
         this.bootstrap.channel(SocketChannelClassUtil.getSocketChannelClass(this.bootstrap.config().group()));
         this.bootstrap.option(ChannelOption.TCP_NODELAY, true);
+        this.bootstrap.option(ChannelOption.AUTO_FLUSH, true);
         this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
             @Override
