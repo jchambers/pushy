@@ -22,7 +22,6 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.base64.Base64;
-import io.netty.handler.codec.base64.Base64Dialect;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -54,6 +53,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
     private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
     private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
+    private static final AsciiString APNS_AUTHORIZATION_HEADER = new AsciiString("authorization");
 
     private static final int MAX_CONTENT_LENGTH = 4096;
     private static final Pattern TOKEN_PATTERN = Pattern.compile("[0-9a-fA-F]{64}");
@@ -91,7 +91,9 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         SHUTDOWN("Shutdown", HttpResponseStatus.BAD_REQUEST),
         INTERNAL_SERVER_ERROR("InternalServerError", HttpResponseStatus.INTERNAL_SERVER_ERROR),
         SERVICE_UNAVAILABLE("ServiceUnavailable", HttpResponseStatus.SERVICE_UNAVAILABLE),
-        MISSING_TOPIC("MissingTopic", HttpResponseStatus.BAD_REQUEST);
+        MISSING_TOPIC("MissingTopic", HttpResponseStatus.BAD_REQUEST),
+        INVALID_PROVIDER_TOKEN("InvalidProviderToken", HttpResponseStatus.FORBIDDEN),
+        EXPIRED_PROVIDER_TOKEN("ExpiredProviderToken", HttpResponseStatus.FORBIDDEN);
 
         private final String reasonText;
         private final HttpResponseStatus httpResponseStatus;
@@ -102,11 +104,11 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
 
         public String getReasonText() {
-            return reasonText;
+            return this.reasonText;
         }
 
         public HttpResponseStatus getHttpResponseStatus() {
-            return httpResponseStatus;
+            return this.httpResponseStatus;
         }
     }
 
@@ -249,6 +251,33 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             topic = (topicSequence != null) ? topicSequence.toString() : null;
         }
 
+        final String authenticationToken;
+        {
+            final CharSequence authorizationSequence = headers.get(APNS_AUTHORIZATION_HEADER);
+
+            if (authorizationSequence != null) {
+                final String authorizationString = authorizationSequence.toString();
+
+                if (authorizationString.startsWith("bearer")) {
+                    authenticationToken = authorizationString.substring("bearer".length()).trim();
+                } else {
+                    authenticationToken = null;
+                }
+            } else {
+                authenticationToken = null;
+            }
+        }
+
+        try {
+            this.validateAuthenticationTokenForTopic(authenticationToken, topic);
+        } catch (final InvalidAuthenticationTokenException e) {
+            context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.INVALID_PROVIDER_TOKEN));
+            return;
+        } catch (final ExpiredAuthenticationTokenException e) {
+            context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.EXPIRED_PROVIDER_TOKEN));
+            return;
+        }
+
         {
             final Integer priorityCode = headers.getInt(APNS_PRIORITY_HEADER);
 
@@ -386,6 +415,10 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     }
 
     protected void validateAuthenticationTokenForTopic(final String authenticationToken, final String topic) throws InvalidAuthenticationTokenException, ExpiredAuthenticationTokenException {
+        if (authenticationToken == null) {
+            throw new InvalidAuthenticationTokenException();
+        }
+
         final ByteBuf tokenBuffer = Unpooled.wrappedBuffer(authenticationToken.getBytes(StandardCharsets.US_ASCII));
 
         final AuthenticationTokenHeader header;
@@ -395,7 +428,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
         try {
             {
-                final ByteBuf decodedHeaderBuffer = Base64.decode(tokenBuffer.readSlice(tokenBuffer.bytesBefore((byte) '.')), Base64Dialect.URL_SAFE);
+                final ByteBuf decodedHeaderBuffer = this.padAndBase64Decode(tokenBuffer.readSlice(tokenBuffer.bytesBefore((byte) '.')));
 
                 header = AUTH_GSON.fromJson(decodedHeaderBuffer.toString(StandardCharsets.US_ASCII),
                         AuthenticationTokenHeader.class);
@@ -406,7 +439,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             tokenBuffer.skipBytes(1);
 
             {
-                final ByteBuf decodedClaimsBuffer = Base64.decode(tokenBuffer.readSlice(tokenBuffer.bytesBefore((byte) '.')), Base64Dialect.URL_SAFE);
+                final ByteBuf decodedClaimsBuffer = this.padAndBase64Decode(tokenBuffer.readSlice(tokenBuffer.bytesBefore((byte) '.')));
 
                 claims = AUTH_GSON.fromJson(decodedClaimsBuffer.toString(StandardCharsets.US_ASCII),
                         AuthenticationTokenClaims.class);
@@ -420,14 +453,14 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             tokenBuffer.skipBytes(1);
 
             {
-                final ByteBuf decodedSignatureBuffer = Base64.decode(tokenBuffer, Base64Dialect.URL_SAFE);
+                final ByteBuf decodedSignatureBuffer = this.padAndBase64Decode(tokenBuffer);
 
                 expectedSignature = new byte[decodedSignatureBuffer.readableBytes()];
                 decodedSignatureBuffer.readBytes(expectedSignature);
 
                 decodedSignatureBuffer.release();
             }
-        } catch (RuntimeException e) {
+        } catch (final RuntimeException e) {
             throw new InvalidAuthenticationTokenException(e);
         } finally {
             tokenBuffer.release();
@@ -455,5 +488,31 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         } catch (InvalidKeyException | SignatureException e) {
             throw new InvalidAuthenticationTokenException(e);
         }
+    }
+
+    private ByteBuf padAndBase64Decode(final ByteBuf source) {
+        final int paddedLength = source.readableBytes() + 2;
+        final ByteBuf paddedSource = source.alloc().heapBuffer(paddedLength, paddedLength);
+
+        source.getBytes(source.readerIndex(), paddedSource, source.readableBytes());
+
+        switch (source.readableBytes() % 4) {
+            case 2: {
+                paddedSource.writeByte('=');
+                paddedSource.writeByte('=');
+                break;
+            }
+
+            case 3: {
+                paddedSource.writeByte('=');
+                break;
+            }
+        }
+
+        final ByteBuf decoded = Base64.decode(paddedSource);
+
+        paddedSource.release();
+
+        return decoded;
     }
 }

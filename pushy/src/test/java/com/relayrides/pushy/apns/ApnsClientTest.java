@@ -6,6 +6,10 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.InputStream;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -39,6 +43,7 @@ public class ApnsClientTest {
     private static final String HOST = "localhost";
     private static final int PORT = 8443;
 
+    private static final String DEFAULT_TEAM = "TEST";
     private static final String DEFAULT_TOPIC = "com.relayrides.pushy";
 
     private static final int TOKEN_LENGTH = 32; // bytes
@@ -187,6 +192,8 @@ public class ApnsClientTest {
 
     @Before
     public void setUp() throws Exception {
+        final KeyPair keyPair = this.generateKeyPair();
+
         try (final InputStream serverCertifiacteInputStream = ApnsClientTest.class.getResourceAsStream(SERVER_CERTIFICATE_FILENAME);
                 final InputStream serverKeyInputStream = ApnsClientTest.class.getResourceAsStream(SERVER_KEY_FILENAME);
                 final InputStream caCertificateInputStream = ApnsClientTest.class.getResourceAsStream(CA_CERTIFICATE_FILENAME)) {
@@ -198,6 +205,9 @@ public class ApnsClientTest {
                     .build();
         }
 
+        this.server.registerPublicKey(DEFAULT_TEAM, keyPair.getPublic());
+        this.server.registerTopicsForTeamId(DEFAULT_TEAM, DEFAULT_TOPIC);
+
         this.server.start(PORT).await();
 
         try (final InputStream caCertificateInputStream = ApnsClientTest.class.getResourceAsStream(CA_CERTIFICATE_FILENAME)) {
@@ -206,6 +216,9 @@ public class ApnsClientTest {
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
                     .build();
         }
+
+        this.client.registerSigningKey(DEFAULT_TEAM, keyPair.getPrivate());
+        this.client.registerTopicsForTeamId(DEFAULT_TEAM, DEFAULT_TOPIC);
 
         this.client.connect(HOST, PORT).await();
     }
@@ -718,6 +731,15 @@ public class ApnsClientTest {
         assertEquals(1, metricsListener.getConnectionAttemptsStarted().get());
         assertEquals(1, metricsListener.getFailedConnectionAttempts().get());
         assertEquals(0, metricsListener.getSuccessfulConnectionAttempts().get());
+    }
+
+    private KeyPair generateKeyPair() throws NoSuchAlgorithmException {
+        final KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
+        final SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
+
+        keyPairGenerator.initialize(256, random);
+
+        return keyPairGenerator.generateKeyPair();
     }
 
     private static String generateRandomToken() {
