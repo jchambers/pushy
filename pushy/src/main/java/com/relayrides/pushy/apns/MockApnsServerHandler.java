@@ -6,6 +6,7 @@ import java.security.Signature;
 import java.security.SignatureException;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -43,6 +44,9 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     private final MockApnsServer apnsServer;
 
     private final Map<Integer, UUID> requestsWaitingForDataFrame = new HashMap<>();
+
+    private final Map<String, Date> authenticationTokenExpirationTimes = new HashMap<>();
+    private final Map<String, Set<String>> verifiedAuthenticationTokensByTopic = new HashMap<>();
 
     private static final Http2Headers SUCCESS_HEADERS = new DefaultHttp2Headers()
             .status(HttpResponseStatus.OK.codeAsText());
@@ -265,22 +269,42 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             topic = (topicSequence != null) ? topicSequence.toString() : null;
         }
 
-        try {
-            final AuthenticationTokenClaims claims =
-                    this.getValidatedClaimsFromAuthenticationToken(authenticationToken);
+        final Set<String> verifiedTokensForTopic = this.verifiedAuthenticationTokensByTopic.get(topic);
 
-            final Set<String> topics = this.apnsServer.getTopicsForTeamId(claims.getIssuer());
+        if (verifiedTokensForTopic != null && verifiedTokensForTopic.contains(authenticationToken)) {
+            final Date tokenExpiration = this.authenticationTokenExpirationTimes.get(authenticationToken);
+            final Date now = new Date();
 
-            if (topics == null || !topics.contains(topic)) {
-                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.DEVICE_TOKEN_NOT_FOR_TOPIC));
+            if (now.after(tokenExpiration)) {
+                verifiedTokensForTopic.remove(authenticationToken);
+                this.authenticationTokenExpirationTimes.remove(authenticationToken);
+
+                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.EXPIRED_PROVIDER_TOKEN));
                 return;
             }
-        } catch (final InvalidAuthenticationTokenException e) {
-            context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.INVALID_PROVIDER_TOKEN));
-            return;
-        } catch (final ExpiredAuthenticationTokenException e) {
-            context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.EXPIRED_PROVIDER_TOKEN));
-            return;
+        } else {
+            try {
+                final AuthenticationTokenClaims claims = this.getVerifiedClaimsFromAuthenticationToken(authenticationToken);
+                final Set<String> topics = this.apnsServer.getTopicsForTeamId(claims.getIssuer());
+
+                if (topics == null || !topics.contains(topic)) {
+                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.DEVICE_TOKEN_NOT_FOR_TOPIC));
+                    return;
+                }
+
+                if (!this.verifiedAuthenticationTokensByTopic.containsKey(topic)) {
+                    this.verifiedAuthenticationTokensByTopic.put(topic, new HashSet<String>());
+                }
+
+                this.verifiedAuthenticationTokensByTopic.get(topic).add(authenticationToken);
+                this.authenticationTokenExpirationTimes.put(authenticationToken, new Date(System.currentTimeMillis() + AUTH_TOKEN_EXPIRATION_MILLIS));
+            } catch (final InvalidAuthenticationTokenException e) {
+                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.INVALID_PROVIDER_TOKEN));
+                return;
+            } catch (final ExpiredAuthenticationTokenException e) {
+                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.EXPIRED_PROVIDER_TOKEN));
+                return;
+            }
         }
 
         {
@@ -419,7 +443,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
     }
 
-    protected AuthenticationTokenClaims getValidatedClaimsFromAuthenticationToken(final String authenticationToken) throws InvalidAuthenticationTokenException, ExpiredAuthenticationTokenException {
+    protected AuthenticationTokenClaims getVerifiedClaimsFromAuthenticationToken(final String authenticationToken) throws InvalidAuthenticationTokenException, ExpiredAuthenticationTokenException {
         if (authenticationToken == null) {
             throw new InvalidAuthenticationTokenException();
         }
@@ -498,7 +522,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         // but we still need to verify that the key belongs to the team named in the claims.
         final String teamId = this.apnsServer.getTeamIdForKeyId(header.getKeyId());
 
-        if (!header.getKeyId().equals(teamId)) {
+        if (!claims.getIssuer().equals(teamId)) {
             throw new InvalidAuthenticationTokenException();
         }
 

@@ -145,7 +145,7 @@ public class MockApnsServer {
     }
 
     protected Set<String> getTopicsForTeamId(final String teamId) {
-        return this.getTopicsForTeamId(teamId);
+        return this.topicsByTeamId.get(teamId);
     }
 
     /**
