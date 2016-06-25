@@ -114,6 +114,22 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
     }
 
+    private static class ExpiredAuthenticationTokenException extends Exception {
+        private static final long serialVersionUID = 1L;
+    }
+
+    private static class InvalidAuthenticationTokenException extends Exception {
+        private static final long serialVersionUID = 1L;
+
+        public InvalidAuthenticationTokenException() {
+            super();
+        }
+
+        public InvalidAuthenticationTokenException(final Throwable cause) {
+            super(cause);
+        }
+    }
+
     public static final class MockApnsServerHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<MockApnsServerHandler, MockApnsServerHandlerBuilder> {
         private MockApnsServer apnsServer;
 
