@@ -1,9 +1,6 @@
 package com.relayrides.pushy.apns;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import java.io.InputStream;
 import java.security.KeyPair;
@@ -16,6 +13,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.After;
@@ -548,6 +547,67 @@ public class ApnsClientTest {
         assertFalse(response.isAccepted());
         assertEquals("Unregistered", response.getRejectionReason());
         assertEquals(now, response.getTokenInvalidationTimestamp());
+    }
+
+    @Test
+    public void testSendNotificationWithNoTeamForTopic() throws Exception {
+        final String testToken = ApnsClientTest.generateRandomToken();
+
+        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
+
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, "Unregistered topic", "test-payload");
+
+        try {
+            this.client.sendNotification(pushNotification).get();
+            fail("Expected NoKeyForTopicException as a cause for an ExecutionException.");
+        } catch (final ExecutionException e) {
+            assertTrue(e.getCause() instanceof NoKeyForTopicException);
+        }
+    }
+
+    @Test
+    public void testSendNotificationWithNoPublicKeyForTeam() throws Exception {
+        final String testToken = ApnsClientTest.generateRandomToken();
+
+        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
+
+        final String topicWithoutKey = "topic-without-key";
+        this.client.registerTopicsForTeamId("team-without-key", topicWithoutKey);
+
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, topicWithoutKey, "test-payload");
+
+        try {
+            this.client.sendNotification(pushNotification).get();
+            fail("Expected NoKeyForTopicException as a cause for an ExecutionException.");
+        } catch (final ExecutionException e) {
+            assertTrue(e.getCause() instanceof NoKeyForTopicException);
+        }
+    }
+
+    @Test
+    public void testSendNotificationWithExpiredAuthenticationToken() throws Exception {
+        // This is a little roundabout, but it makes sure that we're going to be using an expired auth token for the
+        // first shot at sending the notification.
+        final AuthenticationTokenSupplier supplier = this.client.getAuthenticationTokenSupplierForTopic(DEFAULT_TOPIC);
+
+        final String initialToken = supplier.getToken();
+        supplier.invalidateToken(initialToken);
+
+        final String expiredToken = supplier.getToken(new Date(System.currentTimeMillis() - TimeUnit.HOURS.toMillis(2)));
+
+        assertNotEquals(initialToken, expiredToken);
+        assertEquals(expiredToken, supplier.getToken());
+
+        final String testToken = ApnsClientTest.generateRandomToken();
+
+        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
+
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
+        final PushNotificationResponse<SimpleApnsPushNotification> response =
+                this.client.sendNotification(pushNotification).get();
+
+        assertTrue(response.isAccepted());
+        assertNotEquals(expiredToken, supplier.getToken());
     }
 
     @Test
