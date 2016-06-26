@@ -195,6 +195,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private static final long MAX_RECONNECT_DELAY_SECONDS = 60; // seconds
     static final int PING_IDLE_TIME_MILLIS = 60_000; // milliseconds
 
+    static final String EXPIRED_AUTH_TOKEN_REASON = "ExpiredProviderToken";
+
     private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
     protected ApnsClient(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
@@ -663,6 +665,10 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * @since 0.5
      */
     public Future<PushNotificationResponse<T>> sendNotification(final T notification) {
+        return this.sendNotification(notification, null);
+    }
+
+    private Future<PushNotificationResponse<T>> sendNotification(final T notification, final Promise<PushNotificationResponse<T>> promise) {
         final Future<PushNotificationResponse<T>> responseFuture;
         final long notificationId = this.nextNotificationId.getAndIncrement();
 
@@ -674,8 +680,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
         final ChannelPromise connectionReadyPromise = this.connectionReadyPromise;
 
         if (connectionReadyPromise != null && connectionReadyPromise.isSuccess() && connectionReadyPromise.channel().isActive()) {
-            final DefaultPromise<PushNotificationResponse<T>> responsePromise =
-                    new DefaultPromise<>(connectionReadyPromise.channel().eventLoop());
+            final Promise<PushNotificationResponse<T>> responsePromise = promise != null ?
+                    promise : new DefaultPromise<PushNotificationResponse<T>>(connectionReadyPromise.channel().eventLoop());
 
             connectionReadyPromise.channel().eventLoop().submit(new Runnable() {
 
@@ -742,7 +748,13 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
         // This will always be called from inside the channel's event loop, so we don't have to worry about
         // synchronization.
-        this.responsePromises.remove(response.getPushNotification()).setSuccess(response);
+        final Promise<PushNotificationResponse<T>> responsePromise = this.responsePromises.remove(response.getPushNotification());
+
+        if (EXPIRED_AUTH_TOKEN_REASON.equals(response.getRejectionReason())) {
+            this.sendNotification(response.getPushNotification(), responsePromise);
+        } else {
+            responsePromise.setSuccess(response);
+        }
     }
 
     /**

@@ -70,8 +70,10 @@ class AuthenticationTokenSupplier {
         return this.token;
     }
 
-    public void invalidateToken() {
-        this.token = null;
+    public void invalidateToken(final String invalidToken) {
+        if (invalidToken != null && invalidToken.equals(this.token)) {
+            this.token = null;
+        }
     }
 
     private static String base64UrlEncodeWithoutPadding(final byte[] bytes) {

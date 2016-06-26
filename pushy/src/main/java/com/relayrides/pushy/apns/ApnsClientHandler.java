@@ -65,6 +65,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     private long nextStreamId = 1;
 
     private final Map<Integer, T> pushNotificationsByStreamId = new HashMap<>();
+    private final Map<Integer, String> authenticationTokensByStreamId = new HashMap<>();
     private final Map<Integer, Http2Headers> headersByStreamId = new HashMap<>();
 
     private final ApnsClient<T> apnsClient;
@@ -171,10 +172,20 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
             if (endOfStream) {
                 final Http2Headers headers = ApnsClientHandler.this.headersByStreamId.remove(streamId);
+                final String authenticationToken = ApnsClientHandler.this.authenticationTokensByStreamId.remove(streamId);
                 final T pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
 
                 final boolean success = HttpResponseStatus.OK.equals(HttpResponseStatus.parseLine(headers.status()));
                 final ErrorResponse errorResponse = gson.fromJson(data.toString(StandardCharsets.UTF_8), ErrorResponse.class);
+
+                if (ApnsClient.EXPIRED_AUTH_TOKEN_REASON.equals(errorResponse.getReason())) {
+                    try {
+                        ApnsClientHandler.this.apnsClient.getAuthenticationTokenSupplierForTopic(pushNotification.getTopic()).invalidateToken(authenticationToken);
+                    } catch (final NoKeyForTopicException e) {
+                        // This should only happen if somebody de-registered the topic after a notification was sent
+                        log.warn("Authentication token expired, but no public key registered for topic {}", pushNotification.getTopic());
+                    }
+                }
 
                 ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(new SimplePushNotificationResponse<>(
                         pushNotification, success, errorResponse.getReason(), errorResponse.getTimestamp()));
@@ -200,6 +211,8 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
                 if (!success) {
                     log.error("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
                 }
+
+                ApnsClientHandler.this.authenticationTokensByStreamId.remove(streamId);
 
                 final T pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
 
@@ -282,6 +295,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
                     public void operationComplete(final ChannelPromise future) throws Exception {
                         if (future.isSuccess()) {
                             ApnsClientHandler.this.pushNotificationsByStreamId.put(streamId, pushNotification);
+                            ApnsClientHandler.this.authenticationTokensByStreamId.put(streamId, authenticationToken);
                         } else {
                             log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
                         }
