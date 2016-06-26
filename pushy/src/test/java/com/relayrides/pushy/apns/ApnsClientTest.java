@@ -22,7 +22,6 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
@@ -370,7 +369,7 @@ public class ApnsClientTest {
 
         this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
 
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
         final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
                 unconnectedClient.sendNotification(pushNotification).await();
 
@@ -522,14 +521,9 @@ public class ApnsClientTest {
     }
 
     @Test
-    public void testSendNotificationWithBadTopic() throws Exception {
-        final String testToken = ApnsClientTest.generateRandomToken();
-
-        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
-
+    public void testSendNotificationWithUnregisteredDeviceToken() throws Exception {
         final SimpleApnsPushNotification pushNotification =
-                new SimpleApnsPushNotification(testToken, "Definitely not a real topic", "test-payload", null,
-                        DeliveryPriority.IMMEDIATE);
+                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), DEFAULT_TOPIC, "test-payload");
 
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 this.client.sendNotification(pushNotification).get();
@@ -540,78 +534,7 @@ public class ApnsClientTest {
     }
 
     @Test
-    @Ignore("Ignored until auth tokens are implemented; see https://github.com/relayrides/pushy/issues/313 for details")
-    public void testSendNotificationWithMissingTopic() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> multiTopicClient;
-
-        try (final InputStream caCertificateInputStream = ApnsClientTest.class.getResourceAsStream(CA_CERTIFICATE_FILENAME)) {
-            multiTopicClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
-                    .setTrustedServerCertificateChain(caCertificateInputStream)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
-
-        multiTopicClient.connect(HOST, PORT).await();
-
-        final String testToken = ApnsClientTest.generateRandomToken();
-
-        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
-
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
-
-        final PushNotificationResponse<SimpleApnsPushNotification> response =
-                multiTopicClient.sendNotification(pushNotification).get();
-
-        multiTopicClient.disconnect().await();
-
-        assertFalse(response.isAccepted());
-        assertEquals("MissingTopic", response.getRejectionReason());
-        assertNull(response.getTokenInvalidationTimestamp());
-    }
-
-    @Test
-    public void testSendNotificationWithSpecifiedTopic() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> multiTopicClient;
-
-        try (final InputStream caCertificateInputStream = ApnsClientTest.class.getResourceAsStream(CA_CERTIFICATE_FILENAME)) {
-            multiTopicClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
-                    .setTrustedServerCertificateChain(caCertificateInputStream)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
-
-        multiTopicClient.connect(HOST, PORT).await();
-
-        final String testToken = ApnsClientTest.generateRandomToken();
-
-        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
-
-        final SimpleApnsPushNotification pushNotification =
-                new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload", null, DeliveryPriority.IMMEDIATE);
-
-        final PushNotificationResponse<SimpleApnsPushNotification> response =
-                multiTopicClient.sendNotification(pushNotification).get();
-
-        multiTopicClient.disconnect().await();
-
-        assertTrue(response.isAccepted());
-    }
-
-    @Test
-    public void testSendNotificationWithUnregisteredToken() throws Exception {
-        final SimpleApnsPushNotification pushNotification =
-                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), null, "test-payload");
-
-        final PushNotificationResponse<SimpleApnsPushNotification> response =
-                this.client.sendNotification(pushNotification).get();
-
-        assertFalse(response.isAccepted());
-        assertEquals("DeviceTokenNotForTopic", response.getRejectionReason());
-        assertNull(response.getTokenInvalidationTimestamp());
-    }
-
-    @Test
-    public void testSendNotificationWithExpiredToken() throws Exception {
+    public void testSendNotificationWithExpiredDeviceToken() throws Exception {
         final String testToken = ApnsClientTest.generateRandomToken();
 
         final Date now = new Date();
@@ -642,7 +565,7 @@ public class ApnsClientTest {
         unconnectedClient.setMetricsListener(metricsListener);
 
         final SimpleApnsPushNotification pushNotification =
-                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), null, ApnsClientTest.generateRandomPayload());
+                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), DEFAULT_TOPIC, ApnsClientTest.generateRandomPayload());
 
         final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
                 unconnectedClient.sendNotification(pushNotification);
@@ -674,7 +597,7 @@ public class ApnsClientTest {
         final TestMetricsListener metricsListener = new TestMetricsListener();
         this.client.setMetricsListener(metricsListener);
 
-        this.testSendNotificationWithBadTopic();
+        this.testSendNotificationWithUnregisteredDeviceToken();
         metricsListener.waitForNonZeroRejectedNotifications();
 
         assertEquals(1, metricsListener.getSentNotifications().size());
