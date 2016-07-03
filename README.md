@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/relayrides/pushy.svg?branch=master)](https://travis-ci.org/relayrides/pushy)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.relayrides/pushy/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.relayrides/pushy)
 
-Pushy is a Java library for sending [APNs](https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html) (iOS and OS X) push notifications. It is written and maintained by the engineers at [Turo](https://turo.com/).
+Pushy is a Java library for sending [APNs](https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html) (iOS, OS X, and Safari) push notifications. It is written and maintained by the engineers at [Turo](https://turo.com/).
 
 Pushy sends push notifications using Apple's HTTP/2-based APNs protocol. It distinguishes itself from other push notification libraries with a focus on [thorough documentation](http://relayrides.github.io/pushy/apidocs/0.7/), asynchronous operation, and design for industrial-scale operation; with Pushy, it's easy and efficient to maintain multiple parallel connections to the APNs gateway to send large numbers of notifications to many different applications ("topics").
 
@@ -38,8 +38,10 @@ Before you can get started with Pushy, you'll need to do some provisioning work 
 Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an [`ApnsClient`](http://relayrides.github.io/pushy/apidocs/0.7/com/relayrides/pushy/apns/ApnsClient.html). Clients need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing):
 
 ```java
-final ApnsClient<SimpleApnsPushNotification> apnsClient = new ApnsClient<>(
-        new File("/path/to/certificate.p12"), "p12-file-password");
+final ApnsClient<SimpleApnsPushNotification> apnsClient =
+    new ApnsClientBuilder<SimpleApnsPushNotification>()
+        .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
+        .build();
 ```
 
 Once you've created a client, you can connect it to the APNs gateway. Note that this process is asynchronous; the client will return a Future right away, but you'll need to wait for it to complete before you can send any notifications. Note that this is a Netty [`Future`](http://netty.io/4.1/api/io/netty/util/concurrent/Future.html), which is an extension of the Java [`Future`](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/Future.html) interface that allows callers to add listeners and adds methods for checking the status of the `Future`.
@@ -117,6 +119,8 @@ final Future<Void> disconnectFuture = apnsClient.disconnect();
 disconnectFuture.await();
 ```
 
+When shutting down, clients will wait for all sent-but-not-acknowledged notifications to receive a reply from the server. Notifications that have been passed to `sendNotification` but not yet sent to the server (i.e. notifications waiting in an internal queue) will fail immediately when disconnecting. Callers should generally make sure that all sent notifications have been acknowledged by the server before shutting down.
+
 ## System requirements
 
 Pushy works with Java 7 and newer, but has some additional dependencies depending on the environment in which it is running.
@@ -156,28 +160,31 @@ If you know exactly which version of Java you'll be running, you can just add th
 
 ## Metrics
 
-Pushy includes an interface for monitoring metrics that provide insight into clients' behavior and performance. You can write your own implementation of the `ApnsClientMetricsListener` interface to record and report metrics. To begin receiving metrics, use the client's `setMetricsListener` method:
+Pushy includes an interface for monitoring metrics that provide insight into clients' behavior and performance. You can write your own implementation of the `ApnsClientMetricsListener` interface to record and report metrics. We also provide a [https://github.com/relayrides/pushy/tree/master/dropwizard-metrics-listener](metrics listener that uses the Dropwizard Metrics library) as a separate module. To begin receiving metrics, set a listener when building a new client:
 
 ```java
-apnsClient.setMetricsListener(new MyCustomMetricsListener());
+final ApnsClient<SimpleApnsPushNotification> apnsClient =
+    new ApnsClientBuilder<SimpleApnsPushNotification>()
+        .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
+        .setMetricsListener(new MyCustomMetricsListener())
+        .build();
 ```
 
 Please note that the metric-handling methods in your listener implementation should *never* call blocking code. It's appropriate to increment counters directly in the handler methods, but calls to databases or remote monitoring endpoints should be dispatched to separate threads.
 
 ## Using a proxy
 
-If you need to use a proxy for outbound connections, you may specify a [`ProxyHandlerFactory`](http://relayrides.github.io/pushy/apidocs/0.7/com/relayrides/pushy/apns/proxy/ProxyHandlerFactory.html) before attempting to connect your `ApnsClient` instance. Concrete implementations of `ProxyHandlerFactory` are provided for HTTP, SOCKS4, and SOCKS5 proxies.
+If you need to use a proxy for outbound connections, you may specify a [`ProxyHandlerFactory`](http://relayrides.github.io/pushy/apidocs/0.7/com/relayrides/pushy/apns/proxy/ProxyHandlerFactory.html) when building your `ApnsClient` instance. Concrete implementations of `ProxyHandlerFactory` are provided for HTTP, SOCKS4, and SOCKS5 proxies.
 
 An example:
 
 ```java
 final ApnsClient<SimpleApnsPushNotification> apnsClient =
-        new ApnsClient<SimpleApnsPushNotification>(
-                new File("/path/to/certificate.p12"), "p12-file-password");
-
-apnsClient.setProxyHandlerFactory(
-        new Socks5ProxyHandlerFactory(
-                new InetSocketAddress("my.proxy.com", 1080), "username", "password"));
+    new ApnsClientBuilder<SimpleApnsPushNotification>()
+        .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
+        .setProxyHandlerFactory(new Socks5ProxyHandlerFactory(
+            new InetSocketAddress("my.proxy.com", 1080), "username", "password"))
+        .build();
 
 final Future<Void> connectFuture = apnsClient.connect(ApnsClient.DEVELOPMENT_APNS_HOST);
 connectFuture.await();

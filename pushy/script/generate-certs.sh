@@ -41,6 +41,6 @@ keytool -importkeystore -srckeystore multiple-keys.jks -destkeystore multiple-ke
 openssl pkcs12 -export -in ca.pem -nokeys -out no-keys.p12 -password pass:pushy-test
 
 # Clean up intermediate files
-rm *.key
+rm ca.key multi-topic-client.key single-topic-client.key untrusted-client.key
 rm multiple-keys.jks
-rm server.pem untrusted-client.pem
+rm untrusted-client.pem
