@@ -26,7 +26,7 @@ If you don't use Maven (or something else that understands Maven dependencies, l
 - [netty 4.1.0](http://netty.io/)
 - [gson 2.5](https://github.com/google/gson)
 - [slf4j 1.7.6](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
-- Either `netty-tcnative` (1.1.33.Fork17 or newer) or `alpn-boot`, as discussed in the [system requirements](#system-requirements) section below
+- Either `netty-tcnative` (1.1.33.Fork18 or newer) or `alpn-boot`, as discussed in the [system requirements](#system-requirements) section below
   - [alpn-api](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html) if you've opted to use a native SSL provider (`alpn-api` is included in `alpn-boot`); please see the [system requirements](#system-requirements) section for details)
 
 Pushy itself requires Java 7 or newer to build and run.
@@ -142,13 +142,13 @@ To add the netty-tcnative uber-jar, you'll just need to add the following depend
 <dependency>
     <groupId>io.netty</groupId>
     <artifactId>netty-tcnative-boringssl-static</artifactId>
-    <version>1.1.33.Fork17</version>
+    <version>1.1.33.Fork18</version>
 </dependency>
 ```
 
 Otherwise, you may add the jar to your classpath by the means of your choice.
 
-Please note that Pushy requires netty-tcnative 1.1.33.Fork17 or newer. Additionally, you'll need [`alpn-api`](http://mvnrepository.com/artifact/org.eclipse.jetty.alpn/alpn-api) as a `runtime` dependency for your project. If you're managing dependencies manually, you'll just need to make sure the latest version of `alpn-api` is available on your classpath.
+Please note that Pushy requires netty-tcnative 1.1.33.Fork18 or newer. Additionally, you'll need [`alpn-api`](http://mvnrepository.com/artifact/org.eclipse.jetty.alpn/alpn-api) as a `runtime` dependency for your project. If you're managing dependencies manually, you'll just need to make sure the latest version of `alpn-api` is available on your classpath.
 
 ### Using Jetty's ALPN implementation
 
