@@ -21,6 +21,7 @@
 package com.relayrides.pushy.apns.util;
 
 import java.util.Date;
+import java.util.Objects;
 
 import com.relayrides.pushy.apns.ApnsPushNotification;
 import com.relayrides.pushy.apns.DeliveryPriority;
@@ -46,12 +47,9 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * An "immediate" delivery priority is used for the notification, and as such the payload should contain an alert,
      * sound, or badge component.
      *
-     * @param token
-     *            the device token to which this push notification should be delivered
-     * @param topic
-     *            the topic to which this notification should be sent
-     * @param payload
-     *            the payload to include in this push notification
+     * @param token the device token to which this push notification should be delivered; must not be {@code null}
+     * @param topic the topic to which this notification should be sent; must not be {@code null}
+     * @param payload the payload to include in this push notification; must not be {@code null}
      *
      * @see DeliveryPriority#IMMEDIATE
      */
@@ -64,15 +62,11 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * delivery priority is used for the notification, and as such the payload should contain an alert, sound, or badge
      * component.
      *
-     * @param token
-     *            the device token to which this push notification should be delivered
-     * @param topic
-     *            the topic to which this notification should be sent
-     * @param payload
-     *            the payload to include in this push notification
-     * @param invalidationTime
-     *            the time at which Apple's servers should stop trying to deliver this message; if
-     *            {@code null}, no delivery attempts beyond the first will be made
+     * @param token the device token to which this push notification should be delivered; must not be {@code null}
+     * @param topic the topic to which this notification should be sent; must not be {@code null}
+     * @param payload the payload to include in this push notification; must not be {@code null}
+     * @param invalidationTime the time at which Apple's servers should stop trying to deliver this message; if
+     * {@code null}, no delivery attempts beyond the first will be made
      *
      * @see DeliveryPriority#IMMEDIATE
      */
@@ -84,20 +78,19 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * Constructs a new push notification with the given token, topic, payload, delivery expiration time, and delivery
      * priority.
      *
-     * @param token
-     *            the device token to which this push notification should be delivered
-     * @param topic
-     *            the topic to which this notification should be sent
-     * @param payload
-     *            the payload to include in this push notification
-     * @param invalidationTime
-     *            the time at which Apple's servers should stop trying to deliver this message; if
-     *            {@code null}, no delivery attempts beyond the first will be made
-     * @param priority
-     *            the priority with which this notification should be delivered to the receiving device
+     * @param token the device token to which this push notification should be delivered; must not be {@code null}
+     * @param topic the topic to which this notification should be sent; must not be {@code null}
+     * @param payload the payload to include in this push notification; must not be {@code null}
+     * @param invalidationTime the time at which Apple's servers should stop trying to deliver this message; if
+     * {@code null}, no delivery attempts beyond the first will be made
+     * @param priority the priority with which this notification should be delivered to the receiving device; must not
+     * be {@code null}
      */
-    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime,
-            final DeliveryPriority priority) {
+    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority) {
+        Objects.requireNonNull(token);
+        Objects.requireNonNull(topic);
+        Objects.requireNonNull(payload);
+        Objects.requireNonNull(priority);
 
         this.token = token;
         this.payload = payload;

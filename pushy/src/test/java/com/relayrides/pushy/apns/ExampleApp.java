@@ -1,6 +1,5 @@
 package com.relayrides.pushy.apns;
 
-import java.io.File;
 import java.net.InetSocketAddress;
 import java.util.concurrent.ExecutionException;
 
@@ -27,7 +26,6 @@ public class ExampleApp {
         // password-protected PKCS#12 file.
         final ApnsClient<SimpleApnsPushNotification> apnsClient =
                 new ApnsClientBuilder<SimpleApnsPushNotification>()
-                .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
                 .build();
 
         // Optional: we can listen for metrics by setting a metrics listener.

@@ -22,6 +22,8 @@ package com.relayrides.pushy.apns;
 
 import java.lang.reflect.Type;
 import java.util.Date;
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
@@ -32,18 +34,25 @@ import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 
-class DateAsMillisecondsSinceEpochTypeAdapter implements JsonSerializer<Date>, JsonDeserializer<Date> {
+class DateAsTimeSinceEpochTypeAdapter implements JsonSerializer<Date>, JsonDeserializer<Date> {
+
+    private final TimeUnit timeUnit;
+
+    public DateAsTimeSinceEpochTypeAdapter(final TimeUnit timeUnit) {
+        Objects.requireNonNull(timeUnit);
+        this.timeUnit = timeUnit;
+    }
 
     @Override
     public Date deserialize(final JsonElement json, final Type typeOfT, final JsonDeserializationContext context) throws JsonParseException {
         final Date date;
 
         if (json.isJsonPrimitive()) {
-            date = new Date(json.getAsLong());
+            date = new Date(this.timeUnit.toMillis(json.getAsLong()));
         } else if (json.isJsonNull()) {
             date = null;
         } else {
-            throw new JsonParseException("Dates represented as seconds since the epoch must either be numbers or null.");
+            throw new JsonParseException("Dates represented as time since the epoch must either be numbers or null.");
         }
 
         return date;
@@ -54,7 +63,7 @@ class DateAsMillisecondsSinceEpochTypeAdapter implements JsonSerializer<Date>, J
         final JsonElement element;
 
         if (src != null) {
-            element = new JsonPrimitive(src.getTime());
+            element = new JsonPrimitive(this.timeUnit.convert(src.getTime(), TimeUnit.MILLISECONDS));
         } else {
             element = JsonNull.INSTANCE;
         }

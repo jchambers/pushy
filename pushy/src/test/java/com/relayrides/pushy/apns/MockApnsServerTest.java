@@ -12,8 +12,8 @@ import io.netty.channel.nio.NioEventLoopGroup;
 
 public class MockApnsServerTest {
 
-    private static final String SERVER_CERTIFICATE_FILENAME = "/server.pem";
-    private static final String SERVER_KEY_FILENAME = "/server.key";
+    private static final String SERVER_CERTIFICATE_FILENAME = "/server-cert.pem";
+    private static final String SERVER_KEY_FILENAME = "/server-key.pem";
 
     private static final int PORT = 8443;
 
@@ -37,7 +37,7 @@ public class MockApnsServerTest {
 
         assertFalse(this.server.isTokenRegisteredForTopic(token, topic));
 
-        this.server.addToken(topic, token, null);
+        this.server.registerDeviceTokenForTopic(topic, token, null);
         assertTrue(this.server.isTokenRegisteredForTopic(token, topic));
     }
 
@@ -46,7 +46,7 @@ public class MockApnsServerTest {
         final String token = "example-token";
         final String topic = "com.example.topic";
 
-        this.server.addToken(topic, token, null);
+        this.server.registerDeviceTokenForTopic(topic, token, null);
         assertTrue(this.server.isTokenRegisteredForTopic(token, topic));
 
         this.server.clearTokens();
@@ -61,7 +61,7 @@ public class MockApnsServerTest {
             final String token = "example-token";
             final Date expiration = new Date();
 
-            this.server.addToken(topic, token, expiration);
+            this.server.registerDeviceTokenForTopic(topic, token, expiration);
             assertEquals(expiration, this.server.getExpirationTimestampForTokenInTopic(token, topic));
         }
 
@@ -70,7 +70,7 @@ public class MockApnsServerTest {
         {
             final String token = "token-without-expiration";
 
-            this.server.addToken(topic, token, null);
+            this.server.registerDeviceTokenForTopic(topic, token, null);
             assertNull(this.server.getExpirationTimestampForTokenInTopic(token, topic));
         }
     }

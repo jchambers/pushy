@@ -1,9 +1,18 @@
 package com.relayrides.pushy.apns;
 
+
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+import java.security.Signature;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -32,7 +41,7 @@ import io.netty.util.concurrent.SucceededFuture;
  *
  * <p>Mock servers maintain a registry of tokens for a variety of topics. When first created, no tokens are registered
  * with a mock server, and all attempts to send notifications will fail until at least one token is registered via the
- * {@link com.relayrides.pushy.apns.MockApnsServer#addToken(String, String, Date)} method.</p>
+ * {@link com.relayrides.pushy.apns.MockApnsServer#registerDeviceTokenForTopic(String, String, Date)} method.</p>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
@@ -44,6 +53,10 @@ public class MockApnsServer {
     private final boolean shouldShutDownEventLoopGroup;
 
     private final Map<String, Map<String, Date>> tokenExpirationsByTopic = new HashMap<>();
+
+    private final Map<String, Signature> signaturesByKeyId = new HashMap<>();
+    private final Map<String, String> teamIdsByKeyId = new HashMap<>();
+    private final Map<String, Set<String>> topicsByTeamId = new HashMap<>();
 
     private ChannelGroup allChannels;
 
@@ -103,16 +116,48 @@ public class MockApnsServer {
         return channelFuture;
     }
 
+    public void registerPublicKey(final String teamId, final String keyId, final PublicKey publicKey) throws NoSuchAlgorithmException, InvalidKeyException {
+        final Signature signature = Signature.getInstance("SHA256withECDSA");
+        signature.initVerify(publicKey);
+
+        this.signaturesByKeyId.put(keyId, signature);
+        this.teamIdsByKeyId.put(keyId, teamId);
+    }
+
+    public void registerTopicsForTeamId(final String teamId, final String... topics) {
+        this.registerTopicsForTeamId(teamId, Arrays.asList(topics));
+    }
+
+    public void registerTopicsForTeamId(final String teamId, final Collection<String> topics) {
+        if (!this.topicsByTeamId.containsKey(teamId)) {
+            this.topicsByTeamId.put(teamId, new HashSet<String>());
+        }
+
+        this.topicsByTeamId.get(teamId).addAll(topics);
+    }
+
+    protected Signature getSignatureForKeyId(final String keyId) {
+        return this.signaturesByKeyId.get(keyId);
+    }
+
+    protected String getTeamIdForKeyId(final String keyId) {
+        return this.teamIdsByKeyId.get(keyId);
+    }
+
+    protected Set<String> getTopicsForTeamId(final String teamId) {
+        return this.topicsByTeamId.get(teamId);
+    }
+
     /**
-     * Registers a new token for a specific topic. Registered tokens may have an expiration date; attempts to send
-     * notifications to tokens with expiration dates in the past will fail.
+     * Registers a new device token for a specific topic. Registered tokens may have an expiration date; attempts to
+     * send notifications to tokens with expiration dates in the past will fail.
      *
      * @param topic the topic for which to register the given token
      * @param token the token to register
      * @param expiration the time at which the token expires (or expired); may be {@code null}, in which case the token
      * never expires
      */
-    public void addToken(final String topic, final String token, final Date expiration) {
+    public void registerDeviceTokenForTopic(final String topic, final String token, final Date expiration) {
         Objects.requireNonNull(topic);
         Objects.requireNonNull(token);
 

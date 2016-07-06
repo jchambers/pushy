@@ -21,6 +21,12 @@
 package com.relayrides.pushy.apns;
 
 import java.net.InetSocketAddress;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -105,8 +111,10 @@ import io.netty.util.concurrent.SucceededFuture;
  */
 public class ApnsClient<T extends ApnsPushNotification> {
     private final Bootstrap bootstrap;
-    private volatile ProxyHandlerFactory proxyHandlerFactory;
     private final boolean shouldShutDownEventLoopGroup;
+
+    private final Map<String, AuthenticationTokenSupplier> authenticationTokenSuppliersByTeamId = new HashMap<>();
+    private final Map<String, String> teamIdsByTopic = new HashMap<>();
 
     private long writeTimeoutMillis = DEFAULT_WRITE_TIMEOUT_MILLIS;
     private Long gracefulShutdownTimeoutMillis;
@@ -120,7 +128,9 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
 
+    private volatile ProxyHandlerFactory proxyHandlerFactory;
     private ApnsClientMetricsListener metricsListener = new NoopMetricsListener();
+
     private final AtomicLong nextNotificationId = new AtomicLong(0);
 
     /**
@@ -184,6 +194,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private static final long INITIAL_RECONNECT_DELAY_SECONDS = 1; // second
     private static final long MAX_RECONNECT_DELAY_SECONDS = 60; // seconds
     static final int PING_IDLE_TIME_MILLIS = 60_000; // milliseconds
+
+    static final String EXPIRED_AUTH_TOKEN_REASON = "ExpiredProviderToken";
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
@@ -591,6 +603,36 @@ public class ApnsClient<T extends ApnsPushNotification> {
         return reconnectionFuture;
     }
 
+    public void registerSigningKey(final String teamId, final String keyId, final PrivateKey signingKey) throws InvalidKeyException, NoSuchAlgorithmException {
+        this.authenticationTokenSuppliersByTeamId.put(teamId, new AuthenticationTokenSupplier(teamId, keyId, signingKey));
+    }
+
+    public void registerTopicsForTeamId(final String teamId, final String... topics) {
+        this.registerTopicsForTeamId(teamId, Arrays.asList(topics));
+    }
+
+    public void registerTopicsForTeamId(final String teamId, final Collection<String> topics) {
+        for (final String topic : topics) {
+            this.teamIdsByTopic.put(topic, teamId);
+        }
+    }
+
+    protected AuthenticationTokenSupplier getAuthenticationTokenSupplierForTopic(final String topic) throws NoKeyForTopicException {
+        final String teamId = this.teamIdsByTopic.get(topic);
+
+        if (teamId == null) {
+            throw new NoKeyForTopicException("No team found for topic " + topic);
+        }
+
+        final AuthenticationTokenSupplier supplier = this.authenticationTokenSuppliersByTeamId.get(teamId);
+
+        if (supplier == null) {
+            throw new NoKeyForTopicException("No signing key found for topic " + topic);
+        }
+
+        return supplier;
+    }
+
     /**
      * <p>Sends a push notification to the APNs gateway.</p>
      *
@@ -623,6 +665,10 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * @since 0.5
      */
     public Future<PushNotificationResponse<T>> sendNotification(final T notification) {
+        return this.sendNotification(notification, null);
+    }
+
+    private Future<PushNotificationResponse<T>> sendNotification(final T notification, final Promise<PushNotificationResponse<T>> promise) {
         final Future<PushNotificationResponse<T>> responseFuture;
         final long notificationId = this.nextNotificationId.getAndIncrement();
 
@@ -634,8 +680,8 @@ public class ApnsClient<T extends ApnsPushNotification> {
         final ChannelPromise connectionReadyPromise = this.connectionReadyPromise;
 
         if (connectionReadyPromise != null && connectionReadyPromise.isSuccess() && connectionReadyPromise.channel().isActive()) {
-            final DefaultPromise<PushNotificationResponse<T>> responsePromise =
-                    new DefaultPromise<>(connectionReadyPromise.channel().eventLoop());
+            final Promise<PushNotificationResponse<T>> responsePromise = promise != null ?
+                    promise : new DefaultPromise<PushNotificationResponse<T>>(connectionReadyPromise.channel().eventLoop());
 
             connectionReadyPromise.channel().eventLoop().submit(new Runnable() {
 
@@ -702,7 +748,13 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
         // This will always be called from inside the channel's event loop, so we don't have to worry about
         // synchronization.
-        this.responsePromises.remove(response.getPushNotification()).setSuccess(response);
+        final Promise<PushNotificationResponse<T>> responsePromise = this.responsePromises.remove(response.getPushNotification());
+
+        if (EXPIRED_AUTH_TOKEN_REASON.equals(response.getRejectionReason())) {
+            this.sendNotification(response.getPushNotification(), responsePromise);
+        } else {
+            responsePromise.setSuccess(response);
+        }
     }
 
     /**
