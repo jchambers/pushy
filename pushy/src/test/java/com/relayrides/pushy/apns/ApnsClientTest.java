@@ -652,6 +652,54 @@ public class ApnsClientTest {
     }
 
     @Test
+    public void testSendNotificationWithInternalServerError() throws Exception {
+        // Shut down the "normal" server to free the port
+        this.tearDown();
+
+        final MockApnsServer terribleTerribleServer;
+        {
+            final PrivateKeyEntry privateKeyEntry = P12Util.getFirstPrivateKeyEntryFromP12InputStream(
+                    MockApnsServer.class.getResourceAsStream(SERVER_KEYSTORE), SERVER_KEYSTORE_PASSWORD);
+
+            terribleTerribleServer = new MockApnsServerBuilder()
+                    .setServerCredentials(new X509Certificate[] { (X509Certificate) privateKeyEntry.getCertificate() }, privateKeyEntry.getPrivateKey(), null)
+                    .setTrustedClientCertificateChain(CA_CERTIFICATE)
+                    .setEventLoopGroup(EVENT_LOOP_GROUP)
+                    .setEmulateInternalErrors(true)
+                    .build();
+        }
+
+        final ApnsClient<SimpleApnsPushNotification> unfortunateClient;
+
+        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
+            unfortunateClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
+                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                    .setEventLoopGroup(EVENT_LOOP_GROUP)
+                    .build();
+        }
+
+        terribleTerribleServer.start(PORT).await();
+        unfortunateClient.connect(HOST, PORT).await();
+
+        try {
+            final SimpleApnsPushNotification pushNotification =
+                    new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), DEFAULT_TOPIC, "test-payload");
+
+            final Future<PushNotificationResponse<SimpleApnsPushNotification>> future =
+                    unfortunateClient.sendNotification(pushNotification).await();
+
+            assertTrue(future.isDone());
+            assertFalse(future.isSuccess());
+            assertTrue(future.cause() instanceof ApnsServerException);
+        } finally {
+            unfortunateClient.disconnect().await();
+            Thread.sleep(10);
+            terribleTerribleServer.shutdown().await();
+        }
+    }
+
+    @Test
     public void testWriteFailureMetrics() throws Exception {
         final ApnsClient<SimpleApnsPushNotification> unconnectedClient;
 

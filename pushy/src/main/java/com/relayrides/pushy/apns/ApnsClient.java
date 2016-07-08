@@ -705,6 +705,14 @@ public class ApnsClient<T extends ApnsPushNotification> {
         this.responsePromises.remove(response.getPushNotification()).setSuccess(response);
     }
 
+    protected void handleServerError(final T pushNotification, final String message) {
+        log.warn("APNs server reported an internal error when sending {}.", pushNotification);
+
+        // This will always be called from inside the channel's event loop, so we don't have to worry about
+        // synchronization.
+        this.responsePromises.remove(pushNotification).tryFailure(new ApnsServerException(message));
+    }
+
     /**
      * <p>Gracefully disconnects from the APNs gateway. The disconnection process will wait until notifications that
      * have been sent to the APNs server have been either accepted or rejected. Note that some notifications passed to

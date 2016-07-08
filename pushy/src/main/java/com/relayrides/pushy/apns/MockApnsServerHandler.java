@@ -85,11 +85,11 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
 
         public String getReasonText() {
-            return reasonText;
+            return this.reasonText;
         }
 
         public HttpResponseStatus getHttpResponseStatus() {
-            return httpResponseStatus;
+            return this.httpResponseStatus;
         }
     }
 
@@ -169,6 +169,18 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
     }
 
+    private static class InternalServerErrorResponse {
+        private final int streamId;
+
+        public InternalServerErrorResponse(final int streamId) {
+            this.streamId = streamId;
+        }
+
+        public int getStreamId() {
+            return this.streamId;
+        }
+    }
+
     protected MockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final MockApnsServer apnsServer) {
         super(decoder, encoder, initialSettings);
         this.apnsServer = apnsServer;
@@ -197,6 +209,10 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
     @Override
     public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
+        if (this.apnsServer.shouldEmulateInternalErrors()) {
+            context.channel().writeAndFlush(new InternalServerErrorResponse(streamId));
+        }
+
         if (!HttpMethod.POST.asciiName().contentEquals(headers.get(Http2Headers.PseudoHeaderName.METHOD.value()))) {
             context.channel().writeAndFlush(new RejectNotificationResponse(streamId, null, ErrorReason.METHOD_NOT_ALLOWED));
             return;
@@ -361,6 +377,13 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             final PromiseCombiner promiseCombiner = new PromiseCombiner();
             promiseCombiner.addAll(headersPromise, dataPromise);
             promiseCombiner.finish(writePromise);
+        } else if (message instanceof InternalServerErrorResponse) {
+            final InternalServerErrorResponse internalServerErrorResponse = (InternalServerErrorResponse) message;
+
+            final Http2Headers headers = new DefaultHttp2Headers();
+            headers.status(HttpResponseStatus.INTERNAL_SERVER_ERROR.codeAsText());
+
+            this.encoder().writeHeaders(context, internalServerErrorResponse.getStreamId(), headers, 0, true, writePromise);
         } else {
             context.write(message, writePromise);
         }

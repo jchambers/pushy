@@ -47,6 +47,8 @@ public class MockApnsServer {
 
     private ChannelGroup allChannels;
 
+    private boolean emulateInternalErrors = false;
+
     protected MockApnsServer(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
         this.bootstrap = new ServerBootstrap();
 
@@ -140,6 +142,14 @@ public class MockApnsServer {
         final Map<String, Date> tokensWithinTopic = this.tokenExpirationsByTopic.get(topic);
 
         return tokensWithinTopic != null ? tokensWithinTopic.get(token) : null;
+    }
+
+    protected void setEmulateInternalErrors(final boolean emulateInternalErrors) {
+        this.emulateInternalErrors = emulateInternalErrors;
+    }
+
+    protected boolean shouldEmulateInternalErrors() {
+        return this.emulateInternalErrors;
     }
 
     /**
