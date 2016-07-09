@@ -72,6 +72,8 @@ public class MockApnsServerBuilder {
 
     private EventLoopGroup eventLoopGroup;
 
+    private boolean emulateInternalErrors = false;
+
     private static final Logger log = LoggerFactory.getLogger(MockApnsServerBuilder.class);
 
     /**
@@ -236,6 +238,22 @@ public class MockApnsServerBuilder {
     }
 
     /**
+     * Sets whether the server under construction should respond to all notifications with an internal server error. By
+     * default, the server will respond to notifications normally.
+     *
+     * @param emulateInternalErrors {@code true} if the server should respond to all notifications with an internal
+     * server error or {@code false} otherwise
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.8
+     */
+    public MockApnsServerBuilder setEmulateInternalErrors(final boolean emulateInternalErrors) {
+        this.emulateInternalErrors = emulateInternalErrors;
+        return this;
+    }
+
+    /**
      * Constructs a new {@link MockApnsServer} with the previously-set configuration.
      *
      * @return a new MockApnsServer instance with the previously-set configuration
@@ -275,13 +293,13 @@ public class MockApnsServerBuilder {
             }
 
             sslContextBuilder.sslProvider(sslProvider)
-                    .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-                    .clientAuth(ClientAuth.REQUIRE)
-                    .applicationProtocolConfig(new ApplicationProtocolConfig(
-                            Protocol.ALPN,
-                            SelectorFailureBehavior.NO_ADVERTISE,
-                            SelectedListenerFailureBehavior.ACCEPT,
-                            ApplicationProtocolNames.HTTP_2));
+            .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
+            .clientAuth(ClientAuth.REQUIRE)
+            .applicationProtocolConfig(new ApplicationProtocolConfig(
+                    Protocol.ALPN,
+                    SelectorFailureBehavior.NO_ADVERTISE,
+                    SelectedListenerFailureBehavior.ACCEPT,
+                    ApplicationProtocolNames.HTTP_2));
 
             if (this.trustedClientCertificatePemFile != null) {
                 sslContextBuilder.trustManager(this.trustedClientCertificatePemFile);
@@ -294,7 +312,10 @@ public class MockApnsServerBuilder {
             sslContext = sslContextBuilder.build();
         }
 
-        return new MockApnsServer(sslContext, this.eventLoopGroup);
+        final MockApnsServer server = new MockApnsServer(sslContext, this.eventLoopGroup);
+        server.setEmulateInternalErrors(this.emulateInternalErrors);
+
+        return server;
     }
 
 }
