@@ -9,6 +9,7 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.DefaultChannelGroup;
@@ -61,6 +62,7 @@ public class MockApnsServer {
         }
 
         this.bootstrap.channel(SocketChannelClassUtil.getServerSocketChannelClass(this.bootstrap.config().group()));
+        this.bootstrap.option(ChannelOption.AUTO_FLUSH, true);
         this.bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
 
             @Override
