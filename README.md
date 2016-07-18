@@ -86,7 +86,7 @@ try {
             sendNotificationFuture.get();
 
     if (pushNotificationResponse.isAccepted()) {
-        System.out.println("Push notitification accepted by APNs gateway.");
+        System.out.println("Push notification accepted by APNs gateway.");
     } else {
         System.out.println("Notification rejected by the APNs gateway: " +
                 pushNotificationResponse.getRejectionReason());
