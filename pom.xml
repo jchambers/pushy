@@ -5,7 +5,7 @@
     <groupId>com.relayrides</groupId>
     <artifactId>pushy-parent</artifactId>
     <packaging>pom</packaging>
-    <version>0.8-SNAPSHOT</version>
+    <version>0.8.1-SNAPSHOT</version>
     <name>Pushy parent</name>
     <description>A Java library for sending push notifications</description>
 
@@ -30,12 +30,23 @@
     </licenses>
 
     <properties>
-        <netty.version>4.1.2.Final</netty.version>
+        <netty.version>4.1.4.Final</netty.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.0.2</version>
+                <configuration>
+                    <excludes>
+                        <exclude>**/.gitignore</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>

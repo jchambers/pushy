@@ -120,4 +120,23 @@ public interface ApnsPushNotification {
      * @since 0.5
      */
     String getTopic();
+
+    /**
+     * <p>
+     * Returns the id of the notification. This is generally used for notification management
+     * app.
+     * </p>
+     *
+     * <p>
+     * Some (older) APNs notifications did not include apns-collaps-id header; this header may be {@code null}, in which case the APNs gateway will ignore it
+     * </p>
+     *
+     * @return the apns-collapse-id to
+     *
+     * @see <a href=
+     *      "https://developer.apple.com/videos/play/wwdc2016/707/">
+     *      APNs Notification managment</a>
+     *
+     */
+    String getCollapseId();
 }

@@ -5,7 +5,6 @@ import java.io.File;
 import com.codahale.metrics.MetricRegistry;
 import com.relayrides.pushy.apns.ApnsClient;
 import com.relayrides.pushy.apns.ApnsClientBuilder;
-import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 public class ExampleApp {
 
@@ -17,8 +16,7 @@ public class ExampleApp {
         final DropwizardApnsClientMetricsListener listener =
                 new DropwizardApnsClientMetricsListener();
 
-        final ApnsClient<SimpleApnsPushNotification> apnsClient =
-                new ApnsClientBuilder<SimpleApnsPushNotification>()
+        final ApnsClient apnsClient = new ApnsClientBuilder()
                 .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
                 .setMetricsListener(listener)
                 .build();

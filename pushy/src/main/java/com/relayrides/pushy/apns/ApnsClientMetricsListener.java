@@ -48,7 +48,7 @@ public interface ApnsClientMetricsListener {
      *
      * @since 0.6
      */
-    void handleWriteFailure(ApnsClient<? extends ApnsPushNotification> apnsClient, long notificationId);
+    void handleWriteFailure(ApnsClient apnsClient, long notificationId);
 
     /**
      * Indicates that a notification was sent to the APNs server. Note that a sent notification may still be either
@@ -61,7 +61,7 @@ public interface ApnsClientMetricsListener {
      *
      * @since 0.6
      */
-    void handleNotificationSent(ApnsClient<? extends ApnsPushNotification> apnsClient, long notificationId);
+    void handleNotificationSent(ApnsClient apnsClient, long notificationId);
 
     /**
      * Indicates that a notification that was previously sent to an APNs server was accepted by the server.
@@ -72,7 +72,7 @@ public interface ApnsClientMetricsListener {
      *
      * @since 0.6
      */
-    void handleNotificationAccepted(ApnsClient<? extends ApnsPushNotification> apnsClient, long notificationId);
+    void handleNotificationAccepted(ApnsClient apnsClient, long notificationId);
 
     /**
      * Indicates that a notification that was previously sent to an APNs server was rejected by the server.
@@ -83,7 +83,7 @@ public interface ApnsClientMetricsListener {
      *
      * @since 0.6
      */
-    void handleNotificationRejected(ApnsClient<? extends ApnsPushNotification> apnsClient, long notificationId);
+    void handleNotificationRejected(ApnsClient apnsClient, long notificationId);
 
     /**
      * Indicates that the client has started an attempt to connect to an APNs server. This event will always be followed
@@ -94,7 +94,7 @@ public interface ApnsClientMetricsListener {
      *
      * @since 0.6
      */
-    void handleConnectionAttemptStarted(ApnsClient<? extends ApnsPushNotification> apnsClient);
+    void handleConnectionAttemptStarted(ApnsClient apnsClient);
 
     /**
      * Indicates that a previously-started connection attempt completed successfully.
@@ -103,7 +103,7 @@ public interface ApnsClientMetricsListener {
      *
      * @since 0.6
      */
-    void handleConnectionAttemptSucceeded(ApnsClient<? extends ApnsPushNotification> apnsClient);
+    void handleConnectionAttemptSucceeded(ApnsClient apnsClient);
 
     /**
      * Indicates that a previously-started connection attempt failed.
@@ -112,5 +112,5 @@ public interface ApnsClientMetricsListener {
      *
      * @since 0.6
      */
-    void handleConnectionAttemptFailed(ApnsClient<? extends ApnsPushNotification> apnsClient);
+    void handleConnectionAttemptFailed(ApnsClient apnsClient);
 }

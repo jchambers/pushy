@@ -31,7 +31,6 @@ import com.codahale.metrics.MetricSet;
 import com.codahale.metrics.Timer;
 import com.relayrides.pushy.apns.ApnsClient;
 import com.relayrides.pushy.apns.ApnsClientMetricsListener;
-import com.relayrides.pushy.apns.ApnsPushNotification;
 
 /**
  * <p>An {@link com.relayrides.pushy.apns.ApnsClientMetricsListener} implementation that gathers and reports metrics
@@ -188,7 +187,7 @@ public class DropwizardApnsClientMetricsListener implements ApnsClientMetricsLis
      * @param notificationId an opaque, unique identifier for the notification that could not be written
      */
     @Override
-    public void handleWriteFailure(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
+    public void handleWriteFailure(final ApnsClient apnsClient, final long notificationId) {
         this.stopTimerForNotification(notificationId);
         this.writeFailures.mark();
     }
@@ -201,7 +200,7 @@ public class DropwizardApnsClientMetricsListener implements ApnsClientMetricsLis
      * @param notificationId an opaque, unique identifier for the notification that was sent
      */
     @Override
-    public void handleNotificationSent(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
+    public void handleNotificationSent(final ApnsClient apnsClient, final long notificationId) {
         this.sentNotifications.mark();
         this.notificationTimerContexts.put(notificationId, this.notificationTimer.time());
     }
@@ -214,7 +213,7 @@ public class DropwizardApnsClientMetricsListener implements ApnsClientMetricsLis
      * @param notificationId an opaque, unique identifier for the notification that was accepted
      */
     @Override
-    public void handleNotificationAccepted(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
+    public void handleNotificationAccepted(final ApnsClient apnsClient, final long notificationId) {
         this.stopTimerForNotification(notificationId);
         this.acceptedNotifications.mark();
     }
@@ -227,7 +226,7 @@ public class DropwizardApnsClientMetricsListener implements ApnsClientMetricsLis
      * @param notificationId an opaque, unique identifier for the notification that was rejected
      */
     @Override
-    public void handleNotificationRejected(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
+    public void handleNotificationRejected(final ApnsClient apnsClient, final long notificationId) {
         this.stopTimerForNotification(notificationId);
         this.rejectedNotifications.mark();
     }
@@ -247,7 +246,7 @@ public class DropwizardApnsClientMetricsListener implements ApnsClientMetricsLis
      * {@code DropwizardApnsClientMetricsListener} instances, which should always be used for exactly one client
      */
     @Override
-    public void handleConnectionAttemptStarted(final ApnsClient<? extends ApnsPushNotification> apnsClient) {
+    public void handleConnectionAttemptStarted(final ApnsClient apnsClient) {
         this.connectionTimerContext = this.connectionTimer.time();
         this.connected = false;
     }
@@ -260,7 +259,7 @@ public class DropwizardApnsClientMetricsListener implements ApnsClientMetricsLis
      * {@code DropwizardApnsClientMetricsListener} instances, which should always be used for exactly one client
      */
     @Override
-    public void handleConnectionAttemptSucceeded(final ApnsClient<? extends ApnsPushNotification> apnsClient) {
+    public void handleConnectionAttemptSucceeded(final ApnsClient apnsClient) {
         this.stopConnectionTimer();
         this.connected = true;
     }
@@ -272,7 +271,7 @@ public class DropwizardApnsClientMetricsListener implements ApnsClientMetricsLis
      * {@code DropwizardApnsClientMetricsListener} instances, which should always be used for exactly one client
      */
     @Override
-    public void handleConnectionAttemptFailed(final ApnsClient<? extends ApnsPushNotification> apnsClient) {
+    public void handleConnectionAttemptFailed(final ApnsClient apnsClient) {
         this.stopConnectionTimer();
         this.connectionFailures.mark();
         this.connected = false;
