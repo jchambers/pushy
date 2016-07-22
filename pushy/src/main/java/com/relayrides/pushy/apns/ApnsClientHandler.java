@@ -75,6 +75,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
     private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
+    private static final AsciiString APNS_COLLAPSE_ID = new AsciiString("apns-collapse-id");
 
     private static final long STREAM_ID_RESET_THRESHOLD = Integer.MAX_VALUE - 1;
 
@@ -234,6 +235,16 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                     .authority(this.authority)
                     .path(APNS_PATH_PREFIX + pushNotification.getToken())
                     .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
+
+
+
+            if (pushNotification.getCollapseId() != null) {
+                headers.add(APNS_COLLAPSE_ID, pushNotification.getCollapseId());
+            }
+
+            if (pushNotification.getPriority() != null) {
+                headers.addInt(APNS_PRIORITY_HEADER, pushNotification.getPriority().getCode());
+            }
 
             if (pushNotification.getPriority() != null) {
                 headers.addInt(APNS_PRIORITY_HEADER, pushNotification.getPriority().getCode());
