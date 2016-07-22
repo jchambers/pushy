@@ -5,7 +5,7 @@
     <parent>
         <artifactId>pushy-parent</artifactId>
         <groupId>com.relayrides</groupId>
-        <version>0.8-SNAPSHOT</version>
+        <version>0.8.1-SNAPSHOT</version>
     </parent>
     
     <artifactId>pushy-benchmark</artifactId>
@@ -42,7 +42,7 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-tcnative-boringssl-static</artifactId>
-            <version>1.1.33.Fork18</version>
+            <version>1.1.33.Fork19</version>
         </dependency>
         <dependency>
             <groupId>org.eclipse.jetty.alpn</groupId>

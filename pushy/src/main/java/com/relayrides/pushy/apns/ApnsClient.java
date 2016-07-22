@@ -99,11 +99,9 @@ import io.netty.util.concurrent.SucceededFuture;
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
- * @param <T> the type of notification handled by the client
- *
  * @since 0.5
  */
-public class ApnsClient<T extends ApnsPushNotification> {
+public class ApnsClient {
     private final Bootstrap bootstrap;
     private volatile ProxyHandlerFactory proxyHandlerFactory;
     private final boolean shouldShutDownEventLoopGroup;
@@ -111,14 +109,11 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private long writeTimeoutMillis = DEFAULT_WRITE_TIMEOUT_MILLIS;
     private Long gracefulShutdownTimeoutMillis;
 
-    private int maxUnflushedNotifications = DEFAULT_MAX_UNFLUSHED_NOTIFICATIONS;
-    private long flushAfterIdleTimeMillis = DEFAULT_FLUSH_AFTER_IDLE_MILLIS;
-
     private volatile ChannelPromise connectionReadyPromise;
     private volatile ChannelPromise reconnectionPromise;
     private long reconnectDelaySeconds = INITIAL_RECONNECT_DELAY_SECONDS;
 
-    private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
+    private final Map<ApnsPushNotification, Promise<PushNotificationResponse<ApnsPushNotification>>> responsePromises = new IdentityHashMap<>();
 
     private ApnsClientMetricsListener metricsListener = new NoopMetricsListener();
     private final AtomicLong nextNotificationId = new AtomicLong(0);
@@ -129,21 +124,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * @since 0.6
      */
     public static final long DEFAULT_WRITE_TIMEOUT_MILLIS = 20_000;
-
-    /**
-     * The default inactivity period after which all unflushed notifications will be sent to the APNs server.
-     *
-     * @since 0.7
-     */
-    public static final long DEFAULT_FLUSH_AFTER_IDLE_MILLIS = 50;
-
-    /**
-     * The default maximum number of notifications that may be buffered by a client before being sent to the APNs
-     * server.
-     *
-     * @since 0.7
-     */
-    public static final int DEFAULT_MAX_UNFLUSHED_NOTIFICATIONS = 128;
 
     /**
      * The hostname for the production APNs gateway.
@@ -221,11 +201,10 @@ public class ApnsClient<T extends ApnsPushNotification> {
                     @Override
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                            final ApnsClientHandler<T> apnsClientHandler = new ApnsClientHandler.ApnsClientHandlerBuilder<T>()
+                            final ApnsClientHandler apnsClientHandler = new ApnsClientHandler.ApnsClientHandlerBuilder()
                                     .server(false)
                                     .apnsClient(ApnsClient.this)
                                     .authority(((InetSocketAddress) context.channel().remoteAddress()).getHostName())
-                                    .maxUnflushedNotifications(ApnsClient.this.maxUnflushedNotifications)
                                     .encoderEnforceMaxConcurrentStreams(true)
                                     .build();
 
@@ -235,7 +214,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                                 }
                             }
 
-                            context.pipeline().addLast(new IdleStateHandler(0, ApnsClient.this.flushAfterIdleTimeMillis, PING_IDLE_TIME_MILLIS, TimeUnit.MILLISECONDS));
+                            context.pipeline().addLast(new IdleStateHandler(0, 0, PING_IDLE_TIME_MILLIS, TimeUnit.MILLISECONDS));
                             context.pipeline().addLast(apnsClientHandler);
 
                             // Add this to the end of the queue so any events enqueued by the client handler happen
@@ -338,38 +317,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
     }
 
     /**
-     * <p>Sets the thresholds at which this client will flush notifications enqueued for sending to the APNs server. By
-     * default, notifications will be flushed after
-     * {@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_MAX_UNFLUSHED_NOTIFICATIONS} unflushed
-     * notifications have been enqueued or {@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_FLUSH_AFTER_IDLE_MILLIS}
-     * milliseconds of inactivity have elapsed.</p>
-     *
-     * <p>Callers may set both thresholds to zero to flush all notifications immediately, which will reduce latency at
-     * the expense of decreasing efficiency and throughput. Changes to the flushing thresholds will take effect on the
-     * next connection attempt.</p>
-     *
-     * @param maxUnflushedNotifications The maximum number of notifications that may be enqueued before the sending
-     * queue is flushed. Must be positive if {@code maxIdleTimeMillis} is also positive or zero if
-     * {@code maxIdleTimeMillis} is also zero. If zero, notifications are always sent immediately.
-     * @param maxIdleTimeMillis The maximum amount of time, in milliseconds, since the last attempt to send a
-     * notification that may elapse before the sending queue is flushed. Must be positive if
-     * {@code maxUnflushedNotifications} is also positive or zero if {@code maxUnflushedNotifications} is also zero. If
-     * zero, notifications are always sent immediately.
-     *
-     * @since 0.7
-     */
-    protected void setFlushThresholds(final int maxUnflushedNotifications, final long maxIdleTimeMillis) {
-        if ((maxUnflushedNotifications > 0 && maxIdleTimeMillis > 0) || (maxUnflushedNotifications == 0 && maxIdleTimeMillis == 0)) {
-            synchronized (this.bootstrap) {
-                this.maxUnflushedNotifications = maxUnflushedNotifications;
-                this.flushAfterIdleTimeMillis = maxIdleTimeMillis;
-            }
-        } else {
-            throw new IllegalArgumentException("Notification count and idle time must both be positive or both be zero.");
-        }
-    }
-
-    /**
      * Sets the amount of time (in milliseconds) clients should wait for in-progress requests to complete before closing
      * a connection during a graceful shutdown.
      *
@@ -385,7 +332,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
             this.gracefulShutdownTimeoutMillis = timeoutMillis;
 
             if (this.connectionReadyPromise != null) {
-                @SuppressWarnings("rawtypes")
                 final ApnsClientHandler handler = this.connectionReadyPromise.channel().pipeline().get(ApnsClientHandler.class);
 
                 if (handler != null) {
@@ -493,7 +439,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
                                 @Override
                                 public void run() {
-                                    for (final Promise<PushNotificationResponse<T>> responsePromise : ApnsClient.this.responsePromises.values()) {
+                                    for (final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise : ApnsClient.this.responsePromises.values()) {
                                         responsePromise.tryFailure(new ClientNotConnectedException("Client disconnected unexpectedly."));
                                     }
 
@@ -547,13 +493,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
     public boolean isConnected() {
         final ChannelPromise connectionReadyPromise = this.connectionReadyPromise;
         return (connectionReadyPromise != null && connectionReadyPromise.isSuccess());
-    }
-
-    /*
-     * Waits for the initial SETTINGS frame from the server after connecting. For testing purposes only.
-     */
-    void waitForInitialSettings() throws InterruptedException {
-        this.connectionReadyPromise.channel().pipeline().get(ApnsClientHandler.class).waitForInitialSettings();
     }
 
     /**
@@ -610,19 +549,17 @@ public class ApnsClient<T extends ApnsPushNotification> {
      * automatically. Callers may wait for a reconnection attempt to complete by waiting for the {@code Future} returned
      * by the {@link ApnsClient#getReconnectionFuture()} method.</p>
      *
-     * <p>Note that, depending on this client's flushing thresholds, notifications may be enqueued so they may be sent
-     * in bulk to increase efficiency and throughput at the expense of latency.</p>
-     *
      * @param notification the notification to send to the APNs gateway
+     *
+     * @param <T> the type of notification to be sent
      *
      * @return a {@code Future} that will complete when the notification has been either accepted or rejected by the
      * APNs gateway
      *
-     * @see ApnsClient#setFlushThresholds(int, long)
-     *
-     * @since 0.5
+     * @since 0.8
      */
-    public Future<PushNotificationResponse<T>> sendNotification(final T notification) {
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public <T extends ApnsPushNotification> Future<PushNotificationResponse<T>> sendNotification(final T notification) {
         final Future<PushNotificationResponse<T>> responseFuture;
         final long notificationId = this.nextNotificationId.getAndIncrement();
 
@@ -634,7 +571,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
         final ChannelPromise connectionReadyPromise = this.connectionReadyPromise;
 
         if (connectionReadyPromise != null && connectionReadyPromise.isSuccess() && connectionReadyPromise.channel().isActive()) {
-            final DefaultPromise<PushNotificationResponse<T>> responsePromise =
+            final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
                     new DefaultPromise<>(connectionReadyPromise.channel().eventLoop());
 
             connectionReadyPromise.channel().eventLoop().submit(new Runnable() {
@@ -652,7 +589,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 }
             });
 
-            connectionReadyPromise.channel().write(notification).addListener(new GenericFutureListener<ChannelFuture>() {
+            connectionReadyPromise.channel().writeAndFlush(notification).addListener(new GenericFutureListener<ChannelFuture>() {
 
                 @Override
                 public void operationComplete(final ChannelFuture future) throws Exception {
@@ -669,7 +606,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 }
             });
 
-            responseFuture = responsePromise;
+            responseFuture = (Future) responsePromise;
         } else {
             log.debug("Failed to send push notification because client is not connected: {}", notification);
             responseFuture = new FailedFuture<>(
@@ -697,15 +634,15 @@ public class ApnsClient<T extends ApnsPushNotification> {
         return responseFuture;
     }
 
-    protected void handlePushNotificationResponse(final PushNotificationResponse<T> response) {
-        log.debug("Received response from APNs gateway: {}", response);
+    protected void handlePushNotificationResponse(final PushNotificationResponse<ApnsPushNotification> pushNotificationResponse) {
+        log.debug("Received response from APNs gateway: {}", pushNotificationResponse);
 
         // This will always be called from inside the channel's event loop, so we don't have to worry about
         // synchronization.
-        this.responsePromises.remove(response.getPushNotification()).setSuccess(response);
+        this.responsePromises.remove(pushNotificationResponse.getPushNotification()).setSuccess(pushNotificationResponse);
     }
 
-    protected void handleServerError(final T pushNotification, final String message) {
+    protected void handleServerError(final ApnsPushNotification pushNotification, final String message) {
         log.warn("APNs server reported an internal error when sending {}.", pushNotification);
 
         // This will always be called from inside the channel's event loop, so we don't have to worry about
