@@ -21,6 +21,7 @@
 package com.relayrides.pushy.apns.util;
 
 import java.util.Date;
+import java.util.Objects;
 
 import com.relayrides.pushy.apns.ApnsPushNotification;
 import com.relayrides.pushy.apns.DeliveryPriority;
@@ -106,7 +107,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      */
 
     public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime,
-            final DeliveryPriority priority, final String collapseId) {
+                                      final DeliveryPriority priority, final String collapseId) {
 
         this.token = token;
         this.payload = payload;
@@ -234,8 +235,8 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
         } else if (!this.topic.equals(other.topic)) {
             return false;
         }
-        if (this.collapseId == null) {
-            if (other.collapseId != null) {
+        if (Objects.equals(this.collapseId, null)) {
+            if (!Objects.equals(other.collapseId , null)) {
                 return false;
             }
         } else if (!this.collapseId.equals(other.collapseId)) {
