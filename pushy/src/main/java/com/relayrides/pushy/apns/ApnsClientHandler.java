@@ -236,8 +236,6 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                     .path(APNS_PATH_PREFIX + pushNotification.getToken())
                     .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
 
-
-
             if (pushNotification.getCollapseId() != null) {
                 headers.add(APNS_COLLAPSE_ID, pushNotification.getCollapseId());
             }
