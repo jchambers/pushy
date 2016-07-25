@@ -246,10 +246,6 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                 headers.addInt(APNS_PRIORITY_HEADER, pushNotification.getPriority().getCode());
             }
 
-            if (pushNotification.getPriority() != null) {
-                headers.addInt(APNS_PRIORITY_HEADER, pushNotification.getPriority().getCode());
-            }
-
             if (pushNotification.getTopic() != null) {
                 headers.add(APNS_TOPIC_HEADER, pushNotification.getTopic());
             }
