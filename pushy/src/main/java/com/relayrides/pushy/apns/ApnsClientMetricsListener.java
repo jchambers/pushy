@@ -51,7 +51,9 @@ public interface ApnsClientMetricsListener {
     void handleWriteFailure(ApnsClient<? extends ApnsPushNotification> apnsClient, long notificationId);
 
     /**
-     * Indicates that a notification was sent to the APNs server.
+     * Indicates that a notification was sent to the APNs server. Note that a sent notification may still be either
+     * accepted or rejected by the APNs server later; sending the notification doesn't imply anything about the ultimate
+     * state of the notification.
      *
      * @param apnsClient the client that sent the notification
      * @param notificationId an opaque identifier for the push notification that can be used to correlate this event

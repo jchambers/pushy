@@ -172,11 +172,17 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
                 final Http2Headers headers = ApnsClientHandler.this.headersByStreamId.remove(streamId);
                 final T pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
 
-                final boolean success = HttpResponseStatus.OK.equals(HttpResponseStatus.parseLine(headers.status()));
-                final ErrorResponse errorResponse = gson.fromJson(data.toString(StandardCharsets.UTF_8), ErrorResponse.class);
+                final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
+                final String responseBody = data.toString(StandardCharsets.UTF_8);
 
-                ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(new SimplePushNotificationResponse<>(
-                        pushNotification, success, errorResponse.getReason(), errorResponse.getTimestamp()));
+                if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
+                    ApnsClientHandler.this.apnsClient.handleServerError(pushNotification, responseBody);
+                } else {
+                    final ErrorResponse errorResponse = gson.fromJson(responseBody, ErrorResponse.class);
+
+                    ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(
+                            new SimplePushNotificationResponse<>(pushNotification, HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
+                }
             } else {
                 log.error("Gateway sent a DATA frame that was not the end of a stream.");
             }
@@ -193,17 +199,22 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
         public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
             log.trace("Received headers from APNs gateway on stream {}: {}", streamId, headers);
 
-            final boolean success = HttpResponseStatus.OK.equals(HttpResponseStatus.parseLine(headers.status()));
-
             if (endOfStream) {
+                final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
+                final boolean success = HttpResponseStatus.OK.equals(status);
+
                 if (!success) {
-                    log.error("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
+                    log.warn("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
                 }
 
                 final T pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
 
-                ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(new SimplePushNotificationResponse<>(
-                        pushNotification, success, null, null));
+                if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
+                    ApnsClientHandler.this.apnsClient.handleServerError(pushNotification, null);
+                } else {
+                    ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(
+                            new SimplePushNotificationResponse<>(pushNotification, success, null, null));
+                }
             } else {
                 ApnsClientHandler.this.headersByStreamId.put(streamId, headers);
             }
