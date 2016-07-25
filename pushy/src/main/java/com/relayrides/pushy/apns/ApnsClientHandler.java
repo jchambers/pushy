@@ -81,6 +81,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
     private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
+    private static final AsciiString APNS_COLLAPSE_ID = new AsciiString("apns-collapse-id");
 
     private static final long STREAM_ID_RESET_THRESHOLD = Integer.MAX_VALUE - 1;
 
@@ -171,11 +172,17 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
                 final Http2Headers headers = ApnsClientHandler.this.headersByStreamId.remove(streamId);
                 final T pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
 
-                final boolean success = HttpResponseStatus.OK.equals(HttpResponseStatus.parseLine(headers.status()));
-                final ErrorResponse errorResponse = gson.fromJson(data.toString(StandardCharsets.UTF_8), ErrorResponse.class);
+                final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
+                final String responseBody = data.toString(StandardCharsets.UTF_8);
 
-                ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(new SimplePushNotificationResponse<>(
-                        pushNotification, success, errorResponse.getReason(), errorResponse.getTimestamp()));
+                if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
+                    ApnsClientHandler.this.apnsClient.handleServerError(pushNotification, responseBody);
+                } else {
+                    final ErrorResponse errorResponse = gson.fromJson(responseBody, ErrorResponse.class);
+
+                    ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(
+                            new SimplePushNotificationResponse<>(pushNotification, HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
+                }
             } else {
                 log.error("Gateway sent a DATA frame that was not the end of a stream.");
             }
@@ -192,17 +199,22 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
         public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
             log.trace("Received headers from APNs gateway on stream {}: {}", streamId, headers);
 
-            final boolean success = HttpResponseStatus.OK.equals(HttpResponseStatus.parseLine(headers.status()));
-
             if (endOfStream) {
+                final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
+                final boolean success = HttpResponseStatus.OK.equals(status);
+
                 if (!success) {
-                    log.error("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
+                    log.warn("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
                 }
 
                 final T pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
 
-                ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(new SimplePushNotificationResponse<>(
-                        pushNotification, success, null, null));
+                if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
+                    ApnsClientHandler.this.apnsClient.handleServerError(pushNotification, null);
+                } else {
+                    ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(
+                            new SimplePushNotificationResponse<>(pushNotification, success, null, null));
+                }
             } else {
                 ApnsClientHandler.this.headersByStreamId.put(streamId, headers);
             }
@@ -246,6 +258,10 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
                     .authority(this.authority)
                     .path(APNS_PATH_PREFIX + pushNotification.getToken())
                     .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
+
+            if (pushNotification.getCollapseId() != null) {
+                headers.add(APNS_COLLAPSE_ID, pushNotification.getCollapseId());
+            }
 
             if (pushNotification.getPriority() != null) {
                 headers.addInt(APNS_PRIORITY_HEADER, pushNotification.getPriority().getCode());

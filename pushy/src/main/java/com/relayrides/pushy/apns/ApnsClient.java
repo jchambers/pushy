@@ -20,23 +20,11 @@
 
 package com.relayrides.pushy.apns;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
 import java.net.InetSocketAddress;
-import java.security.KeyStore.PrivateKeyEntry;
-import java.security.KeyStoreException;
-import java.security.PrivateKey;
-import java.security.cert.Certificate;
-import java.security.cert.X509Certificate;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-
-import javax.net.ssl.SSLException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +32,6 @@ import org.slf4j.LoggerFactory;
 import com.relayrides.pushy.apns.proxy.ProxyHandlerFactory;
 
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
@@ -53,22 +40,10 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.oio.OioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.channel.socket.oio.OioSocketChannel;
-import io.netty.handler.codec.http2.Http2SecurityUtil;
-import io.netty.handler.ssl.ApplicationProtocolConfig;
-import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
-import io.netty.handler.ssl.OpenSsl;
 import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.handler.ssl.SslProvider;
-import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
 import io.netty.resolver.DefaultAddressResolverGroup;
@@ -91,12 +66,13 @@ import io.netty.util.concurrent.SucceededFuture;
  * and <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ProvisioningDevelopment.html#//apple_ref/doc/uid/TP40008194-CH104-SW1">certificate
  * provisioning</a>.</p>
  *
- * <p>To construct a client, callers will need to provide the certificate provisioned by Apple and its accompanying
- * private key. The certificate and key will be used to authenticate the client and identify the topics to which it can
- * send notifications. Callers may optionally specify an {@link EventLoopGroup} when constructing a new client. If no
- * event loop group is specified, clients will create and manage their own single-thread event loop group. If many
- * clients are operating in parallel, specifying a shared event loop group serves as a mechanism to keep the total
- * number of threads in check.</p>
+ * <p>Clients are constructed using an {@link ApnsClientBuilder}. To construct a client, callers will need to provide
+ * the certificate provisioned by Apple and its accompanying private key. The certificate and key will be used to
+ * authenticate the client and identify the topics to which it can send notifications. Callers may optionally specify an
+ * {@link EventLoopGroup} when constructing a new client. If no event loop group is specified, clients will create and
+ * manage their own single-thread event loop group. If many clients are operating in parallel, specifying a shared event
+ * loop group serves as a mechanism to keep the total number of threads in check. Callers may also want to provide a
+ * specific event loop group to take advantage of platform-specific features (i.e. epoll).</p>
  *
  * <p>Once a client has been constructed, it must connect to an APNs server before it can begin sending push
  * notifications. Apple provides a production and development gateway; see {@link ApnsClient#PRODUCTION_APNS_HOST} and
@@ -128,9 +104,6 @@ import io.netty.util.concurrent.SucceededFuture;
  * @since 0.5
  */
 public class ApnsClient<T extends ApnsPushNotification> {
-    private static final String EPOLL_EVENT_LOOP_GROUP_CLASS = "io.netty.channel.epoll.EpollEventLoopGroup";
-    private static final String EPOLL_SOCKET_CHANNEL_CLASS = "io.netty.channel.epoll.EpollSocketChannel";
-
     private final Bootstrap bootstrap;
     private volatile ProxyHandlerFactory proxyHandlerFactory;
     private final boolean shouldShutDownEventLoopGroup;
@@ -214,212 +187,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
-    /**
-     * <p>Creates a new APNs client that will identify itself to the APNs gateway with the certificate and key from the
-     * given PKCS#12 file. The PKCS#12 file <em>must</em> contain a certificate/private key pair. If it contains more
-     * than one certificate/private key pair, the pair that will be used is undefined.</p>
-     *
-     * <p>Clients created using this method will use a default, internally-managed event loop group. Once the client
-     * has been disconnected via the {@link ApnsClient#disconnect()} method, its event loop will be shut down and the
-     * client cannot be reconnected.</p>
-     *
-     * @param p12File a PKCS#12-formatted file containing the certificate and private key to be used to identify the
-     * client to the APNs server
-     * @param password the password to be used to decrypt the contents of the given PKCS#12 file; passwords may be blank
-     * (e.g. {@code ""}), but must not be {@code null}
-     *
-     * @throws SSLException if the given PKCS#12 file could not be loaded or if any other SSL-related problem arises
-     * when constructing the context
-     * @throws FileNotFoundException if the given PKCS#12 file could not be found
-     * @throws IOException if any IO problem occurs while attempting to read the given PKCS#12 file
-     *
-     * @since 0.5
-     */
-    public ApnsClient(final File p12File, final String password) throws SSLException, FileNotFoundException, IOException {
-        this(p12File, password, null);
-    }
-
-    /**
-     * <p>Creates a new APNs client that will identify itself to the APNs gateway with the certificate and key from the
-     * given PKCS#12 file. The PKCS#12 file <em>must</em> contain a certificate/private key pair. If it contains more
-     * than one certificate/private key pair, the pair that will be used is undefined.</p>
-     *
-     * <p>Clients created using this method will use the provided event loop group, which may be useful in cases where
-     * multiple clients are running in parallel. If a client is created using this method, it is the responsibility of
-     * the caller to shut down the event loop group. Clients created with an externally-provided event loop group may be
-     * reconnected after being shut down via the {@link ApnsClient#disconnect()} method.</p>
-     *
-     * @param p12File a PKCS#12-formatted file containing the certificate and private key to be used to identify the
-     * client to the APNs server
-     * @param password the password to be used to decrypt the contents of the given PKCS#12 file; passwords may be blank
-     * (e.g. {@code ""}), but must not be {@code null}
-     * @param eventLoopGroup the event loop group to be used to handle I/O events for this client
-     *
-     * @throws SSLException if the given PKCS#12 file could not be loaded or if any other SSL-related problem arises
-     * when constructing the context
-     * @throws FileNotFoundException if the given PKCS#12 file could not be found
-     * @throws IOException if any IO problem occurs while attempting to read the given PKCS#12 file
-     *
-     * @since 0.5
-     */
-    public ApnsClient(final File p12File, final String password, final EventLoopGroup eventLoopGroup) throws SSLException, FileNotFoundException, IOException {
-        this(ApnsClient.getSslContextWithP12File(p12File, password), eventLoopGroup);
-    }
-
-    /**
-     * <p>Creates a new APNs client that will identify itself to the APNs gateway with the certificate and key from the
-     * given PKCS#12 input stream. The PKCS#12 input stream <em>must</em> contain a single certificate/private key
-     * pair. If it contains more than one certificate/private key pair, the pair that will be used is undefined.</p>
-     *
-     * <p>Clients created using this method will use a default, internally-managed event loop group. Once the client
-     * has been disconnected via the {@link ApnsClient#disconnect()} method, its event loop will be shut down and the
-     * client cannot be reconnected.</p>
-     *
-     * @param p12InputStream an input stream for PKCS#12-formatted data containing the certificate and private key to be
-     * used to identify the client to the APNs server
-     * @param password the password to be used to decrypt the contents of the given PKCS#12 data; passwords may be blank
-     * (e.g. {@code ""}), but must not be {@code null}
-     *
-     * @throws SSLException if the given PKCS#12 data could not be loaded or if any other SSL-related problem arises
-     * when constructing the context
-     *
-     * @since 0.5.2
-     */
-    public ApnsClient(final InputStream p12InputStream, final String password) throws SSLException {
-        this(p12InputStream, password, null);
-    }
-
-    /**
-     * <p>Creates a new APNs client that will identify itself to the APNs gateway with the certificate and key from the
-     * given PKCS#12 input stream. The PKCS#12 input stream <em>must</em> contain a single certificate/private key
-     * pair. If it contains more than one certificate/private key pair, the pair that will be used is undefined.</p>
-     *
-     * <p>Clients created using this method will use the provided event loop group, which may be useful in cases where
-     * multiple clients are running in parallel. If a client is created using this method, it is the responsibility of
-     * the caller to shut down the event loop group. Clients created with an externally-provided event loop group may be
-     * reconnected after being shut down via the {@link ApnsClient#disconnect()} method.</p>
-     *
-     * @param p12InputStream an input stream for PKCS#12-formatted data containing the certificate and private key to be
-     * used to identify the client to the APNs server
-     * @param password the password to be used to decrypt the contents of the given PKCS#12 data; passwords may be blank
-     * (e.g. {@code ""}), but must not be {@code null}
-     * @param eventLoopGroup the event loop group to be used to handle I/O events for this client
-     *
-     * @throws SSLException if the given PKCS#12 data could not be loaded or if any other SSL-related problem arises
-     * when constructing the context
-     *
-     * @since 0.5.2
-     */
-    public ApnsClient(final InputStream p12InputStream, final String password, final EventLoopGroup eventLoopGroup) throws SSLException {
-        this(ApnsClient.getSslContextWithP12InputStream(p12InputStream, password), eventLoopGroup);
-    }
-
-    /**
-     * <p>Creates a new APNs client that will identify itself to the APNs gateway with the given certificate and
-     * key.</p>
-     *
-     * <p>Clients created using this method will use a default, internally-managed event loop group. Once the client
-     * has been disconnected via the {@link ApnsClient#disconnect()} method, its event loop will be shut down and the
-     * client cannot be reconnected.</p>
-     *
-     * @param certificate the certificate to be used to identify the client to the APNs server
-     * @param privateKey the private key for the client certificate
-     * @param privateKeyPassword the password to be used to decrypt the private key; may be {@code null} if the private
-     * key does not require a password
-     *
-     * @throws SSLException if the given key or certificate could not be loaded or if any other SSL-related problem
-     * arises when constructing the context
-     *
-     * @since 0.5
-     */
-    public ApnsClient(final X509Certificate certificate, final PrivateKey privateKey, final String privateKeyPassword) throws SSLException {
-        this(certificate, privateKey, privateKeyPassword, null);
-    }
-
-    /**
-     * <p>Creates a new APNs client that will identify itself to the APNs gateway with the given certificate and
-     * key.</p>
-     *
-     * <p>Clients created using this method will use the provided event loop group, which may be useful in cases where
-     * multiple clients are running in parallel. If a client is created using this method, it is the responsibility of
-     * the caller to shut down the event loop group. Clients created with an externally-provided event loop group may be
-     * reconnected after being shut down via the {@link ApnsClient#disconnect()} method.</p>
-     *
-     * @param certificate the certificate to be used to identify the client to the APNs server
-     * @param privateKey the private key for the client certificate
-     * @param privateKeyPassword the password to be used to decrypt the private key; may be {@code null} if the private
-     * key does not require a password
-     * @param eventLoopGroup the event loop group to be used to handle I/O events for this client
-     *
-     * @throws SSLException if the given key or certificate could not be loaded or if any other SSL-related problem
-     * arises when constructing the context
-     *
-     * @since 0.5
-     */
-    public ApnsClient(final X509Certificate certificate, final PrivateKey privateKey, final String privateKeyPassword, final EventLoopGroup eventLoopGroup) throws SSLException {
-        this(ApnsClient.getSslContextWithCertificateAndPrivateKey(certificate, privateKey, privateKeyPassword), eventLoopGroup);
-    }
-
-    private static SslContext getSslContextWithP12File(final File p12File, final String password) throws FileNotFoundException, SSLException, IOException {
-        try (final InputStream p12InputStream = new FileInputStream(p12File)) {
-            return ApnsClient.getSslContextWithP12InputStream(p12InputStream, password);
-        }
-    }
-
-    private static SslContext getSslContextWithP12InputStream(final InputStream p12InputStream, final String password) throws SSLException {
-        final X509Certificate x509Certificate;
-        final PrivateKey privateKey;
-
-        try {
-            final PrivateKeyEntry privateKeyEntry = P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, password);
-
-            final Certificate certificate = privateKeyEntry.getCertificate();
-
-            if (!(certificate instanceof X509Certificate)) {
-                throw new KeyStoreException("Found a certificate in the provided PKCS#12 file, but it was not an X.509 certificate.");
-            }
-
-            x509Certificate = (X509Certificate) certificate;
-            privateKey = privateKeyEntry.getPrivateKey();
-        } catch (final KeyStoreException | IOException e) {
-            throw new SSLException(e);
-        }
-
-        return ApnsClient.getSslContextWithCertificateAndPrivateKey(x509Certificate, privateKey, password);
-    }
-
-    private static SslContext getSslContextWithCertificateAndPrivateKey(final X509Certificate certificate, final PrivateKey privateKey, final String privateKeyPassword) throws SSLException {
-        return ApnsClient.getBaseSslContextBuilder()
-                .keyManager(privateKey, privateKeyPassword, certificate)
-                .build();
-    }
-
-    private static SslContextBuilder getBaseSslContextBuilder() {
-        final SslProvider sslProvider;
-
-        if (OpenSsl.isAvailable()) {
-            if (OpenSsl.isAlpnSupported()) {
-                log.info("OpenSSL (via netty-tcnative) is available and supports ALPN; will use OpenSSL.");
-                sslProvider = SslProvider.OPENSSL;
-            } else {
-                log.info("OpenSSL (via netty-tcnative) is available, but does not support ALPN; will use JDK SSL provider.");
-                sslProvider = SslProvider.JDK;
-            }
-        } else {
-            log.info("OpenSSL (via netty-tcnative) not available; will use JDK SSL provider.");
-            sslProvider = SslProvider.JDK;
-        }
-
-        return SslContextBuilder.forClient()
-                .sslProvider(sslProvider)
-                .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-                .applicationProtocolConfig(
-                        new ApplicationProtocolConfig(Protocol.ALPN,
-                                SelectorFailureBehavior.NO_ADVERTISE,
-                                SelectedListenerFailureBehavior.ACCEPT,
-                                ApplicationProtocolNames.HTTP_2));
-    }
-
     protected ApnsClient(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
         this.bootstrap = new Bootstrap();
 
@@ -431,7 +198,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
             this.shouldShutDownEventLoopGroup = true;
         }
 
-        this.bootstrap.channel(this.getSocketChannelClass(this.bootstrap.config().group()));
+        this.bootstrap.channel(SocketChannelClassUtil.getSocketChannelClass(this.bootstrap.config().group()));
         this.bootstrap.option(ChannelOption.TCP_NODELAY, true);
         this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
@@ -506,45 +273,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
     }
 
     /**
-     * Returns socket channel class suitable for specified event loop group.
-     *
-     * @param eventLoopGroup
-     * @return socket channel class
-     * @throws IllegalArgumentException in case of null or unrecognized event loop group.
-     */
-    private Class<? extends Channel> getSocketChannelClass(final EventLoopGroup eventLoopGroup) {
-        if (eventLoopGroup == null) {
-            log.warn("Asked for socket channel class to work with null event loop group, returning NioSocketChannel class.");
-            return NioSocketChannel.class;
-        }
-
-        if (eventLoopGroup instanceof NioEventLoopGroup) {
-            return NioSocketChannel.class;
-        } else if (eventLoopGroup instanceof OioEventLoopGroup) {
-            return OioSocketChannel.class;
-        }
-
-        // epoll?
-        final String className = eventLoopGroup.getClass().getName();
-        if (EPOLL_EVENT_LOOP_GROUP_CLASS.equals(className)) {
-            return this.loadSocketChannelClass(EPOLL_SOCKET_CHANNEL_CLASS);
-        }
-
-        throw new IllegalArgumentException(
-                "Don't know which socket channel class to return for event loop group " + className);
-    }
-
-    private Class<? extends Channel> loadSocketChannelClass(final String className) {
-        try {
-            final Class<?> clazz = Class.forName(className);
-            log.debug("Loaded socket channel class: {}", clazz);
-            return clazz.asSubclass(Channel.class);
-        } catch (final ClassNotFoundException e) {
-            throw new IllegalArgumentException(e.getMessage(), e);
-        }
-    }
-
-    /**
      * Sets the maximum amount of time, in milliseconds, that a client will wait to establish a connection with the
      * APNs server before the connection attempt is considered a failure.
      *
@@ -552,7 +280,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @since 0.5
      */
-    public void setConnectionTimeout(final int timeoutMillis) {
+    protected void setConnectionTimeout(final int timeoutMillis) {
         synchronized (this.bootstrap) {
             this.bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, timeoutMillis);
         }
@@ -567,8 +295,24 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @since 0.6
      */
-    public void setMetricsListener(final ApnsClientMetricsListener metricsListener) {
+    protected void setMetricsListener(final ApnsClientMetricsListener metricsListener) {
         this.metricsListener = metricsListener != null ? metricsListener : new NoopMetricsListener();
+    }
+
+    /**
+     * Sets the proxy handler factory to be used to construct proxy handlers when establishing a new connection to the
+     * APNs gateway. Proxy handlers are added to the beginning of the client's pipeline. A client's proxy handler
+     * factory may be {@code null}, in which case the client will connect to the gateway directly and will not use a
+     * proxy. By default, clients will not use a proxy.
+     *
+     * @param proxyHandlerFactory the proxy handler factory to be used to construct proxy handlers, or {@code null} if
+     * this client should not use a proxy
+     *
+     * @since 0.6
+     */
+    protected void setProxyHandlerFactory(final ProxyHandlerFactory proxyHandlerFactory) {
+        this.proxyHandlerFactory = proxyHandlerFactory;
+        this.bootstrap.resolver(proxyHandlerFactory == null ? DefaultAddressResolverGroup.INSTANCE : NoopAddressResolverGroup.INSTANCE);
     }
 
     /**
@@ -589,7 +333,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @since 0.6
      */
-    public void setWriteTimeout(final long writeTimeoutMillis) {
+    protected void setWriteTimeout(final long writeTimeoutMillis) {
         this.writeTimeoutMillis = writeTimeoutMillis;
     }
 
@@ -614,7 +358,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @since 0.7
      */
-    public void setFlushThresholds(final int maxUnflushedNotifications, final long maxIdleTimeMillis) {
+    protected void setFlushThresholds(final int maxUnflushedNotifications, final long maxIdleTimeMillis) {
         if ((maxUnflushedNotifications > 0 && maxIdleTimeMillis > 0) || (maxUnflushedNotifications == 0 && maxIdleTimeMillis == 0)) {
             synchronized (this.bootstrap) {
                 this.maxUnflushedNotifications = maxUnflushedNotifications;
@@ -626,19 +370,29 @@ public class ApnsClient<T extends ApnsPushNotification> {
     }
 
     /**
-     * Sets the proxy handler factory to be used to construct proxy handlers when establishing a new connection to the
-     * APNs gateway. Proxy handlers are added to the beginning of the client's pipeline. A client's proxy handler
-     * factory may be {@code null}, in which case the client will connect to the gateway directly and will not use a
-     * proxy. By default, clients will not use a proxy.
+     * Sets the amount of time (in milliseconds) clients should wait for in-progress requests to complete before closing
+     * a connection during a graceful shutdown.
      *
-     * @param proxyHandlerFactory the proxy handler factory to be used to construct proxy handlers, or {@code null} if
-     * this client should not use a proxy
+     * @param timeoutMillis the number of milliseconds to wait for in-progress requests to complete before closing a
+     * connection
      *
-     * @since 0.6
+     * @see ApnsClient#disconnect()
+     *
+     * @since 0.5
      */
-    public void setProxyHandlerFactory(final ProxyHandlerFactory proxyHandlerFactory) {
-        this.proxyHandlerFactory = proxyHandlerFactory;
-        this.bootstrap.resolver(proxyHandlerFactory == null ? DefaultAddressResolverGroup.INSTANCE : NoopAddressResolverGroup.INSTANCE);
+    protected void setGracefulShutdownTimeout(final long timeoutMillis) {
+        synchronized (this.bootstrap) {
+            this.gracefulShutdownTimeoutMillis = timeoutMillis;
+
+            if (this.connectionReadyPromise != null) {
+                @SuppressWarnings("rawtypes")
+                final ApnsClientHandler handler = this.connectionReadyPromise.channel().pipeline().get(ApnsClientHandler.class);
+
+                if (handler != null) {
+                    handler.gracefulShutdownTimeoutMillis(timeoutMillis);
+                }
+            }
+        }
     }
 
     /**
@@ -951,37 +705,24 @@ public class ApnsClient<T extends ApnsPushNotification> {
         this.responsePromises.remove(response.getPushNotification()).setSuccess(response);
     }
 
-    /**
-     * Sets the amount of time (in milliseconds) clients should wait for in-progress requests to complete before closing
-     * a connection during a graceful shutdown.
-     *
-     * @param timeoutMillis the number of milliseconds to wait for in-progress requests to complete before closing a
-     * connection
-     *
-     * @see ApnsClient#disconnect()
-     *
-     * @since 0.5
-     */
-    public void setGracefulShutdownTimeout(final long timeoutMillis) {
-        synchronized (this.bootstrap) {
-            this.gracefulShutdownTimeoutMillis = timeoutMillis;
+    protected void handleServerError(final T pushNotification, final String message) {
+        log.warn("APNs server reported an internal error when sending {}.", pushNotification);
 
-            if (this.connectionReadyPromise != null) {
-                @SuppressWarnings("rawtypes")
-                final ApnsClientHandler handler = this.connectionReadyPromise.channel().pipeline().get(ApnsClientHandler.class);
-
-                if (handler != null) {
-                    handler.gracefulShutdownTimeoutMillis(timeoutMillis);
-                }
-            }
-        }
+        // This will always be called from inside the channel's event loop, so we don't have to worry about
+        // synchronization.
+        this.responsePromises.remove(pushNotification).tryFailure(new ApnsServerException(message));
     }
 
     /**
-     * <p>Gracefully disconnects from the APNs gateway. The disconnection process will wait until notifications in
-     * flight have been either accepted or rejected by the gateway. The returned {@code Future} will be marked as
-     * complete when the connection has closed completely. If the connection is already closed when this method is
-     * called, the returned {@code Future} will be marked as complete immediately.</p>
+     * <p>Gracefully disconnects from the APNs gateway. The disconnection process will wait until notifications that
+     * have been sent to the APNs server have been either accepted or rejected. Note that some notifications passed to
+     * {@link com.relayrides.pushy.apns.ApnsClient#sendNotification(ApnsPushNotification)} may still be enqueued and
+     * not yet sent by the time the shutdown process begins; the {@code Futures} associated with those notifications
+     * will fail.</p>
+     *
+     * <p>The returned {@code Future} will be marked as complete when the connection has closed completely. If the
+     * connection is already closed when this method is called, the returned {@code Future} will be marked as complete
+     * immediately.</p>
      *
      * <p>If a non-null {@code EventLoopGroup} was provided at construction time, clients may be reconnected and reused
      * after they have been disconnected. If no event loop group was provided at construction time, clients may not be
