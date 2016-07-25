@@ -77,13 +77,13 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * @see DeliveryPriority#IMMEDIATE
      */
     public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime) {
-        this(token, topic, payload, invalidationTime, DeliveryPriority.IMMEDIATE,null);
+        this(token, topic, payload, invalidationTime, DeliveryPriority.IMMEDIATE, null);
     }
 
     public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime,
                                       final DeliveryPriority priority){
 
-        this(token, topic, payload, invalidationTime, priority,null);
+        this(token, topic, payload, invalidationTime, priority, null);
     }
 
 
