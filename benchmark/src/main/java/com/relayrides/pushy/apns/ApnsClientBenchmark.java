@@ -32,7 +32,7 @@ public class ApnsClientBenchmark {
 
     private EventLoopGroup eventLoopGroup;
 
-    private ApnsClient<SimpleApnsPushNotification> client;
+    private ApnsClient client;
     private MockApnsServer server;
 
     private List<SimpleApnsPushNotification> pushNotifications;
@@ -60,7 +60,7 @@ public class ApnsClientBenchmark {
     public void setUp() throws Exception {
         this.eventLoopGroup = new NioEventLoopGroup(2);
 
-        final ApnsClientBuilder<SimpleApnsPushNotification> clientBuilder = new ApnsClientBuilder<SimpleApnsPushNotification>()
+        final ApnsClientBuilder clientBuilder = new ApnsClientBuilder()
                 .setClientCredentials(ApnsClientBenchmark.class.getResourceAsStream(CLIENT_KEYSTORE_FILENAME), KEYSTORE_PASSWORD)
                 .setTrustedServerCertificateChain(ApnsClientBenchmark.class.getResourceAsStream(CA_CERTIFICATE_FILENAME))
                 .setEventLoopGroup(this.eventLoopGroup);
