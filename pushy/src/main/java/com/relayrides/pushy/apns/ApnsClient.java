@@ -99,11 +99,9 @@ import io.netty.util.concurrent.SucceededFuture;
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
- * @param <T> the type of notification handled by the client
- *
  * @since 0.5
  */
-public class ApnsClient<T extends ApnsPushNotification> {
+public class ApnsClient {
     private final Bootstrap bootstrap;
     private volatile ProxyHandlerFactory proxyHandlerFactory;
     private final boolean shouldShutDownEventLoopGroup;
@@ -118,7 +116,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private volatile ChannelPromise reconnectionPromise;
     private long reconnectDelaySeconds = INITIAL_RECONNECT_DELAY_SECONDS;
 
-    private final Map<T, Promise<PushNotificationResponse<T>>> responsePromises = new IdentityHashMap<>();
+    private final Map<ApnsPushNotification, Promise<PushNotificationResponse<ApnsPushNotification>>> responsePromises = new IdentityHashMap<>();
 
     private ApnsClientMetricsListener metricsListener = new NoopMetricsListener();
     private final AtomicLong nextNotificationId = new AtomicLong(0);
@@ -221,7 +219,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                     @Override
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                            final ApnsClientHandler<T> apnsClientHandler = new ApnsClientHandler.ApnsClientHandlerBuilder<T>()
+                            final ApnsClientHandler apnsClientHandler = new ApnsClientHandler.ApnsClientHandlerBuilder()
                                     .server(false)
                                     .apnsClient(ApnsClient.this)
                                     .authority(((InetSocketAddress) context.channel().remoteAddress()).getHostName())
@@ -385,7 +383,6 @@ public class ApnsClient<T extends ApnsPushNotification> {
             this.gracefulShutdownTimeoutMillis = timeoutMillis;
 
             if (this.connectionReadyPromise != null) {
-                @SuppressWarnings("rawtypes")
                 final ApnsClientHandler handler = this.connectionReadyPromise.channel().pipeline().get(ApnsClientHandler.class);
 
                 if (handler != null) {
@@ -493,7 +490,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
 
                                 @Override
                                 public void run() {
-                                    for (final Promise<PushNotificationResponse<T>> responsePromise : ApnsClient.this.responsePromises.values()) {
+                                    for (final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise : ApnsClient.this.responsePromises.values()) {
                                         responsePromise.tryFailure(new ClientNotConnectedException("Client disconnected unexpectedly."));
                                     }
 
@@ -615,14 +612,17 @@ public class ApnsClient<T extends ApnsPushNotification> {
      *
      * @param notification the notification to send to the APNs gateway
      *
+     * @param <T> the type of notification to be sent
+     *
      * @return a {@code Future} that will complete when the notification has been either accepted or rejected by the
      * APNs gateway
      *
      * @see ApnsClient#setFlushThresholds(int, long)
      *
-     * @since 0.5
+     * @since 0.8
      */
-    public Future<PushNotificationResponse<T>> sendNotification(final T notification) {
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public <T extends ApnsPushNotification> Future<PushNotificationResponse<T>> sendNotification(final T notification) {
         final Future<PushNotificationResponse<T>> responseFuture;
         final long notificationId = this.nextNotificationId.getAndIncrement();
 
@@ -634,7 +634,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
         final ChannelPromise connectionReadyPromise = this.connectionReadyPromise;
 
         if (connectionReadyPromise != null && connectionReadyPromise.isSuccess() && connectionReadyPromise.channel().isActive()) {
-            final DefaultPromise<PushNotificationResponse<T>> responsePromise =
+            final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
                     new DefaultPromise<>(connectionReadyPromise.channel().eventLoop());
 
             connectionReadyPromise.channel().eventLoop().submit(new Runnable() {
@@ -669,7 +669,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
                 }
             });
 
-            responseFuture = responsePromise;
+            responseFuture = (Future) responsePromise;
         } else {
             log.debug("Failed to send push notification because client is not connected: {}", notification);
             responseFuture = new FailedFuture<>(
@@ -697,15 +697,15 @@ public class ApnsClient<T extends ApnsPushNotification> {
         return responseFuture;
     }
 
-    protected void handlePushNotificationResponse(final PushNotificationResponse<T> response) {
-        log.debug("Received response from APNs gateway: {}", response);
+    protected void handlePushNotificationResponse(final PushNotificationResponse<ApnsPushNotification> pushNotificationResponse) {
+        log.debug("Received response from APNs gateway: {}", pushNotificationResponse);
 
         // This will always be called from inside the channel's event loop, so we don't have to worry about
         // synchronization.
-        this.responsePromises.remove(response.getPushNotification()).setSuccess(response);
+        this.responsePromises.remove(pushNotificationResponse.getPushNotification()).setSuccess(pushNotificationResponse);
     }
 
-    protected void handleServerError(final T pushNotification, final String message) {
+    protected void handleServerError(final ApnsPushNotification pushNotification, final String message) {
         log.warn("APNs server reported an internal error when sending {}.", pushNotification);
 
         // This will always be called from inside the channel's event loop, so we don't have to worry about
