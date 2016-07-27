@@ -8,30 +8,30 @@ package com.relayrides.pushy.apns;
 class NoopMetricsListener implements ApnsClientMetricsListener {
 
     @Override
-    public void handleWriteFailure(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
+    public void handleWriteFailure(final ApnsClient apnsClient, final long notificationId) {
     }
 
     @Override
-    public void handleNotificationSent(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
+    public void handleNotificationSent(final ApnsClient apnsClient, final long notificationId) {
     }
 
     @Override
-    public void handleNotificationAccepted(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
+    public void handleNotificationAccepted(final ApnsClient apnsClient, final long notificationId) {
     }
 
     @Override
-    public void handleNotificationRejected(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
+    public void handleNotificationRejected(final ApnsClient apnsClient, final long notificationId) {
     }
 
     @Override
-    public void handleConnectionAttemptStarted(final ApnsClient<? extends ApnsPushNotification> apnsClient) {
+    public void handleConnectionAttemptStarted(final ApnsClient apnsClient) {
     }
 
     @Override
-    public void handleConnectionAttemptSucceeded(final ApnsClient<? extends ApnsPushNotification> apnsClient) {
+    public void handleConnectionAttemptSucceeded(final ApnsClient apnsClient) {
     }
 
     @Override
-    public void handleConnectionAttemptFailed(final ApnsClient<? extends ApnsPushNotification> apnsClient) {
+    public void handleConnectionAttemptFailed(final ApnsClient apnsClient) {
     }
 }

@@ -55,7 +55,7 @@ public class ApnsClientTest {
     private static final int TOKEN_LENGTH = 32; // bytes
 
     private MockApnsServer server;
-    private ApnsClient<SimpleApnsPushNotification> client;
+    private ApnsClient client;
 
     private static class TestMetricsListener implements ApnsClientMetricsListener {
 
@@ -69,7 +69,7 @@ public class ApnsClientTest {
         private final AtomicInteger failedConnectionAttempts = new AtomicInteger(0);
 
         @Override
-        public void handleWriteFailure(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
+        public void handleWriteFailure(final ApnsClient apnsClient, final long notificationId) {
             synchronized (this.writeFailures) {
                 this.writeFailures.add(notificationId);
                 this.writeFailures.notifyAll();
@@ -77,12 +77,12 @@ public class ApnsClientTest {
         }
 
         @Override
-        public void handleNotificationSent(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
+        public void handleNotificationSent(final ApnsClient apnsClient, final long notificationId) {
             this.sentNotifications.add(notificationId);
         }
 
         @Override
-        public void handleNotificationAccepted(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
+        public void handleNotificationAccepted(final ApnsClient apnsClient, final long notificationId) {
             synchronized (this.acceptedNotifications) {
                 this.acceptedNotifications.add(notificationId);
                 this.acceptedNotifications.notifyAll();
@@ -90,7 +90,7 @@ public class ApnsClientTest {
         }
 
         @Override
-        public void handleNotificationRejected(final ApnsClient<? extends ApnsPushNotification> apnsClient, final long notificationId) {
+        public void handleNotificationRejected(final ApnsClient apnsClient, final long notificationId) {
             synchronized (this.rejectedNotifications) {
                 this.rejectedNotifications.add(notificationId);
                 this.rejectedNotifications.notifyAll();
@@ -98,12 +98,12 @@ public class ApnsClientTest {
         }
 
         @Override
-        public void handleConnectionAttemptStarted(final ApnsClient<? extends ApnsPushNotification> apnsClient) {
+        public void handleConnectionAttemptStarted(final ApnsClient apnsClient) {
             this.connectionAttemptsStarted.getAndIncrement();
         }
 
         @Override
-        public void handleConnectionAttemptSucceeded(final ApnsClient<? extends ApnsPushNotification> apnsClient) {
+        public void handleConnectionAttemptSucceeded(final ApnsClient apnsClient) {
             synchronized (this.successfulConnectionAttempts) {
                 this.successfulConnectionAttempts.getAndIncrement();
                 this.successfulConnectionAttempts.notifyAll();
@@ -111,7 +111,7 @@ public class ApnsClientTest {
         }
 
         @Override
-        public void handleConnectionAttemptFailed(final ApnsClient<? extends ApnsPushNotification> apnsClient) {
+        public void handleConnectionAttemptFailed(final ApnsClient apnsClient) {
             synchronized (this.failedConnectionAttempts) {
                 this.failedConnectionAttempts.getAndIncrement();
                 this.failedConnectionAttempts.notifyAll();
@@ -214,7 +214,7 @@ public class ApnsClientTest {
         this.server.start(PORT).await();
 
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            this.client = new ApnsClientBuilder<SimpleApnsPushNotification>()
+            this.client = new ApnsClientBuilder()
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .setTrustedServerCertificateChain(CA_CERTIFICATE)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
@@ -245,10 +245,10 @@ public class ApnsClientTest {
 
     @Test
     public void testApnsClientWithManagedEventLoopGroup() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> managedGroupClient;
+        final ApnsClient managedGroupClient;
 
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            managedGroupClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+            managedGroupClient = new ApnsClientBuilder()
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .setTrustedServerCertificateChain(CA_CERTIFICATE)
                     .build();
@@ -277,10 +277,10 @@ public class ApnsClientTest {
 
     @Test
     public void testRestartApnsClientWithManagedEventLoopGroup() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> managedGroupClient;
+        final ApnsClient managedGroupClient;
 
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            managedGroupClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+            managedGroupClient = new ApnsClientBuilder()
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .setTrustedServerCertificateChain(CA_CERTIFICATE)
                     .build();
@@ -340,10 +340,10 @@ public class ApnsClientTest {
 
     @Test
     public void testGetReconnectionFutureWhenNotConnected() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> unconnectedClient;
+        final ApnsClient unconnectedClient;
 
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            unconnectedClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+            unconnectedClient = new ApnsClientBuilder()
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .setTrustedServerCertificateChain(CA_CERTIFICATE)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
@@ -360,10 +360,10 @@ public class ApnsClientTest {
 
     @Test
     public void testConnectWithUntrustedCertificate() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> untrustedClient;
+        final ApnsClient untrustedClient;
 
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(UNTRUSTED_CLIENT_KEYSTORE_FILENAME)) {
-            untrustedClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+            untrustedClient = new ApnsClientBuilder()
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .setTrustedServerCertificateChain(CA_CERTIFICATE)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
@@ -378,10 +378,10 @@ public class ApnsClientTest {
 
     @Test
     public void testSendNotificationBeforeConnected() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> unconnectedClient;
+        final ApnsClient unconnectedClient;
 
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            unconnectedClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+            unconnectedClient = new ApnsClientBuilder()
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .setTrustedServerCertificateChain(CA_CERTIFICATE)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
@@ -564,10 +564,10 @@ public class ApnsClientTest {
     @Test
     @Ignore("Ignored until auth tokens are implemented; see https://github.com/relayrides/pushy/issues/313 for details")
     public void testSendNotificationWithMissingTopic() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> multiTopicClient;
+        final ApnsClient multiTopicClient;
 
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            multiTopicClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+            multiTopicClient = new ApnsClientBuilder()
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .setTrustedServerCertificateChain(CA_CERTIFICATE)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
@@ -594,10 +594,10 @@ public class ApnsClientTest {
 
     @Test
     public void testSendNotificationWithSpecifiedTopic() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> multiTopicClient;
+        final ApnsClient multiTopicClient;
 
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            multiTopicClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+            multiTopicClient = new ApnsClientBuilder()
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .setTrustedServerCertificateChain(CA_CERTIFICATE)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
@@ -669,10 +669,10 @@ public class ApnsClientTest {
                     .build();
         }
 
-        final ApnsClient<SimpleApnsPushNotification> unfortunateClient;
+        final ApnsClient unfortunateClient;
 
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            unfortunateClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+            unfortunateClient = new ApnsClientBuilder()
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .setTrustedServerCertificateChain(CA_CERTIFICATE)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
@@ -701,10 +701,10 @@ public class ApnsClientTest {
 
     @Test
     public void testWriteFailureMetrics() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> unconnectedClient;
+        final ApnsClient unconnectedClient;
 
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            unconnectedClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+            unconnectedClient = new ApnsClientBuilder()
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .setTrustedServerCertificateChain(CA_CERTIFICATE)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
@@ -757,10 +757,10 @@ public class ApnsClientTest {
 
     @Test
     public void testSuccessfulConnectionMetrics() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> unconnectedClient;
+        final ApnsClient unconnectedClient;
 
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            unconnectedClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+            unconnectedClient = new ApnsClientBuilder()
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .setTrustedServerCertificateChain(CA_CERTIFICATE)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
@@ -783,10 +783,10 @@ public class ApnsClientTest {
 
     @Test
     public void testFailedConnectionMetrics() throws Exception {
-        final ApnsClient<SimpleApnsPushNotification> unconnectedClient;
+        final ApnsClient unconnectedClient;
 
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            unconnectedClient = new ApnsClientBuilder<SimpleApnsPushNotification>()
+            unconnectedClient = new ApnsClientBuilder()
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .setTrustedServerCertificateChain(CA_CERTIFICATE)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
