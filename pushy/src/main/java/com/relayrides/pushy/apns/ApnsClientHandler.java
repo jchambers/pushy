@@ -58,15 +58,15 @@ import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.PromiseCombiner;
 import io.netty.util.concurrent.ScheduledFuture;
 
-class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionHandler {
+class ApnsClientHandler extends Http2ConnectionHandler {
 
     private final AtomicBoolean receivedInitialSettings = new AtomicBoolean(false);
     private long nextStreamId = 1;
 
-    private final Map<Integer, T> pushNotificationsByStreamId = new HashMap<>();
+    private final Map<Integer, ApnsPushNotification> pushNotificationsByStreamId = new HashMap<>();
     private final Map<Integer, Http2Headers> headersByStreamId = new HashMap<>();
 
-    private final ApnsClient<T> apnsClient;
+    private final ApnsClient apnsClient;
     private final String authority;
 
     private long nextPingId = new Random().nextLong();
@@ -93,22 +93,22 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientHandler.class);
 
-    public static class ApnsClientHandlerBuilder<S extends ApnsPushNotification> extends AbstractHttp2ConnectionHandlerBuilder<ApnsClientHandler<S>, ApnsClientHandlerBuilder<S>> {
+    public static class ApnsClientHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<ApnsClientHandler, ApnsClientHandlerBuilder> {
 
-        private ApnsClient<S> apnsClient;
+        private ApnsClient apnsClient;
         private String authority;
         private int maxUnflushedNotifications = 0;
 
-        public ApnsClientHandlerBuilder<S> apnsClient(final ApnsClient<S> apnsClient) {
+        public ApnsClientHandlerBuilder apnsClient(final ApnsClient apnsClient) {
             this.apnsClient = apnsClient;
             return this;
         }
 
-        public ApnsClient<S> apnsClient() {
+        public ApnsClient apnsClient() {
             return this.apnsClient;
         }
 
-        public ApnsClientHandlerBuilder<S> authority(final String authority) {
+        public ApnsClientHandlerBuilder authority(final String authority) {
             this.authority = authority;
             return this;
         }
@@ -117,7 +117,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
             return this.authority;
         }
 
-        public ApnsClientHandlerBuilder<S> maxUnflushedNotifications(final int maxUnflushedNotifications) {
+        public ApnsClientHandlerBuilder maxUnflushedNotifications(final int maxUnflushedNotifications) {
             this.maxUnflushedNotifications = maxUnflushedNotifications;
             return this;
         }
@@ -127,26 +127,26 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
         }
 
         @Override
-        public ApnsClientHandlerBuilder<S> server(final boolean isServer) {
+        public ApnsClientHandlerBuilder server(final boolean isServer) {
             return super.server(isServer);
         }
 
         @Override
-        public ApnsClientHandlerBuilder<S> encoderEnforceMaxConcurrentStreams(final boolean enforceMaxConcurrentStreams) {
+        public ApnsClientHandlerBuilder encoderEnforceMaxConcurrentStreams(final boolean enforceMaxConcurrentStreams) {
             return super.encoderEnforceMaxConcurrentStreams(enforceMaxConcurrentStreams);
         }
 
         @Override
-        public ApnsClientHandler<S> build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
+        public ApnsClientHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
             Objects.requireNonNull(this.authority(), "Authority must be set before building an ApnsClientHandler.");
 
-            final ApnsClientHandler<S> handler = new ApnsClientHandler<>(decoder, encoder, initialSettings, this.apnsClient(), this.authority(), this.maxUnflushedNotifications());
+            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, initialSettings, this.apnsClient(), this.authority(), this.maxUnflushedNotifications());
             this.frameListener(handler.new ApnsClientHandlerFrameAdapter());
             return handler;
         }
 
         @Override
-        public ApnsClientHandler<S> build() {
+        public ApnsClientHandler build() {
             return super.build();
         }
     }
@@ -170,7 +170,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
 
             if (endOfStream) {
                 final Http2Headers headers = ApnsClientHandler.this.headersByStreamId.remove(streamId);
-                final T pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
+                final ApnsPushNotification pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
 
                 final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
                 final String responseBody = data.toString(StandardCharsets.UTF_8);
@@ -181,7 +181,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
                     final ErrorResponse errorResponse = gson.fromJson(responseBody, ErrorResponse.class);
 
                     ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(
-                            new SimplePushNotificationResponse<>(pushNotification, HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
+                            new SimplePushNotificationResponse<ApnsPushNotification>(pushNotification, HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
                 }
             } else {
                 log.error("Gateway sent a DATA frame that was not the end of a stream.");
@@ -207,13 +207,13 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
                     log.warn("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
                 }
 
-                final T pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
+                final ApnsPushNotification pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
 
                 if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
                     ApnsClientHandler.this.apnsClient.handleServerError(pushNotification, null);
                 } else {
                     ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(
-                            new SimplePushNotificationResponse<>(pushNotification, success, null, null));
+                            new SimplePushNotificationResponse<ApnsPushNotification>(pushNotification, success, null, null));
                 }
             } else {
                 ApnsClientHandler.this.headersByStreamId.put(streamId, headers);
@@ -236,7 +236,7 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
         }
     }
 
-    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final ApnsClient<T> apnsClient, final String authority, final int maxUnflushedNotifications) {
+    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final ApnsClient apnsClient, final String authority, final int maxUnflushedNotifications) {
         super(decoder, encoder, initialSettings);
 
         this.apnsClient = apnsClient;
@@ -245,11 +245,10 @@ class ApnsClientHandler<T extends ApnsPushNotification> extends Http2ConnectionH
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise writePromise) throws Http2Exception {
         try {
             // We'll catch class cast issues gracefully
-            final T pushNotification = (T) message;
+            final ApnsPushNotification pushNotification = (ApnsPushNotification) message;
 
             final int streamId = (int) this.nextStreamId;
 
