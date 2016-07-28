@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.RandomStringUtils;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -40,9 +39,6 @@ public class ApnsClientBenchmark {
     @Param({"10000"})
     public int notificationCount;
 
-    @Param({"true", "false"})
-    public boolean flushImmediately;
-
     private static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
     private static final String CLIENT_KEYSTORE_FILENAME = "/client.p12";
     private static final String SERVER_CERTIFICATES_FILENAME = "/server_certs.pem";
@@ -64,10 +60,6 @@ public class ApnsClientBenchmark {
                 .setClientCredentials(ApnsClientBenchmark.class.getResourceAsStream(CLIENT_KEYSTORE_FILENAME), KEYSTORE_PASSWORD)
                 .setTrustedServerCertificateChain(ApnsClientBenchmark.class.getResourceAsStream(CA_CERTIFICATE_FILENAME))
                 .setEventLoopGroup(this.eventLoopGroup);
-
-        if (this.flushImmediately) {
-            clientBuilder.setFlushThresholds(0, 0, TimeUnit.SECONDS);
-        }
 
         this.client = clientBuilder.build();
 
