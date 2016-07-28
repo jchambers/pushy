@@ -38,8 +38,7 @@ Before you can get started with Pushy, you'll need to do some provisioning work 
 Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an [`ApnsClient`](http://relayrides.github.io/pushy/apidocs/0.7/com/relayrides/pushy/apns/ApnsClient.html). Clients need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing):
 
 ```java
-final ApnsClient<SimpleApnsPushNotification> apnsClient =
-    new ApnsClientBuilder<SimpleApnsPushNotification>()
+final ApnsClient apnsClient = new ApnsClientBuilder()
         .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
         .build();
 ```
@@ -163,8 +162,7 @@ If you know exactly which version of Java you'll be running, you can just add th
 Pushy includes an interface for monitoring metrics that provide insight into clients' behavior and performance. You can write your own implementation of the `ApnsClientMetricsListener` interface to record and report metrics. We also provide a [https://github.com/relayrides/pushy/tree/master/dropwizard-metrics-listener](metrics listener that uses the Dropwizard Metrics library) as a separate module. To begin receiving metrics, set a listener when building a new client:
 
 ```java
-final ApnsClient<SimpleApnsPushNotification> apnsClient =
-    new ApnsClientBuilder<SimpleApnsPushNotification>()
+final ApnsClient apnsClient = new ApnsClientBuilder()
         .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
         .setMetricsListener(new MyCustomMetricsListener())
         .build();
@@ -179,8 +177,7 @@ If you need to use a proxy for outbound connections, you may specify a [`ProxyHa
 An example:
 
 ```java
-final ApnsClient<SimpleApnsPushNotification> apnsClient =
-    new ApnsClientBuilder<SimpleApnsPushNotification>()
+final ApnsClient apnsClient = new ApnsClientBuilder()
         .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
         .setProxyHandlerFactory(new Socks5ProxyHandlerFactory(
             new InetSocketAddress("my.proxy.com", 1080), "username", "password"))
