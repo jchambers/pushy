@@ -7,8 +7,6 @@ import java.security.cert.X509Certificate;
 
 import org.junit.Test;
 
-import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
-
 public class ApnsClientBuilderTest {
 
     private static final String SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME = "/single-topic-client.p12";
@@ -19,7 +17,7 @@ public class ApnsClientBuilderTest {
     @Test
     public void testBuildClientWithPasswordProtectedP12File() throws Exception {
         // We're happy here as long as nothing throws an exception
-        new ApnsClientBuilder<SimpleApnsPushNotification>()
+        new ApnsClientBuilder()
         .setClientCredentials(new File(ApnsClientBuilderTest.class.getResource(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME).toURI()), KEYSTORE_PASSWORD)
         .build();
     }
@@ -28,7 +26,7 @@ public class ApnsClientBuilderTest {
     public void testBuildClientWithPasswordProtectedP12InputStream() throws Exception {
         // We're happy here as long as nothing throws an exception
         try (final InputStream p12InputStream = ApnsClientBuilderTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            new ApnsClientBuilder<SimpleApnsPushNotification>()
+            new ApnsClientBuilder()
             .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
             .build();
         }
@@ -36,7 +34,7 @@ public class ApnsClientBuilderTest {
 
     @Test(expected = NullPointerException.class)
     public void testBuildClientWithNullPassword() throws Exception {
-        new ApnsClientBuilder<SimpleApnsPushNotification>()
+        new ApnsClientBuilder()
         .setClientCredentials(new File(ApnsClientBuilderTest.class.getResource(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME).toURI()), null)
         .build();
     }
@@ -48,7 +46,7 @@ public class ApnsClientBuilderTest {
             final PrivateKeyEntry privateKeyEntry =
                     P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
 
-            new ApnsClientBuilder<SimpleApnsPushNotification>()
+            new ApnsClientBuilder()
             .setClientCredentials((X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey(), KEYSTORE_PASSWORD)
             .build();
         }
@@ -62,7 +60,7 @@ public class ApnsClientBuilderTest {
             final PrivateKeyEntry privateKeyEntry =
                     P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
 
-            new ApnsClientBuilder<SimpleApnsPushNotification>()
+            new ApnsClientBuilder()
             .setClientCredentials((X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey(), null)
             .build();
         }
@@ -70,6 +68,6 @@ public class ApnsClientBuilderTest {
 
     @Test(expected = NullPointerException.class)
     public void testBuildWithoutClientCredentials() throws Exception {
-        new ApnsClientBuilder<>().build();
+        new ApnsClientBuilder().build();
     }
 }

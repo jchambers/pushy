@@ -61,10 +61,8 @@ import io.netty.handler.ssl.SupportedCipherSuiteFilter;
  * the next.</p>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
- *
- * @param <T> the type of notification handled by client instances created by this builder
  */
-public class ApnsClientBuilder<T extends ApnsPushNotification> {
+public class ApnsClientBuilder {
     private X509Certificate clientCertificate;
     private PrivateKey privateKey;
     private String privateKeyPassword;
@@ -81,10 +79,6 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
 
     private Long connectionTimeout;
     private TimeUnit connectionTimeoutUnit;
-
-    private Integer maxUnflushedNotifications;
-    private Long maxIdleTimeBeforeFlush;
-    private TimeUnit maxIdleTimeBeforeFlushUnits;
 
     private Long writeTimeout;
     private TimeUnit writeTimeoutUnit;
@@ -112,7 +106,7 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
      *
      * @since 0.8
      */
-    public ApnsClientBuilder<T> setClientCredentials(final File p12File, final String p12Password) throws SSLException, IOException {
+    public ApnsClientBuilder setClientCredentials(final File p12File, final String p12Password) throws SSLException, IOException {
         try (final InputStream p12InputStream = new FileInputStream(p12File)) {
             return this.setClientCredentials(p12InputStream, p12Password);
         }
@@ -135,7 +129,7 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
      *
      * @since 0.8
      */
-    public ApnsClientBuilder<T> setClientCredentials(final InputStream p12InputStream, final String p12Password) throws SSLException, IOException {
+    public ApnsClientBuilder setClientCredentials(final InputStream p12InputStream, final String p12Password) throws SSLException, IOException {
         final X509Certificate x509Certificate;
         final PrivateKey privateKey;
 
@@ -169,7 +163,7 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
      *
      * @since 0.8
      */
-    public ApnsClientBuilder<T> setClientCredentials(final X509Certificate clientCertificate, final PrivateKey privateKey, final String privateKeyPassword) {
+    public ApnsClientBuilder setClientCredentials(final X509Certificate clientCertificate, final PrivateKey privateKey, final String privateKeyPassword) {
         this.clientCertificate = clientCertificate;
         this.privateKey = privateKey;
         this.privateKeyPassword = privateKeyPassword;
@@ -189,7 +183,7 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
      *
      * @return a reference to this builder
      */
-    public ApnsClientBuilder<T> setTrustedServerCertificateChain(final File certificatePemFile) {
+    public ApnsClientBuilder setTrustedServerCertificateChain(final File certificatePemFile) {
         this.trustedServerCertificatePemFile = certificatePemFile;
         this.trustedServerCertificateInputStream = null;
         this.trustedServerCertificates = null;
@@ -209,7 +203,7 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
      *
      * @return a reference to this builder
      */
-    public ApnsClientBuilder<T> setTrustedServerCertificateChain(final InputStream certificateInputStream) {
+    public ApnsClientBuilder setTrustedServerCertificateChain(final InputStream certificateInputStream) {
         this.trustedServerCertificatePemFile = null;
         this.trustedServerCertificateInputStream = certificateInputStream;
         this.trustedServerCertificates = null;
@@ -229,7 +223,7 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
      *
      * @return a reference to this builder
      */
-    public ApnsClientBuilder<T> setTrustedServerCertificateChain(final X509Certificate... certificates) {
+    public ApnsClientBuilder setTrustedServerCertificateChain(final X509Certificate... certificates) {
         this.trustedServerCertificatePemFile = null;
         this.trustedServerCertificateInputStream = null;
         this.trustedServerCertificates = certificates;
@@ -254,7 +248,7 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
      *
      * @since 0.8
      */
-    public ApnsClientBuilder<T> setEventLoopGroup(final EventLoopGroup eventLoopGroup) {
+    public ApnsClientBuilder setEventLoopGroup(final EventLoopGroup eventLoopGroup) {
         this.eventLoopGroup = eventLoopGroup;
         return this;
     }
@@ -270,7 +264,7 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
      *
      * @since 0.8
      */
-    public ApnsClientBuilder<T> setMetricsListener(final ApnsClientMetricsListener metricsListener) {
+    public ApnsClientBuilder setMetricsListener(final ApnsClientMetricsListener metricsListener) {
         this.metricsListener = metricsListener;
         return this;
     }
@@ -287,7 +281,7 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
      *
      * @since 0.8
      */
-    public ApnsClientBuilder<T> setProxyHandlerFactory(final ProxyHandlerFactory proxyHandlerFactory) {
+    public ApnsClientBuilder setProxyHandlerFactory(final ProxyHandlerFactory proxyHandlerFactory) {
         this.proxyHandlerFactory = proxyHandlerFactory;
         return this;
     }
@@ -303,39 +297,9 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
      *
      * @since 0.8
      */
-    public ApnsClientBuilder<T> setConnectionTimeout(final long connectionTimeout, final TimeUnit timeoutUnit) {
+    public ApnsClientBuilder setConnectionTimeout(final long connectionTimeout, final TimeUnit timeoutUnit) {
         this.connectionTimeout = connectionTimeout;
         this.connectionTimeoutUnit = timeoutUnit;
-
-        return this;
-    }
-
-    /**
-     * <p>Sets the thresholds at which this client under construction will flush notifications enqueued for sending to
-     * the APNs server. By default, notifications will be flushed after
-     * {@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_MAX_UNFLUSHED_NOTIFICATIONS} unflushed
-     * notifications have been enqueued or {@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_FLUSH_AFTER_IDLE_MILLIS}
-     * milliseconds of inactivity have elapsed.</p>
-     *
-     * <p>Callers may set both thresholds to zero to flush all notifications immediately, which will reduce latency at
-     * the expense of decreasing efficiency and throughput.</p>
-     *
-     * @param maxUnflushedNotifications The maximum number of notifications that may be enqueued before the sending
-     * queue is flushed. Must be positive if {@code maxIdleTimeMillis} is also positive or zero if
-     * {@code maxIdleTimeMillis} is also zero. If zero, notifications are always sent immediately.
-     * @param maxIdleTime The maximum amount of time since the last attempt to send a notification that may elapse
-     * before the sending queue is flushed. Must be positive if {@code maxUnflushedNotifications} is also positive or
-     * zero if {@code maxUnflushedNotifications} is also zero. If zero, notifications are always sent immediately.
-     * @param maxIdleTimeUnits the time unit for the given maximum idle time
-     *
-     * @return a reference to this builder
-     *
-     * @since 0.8
-     */
-    public ApnsClientBuilder<T> setFlushThresholds(final int maxUnflushedNotifications, final long maxIdleTime, final TimeUnit maxIdleTimeUnits) {
-        this.maxUnflushedNotifications = maxUnflushedNotifications;
-        this.maxIdleTimeBeforeFlush = maxIdleTime;
-        this.maxIdleTimeBeforeFlushUnits = maxIdleTimeUnits;
 
         return this;
     }
@@ -356,7 +320,7 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
      *
      * @since 0.8
      */
-    public ApnsClientBuilder<T> setWriteTimeout(final long writeTimeout, final TimeUnit timeoutUnit) {
+    public ApnsClientBuilder setWriteTimeout(final long writeTimeout, final TimeUnit timeoutUnit) {
         this.writeTimeout = writeTimeout;
         this.writeTimeoutUnit = timeoutUnit;
 
@@ -377,7 +341,7 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
      *
      * @since 0.8
      */
-    public ApnsClientBuilder<T> setGracefulShutdownTimeout(final long gracefulShutdownTimeout, final TimeUnit timeoutUnit) {
+    public ApnsClientBuilder setGracefulShutdownTimeout(final long gracefulShutdownTimeout, final TimeUnit timeoutUnit) {
         this.gracefulShutdownTimeout = gracefulShutdownTimeout;
         this.gracefulShutdownTimeoutUnit = timeoutUnit;
 
@@ -393,7 +357,7 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
      *
      * @since 0.8
      */
-    public ApnsClient<T> build() throws SSLException {
+    public ApnsClient build() throws SSLException {
         Objects.requireNonNull(this.clientCertificate, "Client certificate must be set before building an APNs client.");
         Objects.requireNonNull(this.privateKey, "Private key must be set before building an APNs client.");
 
@@ -435,17 +399,13 @@ public class ApnsClientBuilder<T extends ApnsPushNotification> {
             sslContext = sslContextBuilder.build();
         }
 
-        final ApnsClient<T> apnsClient = new ApnsClient<T>(sslContext, this.eventLoopGroup);
+        final ApnsClient apnsClient = new ApnsClient(sslContext, this.eventLoopGroup);
 
         apnsClient.setMetricsListener(this.metricsListener);
         apnsClient.setProxyHandlerFactory(this.proxyHandlerFactory);
 
         if (this.connectionTimeout != null) {
             apnsClient.setConnectionTimeout((int) this.connectionTimeoutUnit.toMillis(this.connectionTimeout));
-        }
-
-        if (this.maxUnflushedNotifications != null) {
-            apnsClient.setFlushThresholds(this.maxUnflushedNotifications, this.maxIdleTimeBeforeFlushUnits.toMillis(this.maxIdleTimeBeforeFlush));
         }
 
         if (this.writeTimeout != null) {

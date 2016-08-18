@@ -8,6 +8,7 @@ import com.relayrides.pushy.apns.proxy.Socks5ProxyHandlerFactory;
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 import com.relayrides.pushy.apns.util.TokenUtil;
+
 import io.netty.util.concurrent.Future;
 
 /**
@@ -25,8 +26,7 @@ public class ExampleApp {
         // certificate and private key to authenticate with the APNs server. The
         // most common way to store the certificate and key is in a
         // password-protected PKCS#12 file.
-        final ApnsClient<SimpleApnsPushNotification> apnsClient =
-                new ApnsClientBuilder<SimpleApnsPushNotification>()
+        final ApnsClient apnsClient = new ApnsClientBuilder()
                 .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
                 .build();
 

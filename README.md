@@ -38,8 +38,7 @@ Before you can get started with Pushy, you'll need to do some provisioning work 
 Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an [`ApnsClient`](http://relayrides.github.io/pushy/apidocs/0.7/com/relayrides/pushy/apns/ApnsClient.html). Clients need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing):
 
 ```java
-final ApnsClient<SimpleApnsPushNotification> apnsClient =
-    new ApnsClientBuilder<SimpleApnsPushNotification>()
+final ApnsClient apnsClient = new ApnsClientBuilder()
         .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
         .build();
 ```
@@ -163,8 +162,7 @@ If you know exactly which version of Java you'll be running, you can just add th
 Pushy includes an interface for monitoring metrics that provide insight into clients' behavior and performance. You can write your own implementation of the `ApnsClientMetricsListener` interface to record and report metrics. We also provide a [https://github.com/relayrides/pushy/tree/master/dropwizard-metrics-listener](metrics listener that uses the Dropwizard Metrics library) as a separate module. To begin receiving metrics, set a listener when building a new client:
 
 ```java
-final ApnsClient<SimpleApnsPushNotification> apnsClient =
-    new ApnsClientBuilder<SimpleApnsPushNotification>()
+final ApnsClient apnsClient = new ApnsClientBuilder()
         .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
         .setMetricsListener(new MyCustomMetricsListener())
         .build();
@@ -179,8 +177,7 @@ If you need to use a proxy for outbound connections, you may specify a [`ProxyHa
 An example:
 
 ```java
-final ApnsClient<SimpleApnsPushNotification> apnsClient =
-    new ApnsClientBuilder<SimpleApnsPushNotification>()
+final ApnsClient apnsClient = new ApnsClientBuilder()
         .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
         .setProxyHandlerFactory(new Socks5ProxyHandlerFactory(
             new InetSocketAddress("my.proxy.com", 1080), "username", "password"))
@@ -212,11 +209,9 @@ Pushy uses logging levels as follows:
 | `debug`   | Minor lifecycle events; expected exceptions                                           |
 | `trace`   | Individual IO operations                                                              |
 
-## Known issues
+## Using Pushy in an application container
 
-Although we make every effort to fix bugs and work around issues outside of our control, some problems appear to be unavoidable. The issues we know about at this time are:
-
-- Pushy will work just fine in a container environment (like Tomcat), but Netty (the networking framework on which Pushy is built) creates some `ThreadLocal` instances that won't be cleaned up properly when your application shuts down. Most application containers have features designed to mitigate this kind of issue, but leaks are still possible. Users should be aware of the issue if using Pushy in an application container. See [#73](https://github.com/relayrides/pushy/issues/73) for additional discussion.
+If you plan to use Pushy inside an application container, you may have to take some additional steps and should be aware of some limitations detailed on the ["Using Pushy in an application continer" wiki page](https://github.com/relayrides/pushy/wiki/Using-Pushy-in-an-application-container).
 
 ## License and status
 
