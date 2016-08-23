@@ -86,6 +86,9 @@ public class ApnsClientBuilder {
     private Long gracefulShutdownTimeout;
     private TimeUnit gracefulShutdownTimeoutUnit;
 
+    private boolean autoReconnect = true;
+    private ApnsClientDisconnectListener disconnectListener;
+
     private static final Logger log = LoggerFactory.getLogger(ApnsClientBuilder.class);
 
     /**
@@ -254,6 +257,24 @@ public class ApnsClientBuilder {
     }
 
     /**
+     * If set to true, the client will try to automatically reconnect after an unexpected failure.
+     *
+     * @param autoReconnect
+     */
+    public void setAutoReconnect(final boolean autoReconnect) {
+        this.autoReconnect = autoReconnect;
+    }
+
+    /**
+     * Sets a disconnect listener.
+     *
+     * @param disconnectListener
+     */
+    public void setDisconnectListener(final ApnsClientDisconnectListener disconnectListener) {
+        this.disconnectListener = disconnectListener;
+    }
+
+    /**
      * Sets the metrics listener for the client under construction. Metrics listeners gather information that describes
      * the performance and behavior of a client, and are completely optional.
      *
@@ -401,6 +422,8 @@ public class ApnsClientBuilder {
 
         final ApnsClient apnsClient = new ApnsClient(sslContext, this.eventLoopGroup);
 
+        apnsClient.setAutoReconnect(this.autoReconnect);
+        apnsClient.setDisconnectListener(this.disconnectListener);
         apnsClient.setMetricsListener(this.metricsListener);
         apnsClient.setProxyHandlerFactory(this.proxyHandlerFactory);
 
