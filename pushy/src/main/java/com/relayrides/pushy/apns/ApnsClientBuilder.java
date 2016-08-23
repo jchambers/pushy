@@ -261,8 +261,9 @@ public class ApnsClientBuilder {
      *
      * @param autoReconnect
      */
-    public void setAutoReconnect(final boolean autoReconnect) {
+    public ApnsClientBuilder setAutoReconnect(final boolean autoReconnect) {
         this.autoReconnect = autoReconnect;
+        return this;
     }
 
     /**
@@ -270,8 +271,9 @@ public class ApnsClientBuilder {
      *
      * @param disconnectListener
      */
-    public void setDisconnectListener(final ApnsClientDisconnectListener disconnectListener) {
+    public ApnsClientBuilder setDisconnectListener(final ApnsClientDisconnectListener disconnectListener) {
         this.disconnectListener = disconnectListener;
+        return this;
     }
 
     /**
