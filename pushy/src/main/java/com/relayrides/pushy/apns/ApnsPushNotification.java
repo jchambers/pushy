@@ -25,11 +25,9 @@ import java.util.Date;
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 
 /**
- * <p>
- * A push notification that can be sent through the Apple Push Notification service (APNs). Push notifications have a
+ * <p>A push notification that can be sent through the Apple Push Notification service (APNs). Push notifications have a
  * token that identifies the device to which it should be sent, a topic (generally the bundle ID of the receiving app),
- * a JSON payload, and (optionally) a time at which the notification is invalid and should no longer be delivered.
- * </p>
+ * a JSON payload, and (optionally) a time at which the notification is invalid and should no longer be delivered.</p>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
@@ -99,16 +97,12 @@ public interface ApnsPushNotification {
     DeliveryPriority getPriority();
 
     /**
-     * <p>
-     * Returns the topic to which this notification should be sent. This is generally the bundle ID of the receiving
-     * app.
-     * </p>
+     * <p>Returns the topic to which this notification should be sent. This is generally the bundle ID of the receiving
+     * app.</p>
      *
-     * <p>
-     * Some (older) APNs certificates contain only a single topic; if this push notification is sent via a client using
-     * a single-topic certificate, this topic may be {@code null}, in which case the APNs gateway will use the
-     * certificate's subject (the bundle ID for the receiving app) as the topic.
-     * </p>
+     * <p>Some (older) APNs certificates contain only a single topic; if this push notification is sent via a client
+     * using a single-topic certificate, this topic may be {@code null}, in which case the APNs gateway will use the
+     * certificate's subject (the bundle ID for the receiving app) as the topic.</p>
      *
      * @return the topic to which this notification should be sent, or {@code null} for the default topic if this
      *         notification is sent on a connection with a single-topic certificate
@@ -122,21 +116,14 @@ public interface ApnsPushNotification {
     String getTopic();
 
     /**
-     * <p>
-     * Returns the id of the notification. This is generally used for notification management
-     * app.
-     * </p>
+     * Returns an optional identifier for this notification that allows this notification to supersede previous
+     * notifications or to be superseded by later notifications with the same identifier.
      *
-     * <p>
-     * Some (older) APNs notifications did not include apns-collaps-id header; this header may be {@code null}, in which case the APNs gateway will ignore it
-     * </p>
+     * @return an identifier for this notification; may be {@code null}
      *
-     * @return the apns-collapse-id to
+     * @see <a href="https://developer.apple.com/videos/play/wwdc2016/707/">APNs Notification managment</a>
      *
-     * @see <a href=
-     *      "https://developer.apple.com/videos/play/wwdc2016/707/">
-     *      APNs Notification managment</a>
-     *
+     * @since 0.8.1
      */
     String getCollapseId();
 }
