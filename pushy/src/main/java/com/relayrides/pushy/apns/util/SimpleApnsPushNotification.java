@@ -21,6 +21,7 @@
 package com.relayrides.pushy.apns.util;
 
 import java.util.Date;
+import java.util.Objects;
 
 import com.relayrides.pushy.apns.ApnsPushNotification;
 import com.relayrides.pushy.apns.DeliveryPriority;
@@ -39,6 +40,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
     private final Date invalidationTime;
     private final DeliveryPriority priority;
     private final String topic;
+    private final String collapseId;
 
     /**
      * Constructs a new push notification with the given token, topic, and payload. No expiration time is set for the
@@ -46,64 +48,67 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * An "immediate" delivery priority is used for the notification, and as such the payload should contain an alert,
      * sound, or badge component.
      *
-     * @param token
-     *            the device token to which this push notification should be delivered
-     * @param topic
-     *            the topic to which this notification should be sent
-     * @param payload
-     *            the payload to include in this push notification
+     * @param token the device token to which this push notification should be delivered
+     * @param topic the topic to which this notification should be sent
+     * @param payload the payload to include in this push notification
      *
      * @see DeliveryPriority#IMMEDIATE
      */
     public SimpleApnsPushNotification(final String token, final String topic, final String payload) {
-        this(token, topic, payload, null, DeliveryPriority.IMMEDIATE);
+        this(token, topic, payload, null, DeliveryPriority.IMMEDIATE, null);
     }
-
     /**
      * Constructs a new push notification with the given token, topic, payload, and expiration time. An "immediate"
      * delivery priority is used for the notification, and as such the payload should contain an alert, sound, or badge
      * component.
      *
-     * @param token
-     *            the device token to which this push notification should be delivered
-     * @param topic
-     *            the topic to which this notification should be sent
-     * @param payload
-     *            the payload to include in this push notification
-     * @param invalidationTime
-     *            the time at which Apple's servers should stop trying to deliver this message; if
-     *            {@code null}, no delivery attempts beyond the first will be made
+     * @param token the device token to which this push notification should be delivered
+     * @param topic the topic to which this notification should be sent
+     * @param payload the payload to include in this push notification
+     * @param invalidationTime the time at which Apple's servers should stop trying to deliver this message; if
+     * {@code null}, no delivery attempts beyond the first will be made
      *
      * @see DeliveryPriority#IMMEDIATE
      */
     public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime) {
-        this(token, topic, payload, invalidationTime, DeliveryPriority.IMMEDIATE);
+        this(token, topic, payload, invalidationTime, DeliveryPriority.IMMEDIATE, null);
     }
 
     /**
      * Constructs a new push notification with the given token, topic, payload, delivery expiration time, and delivery
      * priority.
      *
-     * @param token
-     *            the device token to which this push notification should be delivered
-     * @param topic
-     *            the topic to which this notification should be sent
-     * @param payload
-     *            the payload to include in this push notification
-     * @param invalidationTime
-     *            the time at which Apple's servers should stop trying to deliver this message; if
-     *            {@code null}, no delivery attempts beyond the first will be made
-     * @param priority
-     *            the priority with which this notification should be delivered to the receiving device
+     * @param token the device token to which this push notification should be delivered
+     * @param topic the topic to which this notification should be sent
+     * @param payload the payload to include in this push notification
+     * @param invalidationTime the time at which Apple's servers should stop trying to deliver this message; if
+     * {@code null}, no delivery attempts beyond the first will be made
+     * @param priority the priority with which this notification should be delivered to the receiving device
      */
-    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime,
-            final DeliveryPriority priority) {
+    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority) {
+        this(token, topic, payload, invalidationTime, priority, null);
+    }
 
+    /**
+     * Constructs a new push notification with the given token, topic, payload, delivery expiration time, delivery
+     * priority, and "collapse identifier."
+     *
+     * @param token the device token to which this push notification should be delivered
+     * @param topic the topic to which this notification should be sent
+     * @param payload the payload to include in this push notification
+     * @param invalidationTime the time at which Apple's servers should stop trying to deliver this message; if
+     * {@code null}, no delivery attempts beyond the first will be made
+     * @param priority the priority with which this notification should be delivered to the receiving device
+     * @param collapseId the "collapse identifier" for this notification, which allows it to supersede or be superseded
+     * by other notifications with the same identifier
+     */
+    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority, final String collapseId) {
         this.token = token;
         this.payload = payload;
         this.invalidationTime = invalidationTime;
         this.priority = priority;
         this.topic = topic;
+        this.collapseId = collapseId;
     }
 
     /**
@@ -156,6 +161,17 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
         return this.topic;
     }
 
+    /**
+     * Returns the "collapse ID" for this push notification, which allows it to supersede or be superseded by other
+     * notifications with the same ID.
+     *
+     * @return the "collapse ID" for this push notification
+     */
+    @Override
+    public String getCollapseId() {
+        return this.collapseId;
+    }
+
     /* (non-Javadoc)
      * @see java.lang.Object#hashCode()
      */
@@ -168,6 +184,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
         result = prime * result + ((this.priority == null) ? 0 : this.priority.hashCode());
         result = prime * result + ((this.token == null) ? 0 : this.token.hashCode());
         result = prime * result + ((this.topic == null) ? 0 : this.topic.hashCode());
+        result = prime * result + ((this.collapseId == null) ? 0 : this.collapseId.hashCode());
         return result;
     }
 
@@ -217,6 +234,13 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
         } else if (!this.topic.equals(other.topic)) {
             return false;
         }
+        if (Objects.equals(this.collapseId, null)) {
+            if (!Objects.equals(other.collapseId , null)) {
+                return false;
+            }
+        } else if (!this.collapseId.equals(other.collapseId)) {
+            return false;
+        }
         return true;
     }
 
@@ -236,6 +260,8 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
         builder.append(this.priority);
         builder.append(", topic=");
         builder.append(this.topic);
+        builder.append(", apns-collapse-id=");
+        builder.append(this.collapseId);
         builder.append("]");
         return builder.toString();
     }
