@@ -45,9 +45,11 @@ public class ApnsPayloadBuilder {
     private String localizedAlertKey = null;
     private String[] localizedAlertArguments = null;
     private String alertTitle = null;
-    private String alertSubtitle = null;
     private String localizedAlertTitleKey = null;
     private String[] localizedAlertTitleArguments = null;
+    private String alertSubtitle = null;
+    private String localizedAlertSubtitleKey = null;
+    private String[] localizedAlertSubtitleArguments = null;
     private String launchImageFileName = null;
     private boolean showActionButton = true;
     private String localizedActionButtonKey = null;
@@ -68,13 +70,15 @@ public class ApnsPayloadBuilder {
     private static final String MUTABLE_CONTENT_KEY = "mutable-content";
 
     private static final String ALERT_TITLE_KEY = "title";
-    private static final String ALERT_SUBTITLE_KEY = "subtitle";
-    private static final String ALERT_BODY_KEY = "body";
     private static final String ALERT_TITLE_LOC_KEY = "title-loc-key";
     private static final String ALERT_TITLE_ARGS_KEY = "title-loc-args";
-    private static final String ACTION_LOC_KEY = "action-loc-key";
+    private static final String ALERT_SUBTITLE_KEY = "subtitle";
+    private static final String ALERT_SUBTITLE_LOC_KEY = "subtitle-loc-key";
+    private static final String ALERT_SUBTITLE_ARGS_KEY = "subtitle-loc-args";
+    private static final String ALERT_BODY_KEY = "body";
     private static final String ALERT_LOC_KEY = "loc-key";
     private static final String ALERT_ARGS_KEY = "loc-args";
+    private static final String ACTION_LOC_KEY = "action-loc-key";
     private static final String LAUNCH_IMAGE_KEY = "launch-image";
 
     private final HashMap<String, Object> customProperties = new HashMap<String, Object>();
@@ -177,18 +181,6 @@ public class ApnsPayloadBuilder {
     }
 
     /**
-     * Sets a subtitle for the notification. Requires iOS 10 or newer.
-     *
-     * @param alertSubtitle the subtitle for this push notification
-     *
-     * @return a reference to this payload builder
-     */
-    public ApnsPayloadBuilder setAlertSubtitle(final String alertSubtitle) {
-        this.alertSubtitle = alertSubtitle;
-        return this;
-    }
-
-    /**
      * <p>Sets the key of the title string in the receiving app's localized string list to be shown for the push
      * notification. The message in the app's string list may optionally have placeholders, which will be populated by
      * values from the given {@code alertArguments}.</p>
@@ -212,6 +204,53 @@ public class ApnsPayloadBuilder {
 
         this.localizedAlertTitleKey = localizedAlertTitleKey;
         this.localizedAlertTitleArguments = alertTitleArguments;
+
+        return this;
+    }
+
+    /**
+     * Sets a subtitle for the notification. Requires iOS 10 or newer.
+     *
+     * @param alertSubtitle the subtitle for this push notification
+     *
+     * @return a reference to this payload builder
+     *
+     * @since 0.8.1
+     */
+    public ApnsPayloadBuilder setAlertSubtitle(final String alertSubtitle) {
+        if (alertSubtitle != null && this.localizedAlertSubtitleKey != null) {
+            throw new IllegalStateException("Cannot set a literal subtitle when a localized subtitle key has already been set");
+        }
+
+        this.alertSubtitle = alertSubtitle;
+
+        return this;
+    }
+
+    /**
+     * <p>Sets the key of the subtitle string in the receiving app's localized string list to be shown for the push
+     * notification. The message in the app's string list may optionally have placeholders, which will be populated by
+     * values from the given {@code alertSubtitleArguments}.</p>
+     *
+     * @param localizedAlertSubtitleKey a key to a string in the receiving app's localized string list
+     * @param alertSubtitleArguments arguments to populate placeholders in the localized subtitle string; may be
+     * {@code null}
+     *
+     * @return a reference to this payload builder
+     *
+     * @since 0.8.1
+     */
+    public ApnsPayloadBuilder setLocalizedAlertSubtitle(final String localizedAlertSubtitleKey, final String... alertSubtitleArguments) {
+        if (localizedAlertSubtitleKey != null && this.alertSubtitle != null) {
+            throw new IllegalStateException("Cannot set a localized subtitle key when a literal subtitle has already been set");
+        }
+
+        if (localizedAlertSubtitleKey == null && alertSubtitleArguments != null) {
+            throw new IllegalArgumentException("Cannot set localized subtitle arguments without a localized subtitle key.");
+        }
+
+        this.localizedAlertSubtitleKey = localizedAlertSubtitleKey;
+        this.localizedAlertSubtitleArguments = alertSubtitleArguments;
 
         return this;
     }
@@ -553,6 +592,14 @@ public class ApnsPayloadBuilder {
                     }
                 }
 
+                if (this.localizedAlertSubtitleKey != null) {
+                    alert.put(ALERT_SUBTITLE_LOC_KEY, this.localizedAlertSubtitleKey);
+
+                    if (this.localizedAlertSubtitleArguments != null) {
+                        alert.put(ALERT_SUBTITLE_ARGS_KEY, Arrays.asList(this.localizedAlertSubtitleArguments));
+                    }
+                }
+
                 if (this.launchImageFileName != null) {
                     alert.put(LAUNCH_IMAGE_KEY, this.launchImageFileName);
                 }
@@ -572,7 +619,8 @@ public class ApnsPayloadBuilder {
     private boolean hasAlertContent() {
         return this.alertBody != null || this.alertTitle != null || this.localizedAlertTitleKey != null
                 || this.localizedAlertKey != null || this.localizedActionButtonKey != null
-                || this.launchImageFileName != null || this.showActionButton == false || this.alertSubtitle != null;
+                || this.launchImageFileName != null || this.showActionButton == false || this.alertSubtitle != null
+                || this.localizedAlertSubtitleKey != null;
     }
 
     /**
