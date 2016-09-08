@@ -177,9 +177,9 @@ public class ApnsPayloadBuilder {
     }
 
     /**
-     * <p>The subtitle for ios 10</p>
+     * Sets a subtitle for the notification. Requires iOS 10 or newer.
      *
-     * @param alertSubtitle the subtitle for ios 10
+     * @param alertSubtitle the subtitle for this push notification
      *
      * @return a reference to this payload builder
      */
@@ -344,9 +344,11 @@ public class ApnsPayloadBuilder {
     }
 
     /**
-     * <p>mutable-content for ios 10</p>
+     * Sets whether the receiving device may modify the content of the push notification before displaying it. Requires
+     * iOS 10 or newer.
      *
-     * @param mutableContent {@code true} to include a flag that intercept the payload and mutate or replace it or {@code false} otherwise
+     * @param mutableContent {@code true} if the receiving device may modify the push notification before displaying it
+     * or {@code false} otherwise
      *
      * @return a reference to this payload builder
      *
@@ -570,7 +572,7 @@ public class ApnsPayloadBuilder {
     private boolean hasAlertContent() {
         return this.alertBody != null || this.alertTitle != null || this.localizedAlertTitleKey != null
                 || this.localizedAlertKey != null || this.localizedActionButtonKey != null
-                || this.launchImageFileName != null || this.showActionButton == false || alertSubtitle != null;
+                || this.launchImageFileName != null || this.showActionButton == false || this.alertSubtitle != null;
     }
 
     /**
@@ -615,7 +617,7 @@ public class ApnsPayloadBuilder {
         return i;
     }
 
-    static int getSizeOfJsonEscapedUtf8Character(char c) {
+    static int getSizeOfJsonEscapedUtf8Character(final char c) {
         final int charSize;
 
         if (c == '"' || c == '\\' || c == '\b' || c == '\f' || c == '\n' || c == '\r' || c == '\t') {
