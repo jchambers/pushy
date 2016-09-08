@@ -76,44 +76,9 @@ public class ApnsPayloadBuilderTest {
         }
     }
 
-    @Test
-    public void testSetAlertTitle() {
-        final String alertTitle = "This is a test alert message.";
-
-        this.builder.setAlertTitle(alertTitle);
-
-        {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
-
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
-
-            assertEquals(alertTitle, alert.get("title"));
-        }
-    }
-
-    @Test
-    public void testSetAlertTitleAndBody() {
-        final String alertTitle = "This is a short alert title";
-        final String alertBody = "This is a longer alert body";
-
-        this.builder.setAlertBody(alertBody);
-        this.builder.setAlertTitle(alertTitle);
-
-        {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
-
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
-
-            assertEquals(alertTitle, alert.get("title"));
-            assertEquals(alertBody, alert.get("body"));
-        }
-    }
-
     @SuppressWarnings("unchecked")
     @Test
-    public void testSetLocalizedAlertMessage() {
+    public void testSetLocalizedAlertBody() {
         final String alertKey = "test.alert";
         this.builder.setLocalizedAlertMessage(alertKey, null);
 
@@ -152,6 +117,38 @@ public class ApnsPayloadBuilderTest {
         this.builder.setLocalizedAlertMessage("Test", null);
     }
 
+    @Test
+    public void testSetAlertTitle() {
+        final String alertTitle = "This is a test alert message.";
+
+        this.builder.setAlertTitle(alertTitle);
+
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+            assertEquals(alertTitle, alert.get("title"));
+        }
+    }
+
+    @Test
+    public void testSetLocalizedAlertTitle() {
+        final String localizedAlertTitleKey = "alert.title";
+
+        this.builder.setLocalizedAlertTitle(localizedAlertTitleKey, null);
+
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+            assertEquals(localizedAlertTitleKey, alert.get("title-loc-key"));
+        }
+    }
+
     @Test(expected = IllegalStateException.class)
     public void testSetAlertTitleWithExistingLocalizedAlertTitle() {
         this.builder.setLocalizedAlertTitle("Test", null);
@@ -162,6 +159,69 @@ public class ApnsPayloadBuilderTest {
     public void testSetLocalizedAlertTitleWithExistingAlertTitle() {
         this.builder.setAlertTitle("Test");
         this.builder.setLocalizedAlertTitle("Test", null);
+    }
+
+    @Test
+    public void testSetAlertSubtitle() {
+        final String alertSubtitle = "This is a test alert message.";
+
+        this.builder.setAlertSubtitle(alertSubtitle);
+
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+            assertEquals(alertSubtitle, alert.get("subtitle"));
+        }
+    }
+
+    @Test
+    public void testSetLocalizedAlertSubitle() {
+        final String localizedAlertSubtitleKey = "alert.subtitle";
+
+        this.builder.setLocalizedAlertSubtitle(localizedAlertSubtitleKey);
+
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+            assertEquals(localizedAlertSubtitleKey, alert.get("subtitle-loc-key"));
+        }
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testSetAlertSubtitleWithExistingLocalizedAlertSubtitle() {
+        this.builder.setLocalizedAlertSubtitle("Test");
+        this.builder.setAlertSubtitle("Test");
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testSetLocalizedAlertSubtitleWithExistingAlertSubtitle() {
+        this.builder.setAlertSubtitle("Test");
+        this.builder.setLocalizedAlertSubtitle("Test");
+    }
+
+    @Test
+    public void testSetAlertTitleAndBody() {
+        final String alertTitle = "This is a short alert title";
+        final String alertBody = "This is a longer alert body";
+
+        this.builder.setAlertBody(alertBody);
+        this.builder.setAlertTitle(alertTitle);
+
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+            assertEquals(alertTitle, alert.get("title"));
+            assertEquals(alertBody, alert.get("body"));
+        }
     }
 
     @Test
@@ -280,6 +340,21 @@ public class ApnsPayloadBuilderTest {
 
             final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
             assertEquals(1, ((Number) aps.get("content-available")).intValue());
+        }
+    }
+
+    @Test
+    public void testSetMutableContent() {
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            assertNull(aps.get("mutable-content"));
+        }
+
+        {
+            this.builder.setMutableContent(true);
+
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            assertEquals(1, ((Number) aps.get("mutable-content")).intValue());
         }
     }
 
