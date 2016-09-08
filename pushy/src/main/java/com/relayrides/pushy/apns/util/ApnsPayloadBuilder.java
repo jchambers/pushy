@@ -98,14 +98,8 @@ public class ApnsPayloadBuilder {
     public static final String DEFAULT_SOUND_FILENAME = "default";
 
     /**
-     * Constructs a new payload builder.
-     */
-    public ApnsPayloadBuilder() {
-    }
-
-    /**
-     * <p>Sets the literal text of the alert message to be shown for the push notification. A literal alert message may
-     * not be set if a localized alert message key is already specified.</p>
+     * <p>Sets the literal text of the alert message to be shown for the push notification. Clears any previously-set
+     * localized alert message key and arguments.</p>
      *
      * <p>By default, no message is shown.</p>
      *
@@ -113,15 +107,13 @@ public class ApnsPayloadBuilder {
      *
      * @return a reference to this payload builder
      *
-     * @see ApnsPayloadBuilder#setLocalizedAlertMessage(String, String[])
+     * @see ApnsPayloadBuilder#setLocalizedAlertMessage(String, String...)
      */
     public ApnsPayloadBuilder setAlertBody(final String alertBody) {
-        if (alertBody != null && this.localizedAlertKey != null) {
-            throw new IllegalStateException(
-                    "Cannot set a literal alert body when a localized alert key has already been set.");
-        }
-
         this.alertBody = alertBody;
+
+        this.localizedAlertKey = null;
+        this.localizedAlertArguments = null;
 
         return this;
     }
@@ -129,7 +121,7 @@ public class ApnsPayloadBuilder {
     /**
      * <p>Sets the key of a message in the receiving app's localized string list to be shown for the push notification.
      * The message in the app's string list may optionally have placeholders, which will be populated by values from the
-     * given {@code alertArguments}.</p>
+     * given {@code alertArguments}. Clears any previously-set literal alert body.</p>
      *
      * <p>By default, no message is shown.</p>
      *
@@ -137,79 +129,67 @@ public class ApnsPayloadBuilder {
      * @param alertArguments arguments to populate placeholders in the localized alert string; may be {@code null}
      *
      * @return a reference to this payload builder
+     *
+     * @see ApnsPayloadBuilder#setAlertBody(String)
      */
-    public ApnsPayloadBuilder setLocalizedAlertMessage(final String localizedAlertKey, final String[] alertArguments) {
-        if (localizedAlertKey != null && this.alertBody != null) {
-            throw new IllegalStateException(
-                    "Cannot set a localized alert key when a literal alert body has already been set.");
-        }
-
-        if (localizedAlertKey == null && alertArguments != null) {
-            throw new IllegalArgumentException(
-                    "Cannot set localized alert arguments without a localized alert message key.");
-        }
-
+    public ApnsPayloadBuilder setLocalizedAlertMessage(final String localizedAlertKey, final String... alertArguments) {
         this.localizedAlertKey = localizedAlertKey;
-        this.localizedAlertArguments = alertArguments;
+        this.localizedAlertArguments = alertArguments.length > 0 ? alertArguments : null;
+
+        this.alertBody = null;
 
         return this;
     }
 
     /**
-     * <p>Sets a short description of the notification purpose. The Apple Watch will display this as part of the
-     * notification. According to Apple's documentation, this should be:</p>
+     * <p>Sets a short description of the notification purpose. Clears any previously-set localized title key and
+     * arguments. The Apple Watch will display the title as part of the notification. According to Apple's
+     * documentation, this should be:</p>
      *
      * <blockquote>A short string describing the purpose of the notification. Apple Watch displays this string as part
      * of the notification interface. This string is displayed only briefly and should be crafted so that it can be
      * understood quickly.</blockquote>
      *
+     * <p>By default, no title is included.</p>
+     *
      * @param alertTitle the description to be shown for this push notification
      *
      * @return a reference to this payload builder
      *
-     * @see ApnsPayloadBuilder#setLocalizedAlertTitle(String, String[])
+     * @see ApnsPayloadBuilder#setLocalizedAlertTitle(String, String...)
      */
     public ApnsPayloadBuilder setAlertTitle(final String alertTitle) {
-        if (alertTitle != null && this.localizedAlertTitleKey != null) {
-            throw new IllegalStateException(
-                    "Cannot set a literal alert title when a localized alert title key has already been set.");
-        }
-
         this.alertTitle = alertTitle;
+
+        this.localizedAlertTitleKey = null;
+        this.localizedAlertTitleArguments = null;
 
         return this;
     }
 
     /**
      * <p>Sets the key of the title string in the receiving app's localized string list to be shown for the push
-     * notification. The message in the app's string list may optionally have placeholders, which will be populated by
-     * values from the given {@code alertArguments}.</p>
+     * notification. Clears any previously-set literal alert title. The message in the app's string list may optionally
+     * have placeholders, which will be populated by values from the given {@code alertArguments}.</p>
      *
      * @param localizedAlertTitleKey a key to a string in the receiving app's localized string list
      * @param alertTitleArguments arguments to populate placeholders in the localized alert string; may be {@code null}
      *
      * @return a reference to this payload builder
      */
-    public ApnsPayloadBuilder setLocalizedAlertTitle(final String localizedAlertTitleKey,
-            final String[] alertTitleArguments) {
-        if (localizedAlertTitleKey != null && this.alertTitle != null) {
-            throw new IllegalStateException(
-                    "Cannot set a localized alert key when a literal alert body has already been set.");
-        }
-
-        if (localizedAlertTitleKey == null && alertTitleArguments != null) {
-            throw new IllegalArgumentException(
-                    "Cannot set localized alert arguments without a localized alert message key.");
-        }
-
+    public ApnsPayloadBuilder setLocalizedAlertTitle(final String localizedAlertTitleKey, final String... alertTitleArguments) {
         this.localizedAlertTitleKey = localizedAlertTitleKey;
-        this.localizedAlertTitleArguments = alertTitleArguments;
+        this.localizedAlertTitleArguments = alertTitleArguments.length > 0 ? alertTitleArguments : null;
+
+        this.alertTitle = null;
 
         return this;
     }
 
     /**
-     * Sets a subtitle for the notification. Requires iOS 10 or newer.
+     * <p>Sets a subtitle for the notification. Clears any previously-set localized subtitle key and arguments.</p>
+     *
+     * <p>By default, no subtitle is included. Requires iOS 10 or newer.</p>
      *
      * @param alertSubtitle the subtitle for this push notification
      *
@@ -218,19 +198,20 @@ public class ApnsPayloadBuilder {
      * @since 0.8.1
      */
     public ApnsPayloadBuilder setAlertSubtitle(final String alertSubtitle) {
-        if (alertSubtitle != null && this.localizedAlertSubtitleKey != null) {
-            throw new IllegalStateException("Cannot set a literal subtitle when a localized subtitle key has already been set");
-        }
-
         this.alertSubtitle = alertSubtitle;
+
+        this.localizedAlertSubtitleKey = null;
+        this.localizedAlertSubtitleArguments = null;
 
         return this;
     }
 
     /**
      * <p>Sets the key of the subtitle string in the receiving app's localized string list to be shown for the push
-     * notification. The message in the app's string list may optionally have placeholders, which will be populated by
-     * values from the given {@code alertSubtitleArguments}.</p>
+     * notification. Clears any previously-set literal subtitle. The message in the app's string list may optionally
+     * have placeholders, which will be populated by values from the given {@code alertSubtitleArguments}.</p>
+     *
+     * <p>By default, no subtitle is included. Requires iOS 10 or newer.</p>
      *
      * @param localizedAlertSubtitleKey a key to a string in the receiving app's localized string list
      * @param alertSubtitleArguments arguments to populate placeholders in the localized subtitle string; may be
@@ -241,16 +222,10 @@ public class ApnsPayloadBuilder {
      * @since 0.8.1
      */
     public ApnsPayloadBuilder setLocalizedAlertSubtitle(final String localizedAlertSubtitleKey, final String... alertSubtitleArguments) {
-        if (localizedAlertSubtitleKey != null && this.alertSubtitle != null) {
-            throw new IllegalStateException("Cannot set a localized subtitle key when a literal subtitle has already been set");
-        }
-
-        if (localizedAlertSubtitleKey == null && alertSubtitleArguments != null) {
-            throw new IllegalArgumentException("Cannot set localized subtitle arguments without a localized subtitle key.");
-        }
-
         this.localizedAlertSubtitleKey = localizedAlertSubtitleKey;
-        this.localizedAlertSubtitleArguments = alertSubtitleArguments;
+        this.localizedAlertSubtitleArguments = alertSubtitleArguments.length > 0 ? alertSubtitleArguments : null;
+
+        this.alertSubtitle = null;
 
         return this;
     }
