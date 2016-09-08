@@ -55,6 +55,7 @@ public class ApnsPayloadBuilderTest {
     public void testSetAlertBody() {
         final String alertBody = "This is a test alert message.";
 
+        this.builder.setLocalizedAlertMessage("test.alert");
         this.builder.setAlertBody(alertBody);
 
         {
@@ -64,6 +65,8 @@ public class ApnsPayloadBuilderTest {
             assertEquals(alertBody, aps.get("alert"));
         }
 
+        this.builder.setLocalizedAlertMessage("test.alert");
+        this.builder.setAlertBody(alertBody);
         this.builder.setShowActionButton(false);
 
         {
@@ -73,6 +76,8 @@ public class ApnsPayloadBuilderTest {
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
             assertEquals(alertBody, alert.get("body"));
+            assertNull(alert.get("loc-key"));
+            assertNull(alert.get("loc-args"));
         }
     }
 
@@ -80,7 +85,9 @@ public class ApnsPayloadBuilderTest {
     @Test
     public void testSetLocalizedAlertBody() {
         final String alertKey = "test.alert";
-        this.builder.setLocalizedAlertMessage(alertKey, null);
+
+        this.builder.setAlertBody("Alert body!");
+        this.builder.setLocalizedAlertMessage(alertKey);
 
         {
             final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
@@ -88,6 +95,7 @@ public class ApnsPayloadBuilderTest {
 
             assertEquals(alertKey, alert.get("loc-key"));
             assertNull(alert.get("loc-args"));
+            assertNull(alert.get("body"));
         }
 
         final String[] alertArgs = new String[] { "Moose", "helicopter" };
@@ -103,24 +111,14 @@ public class ApnsPayloadBuilderTest {
             assertEquals(alertArgs.length, argsArray.size());
             assertTrue(argsArray.containsAll(java.util.Arrays.asList(alertArgs)));
         }
-    }
 
-    @Test(expected = IllegalStateException.class)
-    public void testSetAlertBodyWithExistingLocalizedAlert() {
-        this.builder.setLocalizedAlertMessage("Test", null);
-        this.builder.setAlertBody("Test");
-    }
-
-    @Test(expected = IllegalStateException.class)
-    public void testSetLocalizedAlertWithExistingAlertBody() {
-        this.builder.setAlertBody("Test");
-        this.builder.setLocalizedAlertMessage("Test", null);
     }
 
     @Test
     public void testSetAlertTitle() {
         final String alertTitle = "This is a test alert message.";
 
+        this.builder.setLocalizedAlertTitle("alert.title");
         this.builder.setAlertTitle(alertTitle);
 
         {
@@ -130,6 +128,8 @@ public class ApnsPayloadBuilderTest {
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
             assertEquals(alertTitle, alert.get("title"));
+            assertNull(alert.get("title-loc-key"));
+            assertNull(alert.get("title-loc-args"));
         }
     }
 
@@ -137,7 +137,8 @@ public class ApnsPayloadBuilderTest {
     public void testSetLocalizedAlertTitle() {
         final String localizedAlertTitleKey = "alert.title";
 
-        this.builder.setLocalizedAlertTitle(localizedAlertTitleKey, null);
+        this.builder.setAlertTitle("Alert title!");
+        this.builder.setLocalizedAlertTitle(localizedAlertTitleKey);
 
         {
             final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
@@ -146,25 +147,33 @@ public class ApnsPayloadBuilderTest {
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
             assertEquals(localizedAlertTitleKey, alert.get("title-loc-key"));
+            assertNull(alert.get("title-loc-args"));
+            assertNull(alert.get("title"));
         }
-    }
 
-    @Test(expected = IllegalStateException.class)
-    public void testSetAlertTitleWithExistingLocalizedAlertTitle() {
-        this.builder.setLocalizedAlertTitle("Test", null);
-        this.builder.setAlertTitle("Test");
-    }
+        final String[] alertArgs = new String[] { "Moose", "helicopter" };
+        this.builder.setLocalizedAlertTitle(localizedAlertTitleKey, alertArgs);
 
-    @Test(expected = IllegalStateException.class)
-    public void testSetLocalizedAlertTitleWithExistingAlertTitle() {
-        this.builder.setAlertTitle("Test");
-        this.builder.setLocalizedAlertTitle("Test", null);
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+            assertEquals(localizedAlertTitleKey, alert.get("title-loc-key"));
+
+            @SuppressWarnings("unchecked")
+            final List<Object> argsArray = (List<Object>) alert.get("title-loc-args");
+            assertEquals(alertArgs.length, argsArray.size());
+            assertTrue(argsArray.containsAll(java.util.Arrays.asList(alertArgs)));
+        }
     }
 
     @Test
     public void testSetAlertSubtitle() {
         final String alertSubtitle = "This is a test alert message.";
 
+        this.builder.setLocalizedAlertSubtitle("alert.subtitle");
         this.builder.setAlertSubtitle(alertSubtitle);
 
         {
@@ -174,35 +183,41 @@ public class ApnsPayloadBuilderTest {
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
             assertEquals(alertSubtitle, alert.get("subtitle"));
+            assertNull(alert.get("subtitle-loc-key"));
+            assertNull(alert.get("subtitle-loc-args"));
         }
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     public void testSetLocalizedAlertSubitle() {
-        final String localizedAlertSubtitleKey = "alert.subtitle";
+        final String subtitleKey = "test.subtitle";
 
-        this.builder.setLocalizedAlertSubtitle(localizedAlertSubtitleKey);
+        this.builder.setAlertSubtitle("Subtitle!");
+        this.builder.setLocalizedAlertSubtitle(subtitleKey);
 
         {
             final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
-
-            @SuppressWarnings("unchecked")
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
-            assertEquals(localizedAlertSubtitleKey, alert.get("subtitle-loc-key"));
+            assertEquals(subtitleKey, alert.get("subtitle-loc-key"));
+            assertNull(alert.get("subtitle-loc-args"));
+            assertNull(alert.get("subtitle"));
         }
-    }
 
-    @Test(expected = IllegalStateException.class)
-    public void testSetAlertSubtitleWithExistingLocalizedAlertSubtitle() {
-        this.builder.setLocalizedAlertSubtitle("Test");
-        this.builder.setAlertSubtitle("Test");
-    }
+        final String[] subtitleArgs = new String[] { "Moose", "helicopter" };
+        this.builder.setLocalizedAlertSubtitle(subtitleKey, subtitleArgs);
 
-    @Test(expected = IllegalStateException.class)
-    public void testSetLocalizedAlertSubtitleWithExistingAlertSubtitle() {
-        this.builder.setAlertSubtitle("Test");
-        this.builder.setLocalizedAlertSubtitle("Test");
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+            assertEquals(subtitleKey, alert.get("subtitle-loc-key"));
+
+            final List<Object> argsArray = (List<Object>) alert.get("subtitle-loc-args");
+            assertEquals(subtitleArgs.length, argsArray.size());
+            assertTrue(argsArray.containsAll(java.util.Arrays.asList(subtitleArgs)));
+        }
     }
 
     @Test
@@ -405,7 +420,7 @@ public class ApnsPayloadBuilderTest {
 
         final int maxLength = 128;
 
-        this.builder.setLocalizedAlertMessage(reallyLongAlertKey, null);
+        this.builder.setLocalizedAlertMessage(reallyLongAlertKey);
 
         final String payloadString = this.builder.buildWithMaximumLength(maxLength);
 
