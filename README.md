@@ -23,10 +23,10 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 
 If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.8/pushy-0.8.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
-- [netty 4.1.4](http://netty.io/)
+- [netty 4.1.5](http://netty.io/)
 - [gson 2.6](https://github.com/google/gson)
 - [slf4j 1.7.6](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
-- Either `netty-tcnative` (1.1.33.Fork19 or newer) or `alpn-boot`, as discussed in the [system requirements](#system-requirements) section below
+- Either `netty-tcnative` (1.1.33.Fork22 or newer) or `alpn-boot`, as discussed in the [system requirements](#system-requirements) section below
   - [alpn-api](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html) if you've opted to use a native SSL provider (`alpn-api` is included in `alpn-boot`); please see the [system requirements](#system-requirements) section for details)
 
 Pushy itself requires Java 7 or newer to build and run.
@@ -141,13 +141,13 @@ To add the netty-tcnative uber-jar, you'll just need to add the following depend
 <dependency>
     <groupId>io.netty</groupId>
     <artifactId>netty-tcnative-boringssl-static</artifactId>
-    <version>1.1.33.Fork19</version>
+    <version>1.1.33.Fork22</version>
 </dependency>
 ```
 
 Otherwise, you may add the jar to your classpath by the means of your choice.
 
-Please note that Pushy requires netty-tcnative 1.1.33.Fork19 or newer. Additionally, you'll need [`alpn-api`](http://mvnrepository.com/artifact/org.eclipse.jetty.alpn/alpn-api) as a `runtime` dependency for your project. If you're managing dependencies manually, you'll just need to make sure the latest version of `alpn-api` is available on your classpath.
+Please note that Pushy requires netty-tcnative 1.1.33.Fork22 or newer. Additionally, you'll need [`alpn-api`](http://mvnrepository.com/artifact/org.eclipse.jetty.alpn/alpn-api) as a `runtime` dependency for your project. If you're managing dependencies manually, you'll just need to make sure the latest version of `alpn-api` is available on your classpath.
 
 ### Using Jetty's ALPN implementation
 
