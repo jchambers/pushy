@@ -34,6 +34,8 @@ import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLException;
 
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.channel.WriteBufferWaterMark;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -85,6 +87,9 @@ public class ApnsClientBuilder {
 
     private Long gracefulShutdownTimeout;
     private TimeUnit gracefulShutdownTimeoutUnit;
+
+    private ByteBufAllocator byteBufferAllocator;
+    private WriteBufferWaterMark channelWriteBufferWaterMark;
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientBuilder.class);
 
@@ -349,6 +354,34 @@ public class ApnsClientBuilder {
     }
 
     /**
+     * Sets the buffer allocator for the underlying netty channel
+     *
+     * @param byteBufferAllocator the buffer allocator to use for the underlying netty channel
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.9
+     */
+    public ApnsClientBuilder setByteBufferAllocator(ByteBufAllocator byteBufferAllocator) {
+        this.byteBufferAllocator = byteBufferAllocator;
+        return this;
+    }
+
+    /**
+     * Sets the buffer usage watermark range for the underlying netty channel
+     *
+     * @param writeBufferWatermark the watermark range used in the underlying netty channel
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.9
+     */
+    public ApnsClientBuilder setChannelWriteBufferWatermark(WriteBufferWaterMark writeBufferWatermark) {
+        this.channelWriteBufferWaterMark = writeBufferWatermark;
+        return this;
+    }
+
+    /**
      * Constructs a new {@link ApnsClient} with the previously-set configuration.
      *
      * @return a new ApnsClient instance with the previously-set configuration
@@ -414,6 +447,14 @@ public class ApnsClientBuilder {
 
         if (this.gracefulShutdownTimeout != null) {
             apnsClient.setGracefulShutdownTimeout(this.gracefulShutdownTimeoutUnit.toMillis(this.gracefulShutdownTimeout));
+        }
+
+        if (this.byteBufferAllocator != null) {
+            apnsClient.setBufferAllocator(byteBufferAllocator);
+        }
+
+        if (this.channelWriteBufferWaterMark != null) {
+            apnsClient.setChannelWriteBufferWatermark(channelWriteBufferWaterMark);
         }
 
         return apnsClient;

@@ -26,6 +26,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.channel.WriteBufferWaterMark;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -160,6 +162,7 @@ public class ApnsClient {
     public static final int ALTERNATE_APNS_PORT = 2197;
 
     private static final ClientNotConnectedException NOT_CONNECTED_EXCEPTION = new ClientNotConnectedException();
+    private static final ClientBusyException CLIENT_BUSY_EXCEPTION = new ClientBusyException();
 
     private static final long INITIAL_RECONNECT_DELAY_SECONDS = 1; // second
     private static final long MAX_RECONNECT_DELAY_SECONDS = 60; // seconds
@@ -262,6 +265,32 @@ public class ApnsClient {
     protected void setConnectionTimeout(final int timeoutMillis) {
         synchronized (this.bootstrap) {
             this.bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, timeoutMillis);
+        }
+    }
+
+    /**
+     * Sets the write buffer watermark option on the underlying Netty channel
+     *
+     * @param writeBufferWaterMark the write buffer watermark range for the netty channel
+     *
+     * @since 0.9
+     */
+    protected void setChannelWriteBufferWatermark(WriteBufferWaterMark writeBufferWaterMark) {
+        synchronized (this.bootstrap) {
+            this.bootstrap.option(ChannelOption.WRITE_BUFFER_WATER_MARK, writeBufferWaterMark);
+        }
+    }
+
+    /**
+     * Sets the byte buffer allocator on the underlying netty channel
+     *
+     * @param allocator the byte buffer allocator for the netty channel
+     *
+     * @since 0.9
+     */
+    protected void setBufferAllocator(ByteBufAllocator allocator) {
+        synchronized (this.bootstrap) {
+            this.bootstrap.option(ChannelOption.ALLOCATOR, allocator);
         }
     }
 
@@ -571,6 +600,9 @@ public class ApnsClient {
         final ChannelPromise connectionReadyPromise = this.connectionReadyPromise;
 
         if (connectionReadyPromise != null && connectionReadyPromise.isSuccess() && connectionReadyPromise.channel().isActive()) {
+            if (!connectionReadyPromise.channel().isWritable()) {
+                return new FailedFuture<>(GlobalEventExecutor.INSTANCE, CLIENT_BUSY_EXCEPTION);
+            }
             final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
                     new DefaultPromise<>(connectionReadyPromise.channel().eventLoop());
 
