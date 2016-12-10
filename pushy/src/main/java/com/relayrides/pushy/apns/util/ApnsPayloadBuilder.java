@@ -24,6 +24,7 @@ import java.io.CharArrayWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.google.gson.Gson;
@@ -59,6 +60,7 @@ public class ApnsPayloadBuilder {
     private String categoryName = null;
     private boolean contentAvailable = false;
     private boolean mutableContent = false;
+    private String[] urlArguments = null;
 
     private boolean preferStringRepresentationForAlerts = false;
 
@@ -71,6 +73,7 @@ public class ApnsPayloadBuilder {
     private static final String CATEGORY_KEY = "category";
     private static final String CONTENT_AVAILABLE_KEY = "content-available";
     private static final String MUTABLE_CONTENT_KEY = "mutable-content";
+    private static final String URL_ARGS_KEY = "url-args";
 
     private static final String ALERT_TITLE_KEY = "title";
     private static final String ALERT_TITLE_LOC_KEY = "title-loc-key";
@@ -421,6 +424,59 @@ public class ApnsPayloadBuilder {
     }
 
     /**
+     * <p>Sets the list of arguments to populate placeholders in the {@code urlFormatString} associated with a Safari
+     * push notification. Has no effect for non-Safari notifications. According to the Notification Programming Guide
+     * for Websites:</p>
+     *
+     * <blockquote>The {@code url-args} key must be included [for Safari push notifications]. The number of elements in
+     * the array must match the number of placeholders in the {@code urlFormatString} value and the order of the
+     * placeholders in the URL format string determines the order of the values supplied by the {@code url-args} array.
+     * The number of placeholders may be zero, in which case the array should be empty. However, it is common practice
+     * to always include at least one argument so that the user is directed to a web page specific to the notification
+     * received.</blockquote>
+     *
+     * @param arguments the arguments with which to populate URL placeholders, which may be an empty list; if
+     * {@code null}, the {@code url-args} key is ommitted from the payload entirely
+     *
+     * @return a reference to this payload builder
+     *
+     * @see <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/NotificationProgrammingGuideForWebsites/PushNotifications/PushNotifications.html#//apple_ref/doc/uid/TP40013225-CH3-SW1">
+     *      Notification Programming Guide for Websites - Configuring Safari Push Notifications</a>
+     *
+     * @since 0.8.2
+     */
+    public ApnsPayloadBuilder setUrlArguments(final List<String> arguments) {
+        return this.setUrlArguments(arguments != null ? arguments.toArray(new String[0]) : null);
+    }
+
+    /**
+     * <p>Sets the list of arguments to populate placeholders in the {@code urlFormatString} associated with a Safari
+     * push notification. Has no effect for non-Safari notifications. According to the Notification Programming Guide
+     * for Websites:</p>
+     *
+     * <blockquote>The {@code url-args} key must be included [for Safari push notifications]. The number of elements in
+     * the array must match the number of placeholders in the {@code urlFormatString} value and the order of the
+     * placeholders in the URL format string determines the order of the values supplied by the {@code url-args} array.
+     * The number of placeholders may be zero, in which case the array should be empty. However, it is common practice
+     * to always include at least one argument so that the user is directed to a web page specific to the notification
+     * received.</blockquote>
+     *
+     * @param arguments the arguments with which to populate URL placeholders, which may be an empty array; if
+     * {@code null}, the {@code url-args} key is ommitted from the payload entirely
+     *
+     * @return a reference to this payload builder
+     *
+     * @see <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/NotificationProgrammingGuideForWebsites/PushNotifications/PushNotifications.html#//apple_ref/doc/uid/TP40013225-CH3-SW1">
+     *      Notification Programming Guide for Websites - Configuring Safari Push Notifications</a>
+     *
+     * @since 0.8.2
+     */
+    public ApnsPayloadBuilder setUrlArguments(final String... arguments) {
+        this.urlArguments = arguments;
+        return this;
+    }
+
+    /**
      * <p>Adds a custom property to the payload. According to Apple's documentation:</p>
      *
      * <blockquote>Providers can specify custom payload values outside the Apple-reserved {@code aps} namespace. Custom
@@ -547,6 +603,10 @@ public class ApnsPayloadBuilder {
                 aps.put(ALERT_KEY, alert.get(ALERT_BODY_KEY));
             } else if (!alert.isEmpty()) {
                 aps.put(ALERT_KEY, alert);
+            }
+
+            if (this.urlArguments != null) {
+                aps.put(URL_ARGS_KEY, this.urlArguments);
             }
 
             payload.put(APS_KEY, aps);

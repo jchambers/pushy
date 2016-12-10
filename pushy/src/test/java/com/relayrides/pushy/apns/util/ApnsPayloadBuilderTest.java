@@ -28,6 +28,7 @@ import static org.junit.Assert.assertTrue;
 import java.lang.reflect.Type;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -413,6 +414,73 @@ public class ApnsPayloadBuilderTest {
                 this.builder.buildWithDefaultMaximumLength(), MAP_OF_STRING_TO_OBJECT);
 
         assertEquals(customValue, payload.get(customKey));
+    }
+
+    @Test
+    public void testSetUrlArgumentsList() {
+        {
+            final List<String> arguments = new ArrayList<>();
+            arguments.add("first");
+            arguments.add("second");
+            arguments.add("third");
+
+            this.builder.setUrlArguments(arguments);
+
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+            assertEquals(arguments, aps.get("url-args"));
+        }
+
+        {
+            final List<String> arguments = new ArrayList<>();
+            this.builder.setUrlArguments(arguments);
+
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+            assertEquals(arguments, aps.get("url-args"));
+        }
+
+        {
+            this.builder.setUrlArguments((List<String>) null);
+
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+            assertNull(aps.get("url-args"));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testSetUrlArgumentsArray() {
+        {
+            this.builder.setUrlArguments("first", "second", "third");
+
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+            final List<String> argumentsFromPayload = (List<String>) aps.get("url-args");
+
+            assertEquals(3, argumentsFromPayload.size());
+            assertEquals("first", argumentsFromPayload.get(0));
+            assertEquals("second", argumentsFromPayload.get(1));
+            assertEquals("third", argumentsFromPayload.get(2));
+        }
+
+        {
+            final String[] arguments = new String[0];
+            this.builder.setUrlArguments(arguments);
+
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+            assertTrue(((List<String>) aps.get("url-args")).isEmpty());
+        }
+
+        {
+            this.builder.setUrlArguments((String[]) null);
+
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+            assertNull(aps.get("url-args"));
+        }
     }
 
     @Test
