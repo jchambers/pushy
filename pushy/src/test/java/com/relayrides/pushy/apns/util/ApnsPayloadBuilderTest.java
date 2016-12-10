@@ -403,6 +403,16 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
+    public void testSetThreadId() {
+        final String threadId = "example.thread.identifier";
+
+        this.builder.setThreadId(threadId);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+        assertEquals(threadId, aps.get("thread-id"));
+    }
+
+    @Test
     public void testAddCustomProperty() {
         final String customKey = "string";
         final String customValue = "Hello";
