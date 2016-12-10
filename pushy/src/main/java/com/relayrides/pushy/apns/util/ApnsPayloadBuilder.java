@@ -52,6 +52,7 @@ public class ApnsPayloadBuilder {
     private String[] localizedAlertSubtitleArguments = null;
     private String launchImageFileName = null;
     private boolean showActionButton = true;
+    private String actionButtonLabel = null;
     private String localizedActionButtonKey = null;
     private Integer badgeNumber = null;
     private String soundFileName = null;
@@ -80,6 +81,7 @@ public class ApnsPayloadBuilder {
     private static final String ALERT_BODY_KEY = "body";
     private static final String ALERT_LOC_KEY = "loc-key";
     private static final String ALERT_ARGS_KEY = "loc-args";
+    private static final String ACTION_KEY = "action";
     private static final String ACTION_LOC_KEY = "action-loc-key";
     private static final String LAUNCH_IMAGE_KEY = "launch-image";
 
@@ -286,16 +288,42 @@ public class ApnsPayloadBuilder {
     }
 
     /**
+     * <p>Sets the literal text of the action button to be shown for the push notification <em>for Safari push
+     * notifications only</em>. Clears any previously-set localized action key. By default, the OS-default label will be
+     * used for the action button.</p>
+     *
+     * @param action the literal label to be shown on the action button for this notification
+     *
+     * @return a reference to this payload builder
+     *
+     * @see ApnsPayloadBuilder#setLocalizedActionButtonKey(String)
+     * @see ApnsPayloadBuilder#setShowActionButton(boolean)
+     *
+     * @since 0.8.2
+     */
+    public ApnsPayloadBuilder setActionButtonLabel(final String action) {
+        this.actionButtonLabel = action;
+        this.localizedActionButtonKey = null;
+
+        return this;
+    }
+
+    /**
      * <p>Sets the key of a string in the receiving app's localized string list to be used as the label of the
-     * &quot;action&quot; button if the push notification is displayed as an alert. By default, the OS-default label
-     * will be used for the action button.</p>
+     * &quot;action&quot; button if the push notification is displayed as an alert. Clears any previously-set literal
+     * action button label. By default, the OS-default label will be used for the action button.</p>
      *
      * @param localizedActionButtonKey a key to a string in the receiving app's localized string list
      *
      * @return a reference to this payload builder
+     *
+     * @see ApnsPayloadBuilder#setActionButtonLabel(String)
+     * @see ApnsPayloadBuilder#setShowActionButton(boolean)
      */
     public ApnsPayloadBuilder setLocalizedActionButtonKey(final String localizedActionButtonKey) {
         this.localizedActionButtonKey = localizedActionButtonKey;
+        this.actionButtonLabel = null;
+
         return this;
     }
 
@@ -476,6 +504,10 @@ public class ApnsPayloadBuilder {
                 if (this.showActionButton) {
                     if (this.localizedActionButtonKey != null) {
                         alert.put(ACTION_LOC_KEY, this.localizedActionButtonKey);
+                    }
+
+                    if (this.actionButtonLabel != null) {
+                        alert.put(ACTION_KEY, this.actionButtonLabel);
                     }
                 } else {
                     // To hide the action button, the key needs to be present, but the value needs to be null

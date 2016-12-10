@@ -310,8 +310,26 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
+    public void testSetActionButtonLabel() {
+        final String actionButtonLabel = "Bam! Pow!";
+
+        this.builder.setLocalizedActionButtonKey("action.key");
+        this.builder.setActionButtonLabel(actionButtonLabel);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+        assertEquals(actionButtonLabel, alert.get("action"));
+        assertNull(alert.get("action-loc-key"));
+    }
+
+    @Test
     public void testSetLocalizedActionButtonKey() {
         final String actionButtonKey = "action.key";
+
+        this.builder.setActionButtonLabel("Literal action button label");
         this.builder.setLocalizedActionButtonKey(actionButtonKey);
 
         final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
@@ -320,6 +338,7 @@ public class ApnsPayloadBuilderTest {
         final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
         assertEquals(actionButtonKey, alert.get("action-loc-key"));
+        assertNull(alert.get("action"));
     }
 
     @Test
