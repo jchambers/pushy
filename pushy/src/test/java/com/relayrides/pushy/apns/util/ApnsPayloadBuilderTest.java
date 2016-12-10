@@ -61,7 +61,16 @@ public class ApnsPayloadBuilderTest {
         {
             final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
 
-            // The alert property should be a string if all we're specifying is a literal alert message
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+            assertEquals(alertBody, alert.get("body"));
+        }
+
+        this.builder.setPreferStringRepresentationForAlerts(true);
+
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
             assertEquals(alertBody, aps.get("alert"));
         }
 
@@ -410,7 +419,10 @@ public class ApnsPayloadBuilderTest {
         this.builder.setAlertBody(shortAlertMessage);
         final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLength(Integer.MAX_VALUE));
 
-        assertEquals(shortAlertMessage, aps.get("alert"));
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+        assertEquals(shortAlertMessage, alert.get("body"));
     }
 
     @Test(expected = IllegalArgumentException.class)
