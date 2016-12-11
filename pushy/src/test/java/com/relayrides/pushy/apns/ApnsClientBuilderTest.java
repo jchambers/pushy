@@ -66,7 +66,7 @@ public class ApnsClientBuilderTest {
         }
     }
 
-    @Test(expected = NullPointerException.class)
+    @Test
     public void testBuildWithoutClientCredentials() throws Exception {
         new ApnsClientBuilder().build();
     }

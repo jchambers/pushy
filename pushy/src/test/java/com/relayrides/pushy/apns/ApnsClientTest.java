@@ -57,7 +57,8 @@ public class ApnsClientTest {
     private static final int TOKEN_LENGTH = 32; // bytes
 
     private MockApnsServer server;
-    private ApnsClient client;
+    private ApnsClient tlsAuthenticationClient;
+    private ApnsClient tokenAuthenticationClient;
 
     private SslProvider preferredSslProvider;
 
@@ -220,7 +221,7 @@ public class ApnsClientTest {
         this.preferredSslProvider = "jdk".equals(System.getenv("PUSHY_SSL_PROVIDER")) ? SslProvider.JDK : null;
 
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            this.client = new ApnsClientBuilder()
+            this.tlsAuthenticationClient = new ApnsClientBuilder()
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .setTrustedServerCertificateChain(CA_CERTIFICATE)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
@@ -228,12 +229,18 @@ public class ApnsClientTest {
                     .build();
         }
 
-        this.client.connect(HOST, PORT).await();
+        this.tokenAuthenticationClient = new ApnsClientBuilder()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .build();
+
+        this.tlsAuthenticationClient.connect(HOST, PORT).await();
+        this.tokenAuthenticationClient.connect(HOST, PORT).await();
     }
 
     @After
     public void tearDown() throws Exception {
-        this.client.disconnect().await();
+        this.tlsAuthenticationClient.disconnect().await();
 
         // Mild hack: there's a harmless race condition where we can try to write a `GOAWAY` from the server to the
         // client in the time between when the client closes the connection and the server notices the connection has
@@ -287,44 +294,44 @@ public class ApnsClientTest {
 
     @Test
     public void testReconnectionAfterClose() throws Exception {
-        assertTrue(this.client.isConnected());
-        assertTrue(this.client.disconnect().await().isSuccess());
+        assertTrue(this.tlsAuthenticationClient.isConnected());
+        assertTrue(this.tlsAuthenticationClient.disconnect().await().isSuccess());
 
-        assertFalse(this.client.isConnected());
+        assertFalse(this.tlsAuthenticationClient.isConnected());
 
-        assertTrue(this.client.connect(HOST, PORT).await().isSuccess());
-        assertTrue(this.client.isConnected());
+        assertTrue(this.tlsAuthenticationClient.connect(HOST, PORT).await().isSuccess());
+        assertTrue(this.tlsAuthenticationClient.isConnected());
     }
 
     @Test
     public void testAutomaticReconnection() throws Exception {
-        assertTrue(this.client.isConnected());
+        assertTrue(this.tlsAuthenticationClient.isConnected());
 
         this.server.shutdown().await();
 
         // Wait for the client to notice the GOAWAY; if it doesn't, the test will time out and fail
-        while (this.client.isConnected()) {
+        while (this.tlsAuthenticationClient.isConnected()) {
             Thread.sleep(100);
         }
 
-        assertFalse(this.client.isConnected());
+        assertFalse(this.tlsAuthenticationClient.isConnected());
 
         this.server.start(PORT).await();
 
         // Wait for the client to reconnect automatically; if it doesn't, the test will time out and fail
-        final Future<Void> reconnectionFuture = this.client.getReconnectionFuture();
+        final Future<Void> reconnectionFuture = this.tlsAuthenticationClient.getReconnectionFuture();
         reconnectionFuture.await();
 
         assertTrue(reconnectionFuture.isSuccess());
-        assertTrue(this.client.isConnected());
+        assertTrue(this.tlsAuthenticationClient.isConnected());
     }
 
     @Test
     public void testGetReconnectionFutureWhenConnected() throws Exception {
-        final Future<Void> reconnectionFuture = this.client.getReconnectionFuture();
+        final Future<Void> reconnectionFuture = this.tlsAuthenticationClient.getReconnectionFuture();
         reconnectionFuture.await();
 
-        assertTrue(this.client.isConnected());
+        assertTrue(this.tlsAuthenticationClient.isConnected());
         assertTrue(reconnectionFuture.isSuccess());
     }
 
@@ -398,7 +405,7 @@ public class ApnsClientTest {
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
         final PushNotificationResponse<SimpleApnsPushNotification> response =
-                this.client.sendNotification(pushNotification).get();
+                this.tlsAuthenticationClient.sendNotification(pushNotification).get();
 
         assertTrue(response.isAccepted());
     }
@@ -420,7 +427,7 @@ public class ApnsClientTest {
         final List<Future<PushNotificationResponse<SimpleApnsPushNotification>>> futures = new ArrayList<>();
 
         for (final SimpleApnsPushNotification pushNotification : pushNotifications) {
-            futures.add(this.client.sendNotification(pushNotification));
+            futures.add(this.tlsAuthenticationClient.sendNotification(pushNotification));
         }
 
         for (final Future<PushNotificationResponse<SimpleApnsPushNotification>> future : futures) {
@@ -449,7 +456,7 @@ public class ApnsClientTest {
 
         for (final SimpleApnsPushNotification pushNotification : pushNotifications) {
             final Future<PushNotificationResponse<SimpleApnsPushNotification>> future =
-                    this.client.sendNotification(pushNotification);
+                    this.tlsAuthenticationClient.sendNotification(pushNotification);
 
             future.addListener(new GenericFutureListener<Future<PushNotificationResponse<SimpleApnsPushNotification>>>() {
 
@@ -481,7 +488,7 @@ public class ApnsClientTest {
 
         for (int i = 0; i < notificationCount; i++) {
             final Future<PushNotificationResponse<SimpleApnsPushNotification>> future =
-                    this.client.sendNotification(pushNotification);
+                    this.tlsAuthenticationClient.sendNotification(pushNotification);
 
             future.addListener(new GenericFutureListener<Future<PushNotificationResponse<SimpleApnsPushNotification>>>() {
 
@@ -508,7 +515,7 @@ public class ApnsClientTest {
                         DeliveryPriority.IMMEDIATE);
 
         final PushNotificationResponse<SimpleApnsPushNotification> response =
-                this.client.sendNotification(pushNotification).get();
+                this.tlsAuthenticationClient.sendNotification(pushNotification).get();
 
         assertFalse(response.isAccepted());
         assertEquals("DeviceTokenNotForTopic", response.getRejectionReason());
@@ -581,7 +588,7 @@ public class ApnsClientTest {
                 new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), null, "test-payload");
 
         final PushNotificationResponse<SimpleApnsPushNotification> response =
-                this.client.sendNotification(pushNotification).get();
+                this.tlsAuthenticationClient.sendNotification(pushNotification).get();
 
         assertFalse(response.isAccepted());
         assertEquals("DeviceTokenNotForTopic", response.getRejectionReason());
@@ -598,7 +605,7 @@ public class ApnsClientTest {
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
         final PushNotificationResponse<SimpleApnsPushNotification> response =
-                this.client.sendNotification(pushNotification).get();
+                this.tlsAuthenticationClient.sendNotification(pushNotification).get();
 
         assertFalse(response.isAccepted());
         assertEquals("Unregistered", response.getRejectionReason());
@@ -712,7 +719,7 @@ public class ApnsClientTest {
     @Test
     public void testAcceptedNotificationMetrics() throws Exception {
         final TestMetricsListener metricsListener = new TestMetricsListener();
-        this.client.setMetricsListener(metricsListener);
+        this.tlsAuthenticationClient.setMetricsListener(metricsListener);
 
         this.testSendNotification();
         metricsListener.waitForNonZeroAcceptedNotifications();
@@ -725,7 +732,7 @@ public class ApnsClientTest {
     @Test
     public void testRejectedNotificationMetrics() throws Exception {
         final TestMetricsListener metricsListener = new TestMetricsListener();
-        this.client.setMetricsListener(metricsListener);
+        this.tlsAuthenticationClient.setMetricsListener(metricsListener);
 
         this.testSendNotificationWithBadTopic();
         metricsListener.waitForNonZeroRejectedNotifications();
