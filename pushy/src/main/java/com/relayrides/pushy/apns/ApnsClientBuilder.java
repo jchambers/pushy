@@ -72,6 +72,8 @@ public class ApnsClientBuilder {
     private InputStream trustedServerCertificateInputStream;
     private X509Certificate[] trustedServerCertificates;
 
+    private SslProvider preferredSslProvider;
+
     private EventLoopGroup eventLoopGroup;
 
     private ApnsClientMetricsListener metricsListener;
@@ -241,6 +243,22 @@ public class ApnsClientBuilder {
     }
 
     /**
+     * Sets the SSL provider to be used by the client under construction. By default, the client will use a native SSL
+     * provider if available and fall back to the JDK provider otherwise.
+     *
+     * @param sslProvider the SSL provider to be used by the client under construction, or {@code null} to choose a
+     * provider automatically
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.9
+     */
+    public ApnsClientBuilder setSslProvider(final SslProvider sslProvider) {
+        this.preferredSslProvider = sslProvider;
+        return this;
+    }
+
+    /**
      * <p>Sets the event loop group to be used by the client under construction. If not set (or if {@code null}), the
      * client will create and manage its own event loop group.</p>
      *
@@ -393,17 +411,21 @@ public class ApnsClientBuilder {
         {
             final SslProvider sslProvider;
 
-            if (OpenSsl.isAvailable()) {
-                if (OpenSsl.isAlpnSupported()) {
-                    log.info("Native SSL provider is available and supports ALPN; will use native provider.");
-                    sslProvider = SslProvider.OPENSSL;
+            if (this.preferredSslProvider != null) {
+                sslProvider = this.preferredSslProvider;
+            } else {
+                if (OpenSsl.isAvailable()) {
+                    if (OpenSsl.isAlpnSupported()) {
+                        log.info("Native SSL provider is available and supports ALPN; will use native provider.");
+                        sslProvider = SslProvider.OPENSSL;
+                    } else {
+                        log.info("Native SSL provider is available, but does not support ALPN; will use JDK SSL provider.");
+                        sslProvider = SslProvider.JDK;
+                    }
                 } else {
-                    log.info("Native SSL provider is available, but does not support ALPN; will use JDK SSL provider.");
+                    log.info("Native SSL provider not available; will use JDK SSL provider.");
                     sslProvider = SslProvider.JDK;
                 }
-            } else {
-                log.info("Native SSL provider not available; will use JDK SSL provider.");
-                sslProvider = SslProvider.JDK;
             }
 
             final SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()

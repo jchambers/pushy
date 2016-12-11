@@ -29,6 +29,7 @@ import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.handler.ssl.SslProvider;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
@@ -57,6 +58,8 @@ public class ApnsClientTest {
 
     private MockApnsServer server;
     private ApnsClient client;
+
+    private SslProvider preferredSslProvider;
 
     private static class TestMetricsListener implements ApnsClientMetricsListener {
 
@@ -214,11 +217,14 @@ public class ApnsClientTest {
 
         this.server.start(PORT).await();
 
+        this.preferredSslProvider = "jdk".equals(System.getenv("PUSHY_SSL_PROVIDER")) ? SslProvider.JDK : null;
+
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
             this.client = new ApnsClientBuilder()
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .setTrustedServerCertificateChain(CA_CERTIFICATE)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
+                    .setSslProvider(this.preferredSslProvider)
                     .build();
         }
 
