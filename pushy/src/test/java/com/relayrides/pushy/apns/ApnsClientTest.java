@@ -2,11 +2,15 @@ package com.relayrides.pushy.apns;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.InputStream;
+import java.security.KeyPair;
 import java.security.KeyStore.PrivateKeyEntry;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -15,13 +19,13 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
@@ -45,6 +49,8 @@ public class ApnsClientTest {
     private static final String SERVER_KEYSTORE = "/server.p12";
     private static final String SERVER_KEYSTORE_PASSWORD = "pushy-test";
 
+    private static final String TOKEN_AUTH_PRIVATE_KEY_FILENAME = "/token-auth-private-key.pem";
+
     private static File CA_CERTIFICATE;
 
     private static final String KEYSTORE_PASSWORD = "pushy-test";
@@ -52,6 +58,8 @@ public class ApnsClientTest {
     private static final String HOST = "localhost";
     private static final int PORT = 8443;
 
+    private static final String DEFAULT_TEAM_ID = "team-id";
+    private static final String DEFAULT_KEY_UD = "key-id";
     private static final String DEFAULT_TOPIC = "com.relayrides.pushy";
 
     private static final int TOKEN_LENGTH = 32; // bytes
@@ -373,6 +381,78 @@ public class ApnsClientTest {
         untrustedClient.disconnect().await();
     }
 
+    @Test(expected = IllegalStateException.class)
+    public void testRegisterSigningKeyWithTlsAuthentication() throws Exception {
+        this.tlsAuthenticationClient.registerSigningKey(KeyPairUtil.generateKeyPair().getPrivate(), "team-id", "key-id", "topic");
+    }
+
+    @Test
+    public void testRegisterSigningKey() throws Exception {
+        final String teamId = "team-id";
+        final String keyId = "key-id";
+        final String topic = "topic";
+        final String differentTopic = "different-topic";
+
+        this.tokenAuthenticationClient.registerSigningKey(KeyPairUtil.generateKeyPair().getPrivate(), teamId, keyId, topic);
+        assertNotNull(this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic(topic));
+
+        this.tokenAuthenticationClient.registerSigningKey(KeyPairUtil.generateKeyPair().getPrivate(), teamId, keyId, differentTopic);
+
+        try {
+            this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic(topic);
+            fail("Registering new keys should clear old topics for the given team.");
+        } catch (final NoKeyForTopicException e) {
+            // This is actually the desired outcome
+        }
+    }
+
+    @Test
+    public void testRegisterSigningKeyFromInputStream() throws Exception {
+        try (final InputStream privateKeyInputStream = ApnsClientTest.class.getResourceAsStream(TOKEN_AUTH_PRIVATE_KEY_FILENAME)) {
+            // We're happy here as long as nothing explodes
+            this.tokenAuthenticationClient.registerSigningKey(privateKeyInputStream, "team-id", "key-id", "topic");
+        }
+    }
+
+    @Test
+    public void testRegisterSigningKeyFromFile() throws Exception {
+        final File privateKeyFile = new File(ApnsClientTest.class.getResource(TOKEN_AUTH_PRIVATE_KEY_FILENAME).getFile());
+
+        // We're happy here as long as nothing explodes
+        this.tokenAuthenticationClient.registerSigningKey(privateKeyFile, "team-id", "key-id", "topic");
+    }
+
+    @Test
+    public void testGetAuthenticationTokenSupplierForTopic() throws Exception {
+        final String topic = "topic";
+
+        this.tokenAuthenticationClient.registerSigningKey(KeyPairUtil.generateKeyPair().getPrivate(), "team-id", "key-id", topic);
+        assertNotNull(this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic(topic));
+    }
+
+    @Test(expected = NoKeyForTopicException.class)
+    public void testGetAuthenticationTokenSupplierForTopicNoRegisteredKey() throws Exception {
+        this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic("Unregistered topic");
+    }
+
+    @Test
+    public void testRemoveKeyForTeam() throws Exception {
+        final String teamId = "team-id";
+        final String topic = "topic";
+
+        this.tokenAuthenticationClient.registerSigningKey(KeyPairUtil.generateKeyPair().getPrivate(), teamId, "key-id", topic);
+        assertNotNull(this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic(topic));
+
+        this.tokenAuthenticationClient.removeKeyForTeam(teamId);
+
+        try {
+            this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic(topic);
+            fail("No token suppliers should remain after removing keys for a team.");
+        } catch (final NoKeyForTopicException e) {
+            // This is the desired outcome
+        }
+    }
+
     @Test
     public void testSendNotificationBeforeConnected() throws Exception {
         final ApnsClient unconnectedClient;
@@ -387,7 +467,7 @@ public class ApnsClientTest {
 
         final String testToken = ApnsClientTest.generateRandomToken();
 
-        this.server.addToken(DEFAULT_TOPIC, testToken, null);
+        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
         final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
@@ -401,13 +481,64 @@ public class ApnsClientTest {
     public void testSendNotification() throws Exception {
         final String testToken = ApnsClientTest.generateRandomToken();
 
-        this.server.addToken(DEFAULT_TOPIC, testToken, null);
+        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 this.tlsAuthenticationClient.sendNotification(pushNotification).get();
 
         assertTrue(response.isAccepted());
+    }
+
+    @Test
+    public void testSendNotificationWithAuthToken() throws Exception {
+        final String testToken = ApnsClientTest.generateRandomToken();
+        final KeyPair keyPair = KeyPairUtil.generateKeyPair();
+
+        this.tokenAuthenticationClient.registerSigningKey(keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+
+        this.server.registerPublicKey(keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
+
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
+
+        final PushNotificationResponse<SimpleApnsPushNotification> response =
+                this.tokenAuthenticationClient.sendNotification(pushNotification).get();
+
+        assertTrue(response.isAccepted());
+    }
+
+    @Test
+    public void testSendNotificationWithExpiredAuthenticationToken() throws Exception {
+        final String testToken = ApnsClientTest.generateRandomToken();
+        final KeyPair keyPair = KeyPairUtil.generateKeyPair();
+
+        this.tokenAuthenticationClient.registerSigningKey(keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+
+        this.server.registerPublicKey(keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
+
+        final String expiredToken;
+        {
+            // This is a little roundabout, but it makes sure that we're going to be using an expired auth token for the
+            // first shot at sending the notification.
+            final AuthenticationTokenSupplier supplier = this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic(DEFAULT_TOPIC);
+
+            final String initialToken = supplier.getToken();
+            supplier.invalidateToken(initialToken);
+
+            expiredToken = supplier.getToken(new Date(System.currentTimeMillis() - TimeUnit.HOURS.toMillis(2)));
+
+            assertNotEquals(initialToken, expiredToken);
+            assertEquals(expiredToken, supplier.getToken());
+        }
+
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
+        final PushNotificationResponse<SimpleApnsPushNotification> response =
+                this.tokenAuthenticationClient.sendNotification(pushNotification).get();
+
+        assertTrue(response.isAccepted());
+        assertNotEquals(expiredToken, this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic(DEFAULT_TOPIC).getToken());
     }
 
     @Test
@@ -420,7 +551,7 @@ public class ApnsClientTest {
             final String token = ApnsClientTest.generateRandomToken();
             final String payload = ApnsClientTest.generateRandomPayload();
 
-            this.server.addToken(DEFAULT_TOPIC, token, null);
+            this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, token, null);
             pushNotifications.add(new SimpleApnsPushNotification(token, DEFAULT_TOPIC, payload));
         }
 
@@ -448,7 +579,7 @@ public class ApnsClientTest {
             final String token = ApnsClientTest.generateRandomToken();
             final String payload = ApnsClientTest.generateRandomPayload();
 
-            this.server.addToken(DEFAULT_TOPIC, token, null);
+            this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, token, null);
             pushNotifications.add(new SimpleApnsPushNotification(token, DEFAULT_TOPIC, payload));
         }
 
@@ -508,7 +639,7 @@ public class ApnsClientTest {
     public void testSendNotificationWithBadTopic() throws Exception {
         final String testToken = ApnsClientTest.generateRandomToken();
 
-        this.server.addToken(DEFAULT_TOPIC, testToken, null);
+        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
 
         final SimpleApnsPushNotification pushNotification =
                 new SimpleApnsPushNotification(testToken, "Definitely not a real topic", "test-payload", null,
@@ -518,12 +649,11 @@ public class ApnsClientTest {
                 this.tlsAuthenticationClient.sendNotification(pushNotification).get();
 
         assertFalse(response.isAccepted());
-        assertEquals("DeviceTokenNotForTopic", response.getRejectionReason());
+        assertEquals("BadTopic", response.getRejectionReason());
         assertNull(response.getTokenInvalidationTimestamp());
     }
 
     @Test
-    @Ignore("Ignored until auth tokens are implemented; see https://github.com/relayrides/pushy/issues/313 for details")
     public void testSendNotificationWithMissingTopic() throws Exception {
         final ApnsClient multiTopicClient;
 
@@ -539,7 +669,7 @@ public class ApnsClientTest {
 
         final String testToken = ApnsClientTest.generateRandomToken();
 
-        this.server.addToken(DEFAULT_TOPIC, testToken, null);
+        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
 
@@ -569,7 +699,7 @@ public class ApnsClientTest {
 
         final String testToken = ApnsClientTest.generateRandomToken();
 
-        this.server.addToken(DEFAULT_TOPIC, testToken, null);
+        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
 
         final SimpleApnsPushNotification pushNotification =
                 new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload", null, DeliveryPriority.IMMEDIATE);
@@ -585,7 +715,7 @@ public class ApnsClientTest {
     @Test
     public void testSendNotificationWithUnregisteredToken() throws Exception {
         final SimpleApnsPushNotification pushNotification =
-                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), null, "test-payload");
+                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), DEFAULT_TOPIC, "test-payload");
 
         final PushNotificationResponse<SimpleApnsPushNotification> response =
                 this.tlsAuthenticationClient.sendNotification(pushNotification).get();
@@ -601,7 +731,7 @@ public class ApnsClientTest {
 
         final Date now = new Date();
 
-        this.server.addToken(DEFAULT_TOPIC, testToken, now);
+        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, now);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
         final PushNotificationResponse<SimpleApnsPushNotification> response =
@@ -628,11 +758,11 @@ public class ApnsClientTest {
 
         final String testToken = ApnsClientTest.generateRandomToken();
 
-        this.server.addToken(DEFAULT_TOPIC, testToken, null);
+        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
 
-        Future<PushNotificationResponse<SimpleApnsPushNotification>> responseFuture = busyClient.sendNotification(pushNotification);
+        final Future<PushNotificationResponse<SimpleApnsPushNotification>> responseFuture = busyClient.sendNotification(pushNotification);
 
         assertFalse(responseFuture.isSuccess());
         assertTrue(responseFuture.cause() instanceof ClientBusyException);
@@ -684,6 +814,22 @@ public class ApnsClientTest {
             Thread.sleep(10);
             terribleTerribleServer.shutdown().await();
         }
+    }
+
+    @Test
+    public void testSendNotificationWithTokenAuthMissingPrivateKey() throws Exception {
+        final String testToken = ApnsClientTest.generateRandomToken();
+        final KeyPair keyPair = KeyPairUtil.generateKeyPair();
+
+        this.server.registerPublicKey(keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
+
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
+        final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
+                this.tokenAuthenticationClient.sendNotification(pushNotification).await();
+
+        assertFalse(sendFuture.isSuccess());
+        assertTrue(sendFuture.cause() instanceof NoKeyForTopicException);
     }
 
     @Test

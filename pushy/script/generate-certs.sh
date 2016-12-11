@@ -40,6 +40,9 @@ keytool -importkeystore -srckeystore multiple-keys.jks -destkeystore multiple-ke
 # Generate a PKCS#12 with a certificate, but no private key
 openssl pkcs12 -export -in ca.pem -nokeys -out no-keys.p12 -password pass:pushy-test
 
+# Generate a private key for token authentication testing
+openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt -out token-auth-private-key.p8
+
 # Clean up intermediate files
 rm ca.key multi-topic-client.key single-topic-client.key untrusted-client.key
 rm multiple-keys.jks

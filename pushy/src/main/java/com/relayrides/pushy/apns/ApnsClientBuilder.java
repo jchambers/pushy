@@ -402,6 +402,7 @@ public class ApnsClientBuilder {
      */
     public ApnsClient build() throws SSLException {
         final SslContext sslContext;
+        final boolean useTlsAuthentication;
         {
             final SslProvider sslProvider;
 
@@ -431,7 +432,9 @@ public class ApnsClientBuilder {
                                     SelectedListenerFailureBehavior.ACCEPT,
                                     ApplicationProtocolNames.HTTP_2));
 
-            if (this.clientCertificate != null && this.privateKey != null) {
+            useTlsAuthentication = (this.clientCertificate != null && this.privateKey != null);
+
+            if (useTlsAuthentication) {
                 sslContextBuilder.keyManager(this.privateKey, this.privateKeyPassword, this.clientCertificate);
             }
 
@@ -446,7 +449,7 @@ public class ApnsClientBuilder {
             sslContext = sslContextBuilder.build();
         }
 
-        final ApnsClient apnsClient = new ApnsClient(sslContext, this.eventLoopGroup);
+        final ApnsClient apnsClient = new ApnsClient(sslContext, !useTlsAuthentication, this.eventLoopGroup);
 
         apnsClient.setMetricsListener(this.metricsListener);
         apnsClient.setProxyHandlerFactory(this.proxyHandlerFactory);

@@ -1,9 +1,21 @@
 package com.relayrides.pushy.apns;
 
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+import java.security.Signature;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import javax.net.ssl.SSLPeerUnverifiedException;
+import javax.net.ssl.SSLSession;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -32,7 +44,7 @@ import io.netty.util.concurrent.SucceededFuture;
  *
  * <p>Mock servers maintain a registry of tokens for a variety of topics. When first created, no tokens are registered
  * with a mock server, and all attempts to send notifications will fail until at least one token is registered via the
- * {@link com.relayrides.pushy.apns.MockApnsServer#addToken(String, String, Date)} method.</p>
+ * {@link com.relayrides.pushy.apns.MockApnsServer#registerDeviceTokenForTopic(String, String, Date)} method.</p>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
@@ -44,6 +56,10 @@ public class MockApnsServer {
     private final boolean shouldShutDownEventLoopGroup;
 
     private final Map<String, Map<String, Date>> tokenExpirationsByTopic = new HashMap<>();
+
+    private final Map<String, Signature> signaturesByKeyId = new HashMap<>();
+    private final Map<String, String> teamIdsByKeyId = new HashMap<>();
+    private final Map<String, Set<String>> topicsByTeamId = new HashMap<>();
 
     private ChannelGroup allChannels;
 
@@ -65,18 +81,38 @@ public class MockApnsServer {
 
             @Override
             protected void initChannel(final SocketChannel channel) throws Exception {
-                final
-                SslHandler sslHandler = sslContext.newHandler(channel.alloc());
+                final SslHandler sslHandler = sslContext.newHandler(channel.alloc());
                 channel.pipeline().addLast(sslHandler);
                 channel.pipeline().addLast(new ApplicationProtocolNegotiationHandler(ApplicationProtocolNames.HTTP_1_1) {
 
                     @Override
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) throws Exception {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                            context.pipeline().addLast(new MockApnsServerHandler.MockApnsServerHandlerBuilder()
+                            final MockApnsServerHandler.MockApnsServerHandlerBuilder handlerBuilder =
+                                    new MockApnsServerHandler.MockApnsServerHandlerBuilder()
                                     .apnsServer(MockApnsServer.this)
-                                    .initialSettings(new Http2Settings().maxConcurrentStreams(8))
-                                    .build());
+                                    .initialSettings(new Http2Settings().maxConcurrentStreams(8));
+
+                            try {
+                                final SSLSession sslSession = sslHandler.engine().getSession();
+
+                                // This will throw an exception if the peer hasn't authenticated
+                                final String principalName = sslSession.getPeerPrincipal().getName();
+
+                                final Pattern pattern = Pattern.compile(".*UID=([^,]+).*");
+                                final Matcher matcher = pattern.matcher(principalName);
+
+                                if (matcher.matches()) {
+                                    handlerBuilder.baseTopicFromCertificate(matcher.group(1));
+                                }
+
+                                handlerBuilder.useTokenAuthentication(false);
+                            } catch (final SSLPeerUnverifiedException e) {
+                                // No need for alarm; this is an expected case
+                                handlerBuilder.useTokenAuthentication(true);
+                            }
+
+                            context.pipeline().addLast(handlerBuilder.build());
 
                             MockApnsServer.this.allChannels.add(context.channel());
                         } else {
@@ -106,6 +142,95 @@ public class MockApnsServer {
     }
 
     /**
+     * Registers a public key for verifying authentication tokens for the given topics. Clears any keys and topics
+     * previously associated with the given team.
+     *
+     * @param publicKey a public key to be used to verify authentication tokens
+     * @param teamId an identifier for the team to which the given public key belongs
+     * @param keyId an identifier for the given public key
+     * @param topics the topics belonging to the given team for which the given public key can be used to verify
+     * authentication tokens
+     *
+     * @throws NoSuchAlgorithmException if the required signing algorithm is not available
+     * @throws InvalidKeyException if the given key is invalid for any reason
+     *
+     * @since 0.9
+     */
+    public void registerPublicKey(final PublicKey publicKey, final String teamId, final String keyId, final Collection<String> topics) throws NoSuchAlgorithmException, InvalidKeyException {
+        this.registerPublicKey(publicKey, teamId, keyId, topics.toArray(new String[0]));
+    }
+
+    /**
+     * Registers a public key for verifying authentication tokens for the given topics. Clears any keys and topics
+     * previously associated with the given team.
+     *
+     * @param publicKey a public key to be used to verify authentication tokens
+     * @param teamId an identifier for the team to which the given public key belongs
+     * @param keyId an identifier for the given public key
+     * @param topics the topics belonging to the given team for which the given public key can be used to verify
+     * authentication tokens
+     *
+     * @throws NoSuchAlgorithmException if the required signing algorithm is not available
+     * @throws InvalidKeyException if the given key is invalid for any reason
+     *
+     * @since 0.9
+     */
+    public void registerPublicKey(final PublicKey publicKey, final String teamId, final String keyId, final String... topics) throws NoSuchAlgorithmException, InvalidKeyException {
+        // First, clear out any old keys/topics
+        {
+            final Set<String> keyIdsToRemove = new HashSet<>();
+
+            for (final Map.Entry<String, String> entry : this.teamIdsByKeyId.entrySet()) {
+                if (entry.getValue().equals(teamId)) {
+                    keyIdsToRemove.add(entry.getKey());
+                }
+            }
+
+            for (final String keyIdToRemove : keyIdsToRemove) {
+                this.teamIdsByKeyId.remove(keyIdToRemove);
+                this.signaturesByKeyId.remove(keyIdToRemove);
+            }
+
+            this.topicsByTeamId.remove(teamId);
+        }
+
+        final Signature signature = Signature.getInstance("SHA256withECDSA");
+        signature.initVerify(publicKey);
+
+        this.signaturesByKeyId.put(keyId, signature);
+        this.teamIdsByKeyId.put(keyId, teamId);
+
+        final Set<String> topicSet = new HashSet<>();
+
+        for (final String topic : topics) {
+            topicSet.add(topic);
+        }
+
+        this.topicsByTeamId.put(teamId, topicSet);
+    }
+
+    protected Signature getSignatureForKeyId(final String keyId) {
+        return this.signaturesByKeyId.get(keyId);
+    }
+
+    protected String getTeamIdForKeyId(final String keyId) {
+        return this.teamIdsByKeyId.get(keyId);
+    }
+
+    protected Set<String> getTopicsForTeamId(final String teamId) {
+        return this.topicsByTeamId.get(teamId);
+    }
+
+    /**
+     * Unregisters all teams, topics, and public keys from this server.
+     */
+    public void clearPublicKeys() {
+        this.signaturesByKeyId.clear();
+        this.teamIdsByKeyId.clear();
+        this.topicsByTeamId.clear();
+    }
+
+    /**
      * Registers a new token for a specific topic. Registered tokens may have an expiration date; attempts to send
      * notifications to tokens with expiration dates in the past will fail.
      *
@@ -114,7 +239,7 @@ public class MockApnsServer {
      * @param expiration the time at which the token expires (or expired); may be {@code null}, in which case the token
      * never expires
      */
-    public void addToken(final String topic, final String token, final Date expiration) {
+    public void registerDeviceTokenForTopic(final String topic, final String token, final Date expiration) {
         Objects.requireNonNull(topic);
         Objects.requireNonNull(token);
 

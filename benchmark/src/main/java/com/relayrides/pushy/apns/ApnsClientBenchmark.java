@@ -70,7 +70,7 @@ public class ApnsClientBenchmark {
                 .build();
 
         final String token = generateRandomToken();
-        this.server.addToken(TOPIC, token, null);
+        this.server.registerDeviceTokenForTopic(TOPIC, token, null);
 
         this.pushNotifications = new ArrayList<>(this.notificationCount);
 
