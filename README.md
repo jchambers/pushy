@@ -213,6 +213,6 @@ If you plan to use Pushy inside an application container (like Tomcat), you may 
 
 ## License and status
 
-Pushy is available under the [MIT License](http://opensource.org/licenses/MIT).
+Pushy is available under the [MIT License](https://github.com/relayrides/pushy/blob/master/LICENSE.md).
 
 The current version of Pushy is 0.8.1. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
