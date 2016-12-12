@@ -1,5 +1,8 @@
 package com.relayrides.pushy.apns;
 
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -39,6 +42,9 @@ public class ApnsClientBenchmark {
     @Param({"10000"})
     public int notificationCount;
 
+    @Param({"true", "false"})
+    public boolean useTokenAuthentication;
+
     private static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
     private static final String CLIENT_KEYSTORE_FILENAME = "/client.p12";
     private static final String SERVER_CERTIFICATES_FILENAME = "/server_certs.pem";
@@ -46,6 +52,8 @@ public class ApnsClientBenchmark {
     private static final String KEYSTORE_PASSWORD = "pushy-test";
 
     private static final String TOPIC = "com.relayrides.pushy";
+    private static final String TEAM_ID = "benchmark.team";
+    private static final String KEY_ID = "benchmark.key";
     private static final int TOKEN_LENGTH = 32;
     private static final int MESSAGE_BODY_LENGTH = 1024;
 
@@ -57,17 +65,35 @@ public class ApnsClientBenchmark {
         this.eventLoopGroup = new NioEventLoopGroup(2);
 
         final ApnsClientBuilder clientBuilder = new ApnsClientBuilder()
-                .setClientCredentials(ApnsClientBenchmark.class.getResourceAsStream(CLIENT_KEYSTORE_FILENAME), KEYSTORE_PASSWORD)
                 .setTrustedServerCertificateChain(ApnsClientBenchmark.class.getResourceAsStream(CA_CERTIFICATE_FILENAME))
                 .setEventLoopGroup(this.eventLoopGroup);
 
-        this.client = clientBuilder.build();
-
-        this.server = new MockApnsServerBuilder()
+        final MockApnsServerBuilder serverBuilder = new MockApnsServerBuilder()
                 .setServerCredentials(ApnsClientBenchmark.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), ApnsClientBenchmark.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
-                .setTrustedClientCertificateChain(ApnsClientBenchmark.class.getResourceAsStream(CA_CERTIFICATE_FILENAME))
-                .setEventLoopGroup(this.eventLoopGroup)
-                .build();
+                .setEventLoopGroup(this.eventLoopGroup);
+
+        if (!this.useTokenAuthentication) {
+            clientBuilder.setClientCredentials(ApnsClientBenchmark.class.getResourceAsStream(CLIENT_KEYSTORE_FILENAME), KEYSTORE_PASSWORD);
+            serverBuilder.setTrustedClientCertificateChain(ApnsClientBenchmark.class.getResourceAsStream(CA_CERTIFICATE_FILENAME));
+        }
+
+        this.client = clientBuilder.build();
+        this.server = serverBuilder.build();
+
+        if (this.useTokenAuthentication) {
+            final KeyPair keyPair;
+            {
+                final KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
+                final SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
+
+                keyPairGenerator.initialize(256, random);
+
+                keyPair = keyPairGenerator.generateKeyPair();
+            }
+
+            this.client.registerSigningKey(keyPair.getPrivate(), TEAM_ID, KEY_ID, TOPIC);
+            this.server.registerPublicKey(keyPair.getPublic(), TEAM_ID, KEY_ID, TOPIC);
+        }
 
         final String token = generateRandomToken();
         this.server.registerDeviceTokenForTopic(TOPIC, token, null);
