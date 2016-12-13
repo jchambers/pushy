@@ -119,6 +119,16 @@ public class ApnsClient {
     private final AtomicLong nextNotificationId = new AtomicLong(0);
 
     /**
+     * If true, the client will try to reconnect automatically after an unexpected failure.
+     */
+    private boolean autoReconnect = true;
+
+    /**
+     * A disconnect listener.
+     */
+    private ApnsClientDisconnectListener disconnectListener;
+
+    /**
      * The default write timeout, in milliseconds.
      *
      * @since 0.6
@@ -249,6 +259,24 @@ public class ApnsClient {
                 });
             }
         });
+    }
+
+    /**
+     * If set to true, the client will try to automatically reconnect after an unexpected failure.
+     *
+     * @param autoReconnect
+     */
+    protected void setAutoReconnect(final boolean autoReconnect) {
+        this.autoReconnect = autoReconnect;
+    }
+
+    /**
+     * Sets a disconnect listener.
+     *
+     * @param disconnectListener
+     */
+    public void setDisconnectListener(final ApnsClientDisconnectListener disconnectListener) {
+        this.disconnectListener = disconnectListener;
     }
 
     /**
@@ -406,6 +434,11 @@ public class ApnsClient {
                         @Override
                         public void operationComplete(final ChannelFuture future) throws Exception {
                             synchronized (ApnsClient.this.bootstrap) {
+                                // Inform the disconnect listener (if any) of the event
+                                if (disconnectListener != null) {
+                                    disconnectListener.onDisconnect();
+                                }
+
                                 if (ApnsClient.this.connectionReadyPromise != null) {
                                     // We always want to try to fail the "connection ready" promise if the connection
                                     // closes; if it has already succeeded, this will have no effect.
@@ -415,19 +448,22 @@ public class ApnsClient {
                                     ApnsClient.this.connectionReadyPromise = null;
                                 }
 
-                                if (ApnsClient.this.reconnectionPromise != null) {
-                                    log.debug("Disconnected. Next automatic reconnection attempt in {} seconds.", ApnsClient.this.reconnectDelaySeconds);
+                                // We want to reconnect, only if we have autoReconnect enabled.
+                                if (autoReconnect) {
+                                    if (ApnsClient.this.reconnectionPromise != null) {
+                                        log.debug("Disconnected. Next automatic reconnection attempt in {} seconds.", ApnsClient.this.reconnectDelaySeconds);
 
-                                    future.channel().eventLoop().schedule(new Runnable() {
+                                        future.channel().eventLoop().schedule(new Runnable() {
 
-                                        @Override
-                                        public void run() {
-                                            log.debug("Attempting to reconnect.");
-                                            ApnsClient.this.connect(host, port);
-                                        }
-                                    }, ApnsClient.this.reconnectDelaySeconds, TimeUnit.SECONDS);
+                                            @Override
+                                            public void run() {
+                                                log.debug("Attempting to reconnect.");
+                                                ApnsClient.this.connect(host, port);
+                                            }
+                                        }, ApnsClient.this.reconnectDelaySeconds, TimeUnit.SECONDS);
 
-                                    ApnsClient.this.reconnectDelaySeconds = Math.min(ApnsClient.this.reconnectDelaySeconds, MAX_RECONNECT_DELAY_SECONDS);
+                                        ApnsClient.this.reconnectDelaySeconds = Math.min(ApnsClient.this.reconnectDelaySeconds, MAX_RECONNECT_DELAY_SECONDS);
+                                    }
                                 }
                             }
 

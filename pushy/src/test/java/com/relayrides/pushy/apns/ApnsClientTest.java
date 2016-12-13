@@ -313,6 +313,40 @@ public class ApnsClientTest {
     }
 
     @Test
+    public void testAutomaticReconnectionDisabled() throws Exception {
+        assertTrue(this.client.isConnected());
+
+        // Disable the automatic reconnect
+        this.client.setAutoReconnect(false);
+        final AtomicInteger listenerCalled = new AtomicInteger();
+        this.client.setDisconnectListener(new ApnsClientDisconnectListener() {
+            @Override
+            public void onDisconnect() {
+                listenerCalled.incrementAndGet();
+            }
+        });
+
+        this.server.shutdown().await();
+
+        // Wait for the client to notice the GOAWAY; if it doesn't, the test will time out and fail
+        while (this.client.isConnected()) {
+            Thread.sleep(100);
+        }
+
+        assertFalse(this.client.isConnected());
+
+        this.server.start(PORT).await();
+
+        // Wait for a few seconds
+        Thread.sleep(2000);
+
+        // Make sure that the client is still disconnected
+        assertTrue(!this.client.isConnected());
+        // Make sure that the listener was called once
+        assertEquals(1, listenerCalled.get());
+    }
+
+    @Test
     public void testGetReconnectionFutureWhenConnected() throws Exception {
         final Future<Void> reconnectionFuture = this.client.getReconnectionFuture();
         reconnectionFuture.await();
