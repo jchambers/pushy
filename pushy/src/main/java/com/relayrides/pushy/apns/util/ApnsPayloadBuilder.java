@@ -59,6 +59,8 @@ public class ApnsPayloadBuilder {
     private boolean contentAvailable = false;
     private boolean mutableContent = false;
 
+    private boolean preferStringRepresentationForAlerts = false;
+
     private final CharArrayWriter buffer = new CharArrayWriter(DEFAULT_PAYLOAD_SIZE / 4);
 
     private static final String APS_KEY = "aps";
@@ -96,6 +98,21 @@ public class ApnsPayloadBuilder {
      * @see com.relayrides.pushy.apns.util.ApnsPayloadBuilder#setSoundFileName(String)
      */
     public static final String DEFAULT_SOUND_FILENAME = "default";
+
+    /**
+     * Sets whether this payload builder will attempt to represent alerts as strings when possible. Older versions of
+     * the APNs specification recommended representing alerts as strings when only a literal alert body was provided,
+     * but recent versions recommend representing alerts as dictionaries regardless. This method is provided primarily
+     * for backward-compatibility. By default, payload builders will always represent alerts as dictionaries.
+     *
+     * @return a reference to this payload builder
+     *
+     * @since 0.8.2
+     */
+    public ApnsPayloadBuilder setPreferStringRepresentationForAlerts(final boolean preferStringRepresentationForAlerts) {
+        this.preferStringRepresentationForAlerts = preferStringRepresentationForAlerts;
+        return this;
+    }
 
     /**
      * <p>Sets the literal text of the alert message to be shown for the push notification. Clears any previously-set
@@ -442,10 +459,62 @@ public class ApnsPayloadBuilder {
                 aps.put(MUTABLE_CONTENT_KEY, 1);
             }
 
-            final Object alertObject = this.createAlertObject();
+            final Map<String, Object> alert = new HashMap<>();
+            {
+                if (this.alertBody != null) {
+                    alert.put(ALERT_BODY_KEY, this.alertBody);
+                }
 
-            if (alertObject != null) {
-                aps.put(ALERT_KEY, alertObject);
+                if (this.alertTitle != null) {
+                    alert.put(ALERT_TITLE_KEY, this.alertTitle);
+                }
+
+                if (this.alertSubtitle != null) {
+                    alert.put(ALERT_SUBTITLE_KEY, this.alertSubtitle);
+                }
+
+                if (this.showActionButton) {
+                    if (this.localizedActionButtonKey != null) {
+                        alert.put(ACTION_LOC_KEY, this.localizedActionButtonKey);
+                    }
+                } else {
+                    // To hide the action button, the key needs to be present, but the value needs to be null
+                    alert.put(ACTION_LOC_KEY, null);
+                }
+
+                if (this.localizedAlertKey != null) {
+                    alert.put(ALERT_LOC_KEY, this.localizedAlertKey);
+
+                    if (this.localizedAlertArguments != null) {
+                        alert.put(ALERT_ARGS_KEY, Arrays.asList(this.localizedAlertArguments));
+                    }
+                }
+
+                if (this.localizedAlertTitleKey != null) {
+                    alert.put(ALERT_TITLE_LOC_KEY, this.localizedAlertTitleKey);
+
+                    if (this.localizedAlertTitleArguments != null) {
+                        alert.put(ALERT_TITLE_ARGS_KEY, Arrays.asList(this.localizedAlertTitleArguments));
+                    }
+                }
+
+                if (this.localizedAlertSubtitleKey != null) {
+                    alert.put(ALERT_SUBTITLE_LOC_KEY, this.localizedAlertSubtitleKey);
+
+                    if (this.localizedAlertSubtitleArguments != null) {
+                        alert.put(ALERT_SUBTITLE_ARGS_KEY, Arrays.asList(this.localizedAlertSubtitleArguments));
+                    }
+                }
+
+                if (this.launchImageFileName != null) {
+                    alert.put(LAUNCH_IMAGE_KEY, this.launchImageFileName);
+                }
+            }
+
+            if (alert.size() == 1 && alert.containsKey(ALERT_BODY_KEY) && this.preferStringRepresentationForAlerts) {
+                aps.put(ALERT_KEY, alert.get(ALERT_BODY_KEY));
+            } else if (!alert.isEmpty()) {
+                aps.put(ALERT_KEY, alert);
             }
 
             payload.put(APS_KEY, aps);
@@ -521,99 +590,6 @@ public class ApnsPayloadBuilder {
         } else {
             throw new IllegalArgumentException("Payload has no message body.");
         }
-    }
-
-    private Object createAlertObject() {
-        if (this.hasAlertContent()) {
-            if (this.shouldRepresentAlertAsString()) {
-                return this.alertBody;
-            } else {
-                final HashMap<String, Object> alert = new HashMap<String, Object>();
-
-                if (this.alertBody != null) {
-                    alert.put(ALERT_BODY_KEY, this.alertBody);
-                }
-
-                if (this.alertTitle != null) {
-                    alert.put(ALERT_TITLE_KEY, this.alertTitle);
-                }
-
-                if (this.alertSubtitle != null) {
-                    alert.put(ALERT_SUBTITLE_KEY, this.alertSubtitle);
-                }
-
-                if (this.showActionButton) {
-                    if (this.localizedActionButtonKey != null) {
-                        alert.put(ACTION_LOC_KEY, this.localizedActionButtonKey);
-                    }
-                } else {
-                    // To hide the action button, the key needs to be present, but the value needs to be null
-                    alert.put(ACTION_LOC_KEY, null);
-                }
-
-                if (this.localizedAlertKey != null) {
-                    alert.put(ALERT_LOC_KEY, this.localizedAlertKey);
-
-                    if (this.localizedAlertArguments != null) {
-                        alert.put(ALERT_ARGS_KEY, Arrays.asList(this.localizedAlertArguments));
-                    }
-                }
-
-                if (this.localizedAlertTitleKey != null) {
-                    alert.put(ALERT_TITLE_LOC_KEY, this.localizedAlertTitleKey);
-
-                    if (this.localizedAlertTitleArguments != null) {
-                        alert.put(ALERT_TITLE_ARGS_KEY, Arrays.asList(this.localizedAlertTitleArguments));
-                    }
-                }
-
-                if (this.localizedAlertSubtitleKey != null) {
-                    alert.put(ALERT_SUBTITLE_LOC_KEY, this.localizedAlertSubtitleKey);
-
-                    if (this.localizedAlertSubtitleArguments != null) {
-                        alert.put(ALERT_SUBTITLE_ARGS_KEY, Arrays.asList(this.localizedAlertSubtitleArguments));
-                    }
-                }
-
-                if (this.launchImageFileName != null) {
-                    alert.put(LAUNCH_IMAGE_KEY, this.launchImageFileName);
-                }
-
-                return alert;
-            }
-        } else {
-            return null;
-        }
-    }
-
-    /**
-     * Checks whether the notification under construction has content that warrants an {@code alert} section.
-     *
-     * @return {@code true} if this notification should have an {@code alert} section or {@code false} otherwise
-     */
-    private boolean hasAlertContent() {
-        return this.alertBody != null || this.alertTitle != null || this.localizedAlertTitleKey != null
-                || this.localizedAlertKey != null || this.localizedActionButtonKey != null
-                || this.launchImageFileName != null || this.showActionButton == false || this.alertSubtitle != null
-                || this.localizedAlertSubtitleKey != null;
-    }
-
-    /**
-     * <p>Checks whether the alert message for the push notification should be represented as a string or a
-     * dictionary. According to Apple's documentation:</p>
-     *
-     * <blockquote>If you want the device to display the message text as-is in an alert that has both the Close and
-     * View buttons, then specify a string as the direct value of {@code alert}. Don't specify a dictionary as the
-     * value of {@code alert} if the dictionary only has the {@code body} property.</blockquote>
-     *
-     * @return {@code true} if the alert message (if present) should be represented as a string or {@code false} if it
-     *         should be represented as a dictionary
-     */
-    private boolean shouldRepresentAlertAsString() {
-        return this.alertBody != null && this.launchImageFileName == null && this.showActionButton
-                && this.localizedActionButtonKey == null && this.alertTitle == null && this.alertSubtitle == null
-                && this.localizedAlertTitleKey == null && this.localizedAlertKey == null
-                && this.localizedAlertArguments == null && this.localizedAlertTitleArguments == null;
     }
 
     static int getLengthOfJsonEscapedUtf8StringFittingSize(final String string, final int maximumSize) {
