@@ -39,6 +39,7 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.ApplicationProtocolNames;
@@ -160,6 +161,7 @@ public class ApnsClient {
     public static final int ALTERNATE_APNS_PORT = 2197;
 
     private static final ClientNotConnectedException NOT_CONNECTED_EXCEPTION = new ClientNotConnectedException();
+    private static final ClientBusyException CLIENT_BUSY_EXCEPTION = new ClientBusyException();
 
     private static final long INITIAL_RECONNECT_DELAY_SECONDS = 1; // second
     private static final long MAX_RECONNECT_DELAY_SECONDS = 60; // seconds
@@ -262,6 +264,22 @@ public class ApnsClient {
     protected void setConnectionTimeout(final int timeoutMillis) {
         synchronized (this.bootstrap) {
             this.bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, timeoutMillis);
+        }
+    }
+
+    /**
+     * Sets the buffer usage watermark range for this client. When a the amount of buffered and not-yet-flushed data in
+     * the client's network channel exceeds the given "high-water" mark, the channel will begin rejecting new data until
+     * enough data has been flushed to cross the given "low-water" mark. Notifications sent when the client's network
+     * channel is "flooded" will fail with a {@link ClientBusyException}.
+     *
+     * @param writeBufferWatermark the buffer usage watermark range for the client's network channel
+     *
+     * @since 0.8.2
+     */
+    protected void setChannelWriteBufferWatermark(WriteBufferWaterMark writeBufferWaterMark) {
+        synchronized (this.bootstrap) {
+            this.bootstrap.option(ChannelOption.WRITE_BUFFER_WATER_MARK, writeBufferWaterMark);
         }
     }
 
@@ -571,6 +589,9 @@ public class ApnsClient {
         final ChannelPromise connectionReadyPromise = this.connectionReadyPromise;
 
         if (connectionReadyPromise != null && connectionReadyPromise.isSuccess() && connectionReadyPromise.channel().isActive()) {
+            if (!connectionReadyPromise.channel().isWritable()) {
+                return new FailedFuture<>(GlobalEventExecutor.INSTANCE, CLIENT_BUSY_EXCEPTION);
+            }
             final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
                     new DefaultPromise<>(connectionReadyPromise.channel().eventLoop());
 
