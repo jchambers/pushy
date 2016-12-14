@@ -68,10 +68,6 @@ public class MockApnsServerBuilder {
 
     private String privateKeyPassword;
 
-    private File trustedClientCertificatePemFile;
-    private InputStream trustedClientCertificateInputStream;
-    private X509Certificate[] trustedClientCertificates;
-
     private SslProvider preferredSslProvider;
 
     private EventLoopGroup eventLoopGroup;
@@ -161,66 +157,6 @@ public class MockApnsServerBuilder {
         this.privateKeyPkcs8InputStream = null;
 
         this.privateKeyPassword = privateKeyPassword;
-
-        return this;
-    }
-
-    /**
-     * <p>Sets the trusted certificate chain for the server under construction using the contents of the given PEM
-     * file. If not set (or {@code null}), the server will use the JVM's default trust manager.</p>
-     *
-     * <p>In development environments, callers will almost always need to provide a trusted certificate chain for
-     * clients (since clients in development environments will generally not present credentials recognized by the JVM's
-     * default trust manager).</p>
-     *
-     * @param certificatePemFile a PEM file containing one or more trusted certificates
-     *
-     * @return a reference to this builder
-     */
-    public MockApnsServerBuilder setTrustedClientCertificateChain(final File certificatePemFile) {
-        this.trustedClientCertificatePemFile = certificatePemFile;
-        this.trustedClientCertificateInputStream = null;
-        this.trustedClientCertificates = null;
-
-        return this;
-    }
-
-    /**
-     * <p>Sets the trusted certificate chain for the server under construction using the contents of the given PEM
-     * input stream. If not set (or {@code null}), the server will use the JVM's default trust manager.</p>
-     *
-     * <p>In development environments, callers will almost always need to provide a trusted certificate chain for
-     * clients (since clients in development environments will generally not present credentials recognized by the JVM's
-     * default trust manager).</p>
-     *
-     * @param certificateInputStream an input stream to PEM-formatted data containing one or more trusted certificates
-     *
-     * @return a reference to this builder
-     */
-    public MockApnsServerBuilder setTrustedClientCertificateChain(final InputStream certificateInputStream) {
-        this.trustedClientCertificatePemFile = null;
-        this.trustedClientCertificateInputStream = certificateInputStream;
-        this.trustedClientCertificates = null;
-
-        return this;
-    }
-
-    /**
-     * <p>Sets the trusted certificate chain for the server under construction. If not set (or {@code null}), the
-     * server will use the JVM's default trust manager.</p>
-     *
-     * <p>In development environments, callers will almost always need to provide a trusted certificate chain for
-     * clients (since clients in development environments will generally not present credentials recognized by the JVM's
-     * default trust manager).</p>
-     *
-     * @param certificates one or more trusted certificates
-     *
-     * @return a reference to this builder
-     */
-    public MockApnsServerBuilder setTrustedServerCertificateChain(final X509Certificate... certificates) {
-        this.trustedClientCertificatePemFile = null;
-        this.trustedClientCertificateInputStream = null;
-        this.trustedClientCertificates = certificates;
 
         return this;
     }
@@ -323,14 +259,6 @@ public class MockApnsServerBuilder {
                     SelectorFailureBehavior.NO_ADVERTISE,
                     SelectedListenerFailureBehavior.ACCEPT,
                     ApplicationProtocolNames.HTTP_2));
-
-            if (this.trustedClientCertificatePemFile != null) {
-                sslContextBuilder.trustManager(this.trustedClientCertificatePemFile);
-            } else if (this.trustedClientCertificateInputStream != null) {
-                sslContextBuilder.trustManager(this.trustedClientCertificateInputStream);
-            } else if (this.trustedClientCertificates != null) {
-                sslContextBuilder.trustManager(this.trustedClientCertificates);
-            }
 
             sslContext = sslContextBuilder.build();
         }

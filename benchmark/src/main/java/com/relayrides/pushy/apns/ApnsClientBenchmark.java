@@ -44,14 +44,9 @@ public class ApnsClientBenchmark {
     @Param({"10000"})
     public int notificationCount;
 
-    @Param({"true", "false"})
-    public boolean useTokenAuthentication;
-
     private static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
-    private static final String CLIENT_KEYSTORE_FILENAME = "/client.p12";
     private static final String SERVER_CERTIFICATES_FILENAME = "/server_certs.pem";
     private static final String SERVER_KEY_FILENAME = "/server_key.pem";
-    private static final String KEYSTORE_PASSWORD = "pushy-test";
 
     private static final String TOPIC = "com.relayrides.pushy";
     private static final String TEAM_ID = "benchmark.team";
@@ -74,28 +69,21 @@ public class ApnsClientBenchmark {
                 .setServerCredentials(ApnsClientBenchmark.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), ApnsClientBenchmark.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
                 .setEventLoopGroup(this.eventLoopGroup);
 
-        if (!this.useTokenAuthentication) {
-            clientBuilder.setClientCredentials(ApnsClientBenchmark.class.getResourceAsStream(CLIENT_KEYSTORE_FILENAME), KEYSTORE_PASSWORD);
-            serverBuilder.setTrustedClientCertificateChain(ApnsClientBenchmark.class.getResourceAsStream(CA_CERTIFICATE_FILENAME));
-        }
-
         this.client = clientBuilder.build();
         this.server = serverBuilder.build();
 
-        if (this.useTokenAuthentication) {
-            final KeyPair keyPair;
-            {
-                final KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
-                final SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
+        final KeyPair keyPair;
+        {
+            final KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
+            final SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
 
-                keyPairGenerator.initialize(256, random);
+            keyPairGenerator.initialize(256, random);
 
-                keyPair = keyPairGenerator.generateKeyPair();
-            }
-
-            this.client.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), TEAM_ID, KEY_ID, TOPIC);
-            this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), TEAM_ID, KEY_ID, TOPIC);
+            keyPair = keyPairGenerator.generateKeyPair();
         }
+
+        this.client.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), TEAM_ID, KEY_ID, TOPIC);
+        this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), TEAM_ID, KEY_ID, TOPIC);
 
         final String token = generateRandomToken();
         this.server.registerDeviceTokenForTopic(TOPIC, token, null);

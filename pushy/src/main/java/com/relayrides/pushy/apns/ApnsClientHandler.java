@@ -67,7 +67,6 @@ class ApnsClientHandler extends Http2ConnectionHandler {
 
     private final ApnsClient apnsClient;
     private final String authority;
-    private final boolean useTokenAuthentication;
 
     private long nextPingId = new Random().nextLong();
     private ScheduledFuture<?> pingTimeoutFuture;
@@ -95,7 +94,6 @@ class ApnsClientHandler extends Http2ConnectionHandler {
 
         private ApnsClient apnsClient;
         private String authority;
-        private boolean useTokenAuthentication;
 
         public ApnsClientHandlerBuilder apnsClient(final ApnsClient apnsClient) {
             this.apnsClient = apnsClient;
@@ -114,16 +112,6 @@ class ApnsClientHandler extends Http2ConnectionHandler {
         public String authority() {
             return this.authority;
         }
-
-        public ApnsClientHandlerBuilder useTokenAuthentication(final boolean useTokenAuthentication) {
-            this.useTokenAuthentication = useTokenAuthentication;
-            return this;
-        }
-
-        public boolean useTokenAuthentication() {
-            return this.useTokenAuthentication;
-        }
-
         @Override
         public ApnsClientHandlerBuilder server(final boolean isServer) {
             return super.server(isServer);
@@ -138,7 +126,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
         public ApnsClientHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
             Objects.requireNonNull(this.authority(), "Authority must be set before building an ApnsClientHandler.");
 
-            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, initialSettings, this.apnsClient(), this.authority(), this.useTokenAuthentication());
+            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, initialSettings, this.apnsClient(), this.authority());
             this.frameListener(handler.new ApnsClientHandlerFrameAdapter());
             return handler;
         }
@@ -184,7 +172,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                     }
 
                     ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(
-                            new SimplePushNotificationResponse<ApnsPushNotification>(pushNotification, HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
+                            new SimplePushNotificationResponse<>(pushNotification, HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
                 }
             } else {
                 log.error("Gateway sent a DATA frame that was not the end of a stream.");
@@ -217,7 +205,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                     ApnsClientHandler.this.apnsClient.handleServerError(pushNotification, null);
                 } else {
                     ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(
-                            new SimplePushNotificationResponse<ApnsPushNotification>(pushNotification, success, null, null));
+                            new SimplePushNotificationResponse<>(pushNotification, success, null, null));
                 }
             } else {
                 ApnsClientHandler.this.headersByStreamId.put(streamId, headers);
@@ -240,12 +228,11 @@ class ApnsClientHandler extends Http2ConnectionHandler {
         }
     }
 
-    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final ApnsClient apnsClient, final String authority, final boolean useTokenAuthentication) {
+    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final ApnsClient apnsClient, final String authority) {
         super(decoder, encoder, initialSettings);
 
         this.apnsClient = apnsClient;
         this.authority = authority;
-        this.useTokenAuthentication = useTokenAuthentication;
     }
 
     @Override
@@ -263,14 +250,8 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                         .path(APNS_PATH_PREFIX + pushNotification.getToken())
                         .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
 
-                final String authenticationToken;
-
-                if (this.useTokenAuthentication) {
-                    authenticationToken = this.apnsClient.getAuthenticationTokenSupplierForTopic(pushNotification.getTopic()).getToken();
-                    headers.add(APNS_AUTHORIZATION_HEADER, "bearer " + authenticationToken);
-                } else {
-                    authenticationToken = null;
-                }
+                final String authenticationToken = this.apnsClient.getAuthenticationTokenSupplierForTopic(pushNotification.getTopic()).getToken();
+                headers.add(APNS_AUTHORIZATION_HEADER, "bearer " + authenticationToken);
 
                 if (pushNotification.getCollapseId() != null) {
                     headers.add(APNS_COLLAPSE_ID_HEADER, pushNotification.getCollapseId());
@@ -305,10 +286,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                     public void operationComplete(final ChannelPromise future) throws Exception {
                         if (future.isSuccess()) {
                             ApnsClientHandler.this.pushNotificationsByStreamId.put(streamId, pushNotification);
-
-                            if (ApnsClientHandler.this.useTokenAuthentication) {
-                                ApnsClientHandler.this.authenticationTokensByStreamId.put(streamId, authenticationToken);
-                            }
+                            ApnsClientHandler.this.authenticationTokensByStreamId.put(streamId, authenticationToken);
                         } else {
                             log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
                         }

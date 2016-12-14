@@ -11,11 +11,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import javax.net.ssl.SSLPeerUnverifiedException;
-import javax.net.ssl.SSLSession;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -88,31 +83,10 @@ public class MockApnsServer {
                     @Override
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) throws Exception {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                            final MockApnsServerHandler.MockApnsServerHandlerBuilder handlerBuilder =
-                                    new MockApnsServerHandler.MockApnsServerHandlerBuilder()
+                            context.pipeline().addLast(new MockApnsServerHandler.MockApnsServerHandlerBuilder()
                                     .apnsServer(MockApnsServer.this)
-                                    .initialSettings(new Http2Settings().maxConcurrentStreams(8));
-
-                            try {
-                                final SSLSession sslSession = sslHandler.engine().getSession();
-
-                                // This will throw an exception if the peer hasn't authenticated
-                                final String principalName = sslSession.getPeerPrincipal().getName();
-
-                                final Pattern pattern = Pattern.compile(".*UID=([^,]+).*");
-                                final Matcher matcher = pattern.matcher(principalName);
-
-                                if (matcher.matches()) {
-                                    handlerBuilder.baseTopicFromCertificate(matcher.group(1));
-                                }
-
-                                handlerBuilder.useTokenAuthentication(false);
-                            } catch (final SSLPeerUnverifiedException e) {
-                                // No need for alarm; this is an expected case
-                                handlerBuilder.useTokenAuthentication(true);
-                            }
-
-                            context.pipeline().addLast(handlerBuilder.build());
+                                    .initialSettings(new Http2Settings().maxConcurrentStreams(8))
+                                    .build());
 
                             MockApnsServer.this.allChannels.add(context.channel());
                         } else {

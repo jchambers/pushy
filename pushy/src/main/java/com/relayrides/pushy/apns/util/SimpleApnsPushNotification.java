@@ -93,9 +93,9 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * Constructs a new push notification with the given token, topic, payload, delivery expiration time, delivery
      * priority, and "collapse identifier."
      *
-     * @param token the device token to which this push notification should be delivered
-     * @param topic the topic to which this notification should be sent
-     * @param payload the payload to include in this push notification
+     * @param token the device token to which this push notification should be delivered; must not be {@code null}
+     * @param topic the topic to which this notification should be sent; must not be {@code null}
+     * @param payload the payload to include in this push notification; must not be {@code null}
      * @param invalidationTime the time at which Apple's servers should stop trying to deliver this message; if
      * {@code null}, no delivery attempts beyond the first will be made
      * @param priority the priority with which this notification should be delivered to the receiving device
@@ -103,6 +103,10 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * by other notifications with the same identifier
      */
     public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority, final String collapseId) {
+        Objects.requireNonNull(token, "Destination device token must not be null.");
+        Objects.requireNonNull(topic, "Destination topic must not be null.");
+        Objects.requireNonNull(payload, "Payload must not be null.");
+
         this.token = token;
         this.payload = payload;
         this.invalidationTime = invalidationTime;
