@@ -42,19 +42,17 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-tcnative-boringssl-static</artifactId>
-            <version>1.1.33.Fork19</version>
+            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.eclipse.jetty.alpn</groupId>
             <artifactId>alpn-api</artifactId>
-            <version>1.1.2.v20150522</version>
-            <scope>runtime</scope>
         </dependency>
     </dependencies>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <jmh.version>1.12</jmh.version>
+        <jmh.version>1.17.2</jmh.version>
         <javac.target>1.7</javac.target>
         <uberjar.name>benchmarks</uberjar.name>
     </properties>
