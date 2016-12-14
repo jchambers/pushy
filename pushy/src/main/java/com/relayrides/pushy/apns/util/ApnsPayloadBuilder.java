@@ -60,6 +60,7 @@ public class ApnsPayloadBuilder {
     private String categoryName = null;
     private boolean contentAvailable = false;
     private boolean mutableContent = false;
+    private String threadId = null;
     private String[] urlArguments = null;
 
     private boolean preferStringRepresentationForAlerts = false;
@@ -73,6 +74,7 @@ public class ApnsPayloadBuilder {
     private static final String CATEGORY_KEY = "category";
     private static final String CONTENT_AVAILABLE_KEY = "content-available";
     private static final String MUTABLE_CONTENT_KEY = "mutable-content";
+    private static final String THREAD_ID_KEY = "thread-id";
     private static final String URL_ARGS_KEY = "url-args";
 
     private static final String ALERT_TITLE_KEY = "title";
@@ -424,6 +426,26 @@ public class ApnsPayloadBuilder {
     }
 
     /**
+     * <p>Sets the thread ID for this notification. According to to the APNs documentation, the thread ID is:</p>
+     *
+     * <blockquote>…a string value that represents the app-specific identifier for grouping notifications. The system
+     * groups notifications with the same thread identifier together in Notification Center and other system
+     * interfaces.</blockquote>
+     *
+     * <p>By default, no thread ID is included.</p>
+     *
+     * @param threadId the thread ID for this notification
+     *
+     * @return a reference to this payload builder
+     *
+     * @since 0.8.2
+     */
+    public ApnsPayloadBuilder setThreadId(final String threadId) {
+        this.threadId = threadId;
+        return this;
+    }
+
+    /**
      * <p>Sets the list of arguments to populate placeholders in the {@code urlFormatString} associated with a Safari
      * push notification. Has no effect for non-Safari notifications. According to the Notification Programming Guide
      * for Websites:</p>
@@ -543,6 +565,14 @@ public class ApnsPayloadBuilder {
                 aps.put(MUTABLE_CONTENT_KEY, 1);
             }
 
+            if (this.threadId != null) {
+                aps.put(THREAD_ID_KEY, this.threadId);
+            }
+
+            if (this.urlArguments != null) {
+                aps.put(URL_ARGS_KEY, this.urlArguments);
+            }
+
             final Map<String, Object> alert = new HashMap<>();
             {
                 if (this.alertBody != null) {
@@ -603,10 +633,6 @@ public class ApnsPayloadBuilder {
                 aps.put(ALERT_KEY, alert.get(ALERT_BODY_KEY));
             } else if (!alert.isEmpty()) {
                 aps.put(ALERT_KEY, alert);
-            }
-
-            if (this.urlArguments != null) {
-                aps.put(URL_ARGS_KEY, this.urlArguments);
             }
 
             payload.put(APS_KEY, aps);
