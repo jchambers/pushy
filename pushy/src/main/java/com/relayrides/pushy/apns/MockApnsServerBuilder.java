@@ -317,7 +317,7 @@ public class MockApnsServerBuilder {
 
             sslContextBuilder.sslProvider(sslProvider)
             .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-            .clientAuth(ClientAuth.REQUIRE)
+            .clientAuth(ClientAuth.OPTIONAL)
             .applicationProtocolConfig(new ApplicationProtocolConfig(
                     Protocol.ALPN,
                     SelectorFailureBehavior.NO_ADVERTISE,

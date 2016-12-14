@@ -21,6 +21,7 @@
 package com.relayrides.pushy.apns;
 
 import java.nio.charset.StandardCharsets;
+import java.security.SignatureException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -61,10 +62,12 @@ class ApnsClientHandler extends Http2ConnectionHandler {
     private long nextStreamId = 1;
 
     private final Map<Integer, ApnsPushNotification> pushNotificationsByStreamId = new HashMap<>();
+    private final Map<Integer, String> authenticationTokensByStreamId = new HashMap<>();
     private final Map<Integer, Http2Headers> headersByStreamId = new HashMap<>();
 
     private final ApnsClient apnsClient;
     private final String authority;
+    private final boolean useTokenAuthentication;
 
     private long nextPingId = new Random().nextLong();
     private ScheduledFuture<?> pingTimeoutFuture;
@@ -75,14 +78,15 @@ class ApnsClientHandler extends Http2ConnectionHandler {
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
     private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
-    private static final AsciiString APNS_COLLAPSE_ID = new AsciiString("apns-collapse-id");
+    private static final AsciiString APNS_COLLAPSE_ID_HEADER = new AsciiString("apns-collapse-id");
+    private static final AsciiString APNS_AUTHORIZATION_HEADER = new AsciiString("authorization");
 
     private static final long STREAM_ID_RESET_THRESHOLD = Integer.MAX_VALUE - 1;
 
     private static final int INITIAL_PAYLOAD_BUFFER_CAPACITY = 4096;
 
     private static final Gson gson = new GsonBuilder()
-            .registerTypeAdapter(Date.class, new DateAsMillisecondsSinceEpochTypeAdapter())
+            .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
             .create();
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientHandler.class);
@@ -91,6 +95,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
 
         private ApnsClient apnsClient;
         private String authority;
+        private boolean useTokenAuthentication;
 
         public ApnsClientHandlerBuilder apnsClient(final ApnsClient apnsClient) {
             this.apnsClient = apnsClient;
@@ -110,6 +115,15 @@ class ApnsClientHandler extends Http2ConnectionHandler {
             return this.authority;
         }
 
+        public ApnsClientHandlerBuilder useTokenAuthentication(final boolean useTokenAuthentication) {
+            this.useTokenAuthentication = useTokenAuthentication;
+            return this;
+        }
+
+        public boolean useTokenAuthentication() {
+            return this.useTokenAuthentication;
+        }
+
         @Override
         public ApnsClientHandlerBuilder server(final boolean isServer) {
             return super.server(isServer);
@@ -124,7 +138,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
         public ApnsClientHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
             Objects.requireNonNull(this.authority(), "Authority must be set before building an ApnsClientHandler.");
 
-            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, initialSettings, this.apnsClient(), this.authority());
+            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, initialSettings, this.apnsClient(), this.authority(), this.useTokenAuthentication());
             this.frameListener(handler.new ApnsClientHandlerFrameAdapter());
             return handler;
         }
@@ -149,6 +163,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
 
             if (endOfStream) {
                 final Http2Headers headers = ApnsClientHandler.this.headersByStreamId.remove(streamId);
+                final String authenticationToken = ApnsClientHandler.this.authenticationTokensByStreamId.remove(streamId);
                 final ApnsPushNotification pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
 
                 final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
@@ -158,6 +173,15 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                     ApnsClientHandler.this.apnsClient.handleServerError(pushNotification, responseBody);
                 } else {
                     final ErrorResponse errorResponse = gson.fromJson(responseBody, ErrorResponse.class);
+
+                    if (ApnsClient.EXPIRED_AUTH_TOKEN_REASON.equals(errorResponse.getReason())) {
+                        try {
+                            ApnsClientHandler.this.apnsClient.getAuthenticationTokenSupplierForTopic(pushNotification.getTopic()).invalidateToken(authenticationToken);
+                        } catch (final NoKeyForTopicException e) {
+                            // This should only happen if somebody de-registered the topic after a notification was sent
+                            log.warn("Authentication token expired, but no key registered for topic {}", pushNotification.getTopic());
+                        }
+                    }
 
                     ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(
                             new SimplePushNotificationResponse<ApnsPushNotification>(pushNotification, HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
@@ -187,6 +211,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                 }
 
                 final ApnsPushNotification pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
+                ApnsClientHandler.this.authenticationTokensByStreamId.remove(streamId);
 
                 if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
                     ApnsClientHandler.this.apnsClient.handleServerError(pushNotification, null);
@@ -215,74 +240,92 @@ class ApnsClientHandler extends Http2ConnectionHandler {
         }
     }
 
-    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final ApnsClient apnsClient, final String authority) {
+    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final ApnsClient apnsClient, final String authority, final boolean useTokenAuthentication) {
         super(decoder, encoder, initialSettings);
 
         this.apnsClient = apnsClient;
         this.authority = authority;
+        this.useTokenAuthentication = useTokenAuthentication;
     }
 
     @Override
     public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise writePromise) throws Http2Exception {
         try {
-            // We'll catch class cast issues gracefully
-            final ApnsPushNotification pushNotification = (ApnsPushNotification) message;
+            try {
+                // We'll catch class cast issues gracefully
+                final ApnsPushNotification pushNotification = (ApnsPushNotification) message;
 
-            final int streamId = (int) this.nextStreamId;
+                final int streamId = (int) this.nextStreamId;
 
-            final Http2Headers headers = new DefaultHttp2Headers()
-                    .method(HttpMethod.POST.asciiName())
-                    .authority(this.authority)
-                    .path(APNS_PATH_PREFIX + pushNotification.getToken())
-                    .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
+                final Http2Headers headers = new DefaultHttp2Headers()
+                        .method(HttpMethod.POST.asciiName())
+                        .authority(this.authority)
+                        .path(APNS_PATH_PREFIX + pushNotification.getToken())
+                        .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
 
-            if (pushNotification.getCollapseId() != null) {
-                headers.add(APNS_COLLAPSE_ID, pushNotification.getCollapseId());
-            }
+                final String authenticationToken;
 
-            if (pushNotification.getPriority() != null) {
-                headers.addInt(APNS_PRIORITY_HEADER, pushNotification.getPriority().getCode());
-            }
-
-            if (pushNotification.getTopic() != null) {
-                headers.add(APNS_TOPIC_HEADER, pushNotification.getTopic());
-            }
-
-            final ChannelPromise headersPromise = context.newPromise();
-            this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
-            log.trace("Wrote headers on stream {}: {}", streamId, headers);
-
-            final ByteBuf payloadBuffer = context.alloc().ioBuffer(INITIAL_PAYLOAD_BUFFER_CAPACITY);
-            payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(StandardCharsets.UTF_8));
-
-            final ChannelPromise dataPromise = context.newPromise();
-            this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
-            log.trace("Wrote payload on stream {}: {}", streamId, pushNotification.getPayload());
-
-            final PromiseCombiner promiseCombiner = new PromiseCombiner();
-            promiseCombiner.addAll(headersPromise, dataPromise);
-            promiseCombiner.finish(writePromise);
-
-            writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
-
-                @Override
-                public void operationComplete(final ChannelPromise future) throws Exception {
-                    if (future.isSuccess()) {
-                        ApnsClientHandler.this.pushNotificationsByStreamId.put(streamId, pushNotification);
-                    } else {
-                        log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
-                    }
+                if (this.useTokenAuthentication) {
+                    authenticationToken = this.apnsClient.getAuthenticationTokenSupplierForTopic(pushNotification.getTopic()).getToken();
+                    headers.add(APNS_AUTHORIZATION_HEADER, "bearer " + authenticationToken);
+                } else {
+                    authenticationToken = null;
                 }
-            });
 
-            this.nextStreamId += 2;
+                if (pushNotification.getCollapseId() != null) {
+                    headers.add(APNS_COLLAPSE_ID_HEADER, pushNotification.getCollapseId());
+                }
 
-            if (this.nextStreamId >= STREAM_ID_RESET_THRESHOLD) {
-                // This is very unlikely, but in the event that we run out of stream IDs (the maximum allowed is
-                // 2^31, per https://httpwg.github.io/specs/rfc7540.html#StreamIdentifiers), we need to open a new
-                // connection. Just closing the context should be enough; automatic reconnection should take things
-                // from there.
-                context.close();
+                if (pushNotification.getPriority() != null) {
+                    headers.addInt(APNS_PRIORITY_HEADER, pushNotification.getPriority().getCode());
+                }
+
+                if (pushNotification.getTopic() != null) {
+                    headers.add(APNS_TOPIC_HEADER, pushNotification.getTopic());
+                }
+
+                final ChannelPromise headersPromise = context.newPromise();
+                this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
+                log.trace("Wrote headers on stream {}: {}", streamId, headers);
+
+                final ByteBuf payloadBuffer = context.alloc().ioBuffer(INITIAL_PAYLOAD_BUFFER_CAPACITY);
+                payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(StandardCharsets.UTF_8));
+
+                final ChannelPromise dataPromise = context.newPromise();
+                this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
+                log.trace("Wrote payload on stream {}: {}", streamId, pushNotification.getPayload());
+
+                final PromiseCombiner promiseCombiner = new PromiseCombiner();
+                promiseCombiner.addAll(headersPromise, dataPromise);
+                promiseCombiner.finish(writePromise);
+
+                writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
+
+                    @Override
+                    public void operationComplete(final ChannelPromise future) throws Exception {
+                        if (future.isSuccess()) {
+                            ApnsClientHandler.this.pushNotificationsByStreamId.put(streamId, pushNotification);
+
+                            if (ApnsClientHandler.this.useTokenAuthentication) {
+                                ApnsClientHandler.this.authenticationTokensByStreamId.put(streamId, authenticationToken);
+                            }
+                        } else {
+                            log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
+                        }
+                    }
+                });
+
+                this.nextStreamId += 2;
+
+                if (this.nextStreamId >= STREAM_ID_RESET_THRESHOLD) {
+                    // This is very unlikely, but in the event that we run out of stream IDs (the maximum allowed is
+                    // 2^31, per https://httpwg.github.io/specs/rfc7540.html#StreamIdentifiers), we need to open a new
+                    // connection. Just closing the context should be enough; automatic reconnection should take things
+                    // from there.
+                    context.close();
+                }
+            } catch (NoKeyForTopicException | SignatureException e) {
+                writePromise.tryFailure(e);
             }
 
         } catch (final ClassCastException e) {

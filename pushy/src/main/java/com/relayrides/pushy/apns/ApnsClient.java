@@ -20,9 +20,26 @@
 
 package com.relayrides.pushy.apns;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
+import java.security.KeyFactory;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -32,6 +49,8 @@ import org.slf4j.LoggerFactory;
 import com.relayrides.pushy.apns.proxy.ProxyHandlerFactory;
 
 import io.netty.bootstrap.Bootstrap;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
@@ -42,6 +61,7 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.codec.base64.Base64;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
@@ -58,28 +78,33 @@ import io.netty.util.concurrent.Promise;
 import io.netty.util.concurrent.SucceededFuture;
 
 /**
- * <p>An APNs client sends push notifications to the APNs gateway. An APNs client connects to the APNs server and, as
- * part of a TLS handshake, presents a certificate that identifies the client and the "topics" to which it can send
- * push notifications. Please see Apple's
- * <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/">Local
- * and Remote Notification Programming Guide</a> for detailed discussion of
- * <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html#//apple_ref/doc/uid/TP40008194-CH100-SW9">topics</a>
- * and <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ProvisioningDevelopment.html#//apple_ref/doc/uid/TP40008194-CH104-SW1">certificate
- * provisioning</a>.</p>
+ * <p>An APNs client sends push notifications to the APNs gateway. APNs authenticate themselves to APNs servers in one
+ * of two ways: they may either present a TLS certificate to the server at connection time, or they may present
+ * authentication tokens for each notification they send. Clients that opt to use TLS-based authentication may send
+ * notifications to any topic named in the client certificate. Clients that opt to use token-based authentication may
+ * send notifications to any topic for which they have a signing key. Please see Apple's
+ * <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html">Local
+ * and Remote Notification Programming Guide</a> for a detailed discussion of the APNs protocol, topics, and
+ * certificate/key provisioning.</p>
  *
- * <p>Clients are constructed using an {@link ApnsClientBuilder}. To construct a client, callers will need to provide
- * the certificate provisioned by Apple and its accompanying private key. The certificate and key will be used to
- * authenticate the client and identify the topics to which it can send notifications. Callers may optionally specify an
- * {@link EventLoopGroup} when constructing a new client. If no event loop group is specified, clients will create and
- * manage their own single-thread event loop group. If many clients are operating in parallel, specifying a shared event
- * loop group serves as a mechanism to keep the total number of threads in check. Callers may also want to provide a
- * specific event loop group to take advantage of platform-specific features (i.e. epoll).</p>
+ * <p>Clients are constructed using an {@link ApnsClientBuilder}. To use TLS-based client authentication, callers may
+ * provide a certificate provisioned by Apple and its accompanying private key at construction time. The certificate and
+ * key will be used to authenticate the client and identify the topics to which it can send notifications. Callers may
+ * optionally specify an {@link EventLoopGroup} when constructing a new client. If no event loop group is specified,
+ * clients will create and manage their own single-thread event loop group. If many clients are operating in parallel,
+ * specifying a shared event loop group serves as a mechanism to keep the total number of threads in check. Callers may
+ * also want to provide a specific event loop group to take advantage of platform-specific features (i.e.
+ * {@code epoll}).</p>
+ *
+ * <p>If callers do not provide a certificate/private key at construction time, the client will use token-based
+ * authentication. Callers must register signing keys for the topics to which the client will send notifications using
+ * one of the {@code registerSigningKey} methods.</p>
  *
  * <p>Once a client has been constructed, it must connect to an APNs server before it can begin sending push
  * notifications. Apple provides a production and development gateway; see {@link ApnsClient#PRODUCTION_APNS_HOST} and
  * {@link ApnsClient#DEVELOPMENT_APNS_HOST}. See the
- * <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">APNs
- * Provider API</a> documentation for additional details.</p>
+ * <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html#//apple_ref/doc/uid/TP40008194-CH11-SW1">Communicating
+ * with APNs</a> documentation for additional details.</p>
  *
  * <p>Once a connection has been established, an APNs client will attempt to restore that connection automatically if
  * the connection closes unexpectedly. APNs clients employ an exponential back-off strategy to manage the rate of
@@ -119,6 +144,10 @@ public class ApnsClient {
     private ApnsClientMetricsListener metricsListener = new NoopMetricsListener();
     private final AtomicLong nextNotificationId = new AtomicLong(0);
 
+    private final boolean useTokenAuthentication;
+    private final Map<String, Set<String>> topicsByTeamId = new HashMap<>();
+    private final Map<String, AuthenticationTokenSupplier> authenticationTokenSuppliersByTopic = new HashMap<>();
+
     /**
      * The default write timeout, in milliseconds.
      *
@@ -153,8 +182,8 @@ public class ApnsClient {
      * <blockquote>You can alternatively use port 2197 when communicating with APNs. You might do this, for example, to
      * allow APNs traffic through your firewall but to block other HTTPS traffic.</blockquote>
      *
-     * @see <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW12">APNs
-     * Provider API, Connections</a>
+     * @see <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html#//apple_ref/doc/uid/TP40008194-CH11-SW1">Communicating
+     * with APNs</a>
      *
      * @since 0.5
      */
@@ -167,9 +196,13 @@ public class ApnsClient {
     private static final long MAX_RECONNECT_DELAY_SECONDS = 60; // seconds
     static final int PING_IDLE_TIME_MILLIS = 60_000; // milliseconds
 
+    static final String EXPIRED_AUTH_TOKEN_REASON = "ExpiredProviderToken";
+
     private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
-    protected ApnsClient(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
+    protected ApnsClient(final SslContext sslContext, final boolean useTokenAuthentication, final EventLoopGroup eventLoopGroup) {
+        this.useTokenAuthentication = useTokenAuthentication;
+
         this.bootstrap = new Bootstrap();
 
         if (eventLoopGroup != null) {
@@ -207,6 +240,7 @@ public class ApnsClient {
                                     .server(false)
                                     .apnsClient(ApnsClient.this)
                                     .authority(((InetSocketAddress) context.channel().remoteAddress()).getHostName())
+                                    .useTokenAuthentication(ApnsClient.this.useTokenAuthentication)
                                     .encoderEnforceMaxConcurrentStreams(true)
                                     .build();
 
@@ -277,7 +311,7 @@ public class ApnsClient {
      *
      * @since 0.8.2
      */
-    protected void setChannelWriteBufferWatermark(WriteBufferWaterMark writeBufferWaterMark) {
+    protected void setChannelWriteBufferWatermark(final WriteBufferWaterMark writeBufferWaterMark) {
         synchronized (this.bootstrap) {
             this.bootstrap.option(ChannelOption.WRITE_BUFFER_WATER_MARK, writeBufferWaterMark);
         }
@@ -549,6 +583,247 @@ public class ApnsClient {
     }
 
     /**
+     * <p>Registers a private signing key for the given topics. Clears any topics and keys previously associated with
+     * the given team.</p>
+     *
+     * <p>Callers using token-based authentication <em>must</em> register signing keys for all topics to which they
+     * intend to send notifications. Callers <em>must not</em> attempt to register signing keys when using TLS-based
+     * client authentication. Tokens may be registered at any time in a client's life-cycle.</p>
+     *
+     * @param signingKeyPemFile a PEM file that contains a PKCS#8 private key with which to sign authentication tokens
+     * @param teamId the Apple-issued, ten-character identifier for the team to which the given private key belongs
+     * @param keyId the Apple-issued, ten-character identifier for the given private key
+     * @param topics the topics to which the given signing key is applicable
+     *
+     * @throws IllegalStateException if this client uses TLS-based authentication instead of token-based authentication
+     * @throws InvalidKeyException if the given key is invalid for any reason
+     * @throws NoSuchAlgorithmException if the JRE does not support the required token-signing algorithm
+     * @throws IOException if a private key could not be loaded from the given file for any reason
+     *
+     * @since 0.9
+     */
+    public void registerSigningKey(final File signingKeyPemFile, final String teamId, final String keyId, final Collection<String> topics) throws InvalidKeyException, NoSuchAlgorithmException, IOException {
+        this.registerSigningKey(signingKeyPemFile, teamId, keyId, topics.toArray(new String[0]));
+    }
+
+    /**
+     * <p>Registers a private signing key for the given topics. Clears any topics and keys previously associated with
+     * the given team.</p>
+     *
+     * <p>Callers using token-based authentication <em>must</em> register signing keys for all topics to which they
+     * intend to send notifications. Callers <em>must not</em> attempt to register signing keys when using TLS-based
+     * client authentication. Tokens may be registered at any time in a client's life-cycle.</p>
+     *
+     * @param signingKeyPemFile a PEM file that contains a PKCS#8 private key with which to sign authentication tokens
+     * @param teamId the Apple-issued, ten-character identifier for the team to which the given private key belongs
+     * @param keyId the Apple-issued, ten-character identifier for the given private key
+     * @param topics the topics to which the given signing key is applicable
+     *
+     * @throws IllegalStateException if this client uses TLS-based authentication instead of token-based authentication
+     * @throws InvalidKeyException if the given key is invalid for any reason
+     * @throws NoSuchAlgorithmException if the JRE does not support the required token-signing algorithm
+     * @throws IOException if a private key could not be loaded from the given file for any reason
+     *
+     * @since 0.9
+     */
+    public void registerSigningKey(final File signingKeyPemFile, final String teamId, final String keyId, final String... topics) throws InvalidKeyException, NoSuchAlgorithmException, IOException {
+        try (final FileInputStream signingKeyInputStream = new FileInputStream(signingKeyPemFile)) {
+            this.registerSigningKey(signingKeyInputStream, teamId, keyId, topics);
+        }
+    }
+
+    /**
+     * <p>Registers a private signing key for the given topics. Clears any topics and keys previously associated with
+     * the given team.</p>
+     *
+     * <p>Callers using token-based authentication <em>must</em> register signing keys for all topics to which they
+     * intend to send notifications. Callers <em>must not</em> attempt to register signing keys when using TLS-based
+     * client authentication. Tokens may be registered at any time in a client's life-cycle.</p>
+     *
+     * @param signingKeyInputStream an input stream that provides a PEM-encoded PKCS#8 private key with which to sign
+     * authentication tokens
+     * @param teamId the Apple-issued, ten-character identifier for the team to which the given private key belongs
+     * @param keyId the Apple-issued, ten-character identifier for the given private key
+     * @param topics the topics to which the given signing key is applicable
+     *
+     * @throws IllegalStateException if this client uses TLS-based authentication instead of token-based authentication
+     * @throws InvalidKeyException if the given key is invalid for any reason
+     * @throws NoSuchAlgorithmException if the JRE does not support the required token-signing algorithm
+     * @throws IOException if a private key could not be loaded from the given input stream for any reason
+     *
+     * @since 0.9
+     */
+    public void registerSigningKey(final InputStream signingKeyInputStream, final String teamId, final String keyId, final Collection<String> topics) throws InvalidKeyException, NoSuchAlgorithmException, IOException {
+        this.registerSigningKey(signingKeyInputStream, teamId, keyId, topics.toArray(new String[0]));
+    }
+
+    /**
+     * <p>Registers a private signing key for the given topics. Clears any topics and keys previously associated with
+     * the given team.</p>
+     *
+     * <p>Callers using token-based authentication <em>must</em> register signing keys for all topics to which they
+     * intend to send notifications. Callers <em>must not</em> attempt to register signing keys when using TLS-based
+     * client authentication. Tokens may be registered at any time in a client's life-cycle.</p>
+     *
+     * @param signingKeyInputStream an input stream that provides a PEM-encoded PKCS#8 private key with which to sign
+     * authentication tokens
+     * @param teamId the Apple-issued, ten-character identifier for the team to which the given private key belongs
+     * @param keyId the Apple-issued, ten-character identifier for the given private key
+     * @param topics the topics to which the given signing key is applicable
+     *
+     * @throws IllegalStateException if this client uses TLS-based authentication instead of token-based authentication
+     * @throws InvalidKeyException if the given key is invalid for any reason
+     * @throws NoSuchAlgorithmException if the JRE does not support the required token-signing algorithm
+     * @throws IOException if a private key could not be loaded from the given input stream for any reason
+     *
+     * @since 0.9
+     */
+    public void registerSigningKey(final InputStream signingKeyInputStream, final String teamId, final String keyId, final String... topics) throws InvalidKeyException, NoSuchAlgorithmException, IOException {
+        final PrivateKey signingKey;
+        {
+            final String base64EncodedPrivateKey;
+            {
+                final StringBuilder privateKeyBuilder = new StringBuilder();
+
+                final BufferedReader reader = new BufferedReader(new InputStreamReader(signingKeyInputStream));
+                boolean haveReadHeader = false;
+                boolean haveReadFooter = false;
+
+                for (String line; (line = reader.readLine()) != null; ) {
+                    if (!haveReadHeader) {
+                        if (line.contains("BEGIN PRIVATE KEY")) {
+                            haveReadHeader = true;
+                            continue;
+                        }
+                    } else {
+                        if (line.contains("END PRIVATE KEY")) {
+                            haveReadFooter = true;
+                            break;
+                        } else {
+                            privateKeyBuilder.append(line);
+                        }
+                    }
+                }
+
+                if (!(haveReadHeader && haveReadFooter)) {
+                    throw new IOException("Could not find private key header/footer");
+                }
+
+                base64EncodedPrivateKey = privateKeyBuilder.toString();
+            }
+
+            final ByteBuf wrappedEncodedPrivateKey = Unpooled.wrappedBuffer(base64EncodedPrivateKey.getBytes(StandardCharsets.US_ASCII));
+
+            try {
+                final ByteBuf decodedPrivateKey = Base64.decode(wrappedEncodedPrivateKey);
+
+                try {
+                    final byte[] keyBytes = new byte[decodedPrivateKey.readableBytes()];
+                    decodedPrivateKey.readBytes(keyBytes);
+
+                    final PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
+                    final KeyFactory keyFactory = KeyFactory.getInstance("EC");
+                    signingKey = keyFactory.generatePrivate(keySpec);
+                } catch (final InvalidKeySpecException e) {
+                    throw new InvalidKeyException(e);
+                } finally {
+                    decodedPrivateKey.release();
+                }
+            } finally {
+                wrappedEncodedPrivateKey.release();
+            }
+        }
+
+        this.registerSigningKey(signingKey, teamId, keyId, topics);
+    }
+
+    /**
+     * <p>Registers a private signing key for the given topics. Clears any topics and keys previously associated with
+     * the given team.</p>
+     *
+     * <p>Callers using token-based authentication <em>must</em> register signing keys for all topics to which they
+     * intend to send notifications. Callers <em>must not</em> attempt to register signing keys when using TLS-based
+     * client authentication. Tokens may be registered at any time in a client's life-cycle.</p>
+     *
+     * @param signingKey the private key with which to sign authentication tokens
+     * @param teamId the Apple-issued, ten-character identifier for the team to which the given private key belongs
+     * @param keyId the Apple-issued, ten-character identifier for the given private key
+     * @param topics the topics to which the given signing key is applicable
+     *
+     * @throws IllegalStateException if this client uses TLS-based authentication instead of token-based authentication
+     * @throws InvalidKeyException if the given key is invalid for any reason
+     * @throws NoSuchAlgorithmException if the JRE does not support the required token-signing algorithm
+     *
+     * @since 0.9
+     */
+    public void registerSigningKey(final PrivateKey signingKey, final String teamId, final String keyId, final Collection<String> topics) throws InvalidKeyException, NoSuchAlgorithmException {
+        this.registerSigningKey(signingKey, teamId, keyId, topics.toArray(new String[0]));
+    }
+
+    /**
+     * <p>Registers a private signing key for the given topics. Clears any topics and keys previously associated with
+     * the given team.</p>
+     *
+     * <p>Callers using token-based authentication <em>must</em> register signing keys for all topics to which they
+     * intend to send notifications. Callers <em>must not</em> attempt to register signing keys when using TLS-based
+     * client authentication. Tokens may be registered at any time in a client's life-cycle.</p>
+     *
+     * @param signingKey the private key with which to sign authentication tokens
+     * @param teamId the Apple-issued, ten-character identifier for the team to which the given private key belongs
+     * @param keyId the Apple-issued, ten-character identifier for the given private key
+     * @param topics the topics to which the given signing key is applicable
+     *
+     * @throws IllegalStateException if this client uses TLS-based authentication instead of token-based authentication
+     * @throws InvalidKeyException if the given key is invalid for any reason
+     * @throws NoSuchAlgorithmException if the JRE does not support the required token-signing algorithm
+     *
+     * @since 0.9
+     */
+    public void registerSigningKey(final PrivateKey signingKey, final String teamId, final String keyId, final String... topics) throws InvalidKeyException, NoSuchAlgorithmException {
+        if (!this.useTokenAuthentication) {
+            throw new IllegalStateException("Cannot register signing keys with clients that use TLS-based authentication.");
+        }
+
+        this.removeKeyForTeam(teamId);
+
+        final AuthenticationTokenSupplier tokenSupplier = new AuthenticationTokenSupplier(teamId, keyId, signingKey);
+
+        final Set<String> topicSet = new HashSet<>();
+
+        for (final String topic : topics) {
+            topicSet.add(topic);
+            this.authenticationTokenSuppliersByTopic.put(topic, tokenSupplier);
+        }
+
+        this.topicsByTeamId.put(teamId, topicSet);
+    }
+
+    /**
+     * Removes all registered keys and associated topics for the given team.
+     *
+     * @param teamId the Apple-issued, ten-character identifier for the team for which to remove keys and topics
+     */
+    public void removeKeyForTeam(final String teamId) {
+        final Set<String> oldTopics = this.topicsByTeamId.remove(teamId);
+
+        if (oldTopics != null) {
+            for (final String topic : oldTopics) {
+                this.authenticationTokenSuppliersByTopic.remove(topic);
+            }
+        }
+    }
+
+    protected AuthenticationTokenSupplier getAuthenticationTokenSupplierForTopic(final String topic) throws NoKeyForTopicException {
+        final AuthenticationTokenSupplier supplier = this.authenticationTokenSuppliersByTopic.get(topic);
+
+        if (supplier == null) {
+            throw new NoKeyForTopicException("No signing key found for topic " + topic);
+        }
+
+        return supplier;
+    }
+
+    /**
      * <p>Sends a push notification to the APNs gateway.</p>
      *
      * <p>This method returns a {@code Future} that indicates whether the notification was accepted or rejected by the
@@ -576,8 +851,12 @@ public class ApnsClient {
      *
      * @since 0.8
      */
-    @SuppressWarnings({ "unchecked", "rawtypes" })
     public <T extends ApnsPushNotification> Future<PushNotificationResponse<T>> sendNotification(final T notification) {
+        return this.sendNotification(notification, null);
+    }
+
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    private <T extends ApnsPushNotification> Future<PushNotificationResponse<T>> sendNotification(final T notification, final Promise<PushNotificationResponse<ApnsPushNotification>> promise) {
         final Future<PushNotificationResponse<T>> responseFuture;
         final long notificationId = this.nextNotificationId.getAndIncrement();
 
@@ -592,8 +871,14 @@ public class ApnsClient {
             if (!connectionReadyPromise.channel().isWritable()) {
                 return new FailedFuture<>(GlobalEventExecutor.INSTANCE, CLIENT_BUSY_EXCEPTION);
             }
-            final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
-                    new DefaultPromise<>(connectionReadyPromise.channel().eventLoop());
+
+            final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise;
+
+            if (promise != null) {
+                responsePromise = promise;
+            } else {
+                responsePromise = new DefaultPromise<>(connectionReadyPromise.channel().eventLoop());
+            }
 
             connectionReadyPromise.channel().eventLoop().submit(new Runnable() {
 
@@ -655,12 +940,19 @@ public class ApnsClient {
         return responseFuture;
     }
 
-    protected void handlePushNotificationResponse(final PushNotificationResponse<ApnsPushNotification> pushNotificationResponse) {
-        log.debug("Received response from APNs gateway: {}", pushNotificationResponse);
+    protected void handlePushNotificationResponse(final PushNotificationResponse<ApnsPushNotification> response) {
+        log.debug("Received response from APNs gateway: {}", response);
 
         // This will always be called from inside the channel's event loop, so we don't have to worry about
         // synchronization.
-        this.responsePromises.remove(pushNotificationResponse.getPushNotification()).setSuccess(pushNotificationResponse);
+        final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
+                this.responsePromises.remove(response.getPushNotification());
+
+        if (EXPIRED_AUTH_TOKEN_REASON.equals(response.getRejectionReason())) {
+            this.sendNotification(response.getPushNotification(), responsePromise);
+        } else {
+            responsePromise.setSuccess(response);
+        }
     }
 
     protected void handleServerError(final ApnsPushNotification pushNotification, final String message) {

@@ -26,8 +26,8 @@ package com.relayrides.pushy.apns;
  * notification will be sent to the gateway itself.
  *
  * @see <a href=
- *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW16">
- *      Local and Remote Notification Programming Guide - APNs Provider API - Notification API - Request</a>
+ *      "https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html">
+ *      Local and Remote Notification Programming Guide - Communicating with APNs</a>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *

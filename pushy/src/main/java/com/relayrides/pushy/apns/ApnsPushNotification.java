@@ -32,7 +32,7 @@ import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
  * @see <a href=
- *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html">
+ *      "https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html">
  *      Local and Remote Notification Programming Guide - Apple Push Notification Service</a>
  *
  * @see ApnsPayloadBuilder
@@ -46,10 +46,6 @@ public interface ApnsPushNotification {
      * @return a string of hexadecimal digits representing the token of the device to which this push notification is to
      * be sent
      *
-     * @see <a href=
-     *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">
-     *      APNs Provider API</a>
-     *
      * @since 0.5
      */
     String getToken();
@@ -58,10 +54,6 @@ public interface ApnsPushNotification {
      * Returns the JSON-encoded payload of this push notification.
      *
      * @return the JSON-encoded payload of this push notification
-     *
-     * @see <a href=
-     *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/TheNotificationPayload.html#//apple_ref/doc/uid/TP40008194-CH107-SW1">
-     *      The Remote Notification Payload</a>
      *
      * @since 0.1
      */
@@ -74,10 +66,6 @@ public interface ApnsPushNotification {
      *
      * @return the time at which this notification can be discarded
      *
-     * @see <a href=
-     *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">
-     *      APNs Provider API</a>
-     *
      * @since 0.5
      */
     Date getExpiration();
@@ -87,10 +75,6 @@ public interface ApnsPushNotification {
      * an immediate delivery priority is assumed.
      *
      * @return the priority with which this push notification should be sent to the receiving device
-     *
-     * @see <a href=
-     *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">
-     *      APNs Provider API</a>
      *
      * @since 0.4
      */
@@ -107,10 +91,6 @@ public interface ApnsPushNotification {
      * @return the topic to which this notification should be sent, or {@code null} for the default topic if this
      *         notification is sent on a connection with a single-topic certificate
      *
-     * @see <a href=
-     *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">
-     *      APNs Provider API</a>
-     *
      * @since 0.5
      */
     String getTopic();
@@ -120,8 +100,6 @@ public interface ApnsPushNotification {
      * notifications or to be superseded by later notifications with the same identifier.
      *
      * @return an identifier for this notification; may be {@code null}
-     *
-     * @see <a href="https://developer.apple.com/videos/play/wwdc2016/707/">APNs Notification managment</a>
      *
      * @since 0.8.1
      */

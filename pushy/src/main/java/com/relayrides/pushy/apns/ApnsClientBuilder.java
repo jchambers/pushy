@@ -29,7 +29,6 @@ import java.security.KeyStoreException;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLException;
@@ -54,9 +53,10 @@ import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 
 /**
- * <p>An {@code ApnsClientBuilder} constructs new {@link ApnsClient} instances. Callers must supply client credentials
- * via one of the {@code setClientCredentials} methods prior to constructing a new client with the
- * {@link com.relayrides.pushy.apns.ApnsClientBuilder#build()} method; all other settings are optional.</p>
+ * <p>An {@code ApnsClientBuilder} constructs new {@link ApnsClient} instances. All settings are optional. Callers must
+ * provide a certificate and private key via one of the {@code setClientCredentials} methods in order to use TLS-based
+ * client authentication; if client credentials are not specified, the constructed client will use token-based
+ * authentication, and callers will need to register signing keys directly with the client after construction.</p>
  *
  * <p>Client builders may be reused to generate multiple clients, and their settings may be changed from one client to
  * the next.</p>
@@ -404,10 +404,8 @@ public class ApnsClientBuilder {
      * @since 0.8
      */
     public ApnsClient build() throws SSLException {
-        Objects.requireNonNull(this.clientCertificate, "Client certificate must be set before building an APNs client.");
-        Objects.requireNonNull(this.privateKey, "Private key must be set before building an APNs client.");
-
         final SslContext sslContext;
+        final boolean useTlsAuthentication;
         {
             final SslProvider sslProvider;
 
@@ -431,12 +429,17 @@ public class ApnsClientBuilder {
             final SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
                     .sslProvider(sslProvider)
                     .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-                    .keyManager(this.privateKey, this.privateKeyPassword, this.clientCertificate)
                     .applicationProtocolConfig(
                             new ApplicationProtocolConfig(Protocol.ALPN,
                                     SelectorFailureBehavior.NO_ADVERTISE,
                                     SelectedListenerFailureBehavior.ACCEPT,
                                     ApplicationProtocolNames.HTTP_2));
+
+            useTlsAuthentication = (this.clientCertificate != null && this.privateKey != null);
+
+            if (useTlsAuthentication) {
+                sslContextBuilder.keyManager(this.privateKey, this.privateKeyPassword, this.clientCertificate);
+            }
 
             if (this.trustedServerCertificatePemFile != null) {
                 sslContextBuilder.trustManager(this.trustedServerCertificatePemFile);
@@ -449,7 +452,7 @@ public class ApnsClientBuilder {
             sslContext = sslContextBuilder.build();
         }
 
-        final ApnsClient apnsClient = new ApnsClient(sslContext, this.eventLoopGroup);
+        final ApnsClient apnsClient = new ApnsClient(sslContext, !useTlsAuthentication, this.eventLoopGroup);
 
         apnsClient.setMetricsListener(this.metricsListener);
         apnsClient.setProxyHandlerFactory(this.proxyHandlerFactory);

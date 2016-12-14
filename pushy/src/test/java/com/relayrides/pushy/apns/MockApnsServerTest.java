@@ -1,6 +1,10 @@
 package com.relayrides.pushy.apns;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import java.io.InputStream;
 import java.util.Date;
@@ -31,13 +35,38 @@ public class MockApnsServerTest {
     }
 
     @Test
-    public void testAddToken() {
+    public void testRegisterPublicKey() throws Exception {
+        final String teamId = "team-id";
+        final String firstKeyId = "key-id";
+        final String secondKeyId = "different-key-id";
+        final String firstTopic = "first-topic";
+        final String secondTopic = "second-topic";
+
+        this.server.registerPublicKey(KeyPairUtil.generateKeyPair().getPublic(), teamId, firstKeyId, firstTopic);
+
+        assertNotNull(this.server.getSignatureForKeyId(firstKeyId));
+        assertEquals(teamId, this.server.getTeamIdForKeyId(firstKeyId));
+        assertEquals(1, this.server.getTopicsForTeamId(teamId).size());
+        assertTrue(this.server.getTopicsForTeamId(teamId).contains(firstTopic));
+
+        this.server.registerPublicKey(KeyPairUtil.generateKeyPair().getPublic(), teamId, secondKeyId, secondTopic);
+
+        assertNull(this.server.getSignatureForKeyId(firstKeyId));
+        assertNotNull(this.server.getSignatureForKeyId(secondKeyId));
+        assertNull(this.server.getTeamIdForKeyId(firstKeyId));
+        assertEquals(teamId, this.server.getTeamIdForKeyId(secondKeyId));
+        assertEquals(1, this.server.getTopicsForTeamId(teamId).size());
+        assertTrue(this.server.getTopicsForTeamId(teamId).contains(secondTopic));
+    }
+
+    @Test
+    public void testRegisterTokenForTopic() {
         final String token = "example-token";
         final String topic = "com.example.topic";
 
         assertFalse(this.server.isTokenRegisteredForTopic(token, topic));
 
-        this.server.addToken(topic, token, null);
+        this.server.registerDeviceTokenForTopic(topic, token, null);
         assertTrue(this.server.isTokenRegisteredForTopic(token, topic));
     }
 
@@ -46,7 +75,7 @@ public class MockApnsServerTest {
         final String token = "example-token";
         final String topic = "com.example.topic";
 
-        this.server.addToken(topic, token, null);
+        this.server.registerDeviceTokenForTopic(topic, token, null);
         assertTrue(this.server.isTokenRegisteredForTopic(token, topic));
 
         this.server.clearTokens();
@@ -61,7 +90,7 @@ public class MockApnsServerTest {
             final String token = "example-token";
             final Date expiration = new Date();
 
-            this.server.addToken(topic, token, expiration);
+            this.server.registerDeviceTokenForTopic(topic, token, expiration);
             assertEquals(expiration, this.server.getExpirationTimestampForTokenInTopic(token, topic));
         }
 
@@ -70,7 +99,7 @@ public class MockApnsServerTest {
         {
             final String token = "token-without-expiration";
 
-            this.server.addToken(topic, token, null);
+            this.server.registerDeviceTokenForTopic(topic, token, null);
             assertNull(this.server.getExpirationTimestampForTokenInTopic(token, topic));
         }
     }
