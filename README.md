@@ -32,44 +32,26 @@ If you don't use Maven (or something else that understands Maven dependencies, l
 
 Pushy itself requires Java 7 or newer to build and run.
 
-## Connecting and authenticating
+## Connecting and sending notifications
 
-Before you can get started with Pushy, you'll need to do some provisioning work with Apple to register your app and get the required certificates or signing keys (more on these shortly). For details on this process, please see the [Provisioning Procedures](https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html) section of Apple's official documentation. Please note that there are [some caveats](https://github.com/relayrides/pushy/wiki/Certificates), particularly under Mac OS X 10.11 (El Capitan).
+Before you can get started with Pushy, you'll need to do some provisioning work with Apple to register your app and get the required signing keys (more on these shortly). For details on this process, please see the [Provisioning Procedures](https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html) section of Apple's official documentation.
 
-Generally speaking, APNs clients must authenticate with the APNs server by some means before they can send push notifications. Currently, APNs (and Pushy) support two authentication methods: TLS-based authentication and token-based authentication. The two approaches are mutually-exclusive; you'll need to pick one or the other for each client.
+Clients connect to the server using a TLS-secured connection, and include a cryptographically-signed token with each notification they send (don't worry—Pushy handles this for you automatically). Clients may send push notifications to any "topic" for which they have a valid signing key.
 
-### TLS authentication
-
-In TLS-based authentication, clients present a TLS certificate to the server when connecting, and may send notifications to any "topic" named in the certificate. Generally, this means that a single client can only send push notifications to a single receiving app.
-
-Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an [`ApnsClient`](http://relayrides.github.io/pushy/apidocs/0.9/com/relayrides/pushy/apns/ApnsClient.html). Clients using TLS authentication need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing). To create a client that will use TLS-based authentication:
-
-```java
-final ApnsClient apnsClient = new ApnsClientBuilder()
-        .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
-        .build();
-```
-
-### Token authentication
-
-In token-based authentication, clients still connect to the server using a TLS-secured connection, but do *not* present a certificate to the server when connecting. Instead, clients include a cryptographically-signed token with each notification they send (don't worry—Pushy handles this for you automatically). Clients may send push notifications to any "topic" for which they have a valid signing key.
-
-To get started with a token-based client, you'll need to get signing keys (also called private keys in some contexts) from Apple. Once you have your signing keys, you can create a new client:
+To get started, you'll need to create a new client:
 
 ```java
 final ApnsClient apnsClient = new ApnsClientBuilder().build();
 ```
 
-Note that, unlike the TLS-authenticated client, we do *not* need to specify credentials at construction time. Instead, we register our signing key after the client has been constructed:
+After the client has been constructed, you'll need to register any signing keys for any topic to which you plan to send notifications.
 
 ```java
 apnsClient.registerSigningKey(new File("/path/to/key.p8"),
         "TEAMID1234", "KEYID67890", "com.example.topic");
 ```
 
-## Sending push notifications
-
-Regardless of the authentication method you choose, once you've created a client, you can connect it to the APNs gateway. Note that this process is asynchronous; the client will return a `Future` right away, but you'll need to wait for it to complete before you can send any notifications. Note that this is a Netty [`Future`](http://netty.io/4.1/api/io/netty/util/concurrent/Future.html), which is an extension of the Java [`Future`](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/Future.html) interface that allows callers to add listeners and adds methods for checking the status of the `Future`.
+Once you've created a client, you can connect it to the APNs gateway. Note that this process is asynchronous; the client will return a `Future` right away, but you'll need to wait for it to complete before you can send any notifications. Note that this is a Netty [`Future`](http://netty.io/4.1/api/io/netty/util/concurrent/Future.html), which is an extension of the Java [`Future`](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/Future.html) interface that allows callers to add listeners and adds methods for checking the status of the `Future`.
 
 ```java
 final Future<Void> connectFuture = apnsClient.connect(ApnsClient.DEVELOPMENT_APNS_HOST);
@@ -187,7 +169,6 @@ Pushy includes an interface for monitoring metrics that provide insight into cli
 
 ```java
 final ApnsClient apnsClient = new ApnsClientBuilder()
-        .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
         .setMetricsListener(new MyCustomMetricsListener())
         .build();
 ```
@@ -202,7 +183,6 @@ An example:
 
 ```java
 final ApnsClient apnsClient = new ApnsClientBuilder()
-        .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
         .setProxyHandlerFactory(new Socks5ProxyHandlerFactory(
             new InetSocketAddress("my.proxy.com", 1080), "username", "password"))
         .build();

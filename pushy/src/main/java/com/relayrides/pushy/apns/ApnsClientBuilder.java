@@ -21,13 +21,7 @@
 package com.relayrides.pushy.apns;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStream;
-import java.security.KeyStore.PrivateKeyEntry;
-import java.security.KeyStoreException;
-import java.security.PrivateKey;
-import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.concurrent.TimeUnit;
 
@@ -53,21 +47,12 @@ import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 
 /**
- * <p>An {@code ApnsClientBuilder} constructs new {@link ApnsClient} instances. All settings are optional. Callers must
- * provide a certificate and private key via one of the {@code setClientCredentials} methods in order to use TLS-based
- * client authentication; if client credentials are not specified, the constructed client will use token-based
- * authentication, and callers will need to register signing keys directly with the client after construction.</p>
- *
- * <p>Client builders may be reused to generate multiple clients, and their settings may be changed from one client to
- * the next.</p>
+ * An {@code ApnsClientBuilder} constructs new {@link ApnsClient} instances. All settings are optional. Client builders
+ * may be reused to generate multiple clients, and their settings may be changed from one client to the next.
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */
 public class ApnsClientBuilder {
-    private X509Certificate clientCertificate;
-    private PrivateKey privateKey;
-    private String privateKeyPassword;
-
     private File trustedServerCertificatePemFile;
     private InputStream trustedServerCertificateInputStream;
     private X509Certificate[] trustedServerCertificates;
@@ -92,89 +77,6 @@ public class ApnsClientBuilder {
     private WriteBufferWaterMark channelWriteBufferWaterMark;
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientBuilder.class);
-
-    /**
-     * <p>Sets the credentials for the client under construction using the contents of the given PKCS#12 file. The
-     * PKCS#12 file <em>must</em> contain a certificate/private key pair.</p>
-     *
-     * @param p12File a PKCS#12-formatted file containing the certificate and private key to be used to identify the
-     * client to the APNs server
-     * @param p12Password the password to be used to decrypt the contents of the given PKCS#12 file; passwords may be
-     * blank (i.e. {@code ""}), but must not be {@code null}
-     *
-     * @throws SSLException if the given PKCS#12 file could not be loaded or if any other SSL-related problem arises
-     * when constructing the context
-     * @throws IOException if any IO problem occurred while attempting to read the given PKCS#12 file, or the PKCS#12
-     * file could not be found
-     *
-     * @return a reference to this builder
-     *
-     * @since 0.8
-     */
-    public ApnsClientBuilder setClientCredentials(final File p12File, final String p12Password) throws SSLException, IOException {
-        try (final InputStream p12InputStream = new FileInputStream(p12File)) {
-            return this.setClientCredentials(p12InputStream, p12Password);
-        }
-    }
-
-    /**
-     * <p>Sets the credentials for the client under construction using the data from the given PKCS#12 input stream. The
-     * PKCS#12 data <em>must</em> contain a certificate/private key pair.</p>
-     *
-     * @param p12InputStream an input stream to a PKCS#12-formatted file containing the certificate and private key to
-     * be used to identify the client to the APNs server
-     * @param p12Password the password to be used to decrypt the contents of the given PKCS#12 file; passwords may be
-     * blank (i.e. {@code ""}), but must not be {@code null}
-     *
-     * @throws SSLException if the given PKCS#12 file could not be loaded or if any other SSL-related problem arises
-     * when constructing the context
-     * @throws IOException if any IO problem occurred while attempting to read the given PKCS#12 input stream
-     *
-     * @return a reference to this builder
-     *
-     * @since 0.8
-     */
-    public ApnsClientBuilder setClientCredentials(final InputStream p12InputStream, final String p12Password) throws SSLException, IOException {
-        final X509Certificate x509Certificate;
-        final PrivateKey privateKey;
-
-        try {
-            final PrivateKeyEntry privateKeyEntry = P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, p12Password);
-
-            final Certificate certificate = privateKeyEntry.getCertificate();
-
-            if (!(certificate instanceof X509Certificate)) {
-                throw new KeyStoreException("Found a certificate in the provided PKCS#12 file, but it was not an X.509 certificate.");
-            }
-
-            x509Certificate = (X509Certificate) certificate;
-            privateKey = privateKeyEntry.getPrivateKey();
-        } catch (final KeyStoreException e) {
-            throw new SSLException(e);
-        }
-
-        return this.setClientCredentials(x509Certificate, privateKey, p12Password);
-    }
-
-    /**
-     * <p>Sets the credentials for the client under construction.</p>
-     *
-     * @param clientCertificate the certificate to be used to identify the client to the APNs server
-     * @param privateKey the private key for the client certificate
-     * @param privateKeyPassword the password to be used to decrypt the private key; may be {@code null} if the private
-     * key does not require a password
-     *
-     * @return a reference to this builder
-     *
-     * @since 0.8
-     */
-    public ApnsClientBuilder setClientCredentials(final X509Certificate clientCertificate, final PrivateKey privateKey, final String privateKeyPassword) {
-        this.clientCertificate = clientCertificate;
-        this.privateKey = privateKey;
-        this.privateKeyPassword = privateKeyPassword;
-
-        return this;
-    }
 
     /**
      * <p>Sets the trusted certificate chain for the client under construction using the contents of the given PEM
@@ -405,7 +307,6 @@ public class ApnsClientBuilder {
      */
     public ApnsClient build() throws SSLException {
         final SslContext sslContext;
-        final boolean useTlsAuthentication;
         {
             final SslProvider sslProvider;
 
@@ -435,12 +336,6 @@ public class ApnsClientBuilder {
                                     SelectedListenerFailureBehavior.ACCEPT,
                                     ApplicationProtocolNames.HTTP_2));
 
-            useTlsAuthentication = (this.clientCertificate != null && this.privateKey != null);
-
-            if (useTlsAuthentication) {
-                sslContextBuilder.keyManager(this.privateKey, this.privateKeyPassword, this.clientCertificate);
-            }
-
             if (this.trustedServerCertificatePemFile != null) {
                 sslContextBuilder.trustManager(this.trustedServerCertificatePemFile);
             } else if (this.trustedServerCertificateInputStream != null) {
@@ -452,7 +347,7 @@ public class ApnsClientBuilder {
             sslContext = sslContextBuilder.build();
         }
 
-        final ApnsClient apnsClient = new ApnsClient(sslContext, !useTlsAuthentication, this.eventLoopGroup);
+        final ApnsClient apnsClient = new ApnsClient(sslContext, this.eventLoopGroup);
 
         apnsClient.setMetricsListener(this.metricsListener);
         apnsClient.setProxyHandlerFactory(this.proxyHandlerFactory);

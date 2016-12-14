@@ -27,12 +27,9 @@ public class ExampleApp {
         // most common way to store the certificate and key is in a
         // password-protected PKCS#12 file.
         final ApnsClient apnsClient = new ApnsClientBuilder()
-                .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
                 .build();
 
-        final ApnsClient tokenAuthenticationClient = new ApnsClientBuilder().build();
-
-        tokenAuthenticationClient.registerSigningKey(new File("/path/to/key.p8"),
+        apnsClient.registerSigningKey(new File("/path/to/key.p8"),
                 "TEAMID1234", "KEYID67890", "com.example.topic");
 
         // Optional: we can listen for metrics by setting a metrics listener.
