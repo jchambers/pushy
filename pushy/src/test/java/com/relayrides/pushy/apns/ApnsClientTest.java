@@ -240,6 +240,7 @@ public class ApnsClientTest {
         this.tokenAuthenticationClient = new ApnsClientBuilder()
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .setSslProvider(this.preferredSslProvider)
                 .build();
 
         this.tlsAuthenticationClient.connect(HOST, PORT).await();
