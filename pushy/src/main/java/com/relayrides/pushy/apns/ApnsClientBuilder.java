@@ -53,7 +53,10 @@ import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 
 /**
- * <p>An {@code ApnsClientBuilder} constructs new {@link ApnsClient} instances. All settings are optional.</p>
+ * <p>An {@code ApnsClientBuilder} constructs new {@link ApnsClient} instances. All settings are optional. Callers must
+ * provide a certificate and private key via one of the {@code setClientCredentials} methods in order to use TLS-based
+ * client authentication; if client credentials are not specified, the constructed client will use token-based
+ * authentication, and callers will need to register signing keys directly with the client after construction.</p>
  *
  * <p>Client builders may be reused to generate multiple clients, and their settings may be changed from one client to
  * the next.</p>

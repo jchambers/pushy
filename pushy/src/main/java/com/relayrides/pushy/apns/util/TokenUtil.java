@@ -27,9 +27,6 @@ package com.relayrides.pushy.apns.util;
  */
 public class TokenUtil {
 
-    // Prevent instantiation
-    private TokenUtil() {}
-
     /**
      * Returns a "sanitized" version of the given token string suitable for sending to an APNs server. This method
      * returns a version of the original string with all non-hexadecimal digits removed. This can be especially useful

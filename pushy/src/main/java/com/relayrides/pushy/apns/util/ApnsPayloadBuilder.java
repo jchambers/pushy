@@ -37,8 +37,8 @@ import com.google.gson.GsonBuilder;
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
  * @see <a href=
- *      "https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/TheNotificationPayload.html#//apple_ref/doc/uid/TP40008194-CH107-SW1">
- *      Local and Push Notification Programming Guide - The Remote Notification Payload</a>
+ *      "https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/PayloadKeyReference.html">
+ *      Local and Push Notification Programming Guide - Apple Push Notification Service - Payload Key Reference</a>
  */
 public class ApnsPayloadBuilder {
 
@@ -90,7 +90,7 @@ public class ApnsPayloadBuilder {
     private static final String ACTION_LOC_KEY = "action-loc-key";
     private static final String LAUNCH_IMAGE_KEY = "launch-image";
 
-    private final HashMap<String, Object> customProperties = new HashMap<String, Object>();
+    private final HashMap<String, Object> customProperties = new HashMap<>();
 
     private static final int DEFAULT_PAYLOAD_SIZE = 4096;
 
@@ -360,7 +360,8 @@ public class ApnsPayloadBuilder {
      *
      * @return a reference to this payload builder
      *
-     * @see <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/IPhoneOSClientImp.html#//apple_ref/doc/uid/TP40008194-CH103-SW26">Registering Your Actionable Notification Types</a>
+     * @see <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/SupportingNotificationsinYourApp.html#//apple_ref/doc/uid/TP40008194-CH4-SW26">Configuring
+     * Categories and Actionable Notifications</a>
      */
     public ApnsPayloadBuilder setCategoryName(final String categoryName) {
         this.categoryName = categoryName;
@@ -400,10 +401,8 @@ public class ApnsPayloadBuilder {
      * @return a reference to this payload builder
      *
      * @see <a href=
-     *      "https://developer.apple.com/library/ios/documentation/iPhone/Conceptual/iPhoneOSProgrammingGuide/ManagingYourApplicationsFlow/ManagingYourApplicationsFlow.html#//apple_ref/doc/uid/TP40007072-CH4-SW24">
-     *      iOS App Programming Guide - App States and Multitasking - Background Execution and Multitasking -
-     *      Implementing
-     *      Long-Running Background Tasks</a>
+     *      "https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CreatingtheNotificationPayload.html#//apple_ref/doc/uid/TP40008194-CH10-SW8">Configuring
+     *      a Silent Notification</a>
      */
     public ApnsPayloadBuilder setContentAvailable(final boolean contentAvailable) {
         this.contentAvailable = contentAvailable;
@@ -543,10 +542,10 @@ public class ApnsPayloadBuilder {
      * @return a JSON representation of the payload under construction (possibly with an abbreviated alert body)
      */
     public String buildWithMaximumLength(final int maximumPayloadSize) {
-        final Map<String, Object> payload = new HashMap<String, Object>();
+        final Map<String, Object> payload = new HashMap<>();
 
         {
-            final Map<String, Object> aps = new HashMap<String, Object>();
+            final Map<String, Object> aps = new HashMap<>();
 
             if (this.badgeNumber != null) {
                 aps.put(BADGE_KEY, this.badgeNumber);

@@ -78,28 +78,33 @@ import io.netty.util.concurrent.Promise;
 import io.netty.util.concurrent.SucceededFuture;
 
 /**
- * <p>An APNs client sends push notifications to the APNs gateway. An APNs client connects to the APNs server and, as
- * part of a TLS handshake, presents a certificate that identifies the client and the "topics" to which it can send
- * push notifications. Please see Apple's
- * <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/">Local
- * and Remote Notification Programming Guide</a> for detailed discussion of
- * <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html#//apple_ref/doc/uid/TP40008194-CH100-SW9">topics</a>
- * and <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ProvisioningDevelopment.html#//apple_ref/doc/uid/TP40008194-CH104-SW1">certificate
- * provisioning</a>.</p>
+ * <p>An APNs client sends push notifications to the APNs gateway. APNs authenticate themselves to APNs servers in one
+ * of two ways: they may either present a TLS certificate to the server at connection time, or they may present
+ * authentication tokens for each notification they send. Clients that opt to use TLS-based authentication may send
+ * notifications to any topic named in the client certificate. Clients that opt to use token-based authentication may
+ * send notifications to any topic for which they have a signing key. Please see Apple's
+ * <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html">Local
+ * and Remote Notification Programming Guide</a> for a detailed discussion of the APNs protocol, topics, and
+ * certificate/key provisioning.</p>
  *
- * <p>Clients are constructed using an {@link ApnsClientBuilder}. To construct a client, callers will need to provide
- * the certificate provisioned by Apple and its accompanying private key. The certificate and key will be used to
- * authenticate the client and identify the topics to which it can send notifications. Callers may optionally specify an
- * {@link EventLoopGroup} when constructing a new client. If no event loop group is specified, clients will create and
- * manage their own single-thread event loop group. If many clients are operating in parallel, specifying a shared event
- * loop group serves as a mechanism to keep the total number of threads in check. Callers may also want to provide a
- * specific event loop group to take advantage of platform-specific features (i.e. epoll).</p>
+ * <p>Clients are constructed using an {@link ApnsClientBuilder}. To use TLS-based client authentication, callers may
+ * provide a certificate provisioned by Apple and its accompanying private key at construction time. The certificate and
+ * key will be used to authenticate the client and identify the topics to which it can send notifications. Callers may
+ * optionally specify an {@link EventLoopGroup} when constructing a new client. If no event loop group is specified,
+ * clients will create and manage their own single-thread event loop group. If many clients are operating in parallel,
+ * specifying a shared event loop group serves as a mechanism to keep the total number of threads in check. Callers may
+ * also want to provide a specific event loop group to take advantage of platform-specific features (i.e.
+ * {@code epoll}).</p>
+ *
+ * <p>If callers do not provide a certificate/private key at construction time, the client will use token-based
+ * authentication. Callers must register signing keys for the topics to which the client will send notifications using
+ * one of the {@code registerSigningKey} methods.</p>
  *
  * <p>Once a client has been constructed, it must connect to an APNs server before it can begin sending push
  * notifications. Apple provides a production and development gateway; see {@link ApnsClient#PRODUCTION_APNS_HOST} and
  * {@link ApnsClient#DEVELOPMENT_APNS_HOST}. See the
- * <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW1">APNs
- * Provider API</a> documentation for additional details.</p>
+ * <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html#//apple_ref/doc/uid/TP40008194-CH11-SW1">Communicating
+ * with APNs</a> documentation for additional details.</p>
  *
  * <p>Once a connection has been established, an APNs client will attempt to restore that connection automatically if
  * the connection closes unexpectedly. APNs clients employ an exponential back-off strategy to manage the rate of
@@ -177,8 +182,8 @@ public class ApnsClient {
      * <blockquote>You can alternatively use port 2197 when communicating with APNs. You might do this, for example, to
      * allow APNs traffic through your firewall but to block other HTTPS traffic.</blockquote>
      *
-     * @see <a href="https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html#//apple_ref/doc/uid/TP40008194-CH101-SW12">APNs
-     * Provider API, Connections</a>
+     * @see <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html#//apple_ref/doc/uid/TP40008194-CH11-SW1">Communicating
+     * with APNs</a>
      *
      * @since 0.5
      */
@@ -306,7 +311,7 @@ public class ApnsClient {
      *
      * @since 0.8.2
      */
-    protected void setChannelWriteBufferWatermark(WriteBufferWaterMark writeBufferWaterMark) {
+    protected void setChannelWriteBufferWatermark(final WriteBufferWaterMark writeBufferWaterMark) {
         synchronized (this.bootstrap) {
             this.bootstrap.option(ChannelOption.WRITE_BUFFER_WATER_MARK, writeBufferWaterMark);
         }
