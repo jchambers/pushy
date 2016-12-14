@@ -249,6 +249,7 @@ public class ApnsClientTest {
     @After
     public void tearDown() throws Exception {
         this.tlsAuthenticationClient.disconnect().await();
+        this.tokenAuthenticationClient.disconnect().await();
 
         // Mild hack: there's a harmless race condition where we can try to write a `GOAWAY` from the server to the
         // client in the time between when the client closes the connection and the server notices the connection has
