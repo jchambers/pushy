@@ -185,6 +185,8 @@ public class ApnsClientBuilder {
      * @param certificatePemFile a PEM file containing one or more trusted certificates
      *
      * @return a reference to this builder
+     *
+     * @since 0.8
      */
     public ApnsClientBuilder setTrustedServerCertificateChain(final File certificatePemFile) {
         this.trustedServerCertificatePemFile = certificatePemFile;
@@ -205,6 +207,8 @@ public class ApnsClientBuilder {
      * @param certificateInputStream an input stream to PEM-formatted data containing one or more trusted certificates
      *
      * @return a reference to this builder
+     *
+     * @since 0.8
      */
     public ApnsClientBuilder setTrustedServerCertificateChain(final InputStream certificateInputStream) {
         this.trustedServerCertificatePemFile = null;
@@ -225,6 +229,8 @@ public class ApnsClientBuilder {
      * @param certificates one or more trusted certificates
      *
      * @return a reference to this builder
+     *
+     * @since 0.8
      */
     public ApnsClientBuilder setTrustedServerCertificateChain(final X509Certificate... certificates) {
         this.trustedServerCertificatePemFile = null;
@@ -365,7 +371,7 @@ public class ApnsClientBuilder {
      *
      * @since 0.8.2
      */
-    public ApnsClientBuilder setChannelWriteBufferWatermark(WriteBufferWaterMark writeBufferWatermark) {
+    public ApnsClientBuilder setChannelWriteBufferWatermark(final WriteBufferWaterMark writeBufferWatermark) {
         this.channelWriteBufferWaterMark = writeBufferWatermark;
         return this;
     }
@@ -439,7 +445,7 @@ public class ApnsClientBuilder {
         }
 
         if (this.channelWriteBufferWaterMark != null) {
-            apnsClient.setChannelWriteBufferWatermark(channelWriteBufferWaterMark);
+            apnsClient.setChannelWriteBufferWatermark(this.channelWriteBufferWaterMark);
         }
 
         return apnsClient;

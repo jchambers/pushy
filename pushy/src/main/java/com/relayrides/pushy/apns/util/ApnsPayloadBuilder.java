@@ -112,6 +112,9 @@ public class ApnsPayloadBuilder {
      * but recent versions recommend representing alerts as dictionaries regardless. This method is provided primarily
      * for backward-compatibility. By default, payload builders will always represent alerts as dictionaries.
      *
+     * @param preferStringRepresentationForAlerts if {@code true}, then this payload builder will represent alerts as
+     * strings when possible; otherwise, alerts will always be represented as dictionaries
+     *
      * @return a reference to this payload builder
      *
      * @since 0.8.2

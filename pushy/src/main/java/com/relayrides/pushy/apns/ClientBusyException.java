@@ -26,7 +26,7 @@ package com.relayrides.pushy.apns;
  *
  * @author <a href="https://github.com/stepheno">Oskar Stephens</a>
  *
- * @since 0.9
+ * @since 0.8.2
  */
 public class ClientBusyException extends IllegalStateException {
     private static final long serialVersionUID = 1L;

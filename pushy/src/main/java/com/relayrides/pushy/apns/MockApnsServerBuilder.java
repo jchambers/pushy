@@ -53,6 +53,8 @@ import io.netty.handler.ssl.SupportedCipherSuiteFilter;
  * the next.</p>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
+ *
+ * @since 0.8
  */
 public class MockApnsServerBuilder {
     private X509Certificate[] certificateChain;
