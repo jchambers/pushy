@@ -17,7 +17,6 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import io.netty.channel.WriteBufferWaterMark;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -28,6 +27,7 @@ import org.junit.Test;
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
+import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
@@ -621,6 +621,7 @@ public class ApnsClientTest {
 
         Future<PushNotificationResponse<SimpleApnsPushNotification>> responseFuture = busyClient.sendNotification(pushNotification);
 
+        assertFalse(responseFuture.isSuccess());
         assertTrue(responseFuture.cause() instanceof ClientBusyException);
     }
 

@@ -26,8 +26,6 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-import io.netty.buffer.ByteBufAllocator;
-import io.netty.channel.WriteBufferWaterMark;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +39,7 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.ApplicationProtocolNames;
@@ -269,28 +268,18 @@ public class ApnsClient {
     }
 
     /**
-     * Sets the write buffer watermark option on the underlying Netty channel
+     * Sets the buffer usage watermark range for this client. When a the amount of buffered and not-yet-flushed data in
+     * the client's network channel exceeds the given "high-water" mark, the channel will begin rejecting new data until
+     * enough data has been flushed to cross the given "low-water" mark. Notifications sent when the client's network
+     * channel is "flooded" will fail with a {@link ClientBusyException}.
      *
-     * @param writeBufferWaterMark the write buffer watermark range for the netty channel
+     * @param writeBufferWatermark the buffer usage watermark range for the client's network channel
      *
-     * @since 0.9
+     * @since 0.8.2
      */
     protected void setChannelWriteBufferWatermark(WriteBufferWaterMark writeBufferWaterMark) {
         synchronized (this.bootstrap) {
             this.bootstrap.option(ChannelOption.WRITE_BUFFER_WATER_MARK, writeBufferWaterMark);
-        }
-    }
-
-    /**
-     * Sets the byte buffer allocator on the underlying netty channel
-     *
-     * @param allocator the byte buffer allocator for the netty channel
-     *
-     * @since 0.9
-     */
-    protected void setBufferAllocator(ByteBufAllocator allocator) {
-        synchronized (this.bootstrap) {
-            this.bootstrap.option(ChannelOption.ALLOCATOR, allocator);
         }
     }
 

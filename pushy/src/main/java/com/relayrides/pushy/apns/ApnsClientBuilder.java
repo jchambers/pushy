@@ -34,14 +34,13 @@ import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLException;
 
-import io.netty.buffer.ByteBufAllocator;
-import io.netty.channel.WriteBufferWaterMark;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.relayrides.pushy.apns.proxy.ProxyHandlerFactory;
 
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.WriteBufferWaterMark;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
@@ -88,7 +87,6 @@ public class ApnsClientBuilder {
     private Long gracefulShutdownTimeout;
     private TimeUnit gracefulShutdownTimeoutUnit;
 
-    private ByteBufAllocator byteBufferAllocator;
     private WriteBufferWaterMark channelWriteBufferWaterMark;
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientBuilder.class);
@@ -354,27 +352,18 @@ public class ApnsClientBuilder {
     }
 
     /**
-     * Sets the buffer allocator for the underlying netty channel
+     * <p>Sets the buffer usage watermark range for the client to build. When a the amount of buffered and
+     * not-yet-flushed data in a client's network channel exceeds the given "high-water" mark, the channel will begin
+     * rejecting new data until enough data has been flushed to cross the given "low-water" mark. Notifications sent
+     * when the client's network channel is "flooded" will fail with a {@link ClientBusyException}.</p>
      *
-     * @param byteBufferAllocator the buffer allocator to use for the underlying netty channel
+     * <p>By default, the high-water mark is 64kB, and the low-water mark is 32kB.</p>
      *
-     * @return a reference to this builder
-     *
-     * @since 0.9
-     */
-    public ApnsClientBuilder setByteBufferAllocator(ByteBufAllocator byteBufferAllocator) {
-        this.byteBufferAllocator = byteBufferAllocator;
-        return this;
-    }
-
-    /**
-     * Sets the buffer usage watermark range for the underlying netty channel
-     *
-     * @param writeBufferWatermark the watermark range used in the underlying netty channel
+     * @param writeBufferWatermark the buffer usage watermark range for the client's network channel
      *
      * @return a reference to this builder
      *
-     * @since 0.9
+     * @since 0.8.2
      */
     public ApnsClientBuilder setChannelWriteBufferWatermark(WriteBufferWaterMark writeBufferWatermark) {
         this.channelWriteBufferWaterMark = writeBufferWatermark;
@@ -447,10 +436,6 @@ public class ApnsClientBuilder {
 
         if (this.gracefulShutdownTimeout != null) {
             apnsClient.setGracefulShutdownTimeout(this.gracefulShutdownTimeoutUnit.toMillis(this.gracefulShutdownTimeout));
-        }
-
-        if (this.byteBufferAllocator != null) {
-            apnsClient.setBufferAllocator(byteBufferAllocator);
         }
 
         if (this.channelWriteBufferWaterMark != null) {
