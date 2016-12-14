@@ -53,6 +53,12 @@
             <version>1.7.6</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-tcnative-boringssl-static</artifactId>
+            <version>1.1.33.Fork24</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -83,7 +89,7 @@
                 </property>
             </activation>
             <properties>
-                <jetty.alpnAgent.version>2.0.0</jetty.alpnAgent.version>
+                <jetty.alpnAgent.version>2.0.5</jetty.alpnAgent.version>
                 <jetty.alpnAgent.path>${settings.localRepository}/org/mortbay/jetty/alpn/jetty-alpn-agent/${jetty.alpnAgent.version}/jetty-alpn-agent-${jetty.alpnAgent.version}.jar</jetty.alpnAgent.path>
                 <jetty.alpnAgent.option>forceNpn=false</jetty.alpnAgent.option>
                 <argLine.alpnAgent>-javaagent:${jetty.alpnAgent.path}=${jetty.alpnAgent.option}</argLine.alpnAgent>
@@ -114,35 +120,6 @@
                         <version>2.16</version>
                         <configuration>
                             <argLine>${argLine.alpnAgent} -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -Dio.netty.leakDetectionLevel=PARANOID -ea</argLine>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
-            <id>test-with-netty-tcnative</id>
-            <activation>
-                <property>
-                    <name>env.PUSHY_SSL_PROVIDER</name>
-                    <value>native</value>
-                </property>
-            </activation>
-            <dependencies>
-                <dependency>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-tcnative-boringssl-static</artifactId>
-                    <version>1.1.33.Fork24</version>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <version>2.16</version>
-                        <configuration>
-                            <argLine>-Dorg.slf4j.simpleLogger.defaultLogLevel=warn</argLine>
                         </configuration>
                     </plugin>
                 </plugins>
