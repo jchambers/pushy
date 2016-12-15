@@ -5,7 +5,7 @@
     <parent>
         <artifactId>pushy-parent</artifactId>
         <groupId>com.relayrides</groupId>
-        <version>0.9-SNAPSHOT</version>
+        <version>0.9</version>
     </parent>
     
     <artifactId>pushy-benchmark</artifactId>
