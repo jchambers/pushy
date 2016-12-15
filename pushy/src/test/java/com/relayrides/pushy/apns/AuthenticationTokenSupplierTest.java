@@ -4,8 +4,8 @@ import static org.junit.Assert.*;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.security.PrivateKey;
 import java.security.SecureRandom;
+import java.security.interfaces.ECPrivateKey;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -15,7 +15,7 @@ public class AuthenticationTokenSupplierTest {
     private static final String ISSUER = "TESTISSUER";
     private static final String KEY_ID = "TESTPKEYID";
 
-    private PrivateKey privateKey;
+    private ECPrivateKey privateKey;
 
     @Before
     public void setUp() throws Exception {
@@ -25,7 +25,7 @@ public class AuthenticationTokenSupplierTest {
         keyPairGenerator.initialize(256, random);
 
         final KeyPair keyPair = keyPairGenerator.generateKeyPair();
-        this.privateKey = keyPair.getPrivate();
+        this.privateKey = (ECPrivateKey) keyPair.getPrivate();
     }
 
     @Test

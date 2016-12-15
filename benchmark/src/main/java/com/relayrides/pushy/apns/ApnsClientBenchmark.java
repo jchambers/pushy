@@ -3,6 +3,8 @@ package com.relayrides.pushy.apns;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.SecureRandom;
+import java.security.interfaces.ECPrivateKey;
+import java.security.interfaces.ECPublicKey;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -91,8 +93,8 @@ public class ApnsClientBenchmark {
                 keyPair = keyPairGenerator.generateKeyPair();
             }
 
-            this.client.registerSigningKey(keyPair.getPrivate(), TEAM_ID, KEY_ID, TOPIC);
-            this.server.registerPublicKey(keyPair.getPublic(), TEAM_ID, KEY_ID, TOPIC);
+            this.client.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), TEAM_ID, KEY_ID, TOPIC);
+            this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), TEAM_ID, KEY_ID, TOPIC);
         }
 
         final String token = generateRandomToken();

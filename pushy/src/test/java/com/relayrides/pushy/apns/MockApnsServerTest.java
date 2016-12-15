@@ -7,6 +7,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.InputStream;
+import java.security.interfaces.ECPublicKey;
 import java.util.Date;
 
 import org.junit.Before;
@@ -42,14 +43,14 @@ public class MockApnsServerTest {
         final String firstTopic = "first-topic";
         final String secondTopic = "second-topic";
 
-        this.server.registerPublicKey(KeyPairUtil.generateKeyPair().getPublic(), teamId, firstKeyId, firstTopic);
+        this.server.registerPublicKey((ECPublicKey) KeyPairUtil.generateKeyPair().getPublic(), teamId, firstKeyId, firstTopic);
 
         assertNotNull(this.server.getSignatureForKeyId(firstKeyId));
         assertEquals(teamId, this.server.getTeamIdForKeyId(firstKeyId));
         assertEquals(1, this.server.getTopicsForTeamId(teamId).size());
         assertTrue(this.server.getTopicsForTeamId(teamId).contains(firstTopic));
 
-        this.server.registerPublicKey(KeyPairUtil.generateKeyPair().getPublic(), teamId, secondKeyId, secondTopic);
+        this.server.registerPublicKey((ECPublicKey) KeyPairUtil.generateKeyPair().getPublic(), teamId, secondKeyId, secondTopic);
 
         assertNull(this.server.getSignatureForKeyId(firstKeyId));
         assertNotNull(this.server.getSignatureForKeyId(secondKeyId));

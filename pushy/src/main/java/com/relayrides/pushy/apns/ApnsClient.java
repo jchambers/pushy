@@ -31,7 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
+import java.security.interfaces.ECPrivateKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Collection;
@@ -590,7 +590,8 @@ public class ApnsClient {
      * intend to send notifications. Callers <em>must not</em> attempt to register signing keys when using TLS-based
      * client authentication. Tokens may be registered at any time in a client's life-cycle.</p>
      *
-     * @param signingKeyPemFile a PEM file that contains a PKCS#8 private key with which to sign authentication tokens
+     * @param signingKeyPemFile a PEM file that contains a PKCS#8-formatted elliptic-curve private key with which to
+     * sign authentication tokens
      * @param teamId the Apple-issued, ten-character identifier for the team to which the given private key belongs
      * @param keyId the Apple-issued, ten-character identifier for the given private key
      * @param topics the topics to which the given signing key is applicable
@@ -614,7 +615,8 @@ public class ApnsClient {
      * intend to send notifications. Callers <em>must not</em> attempt to register signing keys when using TLS-based
      * client authentication. Tokens may be registered at any time in a client's life-cycle.</p>
      *
-     * @param signingKeyPemFile a PEM file that contains a PKCS#8 private key with which to sign authentication tokens
+     * @param signingKeyPemFile a PEM file that contains a PKCS#8-formatted elliptic-curve private key with which to
+     * sign authentication tokens
      * @param teamId the Apple-issued, ten-character identifier for the team to which the given private key belongs
      * @param keyId the Apple-issued, ten-character identifier for the given private key
      * @param topics the topics to which the given signing key is applicable
@@ -640,8 +642,8 @@ public class ApnsClient {
      * intend to send notifications. Callers <em>must not</em> attempt to register signing keys when using TLS-based
      * client authentication. Tokens may be registered at any time in a client's life-cycle.</p>
      *
-     * @param signingKeyInputStream an input stream that provides a PEM-encoded PKCS#8 private key with which to sign
-     * authentication tokens
+     * @param signingKeyInputStream an input stream that provides a PEM-encoded, PKCS#8-formatted elliptic-curve private
+     * key with which to sign authentication tokens
      * @param teamId the Apple-issued, ten-character identifier for the team to which the given private key belongs
      * @param keyId the Apple-issued, ten-character identifier for the given private key
      * @param topics the topics to which the given signing key is applicable
@@ -665,8 +667,8 @@ public class ApnsClient {
      * intend to send notifications. Callers <em>must not</em> attempt to register signing keys when using TLS-based
      * client authentication. Tokens may be registered at any time in a client's life-cycle.</p>
      *
-     * @param signingKeyInputStream an input stream that provides a PEM-encoded PKCS#8 private key with which to sign
-     * authentication tokens
+     * @param signingKeyInputStream an input stream that provides a PEM-encoded, PKCS#8-formatted elliptic-curve private
+     * key with which to sign authentication tokens
      * @param teamId the Apple-issued, ten-character identifier for the team to which the given private key belongs
      * @param keyId the Apple-issued, ten-character identifier for the given private key
      * @param topics the topics to which the given signing key is applicable
@@ -679,7 +681,7 @@ public class ApnsClient {
      * @since 0.9
      */
     public void registerSigningKey(final InputStream signingKeyInputStream, final String teamId, final String keyId, final String... topics) throws InvalidKeyException, NoSuchAlgorithmException, IOException {
-        final PrivateKey signingKey;
+        final ECPrivateKey signingKey;
         {
             final String base64EncodedPrivateKey;
             {
@@ -723,7 +725,7 @@ public class ApnsClient {
 
                     final PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
                     final KeyFactory keyFactory = KeyFactory.getInstance("EC");
-                    signingKey = keyFactory.generatePrivate(keySpec);
+                    signingKey = (ECPrivateKey) keyFactory.generatePrivate(keySpec);
                 } catch (final InvalidKeySpecException e) {
                     throw new InvalidKeyException(e);
                 } finally {
@@ -756,7 +758,7 @@ public class ApnsClient {
      *
      * @since 0.9
      */
-    public void registerSigningKey(final PrivateKey signingKey, final String teamId, final String keyId, final Collection<String> topics) throws InvalidKeyException, NoSuchAlgorithmException {
+    public void registerSigningKey(final ECPrivateKey signingKey, final String teamId, final String keyId, final Collection<String> topics) throws InvalidKeyException, NoSuchAlgorithmException {
         this.registerSigningKey(signingKey, teamId, keyId, topics.toArray(new String[0]));
     }
 
@@ -779,7 +781,7 @@ public class ApnsClient {
      *
      * @since 0.9
      */
-    public void registerSigningKey(final PrivateKey signingKey, final String teamId, final String keyId, final String... topics) throws InvalidKeyException, NoSuchAlgorithmException {
+    public void registerSigningKey(final ECPrivateKey signingKey, final String teamId, final String keyId, final String... topics) throws InvalidKeyException, NoSuchAlgorithmException {
         if (!this.useTokenAuthentication) {
             throw new IllegalStateException("Cannot register signing keys with clients that use TLS-based authentication.");
         }

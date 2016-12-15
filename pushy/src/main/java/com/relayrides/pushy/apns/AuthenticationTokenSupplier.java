@@ -3,9 +3,9 @@ package com.relayrides.pushy.apns;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
 import java.security.Signature;
 import java.security.SignatureException;
+import java.security.interfaces.ECPrivateKey;
 import java.util.Date;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -50,7 +50,7 @@ class AuthenticationTokenSupplier {
      * @throws NoSuchAlgorithmException if the {@code SHA256withECDSA} algorithm is not available
      * @throws InvalidKeyException if the given private signing key is invalid for any reason
      */
-    public AuthenticationTokenSupplier(final String issuer, final String keyId, final PrivateKey privateKey) throws NoSuchAlgorithmException, InvalidKeyException {
+    public AuthenticationTokenSupplier(final String issuer, final String keyId, final ECPrivateKey privateKey) throws NoSuchAlgorithmException, InvalidKeyException {
         Objects.requireNonNull(issuer);
         Objects.requireNonNull(keyId);
         Objects.requireNonNull(privateKey);

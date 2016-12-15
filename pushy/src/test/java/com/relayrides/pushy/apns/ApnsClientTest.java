@@ -13,6 +13,8 @@ import java.io.InputStream;
 import java.security.KeyPair;
 import java.security.KeyStore.PrivateKeyEntry;
 import java.security.cert.X509Certificate;
+import java.security.interfaces.ECPrivateKey;
+import java.security.interfaces.ECPublicKey;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -385,7 +387,7 @@ public class ApnsClientTest {
 
     @Test(expected = IllegalStateException.class)
     public void testRegisterSigningKeyWithTlsAuthentication() throws Exception {
-        this.tlsAuthenticationClient.registerSigningKey(KeyPairUtil.generateKeyPair().getPrivate(), "team-id", "key-id", "topic");
+        this.tlsAuthenticationClient.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), "team-id", "key-id", "topic");
     }
 
     @Test
@@ -395,10 +397,10 @@ public class ApnsClientTest {
         final String topic = "topic";
         final String differentTopic = "different-topic";
 
-        this.tokenAuthenticationClient.registerSigningKey(KeyPairUtil.generateKeyPair().getPrivate(), teamId, keyId, topic);
+        this.tokenAuthenticationClient.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), teamId, keyId, topic);
         assertNotNull(this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic(topic));
 
-        this.tokenAuthenticationClient.registerSigningKey(KeyPairUtil.generateKeyPair().getPrivate(), teamId, keyId, differentTopic);
+        this.tokenAuthenticationClient.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), teamId, keyId, differentTopic);
 
         try {
             this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic(topic);
@@ -428,7 +430,7 @@ public class ApnsClientTest {
     public void testGetAuthenticationTokenSupplierForTopic() throws Exception {
         final String topic = "topic";
 
-        this.tokenAuthenticationClient.registerSigningKey(KeyPairUtil.generateKeyPair().getPrivate(), "team-id", "key-id", topic);
+        this.tokenAuthenticationClient.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), "team-id", "key-id", topic);
         assertNotNull(this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic(topic));
     }
 
@@ -442,7 +444,7 @@ public class ApnsClientTest {
         final String teamId = "team-id";
         final String topic = "topic";
 
-        this.tokenAuthenticationClient.registerSigningKey(KeyPairUtil.generateKeyPair().getPrivate(), teamId, "key-id", topic);
+        this.tokenAuthenticationClient.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), teamId, "key-id", topic);
         assertNotNull(this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic(topic));
 
         this.tokenAuthenticationClient.removeKeyForTeam(teamId);
@@ -497,9 +499,9 @@ public class ApnsClientTest {
         final String testToken = ApnsClientTest.generateRandomToken();
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
-        this.tokenAuthenticationClient.registerSigningKey(keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        this.tokenAuthenticationClient.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
 
-        this.server.registerPublicKey(keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
         this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
@@ -515,9 +517,9 @@ public class ApnsClientTest {
         final String testToken = ApnsClientTest.generateRandomToken();
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
-        this.tokenAuthenticationClient.registerSigningKey(keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        this.tokenAuthenticationClient.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
 
-        this.server.registerPublicKey(keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
         this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
 
         final String expiredToken;
@@ -823,7 +825,7 @@ public class ApnsClientTest {
         final String testToken = ApnsClientTest.generateRandomToken();
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
-        this.server.registerPublicKey(keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
         this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");

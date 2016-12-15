@@ -2,8 +2,8 @@ package com.relayrides.pushy.apns;
 
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
 import java.security.Signature;
+import java.security.interfaces.ECPublicKey;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -156,7 +156,7 @@ public class MockApnsServer {
      *
      * @since 0.9
      */
-    public void registerPublicKey(final PublicKey publicKey, final String teamId, final String keyId, final Collection<String> topics) throws NoSuchAlgorithmException, InvalidKeyException {
+    public void registerPublicKey(final ECPublicKey publicKey, final String teamId, final String keyId, final Collection<String> topics) throws NoSuchAlgorithmException, InvalidKeyException {
         this.registerPublicKey(publicKey, teamId, keyId, topics.toArray(new String[0]));
     }
 
@@ -175,7 +175,7 @@ public class MockApnsServer {
      *
      * @since 0.9
      */
-    public void registerPublicKey(final PublicKey publicKey, final String teamId, final String keyId, final String... topics) throws NoSuchAlgorithmException, InvalidKeyException {
+    public void registerPublicKey(final ECPublicKey publicKey, final String teamId, final String keyId, final String... topics) throws NoSuchAlgorithmException, InvalidKeyException {
         // First, clear out any old keys/topics
         {
             final Set<String> keyIdsToRemove = new HashSet<>();

@@ -8,6 +8,7 @@ import com.relayrides.pushy.apns.ApnsClientBuilder;
 
 public class ExampleApp {
 
+    @SuppressWarnings("unused")
     public static void main(final String[] args) throws Exception {
         // Note that a DropwizardApnsClientMetricsListener is intended for use
         // with only one ApnsClient at a time; if you're constructing multiple
