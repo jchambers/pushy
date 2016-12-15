@@ -78,8 +78,8 @@ import io.netty.util.concurrent.Promise;
 import io.netty.util.concurrent.SucceededFuture;
 
 /**
- * <p>An APNs client sends push notifications to the APNs gateway. APNs authenticate themselves to APNs servers in one
- * of two ways: they may either present a TLS certificate to the server at connection time, or they may present
+ * <p>An APNs client sends push notifications to the APNs gateway. Clients authenticate themselves to APNs servers in
+ * one of two ways: they may either present a TLS certificate to the server at connection time, or they may present
  * authentication tokens for each notification they send. Clients that opt to use TLS-based authentication may send
  * notifications to any topic named in the client certificate. Clients that opt to use token-based authentication may
  * send notifications to any topic for which they have a signing key. Please see Apple's
