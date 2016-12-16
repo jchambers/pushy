@@ -259,8 +259,7 @@ public class ApnsClient {
                                 connectionReadyPromise.trySuccess();
                             }
                         } else {
-                            log.error("Unexpected protocol: {}", protocol);
-                            context.close();
+                            throw new IllegalArgumentException("Unexpected protocol: " + protocol);
                         }
                     }
                 });
