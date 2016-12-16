@@ -271,17 +271,6 @@ public class ApnsClient {
                             context.close();
                         }
                     }
-
-                    @Override
-                    protected void handshakeFailure(final ChannelHandlerContext context, final Throwable cause) throws Exception {
-                        final ChannelPromise connectionReadyPromise = ApnsClient.this.connectionReadyPromise;
-
-                        if (connectionReadyPromise != null) {
-                            connectionReadyPromise.tryFailure(cause);
-                        }
-
-                        super.handshakeFailure(context, cause);
-                    }
                 });
             }
         });

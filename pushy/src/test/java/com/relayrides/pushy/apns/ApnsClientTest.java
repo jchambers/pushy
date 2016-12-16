@@ -305,6 +305,19 @@ public class ApnsClientTest {
     }
 
     @Test
+    public void testConnectToUntrustedServer() throws Exception {
+        final ApnsClient cautiousClient = new ApnsClientBuilder()
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .build();
+
+        final Future<Void> connectFuture = cautiousClient.connect(HOST, PORT).await();
+
+        assertFalse(connectFuture.isSuccess());
+
+        cautiousClient.disconnect().await();
+    }
+
+    @Test
     public void testReconnectionAfterClose() throws Exception {
         assertTrue(this.tlsAuthenticationClient.isConnected());
         assertTrue(this.tlsAuthenticationClient.disconnect().await().isSuccess());
