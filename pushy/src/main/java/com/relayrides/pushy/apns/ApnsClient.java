@@ -253,34 +253,14 @@ public class ApnsClient {
                             context.pipeline().addLast(new IdleStateHandler(0, 0, PING_IDLE_TIME_MILLIS, TimeUnit.MILLISECONDS));
                             context.pipeline().addLast(apnsClientHandler);
 
-                            // Add this to the end of the queue so any events enqueued by the client handler happen
-                            // before we declare victory.
-                            context.channel().eventLoop().submit(new Runnable() {
+                            final ChannelPromise connectionReadyPromise = ApnsClient.this.connectionReadyPromise;
 
-                                @Override
-                                public void run() {
-                                    final ChannelPromise connectionReadyPromise = ApnsClient.this.connectionReadyPromise;
-
-                                    if (connectionReadyPromise != null) {
-                                        connectionReadyPromise.trySuccess();
-                                    }
-                                }
-                            });
+                            if (connectionReadyPromise != null) {
+                                connectionReadyPromise.trySuccess();
+                            }
                         } else {
-                            log.error("Unexpected protocol: {}", protocol);
-                            context.close();
+                            throw new IllegalArgumentException("Unexpected protocol: " + protocol);
                         }
-                    }
-
-                    @Override
-                    protected void handshakeFailure(final ChannelHandlerContext context, final Throwable cause) throws Exception {
-                        final ChannelPromise connectionReadyPromise = ApnsClient.this.connectionReadyPromise;
-
-                        if (connectionReadyPromise != null) {
-                            connectionReadyPromise.tryFailure(cause);
-                        }
-
-                        super.handshakeFailure(context, cause);
                     }
                 });
             }
