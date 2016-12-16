@@ -46,8 +46,8 @@ public class ExampleApp {
         // any notifications. Note that this is a Netty Future, which is an
         // extension of the Java Future interface that allows callers to add
         // listeners and adds methods for checking the status of the Future.
-        final Future<Void> connectFuture = apnsClient.connect(ApnsClient.DEVELOPMENT_APNS_HOST);
-        connectFuture.await();
+        /* final Future<Void> connectFuture = apnsClient.connect(ApnsClient.DEVELOPMENT_APNS_HOST);
+        connectFuture.await(); */
 
         // Once we're connected, we can start sending push notifications.
         final SimpleApnsPushNotification pushNotification;
@@ -99,7 +99,7 @@ public class ExampleApp {
                 // If we failed to send the notification because the client isn't
                 // connected, we can wait for an automatic reconnection attempt
                 // to succeed before sending more notifications.
-                apnsClient.getReconnectionFuture().await();
+                // apnsClient.getReconnectionFuture().await();
             }
         }
 

@@ -26,7 +26,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.KeyFactory;
@@ -40,42 +40,28 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.relayrides.pushy.apns.proxy.ProxyHandlerFactory;
 
-import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.ChannelPromise;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.base64.Base64;
-import io.netty.handler.ssl.ApplicationProtocolNames;
-import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
-import io.netty.handler.timeout.IdleStateHandler;
-import io.netty.handler.timeout.WriteTimeoutHandler;
-import io.netty.resolver.DefaultAddressResolverGroup;
-import io.netty.resolver.NoopAddressResolverGroup;
 import io.netty.util.concurrent.DefaultPromise;
-import io.netty.util.concurrent.FailedFuture;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
-import io.netty.util.concurrent.GlobalEventExecutor;
 import io.netty.util.concurrent.Promise;
-import io.netty.util.concurrent.SucceededFuture;
 
 /**
  * <p>An APNs client sends push notifications to the APNs gateway. APNs clients communicate with an APNs server using
@@ -124,22 +110,20 @@ import io.netty.util.concurrent.SucceededFuture;
  * @since 0.5
  */
 public class ApnsClient {
-    private final Bootstrap bootstrap;
-    private volatile ProxyHandlerFactory proxyHandlerFactory;
+    private final ApnsChannelPool channelPool;
+
     private final boolean shouldShutDownEventLoopGroup;
+    private volatile boolean isShutDown;
 
-    private long writeTimeoutMillis = DEFAULT_WRITE_TIMEOUT_MILLIS;
-    private Long gracefulShutdownTimeoutMillis;
-
-    private volatile ChannelPromise connectionReadyPromise;
-    private volatile ChannelPromise reconnectionPromise;
     private long reconnectDelaySeconds = INITIAL_RECONNECT_DELAY_SECONDS;
 
-    private final Map<ApnsPushNotification, Promise<PushNotificationResponse<ApnsPushNotification>>> responsePromises = new IdentityHashMap<>();
+    private final Map<ApnsPushNotification, Promise<PushNotificationResponse<ApnsPushNotification>>> responsePromises =
+            new IdentityHashMap<>();
 
     private ApnsClientMetricsListener metricsListener = new NoopMetricsListener();
     private final AtomicLong nextNotificationId = new AtomicLong(0);
 
+    private final ReadWriteLock authenticationTokenLock = new ReentrantReadWriteLock();
     private final Map<String, Set<String>> topicsByTeamId = new HashMap<>();
     private final Map<String, AuthenticationTokenSupplier> authenticationTokenSuppliersByTopic = new HashMap<>();
 
@@ -184,8 +168,9 @@ public class ApnsClient {
      */
     public static final int ALTERNATE_APNS_PORT = 2197;
 
-    private static final ClientNotConnectedException NOT_CONNECTED_EXCEPTION = new ClientNotConnectedException();
     private static final ClientBusyException CLIENT_BUSY_EXCEPTION = new ClientBusyException();
+    private static final IllegalStateException NOTIFICATION_ALREADY_PENDING_EXCEPTION =
+            new IllegalStateException("The given notification has already been sent and not yet resolved.");
 
     private static final long INITIAL_RECONNECT_DELAY_SECONDS = 1; // second
     private static final long MAX_RECONNECT_DELAY_SECONDS = 60; // seconds
@@ -195,68 +180,9 @@ public class ApnsClient {
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
-    protected ApnsClient(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
-        this.bootstrap = new Bootstrap();
-
-        if (eventLoopGroup != null) {
-            this.bootstrap.group(eventLoopGroup);
-            this.shouldShutDownEventLoopGroup = false;
-        } else {
-            this.bootstrap.group(new NioEventLoopGroup(1));
-            this.shouldShutDownEventLoopGroup = true;
-        }
-
-        this.bootstrap.channel(SocketChannelClassUtil.getSocketChannelClass(this.bootstrap.config().group()));
-        this.bootstrap.option(ChannelOption.TCP_NODELAY, true);
-        this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
-
-            @Override
-            protected void initChannel(final SocketChannel channel) throws Exception {
-                final ChannelPipeline pipeline = channel.pipeline();
-
-                final ProxyHandlerFactory proxyHandlerFactory = ApnsClient.this.proxyHandlerFactory;
-
-                if (proxyHandlerFactory != null) {
-                    pipeline.addFirst(proxyHandlerFactory.createProxyHandler());
-                }
-
-                if (ApnsClient.this.writeTimeoutMillis > 0) {
-                    pipeline.addLast(new WriteTimeoutHandler(ApnsClient.this.writeTimeoutMillis, TimeUnit.MILLISECONDS));
-                }
-
-                pipeline.addLast(sslContext.newHandler(channel.alloc()));
-                pipeline.addLast(new ApplicationProtocolNegotiationHandler("") {
-                    @Override
-                    protected void configurePipeline(final ChannelHandlerContext context, final String protocol) {
-                        if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                            final ApnsClientHandler apnsClientHandler = new ApnsClientHandler.ApnsClientHandlerBuilder()
-                                    .server(false)
-                                    .apnsClient(ApnsClient.this)
-                                    .authority(((InetSocketAddress) context.channel().remoteAddress()).getHostName())
-                                    .encoderEnforceMaxConcurrentStreams(true)
-                                    .build();
-
-                            synchronized (ApnsClient.this.bootstrap) {
-                                if (ApnsClient.this.gracefulShutdownTimeoutMillis != null) {
-                                    apnsClientHandler.gracefulShutdownTimeoutMillis(ApnsClient.this.gracefulShutdownTimeoutMillis);
-                                }
-                            }
-
-                            context.pipeline().addLast(new IdleStateHandler(0, 0, PING_IDLE_TIME_MILLIS, TimeUnit.MILLISECONDS));
-                            context.pipeline().addLast(apnsClientHandler);
-
-                            final ChannelPromise connectionReadyPromise = ApnsClient.this.connectionReadyPromise;
-
-                            if (connectionReadyPromise != null) {
-                                connectionReadyPromise.trySuccess();
-                            }
-                        } else {
-                            throw new IllegalArgumentException("Unexpected protocol: " + protocol);
-                        }
-                    }
-                });
-            }
-        });
+    protected ApnsClient(final SocketAddress apnsServerAddress, final SslContext sslContext, final EventLoopGroup eventLoopGroup, final int maxChannels) {
+        this.shouldShutDownEventLoopGroup = (eventLoopGroup == null);
+        this.channelPool = new ApnsChannelPool(this, apnsServerAddress, sslContext, eventLoopGroup != null ? eventLoopGroup : new NioEventLoopGroup(1), maxChannels);
     }
 
     /**
@@ -268,9 +194,7 @@ public class ApnsClient {
      * @since 0.5
      */
     protected void setConnectionTimeout(final int timeoutMillis) {
-        synchronized (this.bootstrap) {
-            this.bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, timeoutMillis);
-        }
+        this.channelPool.setConnectionTimeout(timeoutMillis);
     }
 
     /**
@@ -284,9 +208,7 @@ public class ApnsClient {
      * @since 0.8.2
      */
     protected void setChannelWriteBufferWatermark(final WriteBufferWaterMark writeBufferWaterMark) {
-        synchronized (this.bootstrap) {
-            this.bootstrap.option(ChannelOption.WRITE_BUFFER_WATER_MARK, writeBufferWaterMark);
-        }
+        this.channelPool.setChannelWriteBufferWatermark(writeBufferWaterMark);
     }
 
     /**
@@ -314,8 +236,7 @@ public class ApnsClient {
      * @since 0.6
      */
     protected void setProxyHandlerFactory(final ProxyHandlerFactory proxyHandlerFactory) {
-        this.proxyHandlerFactory = proxyHandlerFactory;
-        this.bootstrap.resolver(proxyHandlerFactory == null ? DefaultAddressResolverGroup.INSTANCE : NoopAddressResolverGroup.INSTANCE);
+        this.channelPool.setProxyHandlerFactory(proxyHandlerFactory);
     }
 
     /**
@@ -337,7 +258,7 @@ public class ApnsClient {
      * @since 0.6
      */
     protected void setWriteTimeout(final long writeTimeoutMillis) {
-        this.writeTimeoutMillis = writeTimeoutMillis;
+        this.channelPool.setWriteTimeout(writeTimeoutMillis);
     }
 
     /**
@@ -352,206 +273,7 @@ public class ApnsClient {
      * @since 0.5
      */
     protected void setGracefulShutdownTimeout(final long timeoutMillis) {
-        synchronized (this.bootstrap) {
-            this.gracefulShutdownTimeoutMillis = timeoutMillis;
-
-            if (this.connectionReadyPromise != null) {
-                final ApnsClientHandler handler = this.connectionReadyPromise.channel().pipeline().get(ApnsClientHandler.class);
-
-                if (handler != null) {
-                    handler.gracefulShutdownTimeoutMillis(timeoutMillis);
-                }
-            }
-        }
-    }
-
-    /**
-     * <p>Connects to the given APNs gateway on the default (HTTPS) port
-     * ({@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_APNS_PORT}).</p>
-     *
-     * <p>Once an initial connection has been established and until the client has been explicitly disconnected via the
-     * {@link ApnsClient#disconnect()} method, the client will attempt to reconnect automatically if the connection
-     * closes unexpectedly. If the connection closes unexpectedly, callers may monitor the status of the reconnection
-     * attempt with the {@code Future} returned by the {@link ApnsClient#getReconnectionFuture()} method.</p>
-     *
-     * @param host the APNs gateway to which to connect
-     *
-     * @return a {@code Future} that will succeed when the client has connected to the gateway and is ready to send
-     * push notifications
-     *
-     * @see ApnsClient#PRODUCTION_APNS_HOST
-     * @see ApnsClient#DEVELOPMENT_APNS_HOST
-     *
-     * @since 0.5
-     */
-    public Future<Void> connect(final String host) {
-        return this.connect(host, DEFAULT_APNS_PORT);
-    }
-
-    /**
-     * <p>Connects to the given APNs gateway on the given port.</p>
-     *
-     * <p>Once an initial connection has been established and until the client has been explicitly disconnected via the
-     * {@link ApnsClient#disconnect()} method, the client will attempt to reconnect automatically if the connection
-     * closes unexpectedly. If the connection closes unexpectedly, callers may monitor the status of the reconnection
-     * attempt with the {@code Future} returned by the {@link ApnsClient#getReconnectionFuture()} method.</p>
-     *
-     * @param host the APNs gateway to which to connect
-     * @param port the port on which to connect to the APNs gateway
-     *
-     * @return a {@code Future} that will succeed when the client has connected to the gateway and is ready to send
-     * push notifications
-     *
-     * @see ApnsClient#PRODUCTION_APNS_HOST
-     * @see ApnsClient#DEVELOPMENT_APNS_HOST
-     * @see ApnsClient#DEFAULT_APNS_PORT
-     * @see ApnsClient#ALTERNATE_APNS_PORT
-     *
-     * @since 0.5
-     */
-    public Future<Void> connect(final String host, final int port) {
-        final Future<Void> connectionReadyFuture;
-
-        if (this.bootstrap.config().group().isShuttingDown() || this.bootstrap.config().group().isShutdown()) {
-            connectionReadyFuture = new FailedFuture<>(GlobalEventExecutor.INSTANCE,
-                    new IllegalStateException("Client's event loop group has been shut down and cannot be restarted."));
-        } else {
-            synchronized (this.bootstrap) {
-                // We only want to begin a connection attempt if one is not already in progress or complete; if we already
-                // have a connection future, just return the existing promise.
-                if (this.connectionReadyPromise == null) {
-                    this.metricsListener.handleConnectionAttemptStarted(this);
-
-                    final ChannelFuture connectFuture = this.bootstrap.connect(host, port);
-                    this.connectionReadyPromise = connectFuture.channel().newPromise();
-
-                    connectFuture.channel().closeFuture().addListener(new GenericFutureListener<ChannelFuture> () {
-
-                        @Override
-                        public void operationComplete(final ChannelFuture future) throws Exception {
-                            synchronized (ApnsClient.this.bootstrap) {
-                                if (ApnsClient.this.connectionReadyPromise != null) {
-                                    // We always want to try to fail the "connection ready" promise if the connection
-                                    // closes; if it has already succeeded, this will have no effect.
-                                    ApnsClient.this.connectionReadyPromise.tryFailure(
-                                            new IllegalStateException("Channel closed before HTTP/2 preface completed."));
-
-                                    ApnsClient.this.connectionReadyPromise = null;
-                                }
-
-                                if (ApnsClient.this.reconnectionPromise != null) {
-                                    log.debug("Disconnected. Next automatic reconnection attempt in {} seconds.", ApnsClient.this.reconnectDelaySeconds);
-
-                                    future.channel().eventLoop().schedule(new Runnable() {
-
-                                        @Override
-                                        public void run() {
-                                            log.debug("Attempting to reconnect.");
-                                            ApnsClient.this.connect(host, port);
-                                        }
-                                    }, ApnsClient.this.reconnectDelaySeconds, TimeUnit.SECONDS);
-
-                                    ApnsClient.this.reconnectDelaySeconds = Math.min(ApnsClient.this.reconnectDelaySeconds, MAX_RECONNECT_DELAY_SECONDS);
-                                }
-                            }
-
-                            // After everything else is done, clear the remaining "waiting for a response" promises. We
-                            // want to do this after everything else has wrapped up (i.e. we submit it to the end of the
-                            // event queue) so any promises that have "mark as success" jobs already in the queue have
-                            // a chance to fire first.
-                            future.channel().eventLoop().submit(new Runnable() {
-
-                                @Override
-                                public void run() {
-                                    for (final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise : ApnsClient.this.responsePromises.values()) {
-                                        responsePromise.tryFailure(new ClientNotConnectedException("Client disconnected unexpectedly."));
-                                    }
-
-                                    ApnsClient.this.responsePromises.clear();
-                                }
-                            });
-                        }
-                    });
-
-                    this.connectionReadyPromise.addListener(new GenericFutureListener<ChannelFuture>() {
-
-                        @Override
-                        public void operationComplete(final ChannelFuture future) throws Exception {
-                            if (future.isSuccess()) {
-                                synchronized (ApnsClient.this.bootstrap) {
-                                    if (ApnsClient.this.reconnectionPromise != null) {
-                                        log.info("Connection to {} restored.", future.channel().remoteAddress());
-                                        ApnsClient.this.reconnectionPromise.trySuccess();
-                                    } else {
-                                        log.info("Connected to {}.", future.channel().remoteAddress());
-                                    }
-
-                                    ApnsClient.this.reconnectDelaySeconds = INITIAL_RECONNECT_DELAY_SECONDS;
-                                    ApnsClient.this.reconnectionPromise = future.channel().newPromise();
-                                }
-
-                                ApnsClient.this.metricsListener.handleConnectionAttemptSucceeded(ApnsClient.this);
-                            } else {
-                                log.info("Failed to connect.", future.cause());
-
-                                ApnsClient.this.metricsListener.handleConnectionAttemptFailed(ApnsClient.this);
-                            }
-                        }
-                    });
-                }
-
-                connectionReadyFuture = this.connectionReadyPromise;
-            }
-        }
-
-        return connectionReadyFuture;
-    }
-
-    /**
-     * Indicates whether this client is connected to the APNs gateway and ready to send push notifications.
-     *
-     * @return {@code true} if this client is connected and ready to send notifications or {@code false} otherwise
-     *
-     * @since 0.5
-     */
-    public boolean isConnected() {
-        final ChannelPromise connectionReadyPromise = this.connectionReadyPromise;
-        return (connectionReadyPromise != null && connectionReadyPromise.isSuccess());
-    }
-
-    /**
-     * <p>Returns a {@code Future} that will succeed when the client has re-established a connection to the APNs gateway.
-     * Callers may use this method to determine when it is safe to resume sending notifications after a send attempt
-     * fails with a {@link ClientNotConnectedException}.</p>
-     *
-     * <p>If the client is already connected, the {@code Future} returned by this method will succeed immediately. If
-     * the client was not previously connected (either because it has never been connected or because it was explicitly
-     * disconnected via the {@link ApnsClient#disconnect()} method), the {@code Future} returned by this method will
-     * fail immediately with an {@link IllegalStateException}.</p>
-     *
-     * @return a {@code Future} that will succeed when the client has established a connection to the APNs gateway
-     *
-     * @since 0.5
-     */
-    public Future<Void> getReconnectionFuture() {
-        final Future<Void> reconnectionFuture;
-
-        synchronized (this.bootstrap) {
-            if (this.isConnected()) {
-                reconnectionFuture = this.connectionReadyPromise.channel().newSucceededFuture();
-            } else if (this.reconnectionPromise != null) {
-                // If we're not connected, but have a reconnection promise, we're in the middle of a reconnection
-                // attempt.
-                reconnectionFuture = this.reconnectionPromise;
-            } else {
-                // We're not connected and have no reconnection future, which means we've either never connected or have
-                // explicitly disconnected.
-                reconnectionFuture = new FailedFuture<>(GlobalEventExecutor.INSTANCE,
-                        new IllegalStateException("Client was not previously connected."));
-            }
-        }
-
-        return reconnectionFuture;
+        this.channelPool.setGracefulShutdownTimeout(timeoutMillis);
     }
 
     /**
@@ -742,18 +464,24 @@ public class ApnsClient {
      * @since 0.9
      */
     public void registerSigningKey(final ECPrivateKey signingKey, final String teamId, final String keyId, final String... topics) throws InvalidKeyException, NoSuchAlgorithmException {
-        this.removeKeyForTeam(teamId);
+        this.authenticationTokenLock.writeLock().lock();
 
-        final AuthenticationTokenSupplier tokenSupplier = new AuthenticationTokenSupplier(teamId, keyId, signingKey);
+        try {
+            this.removeKeyForTeam(teamId);
 
-        final Set<String> topicSet = new HashSet<>();
+            final AuthenticationTokenSupplier tokenSupplier = new AuthenticationTokenSupplier(teamId, keyId, signingKey);
 
-        for (final String topic : topics) {
-            topicSet.add(topic);
-            this.authenticationTokenSuppliersByTopic.put(topic, tokenSupplier);
+            final Set<String> topicSet = new HashSet<>();
+
+            for (final String topic : topics) {
+                topicSet.add(topic);
+                this.authenticationTokenSuppliersByTopic.put(topic, tokenSupplier);
+            }
+
+            this.topicsByTeamId.put(teamId, topicSet);
+        } finally {
+            this.authenticationTokenLock.writeLock().unlock();
         }
-
-        this.topicsByTeamId.put(teamId, topicSet);
     }
 
     /**
@@ -762,17 +490,31 @@ public class ApnsClient {
      * @param teamId the Apple-issued, ten-character identifier for the team for which to remove keys and topics
      */
     public void removeKeyForTeam(final String teamId) {
-        final Set<String> oldTopics = this.topicsByTeamId.remove(teamId);
+        this.authenticationTokenLock.writeLock().lock();
 
-        if (oldTopics != null) {
-            for (final String topic : oldTopics) {
-                this.authenticationTokenSuppliersByTopic.remove(topic);
+        try {
+            final Set<String> oldTopics = this.topicsByTeamId.remove(teamId);
+
+            if (oldTopics != null) {
+                for (final String topic : oldTopics) {
+                    this.authenticationTokenSuppliersByTopic.remove(topic);
+                }
             }
+        } finally {
+            this.authenticationTokenLock.writeLock().unlock();
         }
     }
 
     protected AuthenticationTokenSupplier getAuthenticationTokenSupplierForTopic(final String topic) throws NoKeyForTopicException {
-        final AuthenticationTokenSupplier supplier = this.authenticationTokenSuppliersByTopic.get(topic);
+        final AuthenticationTokenSupplier supplier;
+
+        this.authenticationTokenLock.readLock().lock();
+
+        try {
+            supplier = this.authenticationTokenSuppliersByTopic.get(topic);
+        } finally {
+            this.authenticationTokenLock.readLock().unlock();
+        }
 
         if (supplier == null) {
             throw new NoKeyForTopicException("No signing key found for topic " + topic);
@@ -809,78 +551,31 @@ public class ApnsClient {
      *
      * @since 0.8
      */
+    @SuppressWarnings({ "rawtypes", "unchecked" })
     public <T extends ApnsPushNotification> Future<PushNotificationResponse<T>> sendNotification(final T notification) {
-        return this.sendNotification(notification, null);
-    }
+        final Promise<PushNotificationResponse<T>> promise = new DefaultPromise<>(this.channelPool.getEventLoopGroup().next());
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    private <T extends ApnsPushNotification> Future<PushNotificationResponse<T>> sendNotification(final T notification, final Promise<PushNotificationResponse<ApnsPushNotification>> promise) {
-        final Future<PushNotificationResponse<T>> responseFuture;
-        final long notificationId = this.nextNotificationId.getAndIncrement();
-
-        // Instead of synchronizing here, we keep a final reference to the connection ready promise. We can get away
-        // with this because we're not changing the state of the connection or its promises. Keeping a reference ensures
-        // we won't suddenly "lose" the channel and get a NullPointerException, but risks sending a notification after
-        // things have shut down. In that case, though, the returned futures should fail quickly, and the benefit of
-        // not synchronizing for every write seems worth it.
-        final ChannelPromise connectionReadyPromise = this.connectionReadyPromise;
-
-        if (connectionReadyPromise != null && connectionReadyPromise.isSuccess() && connectionReadyPromise.channel().isActive()) {
-            if (!connectionReadyPromise.channel().isWritable()) {
-                return new FailedFuture<>(GlobalEventExecutor.INSTANCE, CLIENT_BUSY_EXCEPTION);
-            }
-
-            final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise;
-
-            if (promise != null) {
-                responsePromise = promise;
-            } else {
-                responsePromise = new DefaultPromise<>(connectionReadyPromise.channel().eventLoop());
-            }
-
-            connectionReadyPromise.channel().eventLoop().submit(new Runnable() {
-
-                @Override
-                public void run() {
-                    if (ApnsClient.this.responsePromises.containsKey(notification)) {
-                        responsePromise.setFailure(new IllegalStateException(
-                                "The given notification has already been sent and not yet resolved."));
-                    } else {
-                        // We want to do this inside the channel's event loop so we can be sure that only one thread is
-                        // modifying responsePromises.
-                        ApnsClient.this.responsePromises.put(notification, responsePromise);
-                    }
-                }
-            });
-
-            connectionReadyPromise.channel().writeAndFlush(notification).addListener(new GenericFutureListener<ChannelFuture>() {
-
-                @Override
-                public void operationComplete(final ChannelFuture future) throws Exception {
-                    if (future.isSuccess()) {
-                        ApnsClient.this.metricsListener.handleNotificationSent(ApnsClient.this, notificationId);
-                    } else {
-                        log.debug("Failed to write push notification: {}", notification, future.cause());
-
-                        // This will always be called from inside the channel's event loop, so we don't have to worry
-                        // about synchronization.
-                        ApnsClient.this.responsePromises.remove(notification);
-                        responsePromise.tryFailure(future.cause());
-                    }
-                }
-            });
-
-            responseFuture = (Future) responsePromise;
-        } else {
-            log.debug("Failed to send push notification because client is not connected: {}", notification);
-            responseFuture = new FailedFuture<>(
-                    GlobalEventExecutor.INSTANCE, NOT_CONNECTED_EXCEPTION);
+        if (this.isShutDown) {
+            return promise.setFailure(new IllegalStateException("Client has shut down."));
         }
 
-        responseFuture.addListener(new GenericFutureListener<Future<PushNotificationResponse<T>>>() {
+        synchronized (this.responsePromises) {
+            if (this.responsePromises.containsKey(notification)) {
+                return promise.setFailure(NOTIFICATION_ALREADY_PENDING_EXCEPTION);
+            } else {
+                this.responsePromises.put(notification, (Promise) promise);
+            }
+        }
 
+        final long notificationId = this.nextNotificationId.getAndIncrement();
+
+        promise.addListener(new GenericFutureListener<Future<PushNotificationResponse<T>>> () {
             @Override
             public void operationComplete(final Future<PushNotificationResponse<T>> future) throws Exception {
+                synchronized (ApnsClient.this.responsePromises) {
+                    ApnsClient.this.responsePromises.remove(notification);
+                }
+
                 if (future.isSuccess()) {
                     final PushNotificationResponse<T> response = future.getNow();
 
@@ -895,19 +590,63 @@ public class ApnsClient {
             }
         });
 
-        return responseFuture;
+        return this.sendNotification(notification, promise, notificationId);
+    }
+
+    private <T extends ApnsPushNotification> Future<PushNotificationResponse<T>> sendNotification(final T notification, final Promise<PushNotificationResponse<T>> promise, final long notificationId) {
+        final Future<Channel> channelFuture = this.channelPool.acquire();
+
+        channelFuture.addListener(new GenericFutureListener<Future<Channel>>() {
+
+            @Override
+            public void operationComplete(final Future<Channel> future) throws Exception {
+                if (future.isSuccess()) {
+                    final Channel channel = future.getNow();
+
+                    try {
+                        if (channel.isWritable()) {
+                            channel.writeAndFlush(notification).addListener(new GenericFutureListener<ChannelFuture>() {
+
+                                @Override
+                                public void operationComplete(final ChannelFuture future) throws Exception {
+                                    if (future.isSuccess()) {
+                                        ApnsClient.this.metricsListener.handleNotificationSent(ApnsClient.this, notificationId);
+                                    } else {
+                                        log.debug("Failed to write push notification: {}", notification, future.cause());
+                                        promise.tryFailure(future.cause());
+                                    }
+                                }
+                            });
+                        } else {
+                            promise.tryFailure(CLIENT_BUSY_EXCEPTION);
+                        }
+                    } finally {
+                        ApnsClient.this.channelPool.release(channel);
+                    }
+                } else {
+                    promise.tryFailure(future.cause());
+                }
+            }
+        });
+
+        return promise;
     }
 
     protected void handlePushNotificationResponse(final PushNotificationResponse<ApnsPushNotification> response) {
         log.debug("Received response from APNs gateway: {}", response);
 
-        // This will always be called from inside the channel's event loop, so we don't have to worry about
-        // synchronization.
-        final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
-                this.responsePromises.remove(response.getPushNotification());
+        final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise;
+
+        synchronized (this.responsePromises) {
+            responsePromise = this.responsePromises.remove(response.getPushNotification());
+        }
 
         if (EXPIRED_AUTH_TOKEN_REASON.equals(response.getRejectionReason())) {
-            this.sendNotification(response.getPushNotification(), responsePromise);
+            synchronized (this.responsePromises) {
+                this.responsePromises.put(response.getPushNotification(), responsePromise);
+            }
+
+            this.sendNotification(response.getPushNotification(), responsePromise, this.nextNotificationId.getAndIncrement());
         } else {
             responsePromise.setSuccess(response);
         }
@@ -916,9 +655,9 @@ public class ApnsClient {
     protected void handleServerError(final ApnsPushNotification pushNotification, final String message) {
         log.warn("APNs server reported an internal error when sending {}.", pushNotification);
 
-        // This will always be called from inside the channel's event loop, so we don't have to worry about
-        // synchronization.
-        this.responsePromises.remove(pushNotification).tryFailure(new ApnsServerException(message));
+        synchronized (this.responsePromises) {
+            this.responsePromises.remove(pushNotification).tryFailure(new ApnsServerException(message));
+        }
     }
 
     /**
@@ -940,50 +679,10 @@ public class ApnsClient {
      *
      * @since 0.5
      */
-    @SuppressWarnings({ "rawtypes", "unchecked" })
     public Future<Void> disconnect() {
         log.info("Disconnecting.");
-        final Future<Void> disconnectFuture;
 
-        synchronized (this.bootstrap) {
-            this.reconnectionPromise = null;
-
-            final Future<Void> channelCloseFuture;
-
-            if (this.connectionReadyPromise != null) {
-                channelCloseFuture = this.connectionReadyPromise.channel().close();
-            } else {
-                channelCloseFuture = new SucceededFuture<>(GlobalEventExecutor.INSTANCE, null);
-            }
-
-            if (this.shouldShutDownEventLoopGroup) {
-                // Wait for the channel to close before we try to shut down the event loop group
-                channelCloseFuture.addListener(new GenericFutureListener<Future<Void>>() {
-
-                    @Override
-                    public void operationComplete(final Future<Void> future) throws Exception {
-                        ApnsClient.this.bootstrap.config().group().shutdownGracefully();
-                    }
-                });
-
-                // Since the termination future for the event loop group is a Future<?> instead of a Future<Void>,
-                // we'll need to create our own promise and then notify it when the termination future completes.
-                disconnectFuture = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
-
-                this.bootstrap.config().group().terminationFuture().addListener(new GenericFutureListener() {
-
-                    @Override
-                    public void operationComplete(final Future future) throws Exception {
-                        assert disconnectFuture instanceof DefaultPromise;
-                        ((DefaultPromise<Void>) disconnectFuture).trySuccess(null);
-                    }
-                });
-            } else {
-                // We're done once we've closed the channel, so we can return the closure future directly.
-                disconnectFuture = channelCloseFuture;
-            }
-        }
-
-        return disconnectFuture;
+        this.isShutDown = true;
+        return this.channelPool.shutdown();
     }
 }

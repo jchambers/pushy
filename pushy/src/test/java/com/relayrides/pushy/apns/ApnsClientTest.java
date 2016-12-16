@@ -215,12 +215,11 @@ public class ApnsClientTest {
         this.preferredSslProvider = "jdk".equals(System.getenv("PUSHY_SSL_PROVIDER")) ? SslProvider.JDK : null;
 
         this.client = new ApnsClientBuilder()
+                .setApnsServerAddress(HOST, PORT)
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .setSslProvider(this.preferredSslProvider)
                 .build();
-
-        this.client.connect(HOST, PORT).await();
     }
 
     @After
@@ -243,99 +242,24 @@ public class ApnsClientTest {
     }
 
     @Test
-    public void testApnsClientWithManagedEventLoopGroup() throws Exception {
+    public void testShutDownWithManagedEventLoopGroup() throws Exception {
         final ApnsClient managedGroupClient = new ApnsClientBuilder()
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .build();
 
-        assertTrue(managedGroupClient.connect(HOST, PORT).await().isSuccess());
         assertTrue(managedGroupClient.disconnect().await().isSuccess());
     }
 
     @Test
-    public void testRestartApnsClientWithManagedEventLoopGroup() throws Exception {
-        final ApnsClient managedGroupClient = new ApnsClientBuilder()
+    public void testShutDownWithProvidedEventLoopGrop() throws Exception {
+        final NioEventLoopGroup eventLoopGroup = new NioEventLoopGroup(1);
+
+        final ApnsClient providedGroupClient = new ApnsClientBuilder()
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .build();
 
-        assertTrue(managedGroupClient.connect(HOST, PORT).await().isSuccess());
-        assertTrue(managedGroupClient.disconnect().await().isSuccess());
-
-        final Future<Void> reconnectFuture = managedGroupClient.connect(HOST, PORT);
-
-        assertFalse(reconnectFuture.isSuccess());
-        assertTrue(reconnectFuture.cause() instanceof IllegalStateException);
-    }
-
-    @Test
-    public void testConnectToUntrustedServer() throws Exception {
-        final ApnsClient cautiousClient = new ApnsClientBuilder()
-                .setEventLoopGroup(EVENT_LOOP_GROUP)
-                .build();
-
-        final Future<Void> connectFuture = cautiousClient.connect(HOST, PORT).await();
-
-        assertFalse(connectFuture.isSuccess());
-
-        cautiousClient.disconnect().await();
-    }
-
-    @Test
-    public void testReconnectionAfterClose() throws Exception {
-        assertTrue(this.client.isConnected());
-        assertTrue(this.client.disconnect().await().isSuccess());
-
-        assertFalse(this.client.isConnected());
-
-        assertTrue(this.client.connect(HOST, PORT).await().isSuccess());
-        assertTrue(this.client.isConnected());
-    }
-
-    @Test
-    public void testAutomaticReconnection() throws Exception {
-        assertTrue(this.client.isConnected());
-
-        this.server.shutdown().await();
-
-        // Wait for the client to notice the GOAWAY; if it doesn't, the test will time out and fail
-        while (this.client.isConnected()) {
-            Thread.sleep(100);
-        }
-
-        assertFalse(this.client.isConnected());
-
-        this.server.start(PORT).await();
-
-        // Wait for the client to reconnect automatically; if it doesn't, the test will time out and fail
-        final Future<Void> reconnectionFuture = this.client.getReconnectionFuture();
-        reconnectionFuture.await();
-
-        assertTrue(reconnectionFuture.isSuccess());
-        assertTrue(this.client.isConnected());
-    }
-
-    @Test
-    public void testGetReconnectionFutureWhenConnected() throws Exception {
-        final Future<Void> reconnectionFuture = this.client.getReconnectionFuture();
-        reconnectionFuture.await();
-
-        assertTrue(this.client.isConnected());
-        assertTrue(reconnectionFuture.isSuccess());
-    }
-
-    @Test
-    public void testGetReconnectionFutureWhenNotConnected() throws Exception {
-        final ApnsClient unconnectedClient = new ApnsClientBuilder()
-                .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                .setEventLoopGroup(EVENT_LOOP_GROUP)
-                .build();
-
-        final Future<Void> reconnectionFuture = unconnectedClient.getReconnectionFuture();
-
-        reconnectionFuture.await();
-
-        assertFalse(unconnectedClient.isConnected());
-        assertFalse(reconnectionFuture.isSuccess());
+        assertTrue(providedGroupClient.disconnect().await().isSuccess());
+        assertTrue(eventLoopGroup.isShutdown());
     }
 
     @Test
@@ -424,26 +348,48 @@ public class ApnsClientTest {
     }
 
     @Test
-    public void testSendNotificationBeforeConnected() throws Exception {
-        final ApnsClient unconnectedClient = new ApnsClientBuilder()
-                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+    public void testSendNotificationAfterShutdown() throws Exception {
+        final String testToken = ApnsClientTest.generateRandomToken();
+        final KeyPair keyPair = KeyPairUtil.generateKeyPair();
+
+        this.client.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+
+        this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
+
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
+
+        this.client.disconnect().await();
+
+        final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
+                this.client.sendNotification(pushNotification).await();
+
+        assertFalse(sendFuture.isSuccess());
+    }
+
+    @Test
+    public void testSendNotificationToUntrustedServer() throws Exception {
+        final ApnsClient cautiousClient = new ApnsClientBuilder()
+                .setApnsServerAddress(HOST, PORT)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();
 
         final String testToken = ApnsClientTest.generateRandomToken();
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
-        unconnectedClient.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        cautiousClient.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
 
         this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
         this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
+
         final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
-                unconnectedClient.sendNotification(pushNotification).await();
+                cautiousClient.sendNotification(pushNotification).await();
 
         assertFalse(sendFuture.isSuccess());
-        assertTrue(sendFuture.cause() instanceof IllegalStateException);
+
+        cautiousClient.disconnect().await();
     }
 
     @Test
@@ -628,20 +574,23 @@ public class ApnsClientTest {
     @Test
     public void testSendNotificationOnBusyChannel() throws Exception {
         final ApnsClient busyClient = new ApnsClientBuilder()
+                .setApnsServerAddress(HOST, PORT)
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
-                .setChannelWriteBufferWatermark(new WriteBufferWaterMark(0,0))
+                .setChannelWriteBufferWatermark(new WriteBufferWaterMark(0, 0))
                 .build();
 
-        busyClient.connect(HOST, PORT).await();
-
         final String testToken = ApnsClientTest.generateRandomToken();
+        final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
+        busyClient.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+
+        this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
         this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
 
-        final Future<PushNotificationResponse<SimpleApnsPushNotification>> responseFuture = busyClient.sendNotification(pushNotification);
+        final Future<PushNotificationResponse<SimpleApnsPushNotification>> responseFuture = busyClient.sendNotification(pushNotification).await();
 
         assertFalse(responseFuture.isSuccess());
         assertTrue(responseFuture.cause() instanceof ClientBusyException);
@@ -659,6 +608,7 @@ public class ApnsClientTest {
                 .build();
 
         final ApnsClient unfortunateClient = new ApnsClientBuilder()
+                .setApnsServerAddress(HOST, PORT)
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();
@@ -669,7 +619,6 @@ public class ApnsClientTest {
         terribleTerribleServer.registerPublicKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
 
         terribleTerribleServer.start(PORT).await();
-        unfortunateClient.connect(HOST, PORT).await();
 
         try {
             final SimpleApnsPushNotification pushNotification =
@@ -739,7 +688,7 @@ public class ApnsClientTest {
         assertTrue(metricsListener.getAcceptedNotifications().isEmpty());
     }
 
-    @Test
+    /* @Test
     public void testSuccessfulConnectionMetrics() throws Exception {
         final ApnsClient unconnectedClient = new ApnsClientBuilder()
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
@@ -781,7 +730,7 @@ public class ApnsClientTest {
         assertEquals(1, metricsListener.getConnectionAttemptsStarted().get());
         assertEquals(1, metricsListener.getFailedConnectionAttempts().get());
         assertEquals(0, metricsListener.getSuccessfulConnectionAttempts().get());
-    }
+    } */
 
     private static String generateRandomToken() {
         final byte[] tokenBytes = new byte[TOKEN_LENGTH];

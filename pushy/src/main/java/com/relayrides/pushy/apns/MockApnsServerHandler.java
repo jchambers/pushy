@@ -557,14 +557,18 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             throw new InvalidAuthenticationTokenException();
         }
 
-        try {
-            signature.update(headerAndClaimsBytes);
+        // This signature might be shared by a large number of handlers, and so we need to synchronize on it before
+        // doing anything that modify its internal state.
+        synchronized (signature) {
+            try {
+                signature.update(headerAndClaimsBytes);
 
-            if (!signature.verify(expectedSignature)) {
-                throw new InvalidAuthenticationTokenException();
+                if (!signature.verify(expectedSignature)) {
+                    throw new InvalidAuthenticationTokenException();
+                }
+            } catch (final SignatureException e) {
+                throw new InvalidAuthenticationTokenException(e);
             }
-        } catch (final SignatureException e) {
-            throw new InvalidAuthenticationTokenException(e);
         }
 
         // At this point, we know that the claims and header were signed by the private key identified in the header,

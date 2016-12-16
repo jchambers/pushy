@@ -22,6 +22,7 @@ package com.relayrides.pushy.apns;
 
 import java.io.File;
 import java.io.InputStream;
+import java.net.InetSocketAddress;
 import java.security.cert.X509Certificate;
 import java.util.concurrent.TimeUnit;
 
@@ -53,6 +54,10 @@ import io.netty.handler.ssl.SupportedCipherSuiteFilter;
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */
 public class ApnsClientBuilder {
+    private InetSocketAddress serverAddress;
+
+    private int maxChannels = 2;
+
     private File trustedServerCertificatePemFile;
     private InputStream trustedServerCertificateInputStream;
     private X509Certificate[] trustedServerCertificates;
@@ -77,6 +82,15 @@ public class ApnsClientBuilder {
     private WriteBufferWaterMark channelWriteBufferWaterMark;
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientBuilder.class);
+
+    public ApnsClientBuilder setApnsServerAddress(final String host) {
+        return this.setApnsServerAddress(host, ApnsClient.DEFAULT_APNS_PORT);
+    }
+
+    public ApnsClientBuilder setApnsServerAddress(final String host, final int port) {
+        this.serverAddress = new InetSocketAddress(host, port);
+        return this;
+    }
 
     /**
      * <p>Sets the trusted certificate chain for the client under construction using the contents of the given PEM
@@ -347,7 +361,7 @@ public class ApnsClientBuilder {
             sslContext = sslContextBuilder.build();
         }
 
-        final ApnsClient apnsClient = new ApnsClient(sslContext, this.eventLoopGroup);
+        final ApnsClient apnsClient = new ApnsClient(this.serverAddress, sslContext, this.eventLoopGroup, this.maxChannels);
 
         apnsClient.setMetricsListener(this.metricsListener);
         apnsClient.setProxyHandlerFactory(this.proxyHandlerFactory);

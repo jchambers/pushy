@@ -9,6 +9,8 @@ import java.security.interfaces.ECPrivateKey;
 import java.util.Date;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -26,6 +28,8 @@ import io.netty.handler.codec.base64.Base64Dialect;
  * @since 0.9
  */
 class AuthenticationTokenSupplier {
+
+    private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
     private final Signature signature;
 
@@ -88,25 +92,39 @@ class AuthenticationTokenSupplier {
      * @throws SignatureException if the authentication token could not be signed for any reason
      */
     protected String getToken(final Date issuedAt) throws SignatureException {
-        if (this.token == null) {
-            final String header = gson.toJson(new AuthenticationTokenHeader(this.keyId));
-            final String claims = gson.toJson(new AuthenticationTokenClaims(this.issuer, issuedAt));
+        this.readWriteLock.readLock().lock();
 
-            final StringBuilder payloadBuilder = new StringBuilder();
-            payloadBuilder.append(base64UrlEncodeWithoutPadding(header.getBytes(StandardCharsets.US_ASCII)));
-            payloadBuilder.append('.');
-            payloadBuilder.append(base64UrlEncodeWithoutPadding(claims.getBytes(StandardCharsets.US_ASCII)));
+        try {
+            if (this.token == null) {
+                final String header = gson.toJson(new AuthenticationTokenHeader(this.keyId));
+                final String claims = gson.toJson(new AuthenticationTokenClaims(this.issuer, issuedAt));
 
-            final byte[] signatureBytes;
-            {
-                this.signature.update(payloadBuilder.toString().getBytes(StandardCharsets.US_ASCII));
-                signatureBytes = this.signature.sign();
+                final StringBuilder payloadBuilder = new StringBuilder();
+                payloadBuilder.append(base64UrlEncodeWithoutPadding(header.getBytes(StandardCharsets.US_ASCII)));
+                payloadBuilder.append('.');
+                payloadBuilder.append(base64UrlEncodeWithoutPadding(claims.getBytes(StandardCharsets.US_ASCII)));
+
+                this.readWriteLock.readLock().unlock();
+                this.readWriteLock.writeLock().lock();
+
+                try {
+                    final byte[] signatureBytes;
+                    {
+                        this.signature.update(payloadBuilder.toString().getBytes(StandardCharsets.US_ASCII));
+                        signatureBytes = this.signature.sign();
+                    }
+
+                    payloadBuilder.append('.');
+                    payloadBuilder.append(base64UrlEncodeWithoutPadding(signatureBytes));
+
+                    this.token = payloadBuilder.toString();
+                } finally {
+                    this.readWriteLock.readLock().lock();
+                    this.readWriteLock.writeLock().unlock();
+                }
             }
-
-            payloadBuilder.append('.');
-            payloadBuilder.append(base64UrlEncodeWithoutPadding(signatureBytes));
-
-            this.token = payloadBuilder.toString();
+        } finally {
+            this.readWriteLock.readLock().unlock();
         }
 
         return this.token;
@@ -118,8 +136,23 @@ class AuthenticationTokenSupplier {
      * @param invalidToken the token to invalidate
      */
     public void invalidateToken(final String invalidToken) {
-        if (invalidToken != null && invalidToken.equals(this.token)) {
-            this.token = null;
+        this.readWriteLock.readLock().lock();
+
+        try {
+            if (invalidToken != null && invalidToken.equals(this.token)) {
+
+                this.readWriteLock.readLock().unlock();
+                this.readWriteLock.writeLock().lock();
+
+                try {
+                    this.token = null;
+                } finally {
+                    this.readWriteLock.readLock().lock();
+                    this.readWriteLock.writeLock().unlock();
+                }
+            }
+        } finally {
+            this.readWriteLock.readLock().unlock();
         }
     }
 
