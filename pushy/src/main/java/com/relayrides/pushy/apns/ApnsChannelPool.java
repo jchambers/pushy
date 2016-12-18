@@ -179,6 +179,13 @@ public class ApnsChannelPool extends FixedChannelPool {
             }
         });
 
+        connectFuture.channel().closeFuture().addListener(new GenericFutureListener<ChannelFuture>() {
+
+            @Override
+            public void operationComplete(final ChannelFuture future) throws Exception {
+                pipelineConfiguredPromise.tryFailure(new RuntimeException("Channel closed before HTTP/2 handshake completed."));
+            }});
+
         final DefaultChannelPromise connectAndConfigurePromise = new DefaultChannelPromise(connectFuture.channel());
 
         pipelineConfiguredPromise.addListener(new GenericFutureListener<Future<Void>>() {
