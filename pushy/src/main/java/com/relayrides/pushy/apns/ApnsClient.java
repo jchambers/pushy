@@ -35,10 +35,6 @@ import java.security.interfaces.ECPrivateKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -140,8 +136,7 @@ public class ApnsClient {
     private ApnsClientMetricsListener metricsListener = new NoopMetricsListener();
     private final AtomicLong nextNotificationId = new AtomicLong(0);
 
-    private final Map<String, Set<String>> topicsByTeamId = new ConcurrentHashMap <>();
-    private final Map<String, AuthenticationTokenSupplier> authenticationTokenSuppliersByTopic = new ConcurrentHashMap <>();
+    private final ApnsKeyRegistry<ApnsSigningKey> signingKeyRegistry = new ApnsKeyRegistry<>();
 
     /**
      * The default write timeout, in milliseconds.
@@ -228,8 +223,8 @@ public class ApnsClient {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
                             final ApnsClientHandler apnsClientHandler = new ApnsClientHandler.ApnsClientHandlerBuilder()
                                     .server(false)
-                                    .apnsClient(ApnsClient.this)
                                     .authority(((InetSocketAddress) context.channel().remoteAddress()).getHostName())
+                                    .signingKeyRegistry(ApnsClient.this.signingKeyRegistry)
                                     .encoderEnforceMaxConcurrentStreams(true)
                                     .build();
 
@@ -729,7 +724,7 @@ public class ApnsClient {
      * <p>Callers <em>must</em> register signing keys for all topics to which they intend to send notifications. Tokens
      * may be registered at any time in a client's life-cycle.</p>
      *
-     * @param signingKey the private key with which to sign authentication tokens
+     * @param privateKey the private key with which to sign authentication tokens
      * @param teamId the Apple-issued, ten-character identifier for the team to which the given private key belongs
      * @param keyId the Apple-issued, ten-character identifier for the given private key
      * @param topics the topics to which the given signing key is applicable
@@ -739,44 +734,21 @@ public class ApnsClient {
      *
      * @since 0.9
      */
-    public void registerSigningKey(final ECPrivateKey signingKey, final String teamId, final String keyId, final String... topics) throws InvalidKeyException, NoSuchAlgorithmException {
-        this.removeKeyForTeam(teamId);
-
-        final AuthenticationTokenSupplier tokenSupplier = new AuthenticationTokenSupplier(teamId, keyId, signingKey);
-
-        final Set<String> topicSet = new HashSet<>();
-
-        for (final String topic : topics) {
-            topicSet.add(topic);
-            this.authenticationTokenSuppliersByTopic.put(topic, tokenSupplier);
-        }
-
-        this.topicsByTeamId.put(teamId, topicSet);
+    public void registerSigningKey(final ECPrivateKey privateKey, final String teamId, final String keyId, final String... topics) throws InvalidKeyException, NoSuchAlgorithmException {
+        this.signingKeyRegistry.registerKey(new ApnsSigningKey(keyId, teamId, privateKey), topics);
     }
 
     /**
-     * Removes all registered keys and associated topics for the given team.
-     *
-     * @param teamId the Apple-issued, ten-character identifier for the team for which to remove keys and topics
+     * TODO
      */
-    public void removeKeyForTeam(final String teamId) {
-        final Set<String> oldTopics = this.topicsByTeamId.remove(teamId);
+    public void removeKey(final String teamId, final String keyId) {
+        final ApnsSigningKey removedKey = this.signingKeyRegistry.removeKey(teamId, keyId);
 
-        if (oldTopics != null) {
-            for (final String topic : oldTopics) {
-                this.authenticationTokenSuppliersByTopic.remove(topic);
-            }
+        final ChannelPromise connectionReadyPromise = this.connectionReadyPromise;
+
+        if (removedKey != null && connectionReadyPromise != null) {
+            connectionReadyPromise.channel().pipeline().fireUserEventTriggered(new SigningKeyRemovalEvent(removedKey));
         }
-    }
-
-    protected AuthenticationTokenSupplier getAuthenticationTokenSupplierForTopic(final String topic) throws NoKeyForTopicException {
-        final AuthenticationTokenSupplier supplier = this.authenticationTokenSuppliersByTopic.get(topic);
-
-        if (supplier == null) {
-            throw new NoKeyForTopicException("No signing key found for topic " + topic);
-        }
-
-        return supplier;
     }
 
     /**

@@ -2,10 +2,7 @@ package com.relayrides.pushy.apns;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.InputStream;
@@ -18,7 +15,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.After;
@@ -339,22 +335,21 @@ public class ApnsClientTest {
 
     @Test
     public void testRegisterSigningKey() throws Exception {
-        final String teamId = "team-id";
-        final String keyId = "key-id";
         final String topic = "topic";
         final String differentTopic = "different-topic";
 
-        this.client.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), teamId, keyId, topic);
-        assertNotNull(this.client.getAuthenticationTokenSupplierForTopic(topic));
+        // "Normal" registration is covered implicitly by `testSendNotification`
+        this.client.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, topic);
+        this.client.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, differentTopic);
 
-        this.client.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), teamId, keyId, differentTopic);
+        final SimpleApnsPushNotification pushNotification =
+                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), topic, "test-payload");
 
-        try {
-            this.client.getAuthenticationTokenSupplierForTopic(topic);
-            fail("Registering new keys should clear old topics for the given team.");
-        } catch (final NoKeyForTopicException e) {
-            // This is actually the desired outcome
-        }
+        final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
+                this.client.sendNotification(pushNotification).await();
+
+        assertFalse(sendFuture.isSuccess());
+        assertTrue(sendFuture.cause() instanceof NoKeyForTopicException);
     }
 
     @Test
@@ -373,36 +368,20 @@ public class ApnsClientTest {
         this.client.registerSigningKey(privateKeyFile, "team-id", "key-id", "topic");
     }
 
-    @Test
-    public void testGetAuthenticationTokenSupplierForTopic() throws Exception {
-        final String topic = "topic";
-
-        this.client.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), "team-id", "key-id", topic);
-        assertNotNull(this.client.getAuthenticationTokenSupplierForTopic(topic));
-    }
-
-    @Test(expected = NoKeyForTopicException.class)
-    public void testGetAuthenticationTokenSupplierForTopicNoRegisteredKey() throws Exception {
-        this.client.getAuthenticationTokenSupplierForTopic("Unregistered topic");
-    }
-
-    @Test
+    /* @Test
     public void testRemoveKeyForTeam() throws Exception {
-        final String teamId = "team-id";
-        final String topic = "topic";
+        this.client.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        this.client.removeKeyForTeam(DEFAULT_TEAM_ID);
 
-        this.client.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), teamId, "key-id", topic);
-        assertNotNull(this.client.getAuthenticationTokenSupplierForTopic(topic));
+        final SimpleApnsPushNotification pushNotification =
+                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), DEFAULT_TOPIC, "test-payload");
 
-        this.client.removeKeyForTeam(teamId);
+        final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
+                this.client.sendNotification(pushNotification).await();
 
-        try {
-            this.client.getAuthenticationTokenSupplierForTopic(topic);
-            fail("No token suppliers should remain after removing keys for a team.");
-        } catch (final NoKeyForTopicException e) {
-            // This is the desired outcome
-        }
-    }
+        assertFalse(sendFuture.isSuccess());
+        assertTrue(sendFuture.cause() instanceof NoKeyForTopicException);
+    } */
 
     @Test
     public void testSendNotification() throws Exception {
@@ -445,7 +424,7 @@ public class ApnsClientTest {
         assertTrue(sendFuture.cause() instanceof IllegalStateException);
     }
 
-    @Test
+    /* @Test
     public void testSendNotificationWithExpiredAuthenticationToken() throws Exception {
         final String testToken = ApnsClientTest.generateRandomToken();
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
@@ -476,7 +455,7 @@ public class ApnsClientTest {
 
         assertTrue(response.isAccepted());
         assertNotEquals(expiredToken, this.client.getAuthenticationTokenSupplierForTopic(DEFAULT_TOPIC).getToken());
-    }
+    } */
 
     @Test
     public void testSendNotificationMissingPrivateKey() throws Exception {
