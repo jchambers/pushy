@@ -44,6 +44,11 @@ public class ApnsClientBenchmark {
     @Param({"10000"})
     public int notificationCount;
 
+    @Param({"1", "2", "4", "8"})
+    public int maxChannels;
+
+    public int clientEventLoopGroupSize;
+
     private static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
     private static final String SERVER_CERTIFICATES_FILENAME = "/server_certs.pem";
     private static final String SERVER_KEY_FILENAME = "/server_key.pem";
@@ -59,11 +64,12 @@ public class ApnsClientBenchmark {
 
     @Setup
     public void setUp() throws Exception {
-        this.eventLoopGroup = new NioEventLoopGroup(2);
+        this.eventLoopGroup = new NioEventLoopGroup(8);
 
         final ApnsClientBuilder clientBuilder = new ApnsClientBuilder()
                 .setApnsServerAddress(HOST, PORT)
                 .setTrustedServerCertificateChain(ApnsClientBenchmark.class.getResourceAsStream(CA_CERTIFICATE_FILENAME))
+                .setMaxChannels(this.maxChannels)
                 .setEventLoopGroup(this.eventLoopGroup);
 
         final MockApnsServerBuilder serverBuilder = new MockApnsServerBuilder()

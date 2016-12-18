@@ -56,7 +56,7 @@ import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 public class ApnsClientBuilder {
     private InetSocketAddress serverAddress;
 
-    private int maxChannels = 2;
+    private int maxChannels = ApnsClient.DEFAULT_CHANNEL_COUNT;
 
     private File trustedServerCertificatePemFile;
     private InputStream trustedServerCertificateInputStream;
@@ -89,6 +89,11 @@ public class ApnsClientBuilder {
 
     public ApnsClientBuilder setApnsServerAddress(final String host, final int port) {
         this.serverAddress = new InetSocketAddress(host, port);
+        return this;
+    }
+
+    public ApnsClientBuilder setMaxChannels(final int maxChannels) {
+        this.maxChannels = maxChannels;
         return this;
     }
 

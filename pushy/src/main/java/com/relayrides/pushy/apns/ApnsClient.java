@@ -155,6 +155,8 @@ public class ApnsClient {
      */
     public static final int DEFAULT_APNS_PORT = 443;
 
+    public static final int DEFAULT_CHANNEL_COUNT = 2;
+
     /**
      * <p>An alternative port for communication with the APNs gateway. According to Apple's documentation:</p>
      *
