@@ -24,6 +24,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.SignatureException;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
@@ -53,7 +54,9 @@ import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.WriteTimeoutException;
 import io.netty.util.AsciiString;
+import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.Promise;
 import io.netty.util.concurrent.PromiseCombiner;
 import io.netty.util.concurrent.ScheduledFuture;
 
@@ -64,6 +67,9 @@ class ApnsClientHandler extends Http2ConnectionHandler {
     private final Map<Integer, ApnsPushNotification> pushNotificationsByStreamId = new HashMap<>();
     private final Map<Integer, String> authenticationTokensByStreamId = new HashMap<>();
     private final Map<Integer, Http2Headers> headersByStreamId = new HashMap<>();
+
+    private final Map<ApnsPushNotification, Promise<PushNotificationResponse<ApnsPushNotification>>> responsePromises =
+            new IdentityHashMap<>();
 
     private final ApnsClient apnsClient;
     private final String authority;
@@ -83,6 +89,8 @@ class ApnsClientHandler extends Http2ConnectionHandler {
     private static final long STREAM_ID_RESET_THRESHOLD = Integer.MAX_VALUE - 1;
 
     private static final int INITIAL_PAYLOAD_BUFFER_CAPACITY = 4096;
+
+    private static final String EXPIRED_AUTH_TOKEN_REASON = "ExpiredProviderToken";
 
     private static final Gson gson = new GsonBuilder()
             .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
@@ -158,21 +166,26 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                 final String responseBody = data.toString(StandardCharsets.UTF_8);
 
                 if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
-                    ApnsClientHandler.this.apnsClient.handleServerError(pushNotification, responseBody);
+                    log.warn("APNs server reported an internal error when sending {}.", pushNotification);
+                    ApnsClientHandler.this.responsePromises.get(pushNotification).tryFailure(new ApnsServerException(responseBody));
                 } else {
                     final ErrorResponse errorResponse = gson.fromJson(responseBody, ErrorResponse.class);
 
-                    if (ApnsClient.EXPIRED_AUTH_TOKEN_REASON.equals(errorResponse.getReason())) {
+                    if (ApnsClientHandler.EXPIRED_AUTH_TOKEN_REASON.equals(errorResponse.getReason())) {
                         try {
                             ApnsClientHandler.this.apnsClient.getAuthenticationTokenSupplierForTopic(pushNotification.getTopic()).invalidateToken(authenticationToken);
+
+                            // Once we've invalidated an expired token, it's reasonable to expect that re-sending the
+                            // notification will succeed.
+                            context.channel().write(pushNotification);
                         } catch (final NoKeyForTopicException e) {
                             // This should only happen if somebody de-registered the topic after a notification was sent
                             log.warn("Authentication token expired, but no key registered for topic {}", pushNotification.getTopic());
                         }
+                    } else {
+                        ApnsClientHandler.this.responsePromises.get(pushNotification).trySuccess(
+                                new SimplePushNotificationResponse<>(pushNotification, HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
                     }
-
-                    ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(
-                            new SimplePushNotificationResponse<>(pushNotification, HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
                 }
             } else {
                 log.error("Gateway sent a DATA frame that was not the end of a stream.");
@@ -202,9 +215,10 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                 ApnsClientHandler.this.authenticationTokensByStreamId.remove(streamId);
 
                 if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
-                    ApnsClientHandler.this.apnsClient.handleServerError(pushNotification, null);
+                    log.warn("APNs server reported an internal error when sending {}.", pushNotification);
+                    ApnsClientHandler.this.responsePromises.get(pushNotification).tryFailure(new ApnsServerException(null));
                 } else {
-                    ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(
+                    ApnsClientHandler.this.responsePromises.get(pushNotification).trySuccess(
                             new SimplePushNotificationResponse<>(pushNotification, success, null, null));
                 }
             } else {
@@ -237,11 +251,33 @@ class ApnsClientHandler extends Http2ConnectionHandler {
 
     @Override
     public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise writePromise) throws Http2Exception {
-        try {
-            try {
-                // We'll catch class cast issues gracefully
-                final ApnsPushNotification pushNotification = (ApnsPushNotification) message;
+        if (message instanceof PushNotificationAndResponsePromise) {
+            final PushNotificationAndResponsePromise pushNotificationAndResponsePromise =
+                    (PushNotificationAndResponsePromise) message;
 
+            final ApnsPushNotification pushNotification = pushNotificationAndResponsePromise.getPushNotification();
+
+            if (this.responsePromises.containsKey(pushNotification)) {
+                writePromise.tryFailure(new PushNotificationStillPendingException());
+            } else {
+                this.responsePromises.put(pushNotification, pushNotificationAndResponsePromise.getResponsePromise());
+
+                pushNotificationAndResponsePromise.getResponsePromise().addListener(new GenericFutureListener<Future<PushNotificationResponse<ApnsPushNotification>>> () {
+
+                    @Override
+                    public void operationComplete(final Future<PushNotificationResponse<ApnsPushNotification>> future) {
+                        // Regardless of the outcome, when the response promise is finished, we want to remove it from
+                        // the map of pending promises.
+                        ApnsClientHandler.this.responsePromises.remove(pushNotification);
+                    }
+                });
+
+                this.write(context, pushNotification, writePromise);
+            }
+        } else if (message instanceof ApnsPushNotification) {
+            final ApnsPushNotification pushNotification = (ApnsPushNotification) message;
+
+            try {
                 final int streamId = (int) this.nextStreamId;
 
                 final Http2Headers headers = new DefaultHttp2Headers()
@@ -289,6 +325,15 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                             ApnsClientHandler.this.authenticationTokensByStreamId.put(streamId, authenticationToken);
                         } else {
                             log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
+
+                            final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
+                                    ApnsClientHandler.this.responsePromises.get(pushNotification);
+
+                            if (responsePromise != null) {
+                                responsePromise.tryFailure(future.cause());
+                            } else {
+                                log.error("Notification write failed, but no response promise found.");
+                            }
                         }
                     }
                 });
@@ -306,7 +351,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                 writePromise.tryFailure(e);
             }
 
-        } catch (final ClassCastException e) {
+        } else {
             // This should never happen, but in case some foreign debris winds up in the pipeline, just pass it through.
             log.error("Unexpected object in pipeline: {}", message);
             context.write(message, writePromise);
@@ -357,5 +402,19 @@ class ApnsClientHandler extends Http2ConnectionHandler {
         } else {
             log.warn("APNs client pipeline caught an exception.", cause);
         }
+    }
+
+    @Override
+    public void close(final ChannelHandlerContext context, final ChannelPromise promise) throws Exception {
+        super.close(context, promise);
+
+        final ClientNotConnectedException clientNotConnectedException =
+                new ClientNotConnectedException("Client disconnected unexpectedly.");
+
+        for (final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise : this.responsePromises.values()) {
+            responsePromise.tryFailure(clientNotConnectedException);
+        }
+
+        this.responsePromises.clear();
     }
 }
