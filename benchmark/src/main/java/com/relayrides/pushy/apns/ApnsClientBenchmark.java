@@ -121,8 +121,8 @@ public class ApnsClientBenchmark {
     @Benchmark
     @BenchmarkMode(Mode.SingleShotTime)
     @Threads(1)
-    @Measurement(iterations = 10, batchSize = 1)
-    @Warmup(iterations = 10, batchSize = 1)
+    @Measurement(iterations = 20, batchSize = 1)
+    @Warmup(iterations = 20, batchSize = 1)
     public long testSendNotifications() throws InterruptedException {
         final CountDownLatch countDownLatch = new CountDownLatch(this.pushNotifications.size());
 
