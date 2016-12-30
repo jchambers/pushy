@@ -41,8 +41,6 @@ import io.netty.util.concurrent.PromiseCombiner;
 class MockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
 
     private final MockApnsServer apnsServer;
-    private final boolean useTokenAuthentication;
-    private final Set<String> topicsFromClientCertificate;
 
     private final Map<Integer, UUID> requestsWaitingForDataFrame = new HashMap<>();
 
@@ -144,8 +142,6 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
     public static final class MockApnsServerHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<MockApnsServerHandler, MockApnsServerHandlerBuilder> {
         private MockApnsServer apnsServer;
-        private boolean useTokenAuthentication;
-        private String baseTopicFromCertificate;
 
         public MockApnsServerHandlerBuilder apnsServer(final MockApnsServer apnsServer) {
             this.apnsServer = apnsServer;
@@ -156,24 +152,6 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             return this.apnsServer;
         }
 
-        public MockApnsServerHandlerBuilder useTokenAuthentication(final boolean useTokenAuthentication) {
-            this.useTokenAuthentication = useTokenAuthentication;
-            return this;
-        }
-
-        public boolean useTokenAuthentication() {
-            return this.useTokenAuthentication;
-        }
-
-        public MockApnsServerHandlerBuilder baseTopicFromCertificate(final String baseTopicFromCertificate) {
-            this.baseTopicFromCertificate = baseTopicFromCertificate;
-            return this;
-        }
-
-        public String baseTopicFromCertificate() {
-            return this.baseTopicFromCertificate;
-        }
-
         @Override
         public MockApnsServerHandlerBuilder initialSettings(final Http2Settings initialSettings) {
             return super.initialSettings(initialSettings);
@@ -181,7 +159,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
         @Override
         public MockApnsServerHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
-            final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, initialSettings, this.apnsServer(), this.useTokenAuthentication(), this.baseTopicFromCertificate());
+            final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, initialSettings, this.apnsServer());
             this.frameListener(handler);
             return handler;
         }
@@ -250,19 +228,10 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
     }
 
-    protected MockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final MockApnsServer apnsServer, final boolean useTokenAuthentication, final String baseTopicFromCertificate) {
+    protected MockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final MockApnsServer apnsServer) {
         super(decoder, encoder, initialSettings);
 
         this.apnsServer = apnsServer;
-        this.useTokenAuthentication = useTokenAuthentication;
-
-        this.topicsFromClientCertificate = new HashSet<>();
-
-        if (baseTopicFromCertificate != null) {
-            this.topicsFromClientCertificate.add(baseTopicFromCertificate);
-            this.topicsFromClientCertificate.add(baseTopicFromCertificate + ".voip");
-            this.topicsFromClientCertificate.add(baseTopicFromCertificate + ".complication");
-        }
     }
 
     @Override
@@ -342,52 +311,45 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             topic = (topicSequence != null) ? topicSequence.toString() : null;
         }
 
-        if (this.useTokenAuthentication) {
-            final Set<String> verifiedTokensForTopic = this.verifiedAuthenticationTokensByTopic.get(topic);
+        if (topic == null) {
+            context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.MISSING_TOPIC));
+            return;
+        }
 
-            if (verifiedTokensForTopic != null && verifiedTokensForTopic.contains(authenticationToken)) {
-                final Date tokenExpiration = this.authenticationTokenExpirationTimes.get(authenticationToken);
-                final Date now = new Date();
+        final Set<String> verifiedTokensForTopic = this.verifiedAuthenticationTokensByTopic.get(topic);
 
-                if (now.after(tokenExpiration)) {
-                    verifiedTokensForTopic.remove(authenticationToken);
-                    this.authenticationTokenExpirationTimes.remove(authenticationToken);
+        if (verifiedTokensForTopic != null && verifiedTokensForTopic.contains(authenticationToken)) {
+            final Date tokenExpiration = this.authenticationTokenExpirationTimes.get(authenticationToken);
+            final Date now = new Date();
 
-                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.EXPIRED_PROVIDER_TOKEN));
-                    return;
-                }
-            } else {
-                try {
-                    final AuthenticationTokenClaims claims = this.getVerifiedClaimsFromAuthenticationToken(authenticationToken);
-                    final Set<String> topics = this.apnsServer.getTopicsForTeamId(claims.getIssuer());
+            if (now.after(tokenExpiration)) {
+                verifiedTokensForTopic.remove(authenticationToken);
+                this.authenticationTokenExpirationTimes.remove(authenticationToken);
 
-                    if (topics == null || !topics.contains(topic)) {
-                        context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.DEVICE_TOKEN_NOT_FOR_TOPIC));
-                        return;
-                    }
-
-                    if (!this.verifiedAuthenticationTokensByTopic.containsKey(topic)) {
-                        this.verifiedAuthenticationTokensByTopic.put(topic, new HashSet<String>());
-                    }
-
-                    this.verifiedAuthenticationTokensByTopic.get(topic).add(authenticationToken);
-                    this.authenticationTokenExpirationTimes.put(authenticationToken, new Date(System.currentTimeMillis() + AUTH_TOKEN_EXPIRATION_MILLIS));
-                } catch (final InvalidAuthenticationTokenException e) {
-                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.INVALID_PROVIDER_TOKEN));
-                    return;
-                } catch (final ExpiredAuthenticationTokenException e) {
-                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.EXPIRED_PROVIDER_TOKEN));
-                    return;
-                }
+                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.EXPIRED_PROVIDER_TOKEN));
+                return;
             }
         } else {
-            if (topic != null) {
-                if (!this.topicsFromClientCertificate.contains(topic)) {
-                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.BAD_TOPIC));
+            try {
+                final AuthenticationTokenClaims claims = this.getVerifiedClaimsFromAuthenticationToken(authenticationToken);
+                final Set<String> topics = this.apnsServer.getTopicsForTeamId(claims.getIssuer());
+
+                if (topics == null || !topics.contains(topic)) {
+                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.DEVICE_TOKEN_NOT_FOR_TOPIC));
                     return;
                 }
-            } else {
-                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.MISSING_TOPIC));
+
+                if (!this.verifiedAuthenticationTokensByTopic.containsKey(topic)) {
+                    this.verifiedAuthenticationTokensByTopic.put(topic, new HashSet<String>());
+                }
+
+                this.verifiedAuthenticationTokensByTopic.get(topic).add(authenticationToken);
+                this.authenticationTokenExpirationTimes.put(authenticationToken, new Date(System.currentTimeMillis() + AUTH_TOKEN_EXPIRATION_MILLIS));
+            } catch (final InvalidAuthenticationTokenException e) {
+                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.INVALID_PROVIDER_TOKEN));
+                return;
+            } catch (final ExpiredAuthenticationTokenException e) {
+                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.EXPIRED_PROVIDER_TOKEN));
                 return;
             }
         }

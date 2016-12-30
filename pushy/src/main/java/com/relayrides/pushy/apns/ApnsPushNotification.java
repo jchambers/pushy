@@ -81,15 +81,10 @@ public interface ApnsPushNotification {
     DeliveryPriority getPriority();
 
     /**
-     * <p>Returns the topic to which this notification should be sent. This is generally the bundle ID of the receiving
-     * app.</p>
+     * Returns the topic to which this notification should be sent. This is generally the bundle ID of the receiving
+     * app. Topics must not be {@code null}.
      *
-     * <p>Some (older) APNs certificates contain only a single topic; if this push notification is sent via a client
-     * using a single-topic certificate, this topic may be {@code null}, in which case the APNs gateway will use the
-     * certificate's subject (the bundle ID for the receiving app) as the topic.</p>
-     *
-     * @return the topic to which this notification should be sent, or {@code null} for the default topic if this
-     *         notification is sent on a connection with a single-topic certificate
+     * @return the topic to which this notification should be sent; must not be {@code null}
      *
      * @since 0.5
      */

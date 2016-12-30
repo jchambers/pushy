@@ -4,15 +4,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.InputStream;
 import java.security.KeyPair;
-import java.security.KeyStore.PrivateKeyEntry;
-import java.security.cert.X509Certificate;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.util.ArrayList;
@@ -43,19 +40,13 @@ public class ApnsClientTest {
 
     private static NioEventLoopGroup EVENT_LOOP_GROUP;
 
-    private static final String SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME = "/single-topic-client.p12";
-    private static final String MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME = "/multi-topic-client.p12";
-    private static final String UNTRUSTED_CLIENT_KEYSTORE_FILENAME = "/untrusted-client.p12";
+    private static final String TOKEN_AUTH_PRIVATE_KEY_FILENAME = "/token-auth-private-key.p8";
 
     private static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
-    private static final String SERVER_KEYSTORE = "/server.p12";
-    private static final String SERVER_KEYSTORE_PASSWORD = "pushy-test";
-
-    private static final String TOKEN_AUTH_PRIVATE_KEY_FILENAME = "/token-auth-private-key.pem";
+    private static final String SERVER_CERTIFICATES_FILENAME = "/server_certs.pem";
+    private static final String SERVER_KEY_FILENAME = "/server_key.pem";
 
     private static File CA_CERTIFICATE;
-
-    private static final String KEYSTORE_PASSWORD = "pushy-test";
 
     private static final String HOST = "localhost";
     private static final int PORT = 8443;
@@ -67,8 +58,7 @@ public class ApnsClientTest {
     private static final int TOKEN_LENGTH = 32; // bytes
 
     private MockApnsServer server;
-    private ApnsClient tlsAuthenticationClient;
-    private ApnsClient tokenAuthenticationClient;
+    private ApnsClient client;
 
     private SslProvider preferredSslProvider;
 
@@ -215,44 +205,27 @@ public class ApnsClientTest {
 
     @Before
     public void setUp() throws Exception {
-        {
-            final PrivateKeyEntry privateKeyEntry = P12Util.getFirstPrivateKeyEntryFromP12InputStream(
-                    MockApnsServer.class.getResourceAsStream(SERVER_KEYSTORE), SERVER_KEYSTORE_PASSWORD);
-
-            this.server = new MockApnsServerBuilder()
-                    .setServerCredentials(new X509Certificate[] { (X509Certificate) privateKeyEntry.getCertificate() }, privateKeyEntry.getPrivateKey(), null)
-                    .setTrustedClientCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
+        this.server = new MockApnsServerBuilder()
+                .setServerCredentials(ApnsClientTest.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), ApnsClientTest.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .build();
 
         this.server.start(PORT).await();
 
         this.preferredSslProvider = "jdk".equals(System.getenv("PUSHY_SSL_PROVIDER")) ? SslProvider.JDK : null;
 
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            this.tlsAuthenticationClient = new ApnsClientBuilder()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .setSslProvider(this.preferredSslProvider)
-                    .build();
-        }
-
-        this.tokenAuthenticationClient = new ApnsClientBuilder()
+        this.client = new ApnsClientBuilder()
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .setSslProvider(this.preferredSslProvider)
                 .build();
 
-        this.tlsAuthenticationClient.connect(HOST, PORT).await();
-        this.tokenAuthenticationClient.connect(HOST, PORT).await();
+        this.client.connect(HOST, PORT).await();
     }
 
     @After
     public void tearDown() throws Exception {
-        this.tlsAuthenticationClient.disconnect().await();
-        this.tokenAuthenticationClient.disconnect().await();
+        this.client.disconnect().await();
 
         // Mild hack: there's a harmless race condition where we can try to write a `GOAWAY` from the server to the
         // client in the time between when the client closes the connection and the server notices the connection has
@@ -271,14 +244,9 @@ public class ApnsClientTest {
 
     @Test
     public void testApnsClientWithManagedEventLoopGroup() throws Exception {
-        final ApnsClient managedGroupClient;
-
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            managedGroupClient = new ApnsClientBuilder()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .build();
-        }
+        final ApnsClient managedGroupClient = new ApnsClientBuilder()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .build();
 
         assertTrue(managedGroupClient.connect(HOST, PORT).await().isSuccess());
         assertTrue(managedGroupClient.disconnect().await().isSuccess());
@@ -286,14 +254,9 @@ public class ApnsClientTest {
 
     @Test
     public void testRestartApnsClientWithManagedEventLoopGroup() throws Exception {
-        final ApnsClient managedGroupClient;
-
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            managedGroupClient = new ApnsClientBuilder()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .build();
-        }
+        final ApnsClient managedGroupClient = new ApnsClientBuilder()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .build();
 
         assertTrue(managedGroupClient.connect(HOST, PORT).await().isSuccess());
         assertTrue(managedGroupClient.disconnect().await().isSuccess());
@@ -319,58 +282,53 @@ public class ApnsClientTest {
 
     @Test
     public void testReconnectionAfterClose() throws Exception {
-        assertTrue(this.tlsAuthenticationClient.isConnected());
-        assertTrue(this.tlsAuthenticationClient.disconnect().await().isSuccess());
+        assertTrue(this.client.isConnected());
+        assertTrue(this.client.disconnect().await().isSuccess());
 
-        assertFalse(this.tlsAuthenticationClient.isConnected());
+        assertFalse(this.client.isConnected());
 
-        assertTrue(this.tlsAuthenticationClient.connect(HOST, PORT).await().isSuccess());
-        assertTrue(this.tlsAuthenticationClient.isConnected());
+        assertTrue(this.client.connect(HOST, PORT).await().isSuccess());
+        assertTrue(this.client.isConnected());
     }
 
     @Test
     public void testAutomaticReconnection() throws Exception {
-        assertTrue(this.tlsAuthenticationClient.isConnected());
+        assertTrue(this.client.isConnected());
 
         this.server.shutdown().await();
 
         // Wait for the client to notice the GOAWAY; if it doesn't, the test will time out and fail
-        while (this.tlsAuthenticationClient.isConnected()) {
+        while (this.client.isConnected()) {
             Thread.sleep(100);
         }
 
-        assertFalse(this.tlsAuthenticationClient.isConnected());
+        assertFalse(this.client.isConnected());
 
         this.server.start(PORT).await();
 
         // Wait for the client to reconnect automatically; if it doesn't, the test will time out and fail
-        final Future<Void> reconnectionFuture = this.tlsAuthenticationClient.getReconnectionFuture();
+        final Future<Void> reconnectionFuture = this.client.getReconnectionFuture();
         reconnectionFuture.await();
 
         assertTrue(reconnectionFuture.isSuccess());
-        assertTrue(this.tlsAuthenticationClient.isConnected());
+        assertTrue(this.client.isConnected());
     }
 
     @Test
     public void testGetReconnectionFutureWhenConnected() throws Exception {
-        final Future<Void> reconnectionFuture = this.tlsAuthenticationClient.getReconnectionFuture();
+        final Future<Void> reconnectionFuture = this.client.getReconnectionFuture();
         reconnectionFuture.await();
 
-        assertTrue(this.tlsAuthenticationClient.isConnected());
+        assertTrue(this.client.isConnected());
         assertTrue(reconnectionFuture.isSuccess());
     }
 
     @Test
     public void testGetReconnectionFutureWhenNotConnected() throws Exception {
-        final ApnsClient unconnectedClient;
-
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            unconnectedClient = new ApnsClientBuilder()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
+        final ApnsClient unconnectedClient = new ApnsClientBuilder()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .build();
 
         final Future<Void> reconnectionFuture = unconnectedClient.getReconnectionFuture();
 
@@ -381,42 +339,19 @@ public class ApnsClientTest {
     }
 
     @Test
-    public void testConnectWithUntrustedCertificate() throws Exception {
-        final ApnsClient untrustedClient;
-
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(UNTRUSTED_CLIENT_KEYSTORE_FILENAME)) {
-            untrustedClient = new ApnsClientBuilder()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
-
-        final Future<Void> connectFuture = untrustedClient.connect(HOST, PORT).await();
-        assertFalse(connectFuture.isSuccess());
-
-        untrustedClient.disconnect().await();
-    }
-
-    @Test(expected = IllegalStateException.class)
-    public void testRegisterSigningKeyWithTlsAuthentication() throws Exception {
-        this.tlsAuthenticationClient.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), "team-id", "key-id", "topic");
-    }
-
-    @Test
     public void testRegisterSigningKey() throws Exception {
         final String teamId = "team-id";
         final String keyId = "key-id";
         final String topic = "topic";
         final String differentTopic = "different-topic";
 
-        this.tokenAuthenticationClient.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), teamId, keyId, topic);
-        assertNotNull(this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic(topic));
+        this.client.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), teamId, keyId, topic);
+        assertNotNull(this.client.getAuthenticationTokenSupplierForTopic(topic));
 
-        this.tokenAuthenticationClient.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), teamId, keyId, differentTopic);
+        this.client.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), teamId, keyId, differentTopic);
 
         try {
-            this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic(topic);
+            this.client.getAuthenticationTokenSupplierForTopic(topic);
             fail("Registering new keys should clear old topics for the given team.");
         } catch (final NoKeyForTopicException e) {
             // This is actually the desired outcome
@@ -427,7 +362,7 @@ public class ApnsClientTest {
     public void testRegisterSigningKeyFromInputStream() throws Exception {
         try (final InputStream privateKeyInputStream = ApnsClientTest.class.getResourceAsStream(TOKEN_AUTH_PRIVATE_KEY_FILENAME)) {
             // We're happy here as long as nothing explodes
-            this.tokenAuthenticationClient.registerSigningKey(privateKeyInputStream, "team-id", "key-id", "topic");
+            this.client.registerSigningKey(privateKeyInputStream, "team-id", "key-id", "topic");
         }
     }
 
@@ -436,20 +371,20 @@ public class ApnsClientTest {
         final File privateKeyFile = new File(ApnsClientTest.class.getResource(TOKEN_AUTH_PRIVATE_KEY_FILENAME).getFile());
 
         // We're happy here as long as nothing explodes
-        this.tokenAuthenticationClient.registerSigningKey(privateKeyFile, "team-id", "key-id", "topic");
+        this.client.registerSigningKey(privateKeyFile, "team-id", "key-id", "topic");
     }
 
     @Test
     public void testGetAuthenticationTokenSupplierForTopic() throws Exception {
         final String topic = "topic";
 
-        this.tokenAuthenticationClient.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), "team-id", "key-id", topic);
-        assertNotNull(this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic(topic));
+        this.client.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), "team-id", "key-id", topic);
+        assertNotNull(this.client.getAuthenticationTokenSupplierForTopic(topic));
     }
 
     @Test(expected = NoKeyForTopicException.class)
     public void testGetAuthenticationTokenSupplierForTopicNoRegisteredKey() throws Exception {
-        this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic("Unregistered topic");
+        this.client.getAuthenticationTokenSupplierForTopic("Unregistered topic");
     }
 
     @Test
@@ -457,13 +392,13 @@ public class ApnsClientTest {
         final String teamId = "team-id";
         final String topic = "topic";
 
-        this.tokenAuthenticationClient.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), teamId, "key-id", topic);
-        assertNotNull(this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic(topic));
+        this.client.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), teamId, "key-id", topic);
+        assertNotNull(this.client.getAuthenticationTokenSupplierForTopic(topic));
 
-        this.tokenAuthenticationClient.removeKeyForTeam(teamId);
+        this.client.removeKeyForTeam(teamId);
 
         try {
-            this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic(topic);
+            this.client.getAuthenticationTokenSupplierForTopic(topic);
             fail("No token suppliers should remain after removing keys for a team.");
         } catch (final NoKeyForTopicException e) {
             // This is the desired outcome
@@ -471,22 +406,39 @@ public class ApnsClientTest {
     }
 
     @Test
-    public void testSendNotificationBeforeConnected() throws Exception {
-        final ApnsClient unconnectedClient;
-
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            unconnectedClient = new ApnsClientBuilder()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
-
+    public void testSendNotification() throws Exception {
         final String testToken = ApnsClientTest.generateRandomToken();
+        final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
+        this.client.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+
+        this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
         this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
 
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
+
+        final PushNotificationResponse<SimpleApnsPushNotification> response =
+                this.client.sendNotification(pushNotification).get();
+
+        assertTrue(response.isAccepted());
+    }
+
+    @Test
+    public void testSendNotificationBeforeConnected() throws Exception {
+        final ApnsClient unconnectedClient = new ApnsClientBuilder()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .build();
+
+        final String testToken = ApnsClientTest.generateRandomToken();
+        final KeyPair keyPair = KeyPairUtil.generateKeyPair();
+
+        unconnectedClient.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+
+        this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
+
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
         final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
                 unconnectedClient.sendNotification(pushNotification).await();
 
@@ -495,42 +447,11 @@ public class ApnsClientTest {
     }
 
     @Test
-    public void testSendNotification() throws Exception {
-        final String testToken = ApnsClientTest.generateRandomToken();
-
-        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
-
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
-        final PushNotificationResponse<SimpleApnsPushNotification> response =
-                this.tlsAuthenticationClient.sendNotification(pushNotification).get();
-
-        assertTrue(response.isAccepted());
-    }
-
-    @Test
-    public void testSendNotificationWithAuthToken() throws Exception {
-        final String testToken = ApnsClientTest.generateRandomToken();
-        final KeyPair keyPair = KeyPairUtil.generateKeyPair();
-
-        this.tokenAuthenticationClient.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
-
-        this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
-        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
-
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
-
-        final PushNotificationResponse<SimpleApnsPushNotification> response =
-                this.tokenAuthenticationClient.sendNotification(pushNotification).get();
-
-        assertTrue(response.isAccepted());
-    }
-
-    @Test
     public void testSendNotificationWithExpiredAuthenticationToken() throws Exception {
         final String testToken = ApnsClientTest.generateRandomToken();
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
-        this.tokenAuthenticationClient.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        this.client.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
 
         this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
         this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
@@ -539,7 +460,7 @@ public class ApnsClientTest {
         {
             // This is a little roundabout, but it makes sure that we're going to be using an expired auth token for the
             // first shot at sending the notification.
-            final AuthenticationTokenSupplier supplier = this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic(DEFAULT_TOPIC);
+            final AuthenticationTokenSupplier supplier = this.client.getAuthenticationTokenSupplierForTopic(DEFAULT_TOPIC);
 
             final String initialToken = supplier.getToken();
             supplier.invalidateToken(initialToken);
@@ -552,14 +473,35 @@ public class ApnsClientTest {
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
         final PushNotificationResponse<SimpleApnsPushNotification> response =
-                this.tokenAuthenticationClient.sendNotification(pushNotification).get();
+                this.client.sendNotification(pushNotification).get();
 
         assertTrue(response.isAccepted());
-        assertNotEquals(expiredToken, this.tokenAuthenticationClient.getAuthenticationTokenSupplierForTopic(DEFAULT_TOPIC).getToken());
+        assertNotEquals(expiredToken, this.client.getAuthenticationTokenSupplierForTopic(DEFAULT_TOPIC).getToken());
+    }
+
+    @Test
+    public void testSendNotificationMissingPrivateKey() throws Exception {
+        final String testToken = ApnsClientTest.generateRandomToken();
+        final KeyPair keyPair = KeyPairUtil.generateKeyPair();
+
+        this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
+
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
+        final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
+                this.client.sendNotification(pushNotification).await();
+
+        assertFalse(sendFuture.isSuccess());
+        assertTrue(sendFuture.cause() instanceof NoKeyForTopicException);
     }
 
     @Test
     public void testSendManyNotifications() throws Exception {
+        final KeyPair keyPair = KeyPairUtil.generateKeyPair();
+
+        this.client.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+
         final int notificationCount = 1000;
 
         final List<SimpleApnsPushNotification> pushNotifications = new ArrayList<>();
@@ -575,7 +517,7 @@ public class ApnsClientTest {
         final List<Future<PushNotificationResponse<SimpleApnsPushNotification>>> futures = new ArrayList<>();
 
         for (final SimpleApnsPushNotification pushNotification : pushNotifications) {
-            futures.add(this.tlsAuthenticationClient.sendNotification(pushNotification));
+            futures.add(this.client.sendNotification(pushNotification));
         }
 
         for (final Future<PushNotificationResponse<SimpleApnsPushNotification>> future : futures) {
@@ -588,6 +530,11 @@ public class ApnsClientTest {
 
     @Test
     public void testSendManyNotificationsWithListeners() throws Exception {
+        final KeyPair keyPair = KeyPairUtil.generateKeyPair();
+
+        this.client.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+
         final int notificationCount = 1000;
 
         final List<SimpleApnsPushNotification> pushNotifications = new ArrayList<>();
@@ -604,7 +551,7 @@ public class ApnsClientTest {
 
         for (final SimpleApnsPushNotification pushNotification : pushNotifications) {
             final Future<PushNotificationResponse<SimpleApnsPushNotification>> future =
-                    this.tlsAuthenticationClient.sendNotification(pushNotification);
+                    this.client.sendNotification(pushNotification);
 
             future.addListener(new GenericFutureListener<Future<PushNotificationResponse<SimpleApnsPushNotification>>>() {
 
@@ -627,6 +574,11 @@ public class ApnsClientTest {
     // See https://github.com/relayrides/pushy/issues/256
     @Test
     public void testRepeatedlySendSameNotification() throws Exception {
+        final KeyPair keyPair = KeyPairUtil.generateKeyPair();
+
+        this.client.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+
         final int notificationCount = 1000;
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(
@@ -636,7 +588,7 @@ public class ApnsClientTest {
 
         for (int i = 0; i < notificationCount; i++) {
             final Future<PushNotificationResponse<SimpleApnsPushNotification>> future =
-                    this.tlsAuthenticationClient.sendNotification(pushNotification);
+                    this.client.sendNotification(pushNotification);
 
             future.addListener(new GenericFutureListener<Future<PushNotificationResponse<SimpleApnsPushNotification>>>() {
 
@@ -653,98 +605,12 @@ public class ApnsClientTest {
     }
 
     @Test
-    public void testSendNotificationWithBadTopic() throws Exception {
-        final String testToken = ApnsClientTest.generateRandomToken();
-
-        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
-
-        final SimpleApnsPushNotification pushNotification =
-                new SimpleApnsPushNotification(testToken, "Definitely not a real topic", "test-payload", null,
-                        DeliveryPriority.IMMEDIATE);
-
-        final PushNotificationResponse<SimpleApnsPushNotification> response =
-                this.tlsAuthenticationClient.sendNotification(pushNotification).get();
-
-        assertFalse(response.isAccepted());
-        assertEquals("BadTopic", response.getRejectionReason());
-        assertNull(response.getTokenInvalidationTimestamp());
-    }
-
-    @Test
-    public void testSendNotificationWithMissingTopic() throws Exception {
-        final ApnsClient multiTopicClient;
-
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            multiTopicClient = new ApnsClientBuilder()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
-
-        multiTopicClient.connect(HOST, PORT).await();
-
-        final String testToken = ApnsClientTest.generateRandomToken();
-
-        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
-
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, null, "test-payload");
-
-        final PushNotificationResponse<SimpleApnsPushNotification> response =
-                multiTopicClient.sendNotification(pushNotification).get();
-
-        multiTopicClient.disconnect().await();
-
-        assertFalse(response.isAccepted());
-        assertEquals("MissingTopic", response.getRejectionReason());
-        assertNull(response.getTokenInvalidationTimestamp());
-    }
-
-    @Test
-    public void testSendNotificationWithSpecifiedTopic() throws Exception {
-        final ApnsClient multiTopicClient;
-
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            multiTopicClient = new ApnsClientBuilder()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
-
-        multiTopicClient.connect(HOST, PORT).await();
-
-        final String testToken = ApnsClientTest.generateRandomToken();
-
-        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
-
-        final SimpleApnsPushNotification pushNotification =
-                new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload", null, DeliveryPriority.IMMEDIATE);
-
-        final PushNotificationResponse<SimpleApnsPushNotification> response =
-                multiTopicClient.sendNotification(pushNotification).get();
-
-        multiTopicClient.disconnect().await();
-
-        assertTrue(response.isAccepted());
-    }
-
-    @Test
-    public void testSendNotificationWithUnregisteredToken() throws Exception {
-        final SimpleApnsPushNotification pushNotification =
-                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), DEFAULT_TOPIC, "test-payload");
-
-        final PushNotificationResponse<SimpleApnsPushNotification> response =
-                this.tlsAuthenticationClient.sendNotification(pushNotification).get();
-
-        assertFalse(response.isAccepted());
-        assertEquals("DeviceTokenNotForTopic", response.getRejectionReason());
-        assertNull(response.getTokenInvalidationTimestamp());
-    }
-
-    @Test
     public void testSendNotificationWithExpiredToken() throws Exception {
         final String testToken = ApnsClientTest.generateRandomToken();
+        final KeyPair keyPair = KeyPairUtil.generateKeyPair();
+
+        this.client.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
 
         final Date now = new Date();
 
@@ -752,7 +618,7 @@ public class ApnsClientTest {
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
         final PushNotificationResponse<SimpleApnsPushNotification> response =
-                this.tlsAuthenticationClient.sendNotification(pushNotification).get();
+                this.client.sendNotification(pushNotification).get();
 
         assertFalse(response.isAccepted());
         assertEquals("Unregistered", response.getRejectionReason());
@@ -761,16 +627,12 @@ public class ApnsClientTest {
 
     @Test
     public void testSendNotificationOnBusyChannel() throws Exception {
-        ApnsClient busyClient;
+        final ApnsClient busyClient = new ApnsClientBuilder()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .setChannelWriteBufferWatermark(new WriteBufferWaterMark(0,0))
+                .build();
 
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            busyClient = new ApnsClientBuilder()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .setChannelWriteBufferWatermark(new WriteBufferWaterMark(0,0))
-                    .build();
-        }
         busyClient.connect(HOST, PORT).await();
 
         final String testToken = ApnsClientTest.generateRandomToken();
@@ -790,28 +652,21 @@ public class ApnsClientTest {
         // Shut down the "normal" server to free the port
         this.tearDown();
 
-        final MockApnsServer terribleTerribleServer;
-        {
-            final PrivateKeyEntry privateKeyEntry = P12Util.getFirstPrivateKeyEntryFromP12InputStream(
-                    MockApnsServer.class.getResourceAsStream(SERVER_KEYSTORE), SERVER_KEYSTORE_PASSWORD);
+        final MockApnsServer terribleTerribleServer = new MockApnsServerBuilder()
+                .setServerCredentials(ApnsClientTest.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), ApnsClientTest.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .setEmulateInternalErrors(true)
+                .build();
 
-            terribleTerribleServer = new MockApnsServerBuilder()
-                    .setServerCredentials(new X509Certificate[] { (X509Certificate) privateKeyEntry.getCertificate() }, privateKeyEntry.getPrivateKey(), null)
-                    .setTrustedClientCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .setEmulateInternalErrors(true)
-                    .build();
-        }
+        final ApnsClient unfortunateClient = new ApnsClientBuilder()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .build();
 
-        final ApnsClient unfortunateClient;
+        final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            unfortunateClient = new ApnsClientBuilder()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
+        unfortunateClient.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
+        terribleTerribleServer.registerPublicKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
 
         terribleTerribleServer.start(PORT).await();
         unfortunateClient.connect(HOST, PORT).await();
@@ -834,38 +689,17 @@ public class ApnsClientTest {
     }
 
     @Test
-    public void testSendNotificationWithTokenAuthMissingPrivateKey() throws Exception {
-        final String testToken = ApnsClientTest.generateRandomToken();
-        final KeyPair keyPair = KeyPairUtil.generateKeyPair();
-
-        this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
-        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
-
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
-        final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
-                this.tokenAuthenticationClient.sendNotification(pushNotification).await();
-
-        assertFalse(sendFuture.isSuccess());
-        assertTrue(sendFuture.cause() instanceof NoKeyForTopicException);
-    }
-
-    @Test
     public void testWriteFailureMetrics() throws Exception {
-        final ApnsClient unconnectedClient;
-
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            unconnectedClient = new ApnsClientBuilder()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
+        final ApnsClient unconnectedClient = new ApnsClientBuilder()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .build();
 
         final TestMetricsListener metricsListener = new TestMetricsListener();
         unconnectedClient.setMetricsListener(metricsListener);
 
         final SimpleApnsPushNotification pushNotification =
-                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), null, ApnsClientTest.generateRandomPayload());
+                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), DEFAULT_TOPIC, ApnsClientTest.generateRandomPayload());
 
         final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
                 unconnectedClient.sendNotification(pushNotification);
@@ -882,7 +716,7 @@ public class ApnsClientTest {
     @Test
     public void testAcceptedNotificationMetrics() throws Exception {
         final TestMetricsListener metricsListener = new TestMetricsListener();
-        this.tlsAuthenticationClient.setMetricsListener(metricsListener);
+        this.client.setMetricsListener(metricsListener);
 
         this.testSendNotification();
         metricsListener.waitForNonZeroAcceptedNotifications();
@@ -895,9 +729,9 @@ public class ApnsClientTest {
     @Test
     public void testRejectedNotificationMetrics() throws Exception {
         final TestMetricsListener metricsListener = new TestMetricsListener();
-        this.tlsAuthenticationClient.setMetricsListener(metricsListener);
+        this.client.setMetricsListener(metricsListener);
 
-        this.testSendNotificationWithBadTopic();
+        this.testSendNotificationWithExpiredToken();
         metricsListener.waitForNonZeroRejectedNotifications();
 
         assertEquals(1, metricsListener.getSentNotifications().size());
@@ -907,15 +741,10 @@ public class ApnsClientTest {
 
     @Test
     public void testSuccessfulConnectionMetrics() throws Exception {
-        final ApnsClient unconnectedClient;
-
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            unconnectedClient = new ApnsClientBuilder()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
+        final ApnsClient unconnectedClient = new ApnsClientBuilder()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .build();
 
         final TestMetricsListener metricsListener = new TestMetricsListener();
         unconnectedClient.setMetricsListener(metricsListener);
@@ -933,15 +762,10 @@ public class ApnsClientTest {
 
     @Test
     public void testFailedConnectionMetrics() throws Exception {
-        final ApnsClient unconnectedClient;
-
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            unconnectedClient = new ApnsClientBuilder()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
+        final ApnsClient unconnectedClient = new ApnsClientBuilder()
+                .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .build();
 
         final TestMetricsListener metricsListener = new TestMetricsListener();
         unconnectedClient.setMetricsListener(metricsListener);
