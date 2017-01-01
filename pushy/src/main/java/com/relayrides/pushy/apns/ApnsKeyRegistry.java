@@ -5,10 +5,10 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Signature;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * <p>A registry for keys used to sign or verify APNs authentication tokens. In the APNs model, keys allow signing or
@@ -54,14 +54,14 @@ class ApnsKeyRegistry<T extends ApnsKey> {
         return this.keysByCombinedIdentifier.get(getCombinedIdentifier(teamId, keyId));
     }
 
-    public synchronized T removeKey(final String teamId, final String keyId) {
-        final T removedApnsKey = this.keysByCombinedIdentifier.remove(getCombinedIdentifier(teamId, keyId));
+    public synchronized Set<String> removeKey(final String teamId, final String keyId) {
+        final Set<String> topicsToClear = new HashSet<>();
 
-        if (removedApnsKey != null) {
-            final List<String> topicsToClear = new ArrayList<>();
-
+        if (this.keysByCombinedIdentifier.remove(getCombinedIdentifier(teamId, keyId)) != null) {
             for (final Map.Entry<String, T> entry : this.keysByTopic.entrySet()) {
-                if (removedApnsKey.equals(entry.getValue())) {
+                final T apnsKey = entry.getValue();
+
+                if (apnsKey.getTeamId().equals(teamId) && apnsKey.getKeyId().equals(keyId)) {
                     topicsToClear.add(entry.getKey());
                 }
             }
@@ -71,7 +71,12 @@ class ApnsKeyRegistry<T extends ApnsKey> {
             }
         }
 
-        return removedApnsKey;
+        return topicsToClear;
+    }
+
+    public synchronized void clear() {
+        this.keysByTopic.clear();
+        this.keysByCombinedIdentifier.clear();
     }
 
     static String getCombinedIdentifier(final ApnsKey key) {

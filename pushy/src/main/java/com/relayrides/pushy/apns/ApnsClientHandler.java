@@ -24,11 +24,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
@@ -69,12 +67,11 @@ class ApnsClientHandler extends Http2ConnectionHandler {
     private long nextStreamId = 1;
 
     private final Map<Integer, ApnsPushNotification> pushNotificationsByStreamId = new HashMap<>();
-    private final Map<Integer, String> authenticationTokensByStreamId = new HashMap<>();
     private final Map<Integer, Http2Headers> headersByStreamId = new HashMap<>();
 
     private final ApnsKeyRegistry<ApnsSigningKey> signingKeyRegistry;
-    private final Map<String, AuthenticationTokenSupplier> authenticationTokenSuppliersByTopic = new HashMap<>();
-    private final Map<String, List<String>> topicsByCombinedKeyId = new HashMap<>();
+    private final Map<String, String> encodedAuthenticationTokensByTopic = new HashMap<>();
+    private final Map<ApnsPushNotification, String> encodedAuthenticationTokensByPushNotification = new HashMap<>();
 
     private final Map<ApnsPushNotification, Promise<PushNotificationResponse<ApnsPushNotification>>> responsePromises =
             new IdentityHashMap<>();
@@ -168,8 +165,8 @@ class ApnsClientHandler extends Http2ConnectionHandler {
 
             if (endOfStream) {
                 final Http2Headers headers = ApnsClientHandler.this.headersByStreamId.remove(streamId);
-                final String authenticationToken = ApnsClientHandler.this.authenticationTokensByStreamId.remove(streamId);
                 final ApnsPushNotification pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
+                final String encodedAuthenticationToken = ApnsClientHandler.this.encodedAuthenticationTokensByPushNotification.remove(pushNotification);
 
                 final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
                 final String responseBody = data.toString(StandardCharsets.UTF_8);
@@ -181,22 +178,18 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                     final ErrorResponse errorResponse = gson.fromJson(responseBody, ErrorResponse.class);
 
                     if (ApnsClientHandler.EXPIRED_AUTH_TOKEN_REASON.equals(errorResponse.getReason())) {
-                        try {
-                            final AuthenticationTokenSupplier authenticationTokenSupplier =
-                                    ApnsClientHandler.this.getTokenSupplierForTopic(pushNotification.getTopic());
+                        final String expiredAuthenticationToken =
+                                ApnsClientHandler.this.encodedAuthenticationTokensByPushNotification.get(pushNotification);
 
-                            assert authenticationTokenSupplier != null;
-                            authenticationTokenSupplier.invalidateToken(authenticationToken);
-
-                            // Once we've invalidated an expired token, it's reasonable to expect that re-sending the
-                            // notification will succeed.
-                            context.channel().write(pushNotification);
-                        } catch (final NoKeyForTopicException e) {
-                            // This should only happen if somebody de-registered the topic after a notification was sent
-                            log.warn("Authentication token expired, but no key registered for topic {}", pushNotification.getTopic());
-
-                            ApnsClientHandler.this.responsePromises.get(pushNotification).tryFailure(e);
+                        if (expiredAuthenticationToken == null || expiredAuthenticationToken.equals(encodedAuthenticationToken)) {
+                            // We only want to clear this if the token that expired is actually the one we have in our
+                            // map; otherwise, we might wind up needlessly regenerating tokens a zillion times.
+                            ApnsClientHandler.this.encodedAuthenticationTokensByTopic.remove(pushNotification.getTopic());
                         }
+
+                        // Once we've invalidated an expired token, it's reasonable to expect that re-sending the
+                        // notification will succeed.
+                        context.channel().write(pushNotification);
                     } else {
                         ApnsClientHandler.this.responsePromises.get(pushNotification).trySuccess(
                                 new SimplePushNotificationResponse<>(pushNotification, HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
@@ -227,7 +220,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                 }
 
                 final ApnsPushNotification pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
-                ApnsClientHandler.this.authenticationTokensByStreamId.remove(streamId);
+                ApnsClientHandler.this.encodedAuthenticationTokensByPushNotification.remove(pushNotification);
 
                 if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
                     log.warn("APNs server reported an internal error when sending {}.", pushNotification);
@@ -292,7 +285,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
         } else if (message instanceof ApnsPushNotification) {
             final ApnsPushNotification pushNotification = (ApnsPushNotification) message;
 
-            final String authenticationToken = this.getTokenSupplierForTopic(pushNotification.getTopic()).getToken();
+            final String encodedAuthenticationToken = this.getEncodedAuthenticationTokenForTopic(pushNotification.getTopic());
 
             final int streamId = (int) this.nextStreamId;
 
@@ -301,7 +294,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                     .authority(this.authority)
                     .path(APNS_PATH_PREFIX + pushNotification.getToken())
                     .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000))
-                    .add(APNS_AUTHORIZATION_HEADER, "bearer " + authenticationToken);
+                    .add(APNS_AUTHORIZATION_HEADER, "bearer " + encodedAuthenticationToken);
 
             if (pushNotification.getCollapseId() != null) {
                 headers.add(APNS_COLLAPSE_ID_HEADER, pushNotification.getCollapseId());
@@ -336,7 +329,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                 public void operationComplete(final ChannelPromise future) throws Exception {
                     if (future.isSuccess()) {
                         ApnsClientHandler.this.pushNotificationsByStreamId.put(streamId, pushNotification);
-                        ApnsClientHandler.this.authenticationTokensByStreamId.put(streamId, authenticationToken);
+                        ApnsClientHandler.this.encodedAuthenticationTokensByPushNotification.put(pushNotification, encodedAuthenticationToken);
                     } else {
                         log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
 
@@ -402,13 +395,8 @@ class ApnsClientHandler extends Http2ConnectionHandler {
         } else if (event instanceof SigningKeyRemovalEvent) {
             final SigningKeyRemovalEvent signingKeyRemovalEvent = (SigningKeyRemovalEvent) event;
 
-            final List<String> topicsToClear =
-                    this.topicsByCombinedKeyId.remove(ApnsKeyRegistry.getCombinedIdentifier(signingKeyRemovalEvent.getKey()));
-
-            if (topicsToClear != null) {
-                for (final String topic : topicsToClear) {
-                    this.authenticationTokenSuppliersByTopic.remove(topic);
-                }
+            for (final String topic : signingKeyRemovalEvent.getTopicsToClear()) {
+                this.encodedAuthenticationTokensByTopic.remove(topic);
             }
         }
 
@@ -439,8 +427,8 @@ class ApnsClientHandler extends Http2ConnectionHandler {
         this.responsePromises.clear();
     }
 
-    private AuthenticationTokenSupplier getTokenSupplierForTopic(final String topic) throws NoKeyForTopicException {
-        if (!this.authenticationTokenSuppliersByTopic.containsKey(topic)) {
+    private String getEncodedAuthenticationTokenForTopic(final String topic) throws NoKeyForTopicException {
+        if (!this.encodedAuthenticationTokensByTopic.containsKey(topic)) {
             final ApnsSigningKey key = this.signingKeyRegistry.getKeyForTopic(topic);
 
             if (key == null) {
@@ -448,22 +436,14 @@ class ApnsClientHandler extends Http2ConnectionHandler {
             }
 
             try {
-                this.authenticationTokenSuppliersByTopic.put(topic, new AuthenticationTokenSupplier(key));
-
-                final String combinedKeyIdentifier = ApnsKeyRegistry.getCombinedIdentifier(key);
-
-                if (!this.topicsByCombinedKeyId.containsKey(combinedKeyIdentifier)) {
-                    this.topicsByCombinedKeyId.put(combinedKeyIdentifier, new ArrayList<String>());
-                }
-
-                this.topicsByCombinedKeyId.get(combinedKeyIdentifier).add(topic);
-            } catch (InvalidKeyException | NoSuchAlgorithmException e) {
+                this.encodedAuthenticationTokensByTopic.put(topic, new AuthenticationToken(key, new Date()).toString());
+            } catch (InvalidKeyException | NoSuchAlgorithmException | SignatureException e) {
                 // This should never happen in practice because we check both the availability of the algorithm and the
                 // validity of the key when the key is added to the registry.
                 throw new RuntimeException(e);
             }
         }
 
-        return this.authenticationTokenSuppliersByTopic.get(topic);
+        return this.encodedAuthenticationTokensByTopic.get(topic);
     }
 }

@@ -1,5 +1,7 @@
 package com.relayrides.pushy.apns;
 
+import java.util.Set;
+
 /**
  * A model object representing indicating the removal of a signing key.
  *
@@ -9,13 +11,13 @@ package com.relayrides.pushy.apns;
  */
 class SigningKeyRemovalEvent {
 
-    private final ApnsSigningKey key;
+    private final Set<String> topicsToClear;
 
-    public SigningKeyRemovalEvent(final ApnsSigningKey key) {
-        this.key = key;
+    public SigningKeyRemovalEvent(final Set<String> topicsToClear) {
+        this.topicsToClear = topicsToClear;
     }
 
-    public ApnsSigningKey getKey() {
-        return this.key;
+    public Set<String> getTopicsToClear() {
+        return this.topicsToClear;
     }
 }

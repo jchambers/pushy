@@ -2,16 +2,12 @@ package com.relayrides.pushy.apns;
 
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.security.Signature;
 import java.security.interfaces.ECPublicKey;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
-
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
@@ -52,9 +48,7 @@ public class MockApnsServer {
 
     private final Map<String, Map<String, Date>> tokenExpirationsByTopic = new HashMap<>();
 
-    private final Map<String, Signature> signaturesByKeyId = new HashMap<>();
-    private final Map<String, String> teamIdsByKeyId = new HashMap<>();
-    private final Map<String, Set<String>> topicsByTeamId = new HashMap<>();
+    private final ApnsKeyRegistry<ApnsVerificationKey> verificationKeyRegistry = new ApnsKeyRegistry<>();
 
     private ChannelGroup allChannels;
 
@@ -85,6 +79,7 @@ public class MockApnsServer {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
                             context.pipeline().addLast(new MockApnsServerHandler.MockApnsServerHandlerBuilder()
                                     .apnsServer(MockApnsServer.this)
+                                    .verificationKeyRegistry(MockApnsServer.this.verificationKeyRegistry)
                                     .initialSettings(new Http2Settings().maxConcurrentStreams(8))
                                     .build());
 
@@ -150,58 +145,14 @@ public class MockApnsServer {
      * @since 0.9
      */
     public void registerPublicKey(final ECPublicKey publicKey, final String teamId, final String keyId, final String... topics) throws NoSuchAlgorithmException, InvalidKeyException {
-        // First, clear out any old keys/topics
-        {
-            final Set<String> keyIdsToRemove = new HashSet<>();
-
-            for (final Map.Entry<String, String> entry : this.teamIdsByKeyId.entrySet()) {
-                if (entry.getValue().equals(teamId)) {
-                    keyIdsToRemove.add(entry.getKey());
-                }
-            }
-
-            for (final String keyIdToRemove : keyIdsToRemove) {
-                this.teamIdsByKeyId.remove(keyIdToRemove);
-                this.signaturesByKeyId.remove(keyIdToRemove);
-            }
-
-            this.topicsByTeamId.remove(teamId);
-        }
-
-        final Signature signature = Signature.getInstance("SHA256withECDSA");
-        signature.initVerify(publicKey);
-
-        this.signaturesByKeyId.put(keyId, signature);
-        this.teamIdsByKeyId.put(keyId, teamId);
-
-        final Set<String> topicSet = new HashSet<>();
-
-        for (final String topic : topics) {
-            topicSet.add(topic);
-        }
-
-        this.topicsByTeamId.put(teamId, topicSet);
-    }
-
-    protected Signature getSignatureForKeyId(final String keyId) {
-        return this.signaturesByKeyId.get(keyId);
-    }
-
-    protected String getTeamIdForKeyId(final String keyId) {
-        return this.teamIdsByKeyId.get(keyId);
-    }
-
-    protected Set<String> getTopicsForTeamId(final String teamId) {
-        return this.topicsByTeamId.get(teamId);
+        this.verificationKeyRegistry.registerKey(new ApnsVerificationKey(keyId, teamId, publicKey), topics);
     }
 
     /**
      * Unregisters all teams, topics, and public keys from this server.
      */
     public void clearPublicKeys() {
-        this.signaturesByKeyId.clear();
-        this.teamIdsByKeyId.clear();
-        this.topicsByTeamId.clear();
+        this.verificationKeyRegistry.clear();
     }
 
     /**
