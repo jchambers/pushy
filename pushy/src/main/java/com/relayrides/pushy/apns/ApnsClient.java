@@ -740,9 +740,12 @@ public class ApnsClient {
     }
 
     /**
-     * TODO
+     * Revokes the signing key with the given identifiers.
+     *
+     * @param teamId the Apple-issued, ten-character identifier for the team to which the private to be removed belongs
+     * @param keyId the Apple-issued, ten-character identifier for the key to be removed
      */
-    public void removeKey(final String teamId, final String keyId) {
+    public void removeSigningKey(final String teamId, final String keyId) {
         final Set<String> topicsToRemove = this.signingKeyRegistry.removeKey(teamId, keyId);
 
         final ChannelPromise connectionReadyPromise = this.connectionReadyPromise;

@@ -334,25 +334,6 @@ public class ApnsClientTest {
     }
 
     @Test
-    public void testRegisterSigningKey() throws Exception {
-        final String topic = "topic";
-        final String differentTopic = "different-topic";
-
-        // "Normal" registration is covered implicitly by `testSendNotification`
-        this.client.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, topic);
-        this.client.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, differentTopic);
-
-        final SimpleApnsPushNotification pushNotification =
-                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), topic, "test-payload");
-
-        final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
-                this.client.sendNotification(pushNotification).await();
-
-        assertFalse(sendFuture.isSuccess());
-        assertTrue(sendFuture.cause() instanceof NoKeyForTopicException);
-    }
-
-    @Test
     public void testRegisterSigningKeyFromInputStream() throws Exception {
         try (final InputStream privateKeyInputStream = ApnsClientTest.class.getResourceAsStream(TOKEN_AUTH_PRIVATE_KEY_FILENAME)) {
             // We're happy here as long as nothing explodes
@@ -368,20 +349,33 @@ public class ApnsClientTest {
         this.client.registerSigningKey(privateKeyFile, "team-id", "key-id", "topic");
     }
 
-    /* @Test
+    @Test
     public void testRemoveKeyForTeam() throws Exception {
-        this.client.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_UD, DEFAULT_TOPIC);
-        this.client.removeKeyForTeam(DEFAULT_TEAM_ID);
+        this.client.registerSigningKey((ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
 
-        final SimpleApnsPushNotification pushNotification =
-                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), DEFAULT_TOPIC, "test-payload");
+        {
+            final SimpleApnsPushNotification pushNotification =
+                    new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), DEFAULT_TOPIC, "test-payload");
 
-        final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
-                this.client.sendNotification(pushNotification).await();
+            final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
+                    this.client.sendNotification(pushNotification).await();
 
-        assertFalse(sendFuture.isSuccess());
-        assertTrue(sendFuture.cause() instanceof NoKeyForTopicException);
-    } */
+            assertTrue(sendFuture.isSuccess());
+        }
+
+        this.client.removeSigningKey(DEFAULT_TEAM_ID, DEFAULT_KEY_ID);
+
+        {
+            final SimpleApnsPushNotification pushNotification =
+                    new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), DEFAULT_TOPIC, "test-payload");
+
+            final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
+                    this.client.sendNotification(pushNotification).await();
+
+            assertFalse(sendFuture.isSuccess());
+            assertTrue(sendFuture.cause() instanceof NoKeyForTopicException);
+        }
+    }
 
     @Test
     public void testSendNotification() throws Exception {
