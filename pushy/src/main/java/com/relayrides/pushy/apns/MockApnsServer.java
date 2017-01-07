@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
@@ -77,10 +78,15 @@ public class MockApnsServer {
                     @Override
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) throws Exception {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
+                            final MockApnsServerHandlerConfiguration initialHandlerConfiguration =
+                                    new MockApnsServerHandlerConfiguration(MockApnsServer.this.emulateInternalErrors,
+                                            new HashMap<>(MockApnsServer.this.tokenExpirationsByTopic),
+                                            MockApnsServer.this.verificationKeyRegistry);
+
                             context.pipeline().addLast(new MockApnsServerHandler.MockApnsServerHandlerBuilder()
-                                    .apnsServer(MockApnsServer.this)
-                                    .verificationKeyRegistry(MockApnsServer.this.verificationKeyRegistry)
+                                    .initialHandlerConfiguration(initialHandlerConfiguration)
                                     .initialSettings(new Http2Settings().maxConcurrentStreams(8))
+                                    .verificationKeyRegistry(MockApnsServer.this.verificationKeyRegistry)
                                     .build());
 
                             MockApnsServer.this.allChannels.add(context.channel());
@@ -173,6 +179,8 @@ public class MockApnsServer {
         }
 
         this.tokenExpirationsByTopic.get(topic).put(token, expiration);
+
+        this.handleConfigurationChange();
     }
 
     /**
@@ -180,26 +188,25 @@ public class MockApnsServer {
      */
     public void clearTokens() {
         this.tokenExpirationsByTopic.clear();
-    }
 
-    protected boolean isTokenRegisteredForTopic(final String token, final String topic) {
-        final Map<String, Date> tokensWithinTopic = this.tokenExpirationsByTopic.get(topic);
-
-        return tokensWithinTopic != null && tokensWithinTopic.containsKey(token);
-    }
-
-    protected Date getExpirationTimestampForTokenInTopic(final String token, final String topic) {
-        final Map<String, Date> tokensWithinTopic = this.tokenExpirationsByTopic.get(topic);
-
-        return tokensWithinTopic != null ? tokensWithinTopic.get(token) : null;
+        this.handleConfigurationChange();
     }
 
     protected void setEmulateInternalErrors(final boolean emulateInternalErrors) {
         this.emulateInternalErrors = emulateInternalErrors;
+
+        this.handleConfigurationChange();
     }
 
-    protected boolean shouldEmulateInternalErrors() {
-        return this.emulateInternalErrors;
+    private void handleConfigurationChange() {
+        if (this.allChannels != null) {
+            for (final Channel channel : this.allChannels) {
+                channel.pipeline().fireUserEventTriggered(new MockApnsServerHandlerConfiguration(
+                        this.emulateInternalErrors,
+                        new HashMap<>(this.tokenExpirationsByTopic),
+                        this.verificationKeyRegistry));
+            }
+        }
     }
 
     /**
