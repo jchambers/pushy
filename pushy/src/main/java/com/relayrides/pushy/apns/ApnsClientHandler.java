@@ -30,6 +30,7 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.WeakHashMap;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
@@ -71,7 +72,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
 
     private final ApnsKeyRegistry<ApnsSigningKey> signingKeyRegistry;
     private final Map<String, String> encodedAuthenticationTokensByTopic = new HashMap<>();
-    private final Map<ApnsPushNotification, String> encodedAuthenticationTokensByPushNotification = new HashMap<>();
+    private final Map<ApnsPushNotification, String> encodedAuthenticationTokensByPushNotification = new WeakHashMap<>();
 
     private final Map<ApnsPushNotification, Promise<PushNotificationResponse<ApnsPushNotification>>> responsePromises =
             new IdentityHashMap<>();
@@ -166,7 +167,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
             if (endOfStream) {
                 final Http2Headers headers = ApnsClientHandler.this.headersByStreamId.remove(streamId);
                 final ApnsPushNotification pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
-                final String encodedAuthenticationToken = ApnsClientHandler.this.encodedAuthenticationTokensByPushNotification.remove(pushNotification);
+                final String encodedAuthenticationToken = ApnsClientHandler.this.encodedAuthenticationTokensByPushNotification.get(pushNotification);
 
                 final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
                 final String responseBody = data.toString(StandardCharsets.UTF_8);
@@ -178,10 +179,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                     final ErrorResponse errorResponse = gson.fromJson(responseBody, ErrorResponse.class);
 
                     if (ApnsClientHandler.EXPIRED_AUTH_TOKEN_REASON.equals(errorResponse.getReason())) {
-                        final String expiredAuthenticationToken =
-                                ApnsClientHandler.this.encodedAuthenticationTokensByPushNotification.get(pushNotification);
-
-                        if (expiredAuthenticationToken == null || expiredAuthenticationToken.equals(encodedAuthenticationToken)) {
+                        if (encodedAuthenticationToken == null || encodedAuthenticationToken.equals(ApnsClientHandler.this.encodedAuthenticationTokensByTopic.get(pushNotification.getTopic()))) {
                             // We only want to clear this if the token that expired is actually the one we have in our
                             // map; otherwise, we might wind up needlessly regenerating tokens a zillion times.
                             ApnsClientHandler.this.encodedAuthenticationTokensByTopic.remove(pushNotification.getTopic());
@@ -220,7 +218,6 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                 }
 
                 final ApnsPushNotification pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
-                ApnsClientHandler.this.encodedAuthenticationTokensByPushNotification.remove(pushNotification);
 
                 if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
                     log.warn("APNs server reported an internal error when sending {}.", pushNotification);
