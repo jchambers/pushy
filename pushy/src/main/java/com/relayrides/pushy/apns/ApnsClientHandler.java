@@ -184,7 +184,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                     }
 
                     ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(
-                            new SimplePushNotificationResponse<ApnsPushNotification>(pushNotification, HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
+                            new SimplePushNotificationResponse<>(pushNotification, HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
                 }
             } else {
                 log.error("Gateway sent a DATA frame that was not the end of a stream.");
@@ -217,7 +217,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                     ApnsClientHandler.this.apnsClient.handleServerError(pushNotification, null);
                 } else {
                     ApnsClientHandler.this.apnsClient.handlePushNotificationResponse(
-                            new SimplePushNotificationResponse<ApnsPushNotification>(pushNotification, success, null, null));
+                            new SimplePushNotificationResponse<>(pushNotification, success, null, null));
                 }
             } else {
                 ApnsClientHandler.this.headersByStreamId.put(streamId, headers);

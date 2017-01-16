@@ -190,7 +190,6 @@ public class ApnsClient {
     public static final int ALTERNATE_APNS_PORT = 2197;
 
     private static final ClientNotConnectedException NOT_CONNECTED_EXCEPTION = new ClientNotConnectedException();
-    private static final ClientBusyException CLIENT_BUSY_EXCEPTION = new ClientBusyException();
 
     private static final long INITIAL_RECONNECT_DELAY_SECONDS = 1; // second
     private static final long MAX_RECONNECT_DELAY_SECONDS = 60; // seconds
@@ -870,10 +869,6 @@ public class ApnsClient {
         final ChannelPromise connectionReadyPromise = this.connectionReadyPromise;
 
         if (connectionReadyPromise != null && connectionReadyPromise.isSuccess() && connectionReadyPromise.channel().isActive()) {
-            if (!connectionReadyPromise.channel().isWritable()) {
-                return new FailedFuture<>(GlobalEventExecutor.INSTANCE, CLIENT_BUSY_EXCEPTION);
-            }
-
             final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise;
 
             if (promise != null) {
