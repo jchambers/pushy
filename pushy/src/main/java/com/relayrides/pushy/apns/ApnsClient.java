@@ -76,6 +76,7 @@ import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.GlobalEventExecutor;
 import io.netty.util.concurrent.Promise;
 import io.netty.util.concurrent.SucceededFuture;
+import io.netty.util.concurrent.ScheduledFuture;
 
 /**
  * <p>An APNs client sends push notifications to the APNs gateway. Clients authenticate themselves to APNs servers in
@@ -137,6 +138,7 @@ public class ApnsClient {
 
     private volatile ChannelPromise connectionReadyPromise;
     private volatile ChannelPromise reconnectionPromise;
+    private ScheduledFuture scheduledReconnectFuture;
     private long reconnectDelaySeconds = INITIAL_RECONNECT_DELAY_SECONDS;
 
     private final Map<ApnsPushNotification, Promise<PushNotificationResponse<ApnsPushNotification>>> responsePromises = new IdentityHashMap<>();
@@ -486,7 +488,7 @@ public class ApnsClient {
                                 if (ApnsClient.this.reconnectionPromise != null) {
                                     log.debug("Disconnected. Next automatic reconnection attempt in {} seconds.", ApnsClient.this.reconnectDelaySeconds);
 
-                                    future.channel().eventLoop().schedule(new Runnable() {
+                                    ApnsClient.this.scheduledReconnectFuture = future.channel().eventLoop().schedule(new Runnable() {
 
                                         @Override
                                         public void run() {
@@ -1003,6 +1005,9 @@ public class ApnsClient {
 
         synchronized (this.bootstrap) {
             this.reconnectionPromise = null;
+            if (this.scheduledReconnectFuture != null) {
+                this.scheduledReconnectFuture.cancel(true);
+            }
 
             final Future<Void> channelCloseFuture;
 
