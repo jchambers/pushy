@@ -452,6 +452,23 @@ public class ApnsClient {
                     final ChannelFuture connectFuture = this.bootstrap.connect(host, port);
                     this.connectionReadyPromise = connectFuture.channel().newPromise();
 
+                    connectFuture.addListener(new GenericFutureListener<ChannelFuture> () {
+
+                        @Override
+                        public void operationComplete(final ChannelFuture future) throws Exception {
+                            if (!future.isSuccess()) {
+                                final ChannelPromise connectionReadyPromise = ApnsClient.this.connectionReadyPromise;
+
+                                if (connectionReadyPromise != null) {
+                                    // This may seem spurious, but our goal here is to accurately report the cause of
+                                    // connection failure; if we just wait for connection closure, we won't be able to
+                                    // tell callers anything more specific about what went wrong.
+                                    connectionReadyPromise.tryFailure(future.cause());
+                                }
+                            }
+                        }
+                    });
+
                     connectFuture.channel().closeFuture().addListener(new GenericFutureListener<ChannelFuture> () {
 
                         @Override
