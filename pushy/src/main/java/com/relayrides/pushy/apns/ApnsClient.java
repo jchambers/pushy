@@ -40,6 +40,7 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -147,8 +148,8 @@ public class ApnsClient {
     private final AtomicLong nextNotificationId = new AtomicLong(0);
 
     private final boolean useTokenAuthentication;
-    private final Map<String, Set<String>> topicsByTeamId = new HashMap<>();
-    private final Map<String, AuthenticationTokenSupplier> authenticationTokenSuppliersByTopic = new HashMap<>();
+    private final Map<String, Set<String>> topicsByTeamId = new ConcurrentHashMap <>();
+    private final Map<String, AuthenticationTokenSupplier> authenticationTokenSuppliersByTopic = new ConcurrentHashMap <>();
 
     /**
      * The default write timeout, in milliseconds.
