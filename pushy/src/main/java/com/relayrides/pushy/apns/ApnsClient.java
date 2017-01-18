@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -138,8 +139,8 @@ public class ApnsClient {
     private ApnsClientMetricsListener metricsListener = new NoopMetricsListener();
     private final AtomicLong nextNotificationId = new AtomicLong(0);
 
-    private final Map<String, Set<String>> topicsByTeamId = new HashMap<>();
-    private final Map<String, AuthenticationTokenSupplier> authenticationTokenSuppliersByTopic = new HashMap<>();
+    private final Map<String, Set<String>> topicsByTeamId = new ConcurrentHashMap<>();
+    private final Map<String, AuthenticationTokenSupplier> authenticationTokenSuppliersByTopic = new ConcurrentHashMap<>();
 
     /**
      * The default write timeout, in milliseconds.
