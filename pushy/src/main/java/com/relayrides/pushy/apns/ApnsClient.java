@@ -471,7 +471,7 @@ public class ApnsClient {
                                 if (ApnsClient.this.reconnectionPromise != null) {
                                     log.debug("Disconnected. Next automatic reconnection attempt in {} seconds.", ApnsClient.this.reconnectDelaySeconds);
 
-                                    scheduledReconnectFuture = future.channel().eventLoop().schedule(new Runnable() {
+                                    ApnsClient.this.scheduledReconnectFuture = future.channel().eventLoop().schedule(new Runnable() {
 
                                         @Override
                                         public void run() {
@@ -988,8 +988,8 @@ public class ApnsClient {
 
         synchronized (this.bootstrap) {
             this.reconnectionPromise = null;
-            if (scheduledReconnectFuture != null) {
-                scheduledReconnectFuture.cancel(true);
+            if (this.scheduledReconnectFuture != null) {
+                this.scheduledReconnectFuture.cancel(true);
             }
 
             final Future<Void> channelCloseFuture;
