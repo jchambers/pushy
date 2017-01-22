@@ -35,10 +35,10 @@ import java.security.interfaces.ECPrivateKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -76,6 +76,7 @@ import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.GlobalEventExecutor;
 import io.netty.util.concurrent.Promise;
 import io.netty.util.concurrent.SucceededFuture;
+import io.netty.util.concurrent.ScheduledFuture;
 
 /**
  * <p>An APNs client sends push notifications to the APNs gateway. APNs clients communicate with an APNs server using
@@ -133,13 +134,14 @@ public class ApnsClient {
 
     private volatile ChannelPromise connectionReadyPromise;
     private volatile ChannelPromise reconnectionPromise;
+    private ScheduledFuture scheduledReconnectFuture;
     private long reconnectDelaySeconds = INITIAL_RECONNECT_DELAY_SECONDS;
 
     private ApnsClientMetricsListener metricsListener = new NoopMetricsListener();
     private final AtomicLong nextNotificationId = new AtomicLong(0);
 
-    private final Map<String, Set<String>> topicsByTeamId = new HashMap<>();
-    private final Map<String, AuthenticationTokenSupplier> authenticationTokenSuppliersByTopic = new HashMap<>();
+    private final Map<String, Set<String>> topicsByTeamId = new ConcurrentHashMap <>();
+    private final Map<String, AuthenticationTokenSupplier> authenticationTokenSuppliersByTopic = new ConcurrentHashMap <>();
 
     /**
      * The default write timeout, in milliseconds.
@@ -183,7 +185,6 @@ public class ApnsClient {
     public static final int ALTERNATE_APNS_PORT = 2197;
 
     private static final ClientNotConnectedException NOT_CONNECTED_EXCEPTION = new ClientNotConnectedException();
-    private static final ClientBusyException CLIENT_BUSY_EXCEPTION = new ClientBusyException();
 
     private static final long INITIAL_RECONNECT_DELAY_SECONDS = 1; // second
     private static final long MAX_RECONNECT_DELAY_SECONDS = 60; // seconds
@@ -421,6 +422,23 @@ public class ApnsClient {
                     final ChannelFuture connectFuture = this.bootstrap.connect(host, port);
                     this.connectionReadyPromise = connectFuture.channel().newPromise();
 
+                    connectFuture.addListener(new GenericFutureListener<ChannelFuture> () {
+
+                        @Override
+                        public void operationComplete(final ChannelFuture future) throws Exception {
+                            if (!future.isSuccess()) {
+                                final ChannelPromise connectionReadyPromise = ApnsClient.this.connectionReadyPromise;
+
+                                if (connectionReadyPromise != null) {
+                                    // This may seem spurious, but our goal here is to accurately report the cause of
+                                    // connection failure; if we just wait for connection closure, we won't be able to
+                                    // tell callers anything more specific about what went wrong.
+                                    connectionReadyPromise.tryFailure(future.cause());
+                                }
+                            }
+                        }
+                    });
+
                     connectFuture.channel().closeFuture().addListener(new GenericFutureListener<ChannelFuture> () {
 
                         @Override
@@ -438,7 +456,7 @@ public class ApnsClient {
                                 if (ApnsClient.this.reconnectionPromise != null) {
                                     log.debug("Disconnected. Next automatic reconnection attempt in {} seconds.", ApnsClient.this.reconnectDelaySeconds);
 
-                                    future.channel().eventLoop().schedule(new Runnable() {
+                                    ApnsClient.this.scheduledReconnectFuture = future.channel().eventLoop().schedule(new Runnable() {
 
                                         @Override
                                         public void run() {
@@ -803,13 +821,8 @@ public class ApnsClient {
 
         if (connectionReadyPromise != null && connectionReadyPromise.isSuccess() && connectionReadyPromise.channel().isActive()) {
             final Channel channel = connectionReadyPromise.channel();
-
-            if (!channel.isWritable()) {
-                return new FailedFuture<>(GlobalEventExecutor.INSTANCE, CLIENT_BUSY_EXCEPTION);
-            }
-
             final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
-                    new DefaultPromise<>(channel.eventLoop());
+                    new DefaultPromise(channel.eventLoop());
 
             channel.writeAndFlush(new PushNotificationAndResponsePromise(notification, responsePromise)).addListener(new GenericFutureListener<ChannelFuture>() {
 
@@ -876,6 +889,9 @@ public class ApnsClient {
 
         synchronized (this.bootstrap) {
             this.reconnectionPromise = null;
+            if (this.scheduledReconnectFuture != null) {
+                this.scheduledReconnectFuture.cancel(true);
+            }
 
             final Future<Void> channelCloseFuture;
 

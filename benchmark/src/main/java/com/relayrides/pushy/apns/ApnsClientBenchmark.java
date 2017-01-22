@@ -27,7 +27,6 @@ import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 import io.netty.channel.EventLoopGroup;
-import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
@@ -63,8 +62,6 @@ public class ApnsClientBenchmark {
         this.eventLoopGroup = new NioEventLoopGroup(2);
 
         final ApnsClientBuilder clientBuilder = new ApnsClientBuilder()
-                .setChannelWriteBufferWatermark(new WriteBufferWaterMark(MESSAGE_BODY_LENGTH * this.notificationCount / 4,
-                        MESSAGE_BODY_LENGTH * this.notificationCount * 2))
                 .setTrustedServerCertificateChain(ApnsClientBenchmark.class.getResourceAsStream(CA_CERTIFICATE_FILENAME))
                 .setEventLoopGroup(this.eventLoopGroup);
 

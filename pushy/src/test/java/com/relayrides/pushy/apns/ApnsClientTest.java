@@ -30,7 +30,6 @@ import org.junit.Test;
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
-import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.handler.ssl.SslProvider;
 import io.netty.util.concurrent.Future;
@@ -623,28 +622,6 @@ public class ApnsClientTest {
         assertFalse(response.isAccepted());
         assertEquals("Unregistered", response.getRejectionReason());
         assertEquals(now, response.getTokenInvalidationTimestamp());
-    }
-
-    @Test
-    public void testSendNotificationOnBusyChannel() throws Exception {
-        final ApnsClient busyClient = new ApnsClientBuilder()
-                .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                .setEventLoopGroup(EVENT_LOOP_GROUP)
-                .setChannelWriteBufferWatermark(new WriteBufferWaterMark(0,0))
-                .build();
-
-        busyClient.connect(HOST, PORT).await();
-
-        final String testToken = ApnsClientTest.generateRandomToken();
-
-        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
-
-        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
-
-        final Future<PushNotificationResponse<SimpleApnsPushNotification>> responseFuture = busyClient.sendNotification(pushNotification);
-
-        assertFalse(responseFuture.isSuccess());
-        assertTrue(responseFuture.cause() instanceof ClientBusyException);
     }
 
     @Test
