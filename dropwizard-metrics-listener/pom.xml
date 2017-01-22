@@ -3,13 +3,14 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>pushy-dropwizard-metrics-listener</artifactId>
+  <version>0.9</version>
     <name>Dropwizard Metrics listener for Pushy</name>
     <description>A metrics listener for Pushy that uses the Dropwizard Metrics library for gathering and reporting metrics.</description>
 
     <parent>
         <groupId>com.relayrides</groupId>
         <artifactId>pushy-parent</artifactId>
-        <version>0.9</version>
+        <version>0.9.1</version>
     </parent>
 
     <dependencies>
