@@ -23,15 +23,17 @@ import io.netty.util.concurrent.Future;
 public class ExampleApp {
 
     public static void main(final String[] args) throws Exception {
-        final ApnsSigningKeyRegistry signingKeyRegistry = new ApnsSigningKeyRegistry();
-
         // The first thing to do is to create an APNs client. Clients need a
         // certificate and private key to authenticate with the APNs server. The
         // most common way to store the certificate and key is in a
         // password-protected PKCS#12 file.
         final ApnsClient apnsClient = new ApnsClientBuilder()
-                .setSigningKeySource(signingKeyRegistry)
                 .build();
+
+        // By default, clients will use an ApnsSigningKeyRegistry as their
+        // signing key source.
+        final ApnsSigningKeyRegistry signingKeyRegistry =
+                (ApnsSigningKeyRegistry) apnsClient.getSigningKeySource();
 
         signingKeyRegistry.registerKey(new File("/path/to/key.p8"),
                 "TEAMID1234", "KEYID67890", "com.example.topic");

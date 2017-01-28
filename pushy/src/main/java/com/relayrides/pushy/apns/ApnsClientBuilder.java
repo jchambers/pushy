@@ -23,7 +23,6 @@ package com.relayrides.pushy.apns;
 import java.io.File;
 import java.io.InputStream;
 import java.security.cert.X509Certificate;
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLException;
@@ -33,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import com.relayrides.pushy.apns.auth.ApnsKeySource;
 import com.relayrides.pushy.apns.auth.ApnsSigningKey;
+import com.relayrides.pushy.apns.auth.ApnsSigningKeyRegistry;
 import com.relayrides.pushy.apns.proxy.ProxyHandlerFactory;
 
 import io.netty.channel.EventLoopGroup;
@@ -294,8 +294,6 @@ public class ApnsClientBuilder {
      * @since 0.8
      */
     public ApnsClient build() throws SSLException {
-        Objects.requireNonNull(this.signingKeySource, "Signing key source must not be null.");
-
         final SslContext sslContext;
         {
             final SslProvider sslProvider;
@@ -337,7 +335,10 @@ public class ApnsClientBuilder {
             sslContext = sslContextBuilder.build();
         }
 
-        final ApnsClient apnsClient = new ApnsClient(this.signingKeySource, sslContext, this.eventLoopGroup);
+        final ApnsKeySource<ApnsSigningKey> signingKeySource =
+                this.signingKeySource != null ? this.signingKeySource : new ApnsSigningKeyRegistry();
+
+        final ApnsClient apnsClient = new ApnsClient(signingKeySource, sslContext, this.eventLoopGroup);
 
         apnsClient.setMetricsListener(this.metricsListener);
         apnsClient.setProxyHandlerFactory(this.proxyHandlerFactory);

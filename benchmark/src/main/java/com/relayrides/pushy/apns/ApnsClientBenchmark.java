@@ -69,7 +69,6 @@ public class ApnsClientBenchmark {
                 .setEventLoopGroup(this.eventLoopGroup);
 
         final MockApnsServerBuilder serverBuilder = new MockApnsServerBuilder()
-                .setVerificationKeySource(new ApnsVerificationKeyRegistry())
                 .setServerCredentials(ApnsClientBenchmark.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), ApnsClientBenchmark.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
                 .setEventLoopGroup(this.eventLoopGroup);
 

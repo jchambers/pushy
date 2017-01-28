@@ -6,8 +6,6 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.relayrides.pushy.apns.auth.ApnsVerificationKeyRegistry;
-
 import io.netty.channel.nio.NioEventLoopGroup;
 
 public class MockApnsServerTest {
@@ -22,7 +20,6 @@ public class MockApnsServerTest {
     @Before
     public void setUp() throws Exception {
         this.server = new MockApnsServerBuilder()
-                .setVerificationKeySource(new ApnsVerificationKeyRegistry())
                 .setServerCredentials(MockApnsServerTest.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), MockApnsServerTest.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
                 .build();
     }
@@ -45,7 +42,6 @@ public class MockApnsServerTest {
         try {
 
             final MockApnsServer providedGroupServer = new MockApnsServerBuilder()
-                    .setVerificationKeySource(new ApnsVerificationKeyRegistry())
                     .setServerCredentials(MockApnsServerTest.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), MockApnsServerTest.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
                     .setEventLoopGroup(eventLoopGroup)
                     .build();
@@ -66,7 +62,6 @@ public class MockApnsServerTest {
         try {
 
             final MockApnsServer providedGroupServer = new MockApnsServerBuilder()
-                    .setVerificationKeySource(new ApnsVerificationKeyRegistry())
                     .setServerCredentials(MockApnsServerTest.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), MockApnsServerTest.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
                     .setEventLoopGroup(eventLoopGroup)
                     .build();

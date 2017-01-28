@@ -201,7 +201,6 @@ public class ApnsClientTest {
     @Before
     public void setUp() throws Exception {
         this.server = new MockApnsServerBuilder()
-                .setVerificationKeySource(new ApnsVerificationKeyRegistry())
                 .setServerCredentials(ApnsClientTest.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), ApnsClientTest.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();
@@ -211,7 +210,6 @@ public class ApnsClientTest {
         this.preferredSslProvider = "jdk".equals(System.getenv("PUSHY_SSL_PROVIDER")) ? SslProvider.JDK : null;
 
         this.client = new ApnsClientBuilder()
-                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .setSslProvider(this.preferredSslProvider)
@@ -242,7 +240,6 @@ public class ApnsClientTest {
     @Test
     public void testApnsClientWithManagedEventLoopGroup() throws Exception {
         final ApnsClient managedGroupClient = new ApnsClientBuilder()
-                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .build();
 
@@ -253,7 +250,6 @@ public class ApnsClientTest {
     @Test
     public void testRestartApnsClientWithManagedEventLoopGroup() throws Exception {
         final ApnsClient managedGroupClient = new ApnsClientBuilder()
-                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .build();
 
@@ -269,7 +265,6 @@ public class ApnsClientTest {
     @Test
     public void testConnectToUntrustedServer() throws Exception {
         final ApnsClient cautiousClient = new ApnsClientBuilder()
-                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();
 
@@ -326,7 +321,6 @@ public class ApnsClientTest {
     @Test
     public void testGetReconnectionFutureWhenNotConnected() throws Exception {
         final ApnsClient unconnectedClient = new ApnsClientBuilder()
-                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();
@@ -388,7 +382,6 @@ public class ApnsClientTest {
     @Test
     public void testSendNotificationBeforeConnected() throws Exception {
         final ApnsClient unconnectedClient = new ApnsClientBuilder()
-                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();
@@ -594,14 +587,12 @@ public class ApnsClientTest {
         this.tearDown();
 
         final MockApnsServer terribleTerribleServer = new MockApnsServerBuilder()
-                .setVerificationKeySource(new ApnsVerificationKeyRegistry())
                 .setServerCredentials(ApnsClientTest.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), ApnsClientTest.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .setEmulateInternalErrors(true)
                 .build();
 
         final ApnsClient unfortunateClient = new ApnsClientBuilder()
-                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();
@@ -634,7 +625,6 @@ public class ApnsClientTest {
     @Test
     public void testWriteFailureMetrics() throws Exception {
         final ApnsClient unconnectedClient = new ApnsClientBuilder()
-                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();
@@ -686,7 +676,6 @@ public class ApnsClientTest {
     @Test
     public void testSuccessfulConnectionMetrics() throws Exception {
         final ApnsClient unconnectedClient = new ApnsClientBuilder()
-                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();
@@ -708,7 +697,6 @@ public class ApnsClientTest {
     @Test
     public void testFailedConnectionMetrics() throws Exception {
         final ApnsClient unconnectedClient = new ApnsClientBuilder()
-                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();

@@ -24,7 +24,6 @@ import java.io.File;
 import java.io.InputStream;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
-import java.util.Objects;
 
 import javax.net.ssl.SSLException;
 
@@ -33,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import com.relayrides.pushy.apns.auth.ApnsKeySource;
 import com.relayrides.pushy.apns.auth.ApnsVerificationKey;
+import com.relayrides.pushy.apns.auth.ApnsVerificationKeyRegistry;
 
 import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
@@ -229,8 +229,6 @@ public class MockApnsServerBuilder {
      * @since 0.8
      */
     public MockApnsServer build() throws SSLException {
-        Objects.requireNonNull(this.verificationKeySource, "Verification key source must not be null.");
-
         final SslContext sslContext;
         {
             final SslProvider sslProvider;
@@ -276,7 +274,10 @@ public class MockApnsServerBuilder {
             sslContext = sslContextBuilder.build();
         }
 
-        final MockApnsServer server = new MockApnsServer(this.verificationKeySource, sslContext, this.eventLoopGroup);
+        final ApnsKeySource<ApnsVerificationKey> verificationKeySource =
+                this.verificationKeySource != null ? this.verificationKeySource : new ApnsVerificationKeyRegistry();
+
+        final MockApnsServer server = new MockApnsServer(verificationKeySource, sslContext, this.eventLoopGroup);
         server.setEmulateInternalErrors(this.emulateInternalErrors);
 
         return server;
