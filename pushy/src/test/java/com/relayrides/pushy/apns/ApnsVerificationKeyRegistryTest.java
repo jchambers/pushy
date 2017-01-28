@@ -14,4 +14,6 @@ public class ApnsVerificationKeyRegistryTest extends ApnsKeyRegistryTest<ApnsVer
     protected ApnsVerificationKey getNewKey(String keyId, String teamId) throws NoSuchAlgorithmException {
         return new ApnsVerificationKey(keyId, teamId, (ECPublicKey) KeyPairUtil.generateKeyPair().getPublic());
     }
+
+    // TODO Test getting keys from files/input streams
 }

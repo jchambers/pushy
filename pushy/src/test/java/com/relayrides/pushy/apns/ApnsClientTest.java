@@ -5,7 +5,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
-import java.io.InputStream;
 import java.security.KeyPair;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
@@ -34,8 +33,6 @@ import io.netty.util.concurrent.GenericFutureListener;
 public class ApnsClientTest {
 
     private static NioEventLoopGroup EVENT_LOOP_GROUP;
-
-    private static final String TOKEN_AUTH_PRIVATE_KEY_FILENAME = "/token-auth-private-key.p8";
 
     private static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
     private static final String SERVER_CERTIFICATES_FILENAME = "/server_certs.pem";
@@ -201,6 +198,7 @@ public class ApnsClientTest {
     @Before
     public void setUp() throws Exception {
         this.server = new MockApnsServerBuilder()
+                .setVerificationKeySource(new ApnsVerificationKeyRegistry())
                 .setServerCredentials(ApnsClientTest.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), ApnsClientTest.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();
@@ -210,6 +208,7 @@ public class ApnsClientTest {
         this.preferredSslProvider = "jdk".equals(System.getenv("PUSHY_SSL_PROVIDER")) ? SslProvider.JDK : null;
 
         this.client = new ApnsClientBuilder()
+                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .setSslProvider(this.preferredSslProvider)
@@ -240,6 +239,7 @@ public class ApnsClientTest {
     @Test
     public void testApnsClientWithManagedEventLoopGroup() throws Exception {
         final ApnsClient managedGroupClient = new ApnsClientBuilder()
+                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .build();
 
@@ -250,6 +250,7 @@ public class ApnsClientTest {
     @Test
     public void testRestartApnsClientWithManagedEventLoopGroup() throws Exception {
         final ApnsClient managedGroupClient = new ApnsClientBuilder()
+                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .build();
 
@@ -265,6 +266,7 @@ public class ApnsClientTest {
     @Test
     public void testConnectToUntrustedServer() throws Exception {
         final ApnsClient cautiousClient = new ApnsClientBuilder()
+                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();
 
@@ -321,6 +323,7 @@ public class ApnsClientTest {
     @Test
     public void testGetReconnectionFutureWhenNotConnected() throws Exception {
         final ApnsClient unconnectedClient = new ApnsClientBuilder()
+                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();
@@ -331,22 +334,6 @@ public class ApnsClientTest {
 
         assertFalse(unconnectedClient.isConnected());
         assertFalse(reconnectionFuture.isSuccess());
-    }
-
-    @Test
-    public void testRegisterSigningKeyFromInputStream() throws Exception {
-        try (final InputStream privateKeyInputStream = ApnsClientTest.class.getResourceAsStream(TOKEN_AUTH_PRIVATE_KEY_FILENAME)) {
-            // We're happy here as long as nothing explodes
-            this.client.getSigningKeyRegistry().registerKey(privateKeyInputStream, "team-id", "key-id", "topic");
-        }
-    }
-
-    @Test
-    public void testRegisterSigningKeyFromFile() throws Exception {
-        final File privateKeyFile = new File(ApnsClientTest.class.getResource(TOKEN_AUTH_PRIVATE_KEY_FILENAME).getFile());
-
-        // We're happy here as long as nothing explodes
-        this.client.getSigningKeyRegistry().registerKey(privateKeyFile, "team-id", "key-id", "topic");
     }
 
     /* @Test
@@ -382,9 +369,9 @@ public class ApnsClientTest {
         final String testToken = ApnsClientTest.generateRandomToken();
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
-        this.client.getSigningKeyRegistry().registerKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
+        ((ApnsSigningKeyRegistry) this.client.getSigningKeySource()).registerKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
 
-        this.server.getVerificationKeyRegistry().registerKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
+        ((ApnsVerificationKeyRegistry) this.server.getVerificationKeySource()).registerKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
         this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
@@ -398,6 +385,7 @@ public class ApnsClientTest {
     @Test
     public void testSendNotificationBeforeConnected() throws Exception {
         final ApnsClient unconnectedClient = new ApnsClientBuilder()
+                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();
@@ -405,9 +393,9 @@ public class ApnsClientTest {
         final String testToken = ApnsClientTest.generateRandomToken();
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
-        unconnectedClient.getSigningKeyRegistry().registerKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
+        ((ApnsSigningKeyRegistry) unconnectedClient.getSigningKeySource()).registerKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
 
-        this.server.getVerificationKeyRegistry().registerKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
+        ((ApnsVerificationKeyRegistry) this.server.getVerificationKeySource()).registerKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
         this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
@@ -456,7 +444,7 @@ public class ApnsClientTest {
         final String testToken = ApnsClientTest.generateRandomToken();
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
-        this.server.getVerificationKeyRegistry().registerKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
+        ((ApnsVerificationKeyRegistry) this.server.getVerificationKeySource()).registerKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
         this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
@@ -471,8 +459,8 @@ public class ApnsClientTest {
     public void testSendManyNotifications() throws Exception {
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
-        this.client.getSigningKeyRegistry().registerKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
-        this.server.getVerificationKeyRegistry().registerKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
+        ((ApnsSigningKeyRegistry) this.client.getSigningKeySource()).registerKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
+        ((ApnsVerificationKeyRegistry) this.server.getVerificationKeySource()).registerKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
 
         final int notificationCount = 1000;
 
@@ -504,8 +492,8 @@ public class ApnsClientTest {
     public void testSendManyNotificationsWithListeners() throws Exception {
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
-        this.client.getSigningKeyRegistry().registerKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
-        this.server.getVerificationKeyRegistry().registerKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
+        ((ApnsSigningKeyRegistry) this.client.getSigningKeySource()).registerKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
+        ((ApnsVerificationKeyRegistry) this.server.getVerificationKeySource()).registerKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
 
         final int notificationCount = 1000;
 
@@ -548,8 +536,8 @@ public class ApnsClientTest {
     public void testRepeatedlySendSameNotification() throws Exception {
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
-        this.client.getSigningKeyRegistry().registerKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
-        this.server.getVerificationKeyRegistry().registerKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
+        ((ApnsSigningKeyRegistry) this.client.getSigningKeySource()).registerKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
+        ((ApnsVerificationKeyRegistry) this.server.getVerificationKeySource()).registerKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
 
         final int notificationCount = 1000;
 
@@ -581,8 +569,8 @@ public class ApnsClientTest {
         final String testToken = ApnsClientTest.generateRandomToken();
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
-        this.client.getSigningKeyRegistry().registerKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
-        this.server.getVerificationKeyRegistry().registerKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
+        ((ApnsSigningKeyRegistry) this.client.getSigningKeySource()).registerKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
+        ((ApnsVerificationKeyRegistry) this.server.getVerificationKeySource()).registerKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
 
         final Date now = new Date();
 
@@ -603,20 +591,22 @@ public class ApnsClientTest {
         this.tearDown();
 
         final MockApnsServer terribleTerribleServer = new MockApnsServerBuilder()
+                .setVerificationKeySource(new ApnsVerificationKeyRegistry())
                 .setServerCredentials(ApnsClientTest.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), ApnsClientTest.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .setEmulateInternalErrors(true)
                 .build();
 
         final ApnsClient unfortunateClient = new ApnsClientBuilder()
+                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();
 
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
-        unfortunateClient.getSigningKeyRegistry().registerKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
-        terribleTerribleServer.getVerificationKeyRegistry().registerKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
+        ((ApnsSigningKeyRegistry) unfortunateClient.getSigningKeySource()).registerKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
+        ((ApnsVerificationKeyRegistry) terribleTerribleServer.getVerificationKeySource()).registerKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
 
         terribleTerribleServer.start(PORT).await();
         unfortunateClient.connect(HOST, PORT).await();
@@ -641,6 +631,7 @@ public class ApnsClientTest {
     @Test
     public void testWriteFailureMetrics() throws Exception {
         final ApnsClient unconnectedClient = new ApnsClientBuilder()
+                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();
@@ -692,6 +683,7 @@ public class ApnsClientTest {
     @Test
     public void testSuccessfulConnectionMetrics() throws Exception {
         final ApnsClient unconnectedClient = new ApnsClientBuilder()
+                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();
@@ -713,6 +705,7 @@ public class ApnsClientTest {
     @Test
     public void testFailedConnectionMetrics() throws Exception {
         final ApnsClient unconnectedClient = new ApnsClientBuilder()
+                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();

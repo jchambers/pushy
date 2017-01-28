@@ -62,10 +62,12 @@ public class ApnsClientBenchmark {
         this.eventLoopGroup = new NioEventLoopGroup(2);
 
         final ApnsClientBuilder clientBuilder = new ApnsClientBuilder()
+                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(ApnsClientBenchmark.class.getResourceAsStream(CA_CERTIFICATE_FILENAME))
                 .setEventLoopGroup(this.eventLoopGroup);
 
         final MockApnsServerBuilder serverBuilder = new MockApnsServerBuilder()
+                .setVerificationKeySource(new ApnsVerificationKeyRegistry())
                 .setServerCredentials(ApnsClientBenchmark.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), ApnsClientBenchmark.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
                 .setEventLoopGroup(this.eventLoopGroup);
 
@@ -82,8 +84,8 @@ public class ApnsClientBenchmark {
             keyPair = keyPairGenerator.generateKeyPair();
         }
 
-        this.client.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), TEAM_ID, KEY_ID, TOPIC);
-        this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), TEAM_ID, KEY_ID, TOPIC);
+        ((ApnsSigningKeyRegistry) this.client.getSigningKeySource()).registerKey((ECPrivateKey) keyPair.getPrivate(), TEAM_ID, KEY_ID, TOPIC);
+        ((ApnsVerificationKeyRegistry) this.server.getVerificationKeySource()).registerKey((ECPublicKey) keyPair.getPublic(), TEAM_ID, KEY_ID, TOPIC);
 
         final String token = generateRandomToken();
         this.server.registerDeviceTokenForTopic(TOPIC, token, null);

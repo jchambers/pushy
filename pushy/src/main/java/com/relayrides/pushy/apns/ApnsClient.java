@@ -119,7 +119,7 @@ public class ApnsClient {
     private ApnsClientMetricsListener metricsListener = new NoopMetricsListener();
     private final AtomicLong nextNotificationId = new AtomicLong(0);
 
-    private final ApnsSigningKeyRegistry signingKeyRegistry = new ApnsSigningKeyRegistry();
+    private final ApnsKeySource<ApnsSigningKey> signingKeySource;
 
     /**
      * The default write timeout, in milliseconds.
@@ -170,7 +170,9 @@ public class ApnsClient {
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
-    protected ApnsClient(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
+    protected ApnsClient(final ApnsKeySource<ApnsSigningKey> signingKeySource, final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
+        this.signingKeySource = signingKeySource;
+
         this.bootstrap = new Bootstrap();
 
         if (eventLoopGroup != null) {
@@ -207,7 +209,7 @@ public class ApnsClient {
                             final ApnsClientHandler apnsClientHandler = new ApnsClientHandler.ApnsClientHandlerBuilder()
                                     .server(false)
                                     .authority(((InetSocketAddress) context.channel().remoteAddress()).getHostName())
-                                    .signingKeyRegistry(ApnsClient.this.signingKeyRegistry)
+                                    .signingKeySource(ApnsClient.this.signingKeySource)
                                     .encoderEnforceMaxConcurrentStreams(true)
                                     .build();
 
@@ -530,8 +532,8 @@ public class ApnsClient {
         return reconnectionFuture;
     }
 
-    public ApnsSigningKeyRegistry getSigningKeyRegistry() {
-        return this.signingKeyRegistry;
+    public ApnsKeySource<ApnsSigningKey> getSigningKeySource() {
+        return this.signingKeySource;
     }
 
     /**

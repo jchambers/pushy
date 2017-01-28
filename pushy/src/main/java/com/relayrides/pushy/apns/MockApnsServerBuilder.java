@@ -24,6 +24,7 @@ import java.io.File;
 import java.io.InputStream;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
+import java.util.Objects;
 
 import javax.net.ssl.SSLException;
 
@@ -57,6 +58,8 @@ import io.netty.handler.ssl.SupportedCipherSuiteFilter;
  * @since 0.8
  */
 public class MockApnsServerBuilder {
+    private ApnsKeySource<ApnsVerificationKey> verificationKeySource;
+
     private X509Certificate[] certificateChain;
     private PrivateKey privateKey;
 
@@ -75,6 +78,11 @@ public class MockApnsServerBuilder {
     private boolean emulateInternalErrors = false;
 
     private static final Logger log = LoggerFactory.getLogger(MockApnsServerBuilder.class);
+
+    public MockApnsServerBuilder setVerificationKeySource(final ApnsKeySource<ApnsVerificationKey> verificationKeySource) {
+        this.verificationKeySource = verificationKeySource;
+        return this;
+    }
 
     /**
      * <p>Sets the credentials for the server under construction using the certificates in the given PEM file and the
@@ -218,6 +226,8 @@ public class MockApnsServerBuilder {
      * @since 0.8
      */
     public MockApnsServer build() throws SSLException {
+        Objects.requireNonNull(this.verificationKeySource, "Verification key source must not be null.");
+
         final SslContext sslContext;
         {
             final SslProvider sslProvider;
@@ -263,7 +273,7 @@ public class MockApnsServerBuilder {
             sslContext = sslContextBuilder.build();
         }
 
-        final MockApnsServer server = new MockApnsServer(sslContext, this.eventLoopGroup);
+        final MockApnsServer server = new MockApnsServer(this.verificationKeySource, sslContext, this.eventLoopGroup);
         server.setEmulateInternalErrors(this.emulateInternalErrors);
 
         return server;

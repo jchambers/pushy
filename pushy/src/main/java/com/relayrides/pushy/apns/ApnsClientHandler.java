@@ -114,7 +114,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements ApnsKeyRemoval
     public static class ApnsClientHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<ApnsClientHandler, ApnsClientHandlerBuilder> {
 
         private String authority;
-        private ApnsKeyRegistry<ApnsSigningKey> signingKeyRegistry;
+        private ApnsKeySource<ApnsSigningKey> signingKeySource;
 
         public ApnsClientHandlerBuilder authority(final String authority) {
             this.authority = authority;
@@ -125,13 +125,13 @@ class ApnsClientHandler extends Http2ConnectionHandler implements ApnsKeyRemoval
             return this.authority;
         }
 
-        public ApnsClientHandlerBuilder signingKeyRegistry(final ApnsKeyRegistry<ApnsSigningKey> signingKeyRegistry) {
-            this.signingKeyRegistry = signingKeyRegistry;
+        public ApnsClientHandlerBuilder signingKeySource(final ApnsKeySource<ApnsSigningKey> signingKeySource) {
+            this.signingKeySource = signingKeySource;
             return this;
         }
 
-        public ApnsKeyRegistry<ApnsSigningKey> signingKeyRegistry() {
-            return this.signingKeyRegistry;
+        public ApnsKeySource<ApnsSigningKey> signingKeySource() {
+            return this.signingKeySource;
         }
 
         @Override
@@ -148,7 +148,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements ApnsKeyRemoval
         public ApnsClientHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
             Objects.requireNonNull(this.authority(), "Authority must be set before building an ApnsClientHandler.");
 
-            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, initialSettings, this.authority(), this.signingKeyRegistry());
+            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, initialSettings, this.authority(), this.signingKeySource());
             this.frameListener(handler.new ApnsClientHandlerFrameAdapter());
 
             return handler;

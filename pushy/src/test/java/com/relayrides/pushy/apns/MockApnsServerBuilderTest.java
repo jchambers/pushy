@@ -17,8 +17,9 @@ public class MockApnsServerBuilderTest {
 
         // We're happy here as long as nothing explodes
         new MockApnsServerBuilder()
-        .setServerCredentials(certificateFile, keyFile, null)
-        .build();
+            .setVerificationKeySource(new ApnsVerificationKeyRegistry())
+            .setServerCredentials(certificateFile, keyFile, null)
+            .build();
     }
 
     @Test
@@ -28,13 +29,28 @@ public class MockApnsServerBuilderTest {
 
             // We're happy here as long as nothing explodes
             new MockApnsServerBuilder()
-            .setServerCredentials(certificateInputStream, keyInputStream, null)
-            .build();
+                .setVerificationKeySource(new ApnsVerificationKeyRegistry())
+                .setServerCredentials(certificateInputStream, keyInputStream, null)
+                .build();
         }
     }
 
     @Test(expected = IllegalStateException.class)
     public void testBuildWithoutServerCredentials() throws Exception {
-        new MockApnsServerBuilder().build();
+        new MockApnsServerBuilder()
+            .setVerificationKeySource(new ApnsVerificationKeyRegistry())
+            .build();
+    }
+
+    // TODO Settle on either NullPointerException or IllegalStateException for this kind of thing
+    @Test(expected = NullPointerException.class)
+    public void testBuildWithoutKeySource() throws Exception {
+        final File certificateFile = new File(MockApnsServerBuilderTest.class.getResource(SERVER_CERTIFICATES_FILENAME).toURI());
+        final File keyFile = new File(MockApnsServerBuilderTest.class.getResource(SERVER_KEY_FILENAME).toURI());
+
+        // We're happy here as long as nothing explodes
+        new MockApnsServerBuilder()
+            .setServerCredentials(certificateFile, keyFile, null)
+            .build();
     }
 }

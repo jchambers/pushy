@@ -46,13 +46,15 @@ public class MockApnsServer {
 
     private final Map<String, Map<String, Date>> tokenExpirationsByTopic = new HashMap<>();
 
-    private final ApnsVerificationKeyRegistry verificationKeyRegistry = new ApnsVerificationKeyRegistry();
+    private final ApnsKeySource<ApnsVerificationKey> verificationKeySource;
 
     private ChannelGroup allChannels;
 
     private boolean emulateInternalErrors = false;
 
-    protected MockApnsServer(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
+    protected MockApnsServer(final ApnsKeySource<ApnsVerificationKey> verificationKeySource, final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
+        this.verificationKeySource = verificationKeySource;
+
         this.bootstrap = new ServerBootstrap();
 
         if (eventLoopGroup != null) {
@@ -82,7 +84,7 @@ public class MockApnsServer {
                             context.pipeline().addLast(new MockApnsServerHandler.MockApnsServerHandlerBuilder()
                                     .initialHandlerConfiguration(initialHandlerConfiguration)
                                     .initialSettings(new Http2Settings().maxConcurrentStreams(8))
-                                    .verificationKeySource(MockApnsServer.this.verificationKeyRegistry)
+                                    .verificationKeySource(MockApnsServer.this.verificationKeySource)
                                     .build());
 
                             MockApnsServer.this.allChannels.add(context.channel());
@@ -112,8 +114,8 @@ public class MockApnsServer {
         return channelFuture;
     }
 
-    public ApnsVerificationKeyRegistry getVerificationKeyRegistry() {
-        return this.verificationKeyRegistry;
+    public ApnsKeySource<ApnsVerificationKey> getVerificationKeySource() {
+        return this.verificationKeySource;
     }
 
     /**
