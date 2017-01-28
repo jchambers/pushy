@@ -13,6 +13,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -38,7 +41,7 @@ import io.netty.util.concurrent.PromiseCombiner;
 
 class MockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
 
-    private final Map<Integer, UUID> requestsWaitingForDataFrame = new HashMap<>();
+    private Map<Integer, Http2Headers> headersByStreamId = new HashMap<>();
 
     private Map<String, Map<String, Date>> deviceTokenExpirationsByTopic;
 
@@ -59,6 +62,8 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
     private static final int MAX_CONTENT_LENGTH = 4096;
     private static final Pattern DEVIDE_TOKEN_PATTERN = Pattern.compile("[0-9a-fA-F]{64}");
+
+    private static final Logger log = LoggerFactory.getLogger(MockApnsServerHandler.class);
 
     private static final Gson GSON = new GsonBuilder()
             .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
@@ -178,10 +183,6 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         private final ErrorReason errorReason;
         private final Date timestamp;
 
-        public RejectNotificationResponse(final int streamId, final UUID apnsId, final ErrorReason errorReason) {
-            this(streamId, apnsId, errorReason, null);
-        }
-
         public RejectNotificationResponse(final int streamId, final UUID apnsId, final ErrorReason errorReason, final Date timestamp) {
             this.streamId = streamId;
             this.apnsId = apnsId;
@@ -218,6 +219,36 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
     }
 
+    private static class RejectedNotificationException extends Exception {
+        private static final long serialVersionUID = 1L;
+
+        private final UUID apnsId;
+        private final ErrorReason errorReason;
+        private final Date timestamp;
+
+        public RejectedNotificationException(final UUID apnsId, final ErrorReason errorReason) {
+            this(apnsId, errorReason, null);
+        }
+
+        public RejectedNotificationException(final UUID apnsId, final ErrorReason errorReason, final Date timestamp) {
+            this.apnsId = apnsId;
+            this.errorReason = errorReason;
+            this.timestamp = timestamp;
+        }
+
+        public UUID getApnsId() {
+            return this.apnsId;
+        }
+
+        public ErrorReason getErrorReason() {
+            return this.errorReason;
+        }
+
+        public Date getTimestamp() {
+            return this.timestamp;
+        }
+    }
+
     protected MockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final MockApnsServerHandlerConfiguration initialHandlerConfiguration, final ApnsKeyRegistry<ApnsVerificationKey> verificationKeyRegistry) {
         super(decoder, encoder, initialSettings);
 
@@ -228,205 +259,200 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     }
 
     @Override
+    public void onHeadersRead(final ChannelHandlerContext ctx, final int streamId, final Http2Headers headers, final int streamDependency,
+            final short weight, final boolean exclusive, final int padding, final boolean endOfStream) throws Http2Exception {
+
+        this.onHeadersRead(ctx, streamId, headers, padding, endOfStream);
+    }
+
+    @Override
+    public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
+        if (endOfStream) {
+            // It looks like we don't have any data coming, so process (and presumably reject) this notification
+            // immediately.
+            this.processPushNotification(context, streamId, headers, null);
+        } else {
+            // Store the headers so we can process them when the data arrives.
+            this.headersByStreamId.put(streamId, headers);
+        }
+    }
+
+    @Override
     public int onDataRead(final ChannelHandlerContext context, final int streamId, final ByteBuf data, final int padding, final boolean endOfStream) throws Http2Exception {
         final int bytesProcessed = data.readableBytes() + padding;
 
         if (endOfStream) {
-            // Presumably, we spotted an error earlier and sent a response immediately if we don't have an entry in the
-            // "waiting for data frame" map.
-            if (this.requestsWaitingForDataFrame.containsKey(streamId)) {
-                final UUID apnsId = this.requestsWaitingForDataFrame.remove(streamId);
-
-                if (data.readableBytes() <= MAX_CONTENT_LENGTH) {
-                    context.channel().writeAndFlush(new AcceptNotificationResponse(streamId));
-                } else {
-                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.PAYLOAD_TOO_LARGE));
-                }
-            }
+            this.processPushNotification(context, streamId, this.headersByStreamId.remove(streamId), data);
+        } else {
+            log.error("Received a `DATA` frame on stream {} that was not the end of the stream.", streamId);
         }
 
         return bytesProcessed;
     }
 
-    @Override
-    public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
+    private void processPushNotification(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final ByteBuf data) {
         if (this.emulateInternalServerErrors) {
             context.channel().writeAndFlush(new InternalServerErrorResponse(streamId));
-            return;
-        }
-
-        if (!HttpMethod.POST.asciiName().contentEquals(headers.get(Http2Headers.PseudoHeaderName.METHOD.value()))) {
-            context.channel().writeAndFlush(new RejectNotificationResponse(streamId, null, ErrorReason.METHOD_NOT_ALLOWED));
-            return;
-        }
-
-        final UUID apnsId;
-        {
-            final CharSequence apnsIdSequence = headers.get(APNS_ID_HEADER);
-
-            if (apnsIdSequence != null) {
-                try {
-                    apnsId = UUID.fromString(apnsIdSequence.toString());
-                } catch (final IllegalArgumentException e) {
-                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, null, ErrorReason.BAD_MESSAGE_ID));
-                    return;
-                }
-            } else {
-                // If the client didn't send us a UUID, make one up (for now)
-                apnsId = UUID.randomUUID();
-            }
-        }
-
-        if (endOfStream) {
-            context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.PAYLOAD_EMPTY));
-            return;
-        }
-
-        final String topic;
-        {
-            final CharSequence topicSequence = headers.get(APNS_TOPIC_HEADER);
-            topic = (topicSequence != null) ? topicSequence.toString() : null;
-        }
-
-        if (topic == null) {
-            context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.MISSING_TOPIC));
-            return;
-        }
-
-        final String encodedAuthenticationToken;
-        {
-            final CharSequence authorizationSequence = headers.get(APNS_AUTHORIZATION_HEADER);
-
-            if (authorizationSequence != null) {
-                final String authorizationString = authorizationSequence.toString();
-
-                if (authorizationString.startsWith("bearer")) {
-                    encodedAuthenticationToken = authorizationString.substring("bearer".length()).trim();
-                } else {
-                    encodedAuthenticationToken = null;
-                }
-            } else {
-                encodedAuthenticationToken = null;
-            }
-        }
-
-        if (encodedAuthenticationToken == null) {
-            context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.MISSING_PROVIDER_TOKEN));
-            return;
-        }
-
-        final Set<String> verifiedTokensForTopic = this.verifiedEncodedAuthenticationTokensByTopic.get(topic);
-
-        if (verifiedTokensForTopic != null && verifiedTokensForTopic.contains(encodedAuthenticationToken)) {
-            // We've previously verified the signature for the given encoded token, but it may have expired since then.
-            final Date tokenExpiration = this.expirationTimesByEncodedAuthenticationToken.get(encodedAuthenticationToken);
-
-            if (new Date().after(tokenExpiration)) {
-                verifiedTokensForTopic.remove(encodedAuthenticationToken);
-                this.expirationTimesByEncodedAuthenticationToken.remove(encodedAuthenticationToken);
-
-                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.EXPIRED_PROVIDER_TOKEN));
-                return;
-            }
         } else {
-            // We don't trust this token yet and need to verify it.
-            final ApnsVerificationKey verificationKey = this.verificationKeyRegistry.getKeyForTopic(topic);
-
-            if (verificationKey == null) {
-                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.BAD_TOPIC));
-                return;
-            }
-
-            final AuthenticationToken authenticationToken = new AuthenticationToken(encodedAuthenticationToken);
-
-            if (new Date().after(authenticationToken.getExpiration())) {
-                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.EXPIRED_PROVIDER_TOKEN));
-                return;
-            }
-
             try {
-                if (!authenticationToken.verifySignature(verificationKey)) {
-                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.INVALID_PROVIDER_TOKEN));
-                    return;
+                if (!HttpMethod.POST.asciiName().contentEquals(headers.get(Http2Headers.PseudoHeaderName.METHOD.value()))) {
+                    throw new RejectedNotificationException(null, ErrorReason.METHOD_NOT_ALLOWED);
                 }
-            } catch (InvalidKeyException | NoSuchAlgorithmException | SignatureException e) {
-                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.INVALID_PROVIDER_TOKEN));
-                return;
-            }
 
-            if (!this.verifiedEncodedAuthenticationTokensByTopic.containsKey(topic)) {
-                this.verifiedEncodedAuthenticationTokensByTopic.put(topic, new HashSet<String>());
-            }
+                final UUID apnsId;
+                {
+                    final CharSequence apnsIdSequence = headers.get(APNS_ID_HEADER);
 
-            this.verifiedEncodedAuthenticationTokensByTopic.get(topic).add(encodedAuthenticationToken);
-            this.expirationTimesByEncodedAuthenticationToken.put(encodedAuthenticationToken, authenticationToken.getExpiration());
-        }
-
-        {
-            final Integer priorityCode = headers.getInt(APNS_PRIORITY_HEADER);
-
-            if (priorityCode != null) {
-                try {
-                    DeliveryPriority.getFromCode(priorityCode);
-                } catch (final IllegalArgumentException e) {
-                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.BAD_PRIORITY));
-                    return;
-                }
-            }
-        }
-
-        {
-            final CharSequence pathSequence = headers.get(Http2Headers.PseudoHeaderName.PATH.value());
-
-            if (pathSequence != null) {
-                final String pathString = pathSequence.toString();
-
-                if (pathString.startsWith(APNS_PATH_PREFIX)) {
-                    final String deviceTokenString = pathString.substring(APNS_PATH_PREFIX.length());
-
-                    final Matcher deviceTokenMatcher = DEVIDE_TOKEN_PATTERN.matcher(deviceTokenString);
-
-                    if (!deviceTokenMatcher.matches()) {
-                        context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.BAD_DEVICE_TOKEN));
-                        return;
-                    }
-
-                    final Date expirationTimestamp;
-                    {
-                        final Map<String, Date> tokensWithinTopic = this.deviceTokenExpirationsByTopic.get(topic);
-                        expirationTimestamp = tokensWithinTopic != null ? tokensWithinTopic.get(deviceTokenString) : null;
-                    }
-
-                    if (expirationTimestamp != null) {
-                        context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.UNREGISTERED, expirationTimestamp));
-                        return;
-                    }
-
-                    final boolean deviceTokenIsRegisteredForTopic;
-                    {
-                        final Map<String, Date> tokensWithinTopic = this.deviceTokenExpirationsByTopic.get(topic);
-                        deviceTokenIsRegisteredForTopic = tokensWithinTopic != null && tokensWithinTopic.containsKey(deviceTokenString);
-                    }
-
-                    if (!deviceTokenIsRegisteredForTopic) {
-                        context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.DEVICE_TOKEN_NOT_FOR_TOPIC));
-                        return;
+                    if (apnsIdSequence != null) {
+                        try {
+                            apnsId = UUID.fromString(apnsIdSequence.toString());
+                        } catch (final IllegalArgumentException e) {
+                            throw new RejectedNotificationException(null, ErrorReason.BAD_MESSAGE_ID);
+                        }
+                    } else {
+                        // If the client didn't send us a UUID, make one up (for now)
+                        apnsId = UUID.randomUUID();
                     }
                 }
-            } else {
-                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.BAD_PATH));
-                return;
+
+                final String topic;
+                {
+                    final CharSequence topicSequence = headers.get(APNS_TOPIC_HEADER);
+                    topic = (topicSequence != null) ? topicSequence.toString() : null;
+                }
+
+                if (topic == null) {
+                    throw new RejectedNotificationException(apnsId, ErrorReason.MISSING_TOPIC);
+                }
+
+                final String encodedAuthenticationToken;
+                {
+                    final CharSequence authorizationSequence = headers.get(APNS_AUTHORIZATION_HEADER);
+
+                    if (authorizationSequence != null) {
+                        final String authorizationString = authorizationSequence.toString();
+
+                        if (authorizationString.startsWith("bearer")) {
+                            encodedAuthenticationToken = authorizationString.substring("bearer".length()).trim();
+                        } else {
+                            encodedAuthenticationToken = null;
+                        }
+                    } else {
+                        encodedAuthenticationToken = null;
+                    }
+                }
+
+                if (encodedAuthenticationToken == null) {
+                    throw new RejectedNotificationException(apnsId, ErrorReason.MISSING_PROVIDER_TOKEN);
+                }
+
+                final Set<String> verifiedTokensForTopic = this.verifiedEncodedAuthenticationTokensByTopic.get(topic);
+
+                if (verifiedTokensForTopic != null && verifiedTokensForTopic.contains(encodedAuthenticationToken)) {
+                    // We've previously verified the signature for the given encoded token, but it may have expired since then.
+                    final Date tokenExpiration = this.expirationTimesByEncodedAuthenticationToken.get(encodedAuthenticationToken);
+
+                    if (new Date().after(tokenExpiration)) {
+                        verifiedTokensForTopic.remove(encodedAuthenticationToken);
+                        this.expirationTimesByEncodedAuthenticationToken.remove(encodedAuthenticationToken);
+
+                        throw new RejectedNotificationException(apnsId, ErrorReason.EXPIRED_PROVIDER_TOKEN);
+                    }
+                } else {
+                    // We don't trust this token yet and need to verify it.
+                    final ApnsVerificationKey verificationKey = this.verificationKeyRegistry.getKeyForTopic(topic);
+
+                    if (verificationKey == null) {
+                        throw new RejectedNotificationException(apnsId, ErrorReason.BAD_TOPIC);
+                    }
+
+                    final AuthenticationToken authenticationToken = new AuthenticationToken(encodedAuthenticationToken);
+
+                    if (new Date().after(authenticationToken.getExpiration())) {
+                        throw new RejectedNotificationException(apnsId, ErrorReason.EXPIRED_PROVIDER_TOKEN);
+                    }
+
+                    try {
+                        if (!authenticationToken.verifySignature(verificationKey)) {
+                            throw new RejectedNotificationException(apnsId, ErrorReason.INVALID_PROVIDER_TOKEN);
+                        }
+                    } catch (InvalidKeyException | NoSuchAlgorithmException | SignatureException e) {
+                        throw new RejectedNotificationException(apnsId, ErrorReason.INVALID_PROVIDER_TOKEN);
+                    }
+
+                    if (!this.verifiedEncodedAuthenticationTokensByTopic.containsKey(topic)) {
+                        this.verifiedEncodedAuthenticationTokensByTopic.put(topic, new HashSet<String>());
+                    }
+
+                    this.verifiedEncodedAuthenticationTokensByTopic.get(topic).add(encodedAuthenticationToken);
+                    this.expirationTimesByEncodedAuthenticationToken.put(encodedAuthenticationToken, authenticationToken.getExpiration());
+                }
+
+                {
+                    final Integer priorityCode = headers.getInt(APNS_PRIORITY_HEADER);
+
+                    if (priorityCode != null) {
+                        try {
+                            DeliveryPriority.getFromCode(priorityCode);
+                        } catch (final IllegalArgumentException e) {
+                            throw new RejectedNotificationException(apnsId, ErrorReason.BAD_PRIORITY);
+                        }
+                    }
+                }
+
+                {
+                    final CharSequence pathSequence = headers.get(Http2Headers.PseudoHeaderName.PATH.value());
+
+                    if (pathSequence != null) {
+                        final String pathString = pathSequence.toString();
+
+                        if (pathString.startsWith(APNS_PATH_PREFIX)) {
+                            final String deviceTokenString = pathString.substring(APNS_PATH_PREFIX.length());
+
+                            final Matcher deviceTokenMatcher = DEVIDE_TOKEN_PATTERN.matcher(deviceTokenString);
+
+                            if (!deviceTokenMatcher.matches()) {
+                                throw new RejectedNotificationException(apnsId, ErrorReason.BAD_DEVICE_TOKEN);
+                            }
+
+                            final Date expirationTimestamp;
+                            {
+                                final Map<String, Date> tokensWithinTopic = this.deviceTokenExpirationsByTopic.get(topic);
+                                expirationTimestamp = tokensWithinTopic != null ? tokensWithinTopic.get(deviceTokenString) : null;
+                            }
+
+                            if (expirationTimestamp != null) {
+                                throw new RejectedNotificationException(apnsId, ErrorReason.UNREGISTERED, expirationTimestamp);
+                            }
+
+                            final boolean deviceTokenIsRegisteredForTopic;
+                            {
+                                final Map<String, Date> tokensWithinTopic = this.deviceTokenExpirationsByTopic.get(topic);
+                                deviceTokenIsRegisteredForTopic = tokensWithinTopic != null && tokensWithinTopic.containsKey(deviceTokenString);
+                            }
+
+                            if (!deviceTokenIsRegisteredForTopic) {
+                                throw new RejectedNotificationException(apnsId, ErrorReason.DEVICE_TOKEN_NOT_FOR_TOPIC);
+                            }
+                        }
+                    } else {
+                        throw new RejectedNotificationException(apnsId, ErrorReason.BAD_PATH);
+                    }
+                }
+
+                if (data == null) {
+                    throw new RejectedNotificationException(apnsId, ErrorReason.PAYLOAD_EMPTY);
+                } else {
+                    if (data.readableBytes() > MAX_CONTENT_LENGTH) {
+                        throw new RejectedNotificationException(apnsId, ErrorReason.PAYLOAD_TOO_LARGE);
+                    }
+                }
+
+                context.channel().writeAndFlush(new AcceptNotificationResponse(streamId));
+            } catch (RejectedNotificationException e) {
+                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, e.getApnsId(), e.getErrorReason(), e.getTimestamp()));
             }
         }
-
-        this.requestsWaitingForDataFrame.put(streamId, apnsId);
-    }
-
-    @Override
-    public void onHeadersRead(final ChannelHandlerContext ctx, final int streamId, final Http2Headers headers, final int streamDependency,
-            final short weight, final boolean exclusive, final int padding, final boolean endOfStream) throws Http2Exception {
-
-        this.onHeadersRead(ctx, streamId, headers, padding, endOfStream);
     }
 
     @Override
