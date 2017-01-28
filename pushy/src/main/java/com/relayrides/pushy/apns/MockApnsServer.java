@@ -1,9 +1,5 @@
 package com.relayrides.pushy.apns;
 
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.interfaces.ECPublicKey;
-import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -50,7 +46,7 @@ public class MockApnsServer {
 
     private final Map<String, Map<String, Date>> tokenExpirationsByTopic = new HashMap<>();
 
-    private final ApnsKeyRegistry<ApnsVerificationKey> verificationKeyRegistry = new ApnsKeyRegistry<>();
+    private final ApnsVerificationKeyRegistry verificationKeyRegistry = new ApnsVerificationKeyRegistry();
 
     private ChannelGroup allChannels;
 
@@ -116,49 +112,8 @@ public class MockApnsServer {
         return channelFuture;
     }
 
-    /**
-     * Registers a public key for verifying authentication tokens for the given topics. Clears any keys and topics
-     * previously associated with the given team.
-     *
-     * @param publicKey a public key to be used to verify authentication tokens
-     * @param teamId an identifier for the team to which the given public key belongs
-     * @param keyId an identifier for the given public key
-     * @param topics the topics belonging to the given team for which the given public key can be used to verify
-     * authentication tokens
-     *
-     * @throws NoSuchAlgorithmException if the required signing algorithm is not available
-     * @throws InvalidKeyException if the given key is invalid for any reason
-     *
-     * @since 0.9
-     */
-    public void registerPublicKey(final ECPublicKey publicKey, final String teamId, final String keyId, final Collection<String> topics) throws NoSuchAlgorithmException, InvalidKeyException {
-        this.registerPublicKey(publicKey, teamId, keyId, topics.toArray(new String[0]));
-    }
-
-    /**
-     * Registers a public key for verifying authentication tokens for the given topics. Clears any keys and topics
-     * previously associated with the given team.
-     *
-     * @param publicKey a public key to be used to verify authentication tokens
-     * @param teamId an identifier for the team to which the given public key belongs
-     * @param keyId an identifier for the given public key
-     * @param topics the topics belonging to the given team for which the given public key can be used to verify
-     * authentication tokens
-     *
-     * @throws NoSuchAlgorithmException if the required signing algorithm is not available
-     * @throws InvalidKeyException if the given key is invalid for any reason
-     *
-     * @since 0.9
-     */
-    public void registerPublicKey(final ECPublicKey publicKey, final String teamId, final String keyId, final String... topics) throws NoSuchAlgorithmException, InvalidKeyException {
-        this.verificationKeyRegistry.registerKey(new ApnsVerificationKey(keyId, teamId, publicKey), topics);
-    }
-
-    /**
-     * Unregisters all teams, topics, and public keys from this server.
-     */
-    public void clearPublicKeys() {
-        this.verificationKeyRegistry.clear();
+    public ApnsVerificationKeyRegistry getVerificationKeyRegistry() {
+        return this.verificationKeyRegistry;
     }
 
     /**

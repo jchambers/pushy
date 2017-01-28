@@ -29,7 +29,7 @@ public class ExampleApp {
         final ApnsClient apnsClient = new ApnsClientBuilder()
                 .build();
 
-        apnsClient.registerSigningKey(new File("/path/to/key.p8"),
+        apnsClient.getSigningKeyRegistry().registerKey(new File("/path/to/key.p8"),
                 "TEAMID1234", "KEYID67890", "com.example.topic");
 
         // Optional: we can listen for metrics by setting a metrics listener.

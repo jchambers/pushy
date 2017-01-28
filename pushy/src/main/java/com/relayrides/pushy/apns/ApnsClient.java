@@ -20,21 +20,7 @@
 
 package com.relayrides.pushy.apns;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
-import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
-import java.security.interfaces.ECPrivateKey;
-import java.security.spec.InvalidKeySpecException;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -44,8 +30,6 @@ import org.slf4j.LoggerFactory;
 import com.relayrides.pushy.apns.proxy.ProxyHandlerFactory;
 
 import io.netty.bootstrap.Bootstrap;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
@@ -57,7 +41,6 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.codec.base64.Base64;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
@@ -136,7 +119,7 @@ public class ApnsClient {
     private ApnsClientMetricsListener metricsListener = new NoopMetricsListener();
     private final AtomicLong nextNotificationId = new AtomicLong(0);
 
-    private final ApnsKeyRegistry<ApnsSigningKey> signingKeyRegistry = new ApnsKeyRegistry<>();
+    private final ApnsSigningKeyRegistry signingKeyRegistry = new ApnsSigningKeyRegistry();
 
     /**
      * The default write timeout, in milliseconds.
@@ -547,211 +530,8 @@ public class ApnsClient {
         return reconnectionFuture;
     }
 
-    /**
-     * <p>Registers a private signing key for the given topics. Clears any topics and keys previously associated with
-     * the given team.</p>
-     *
-     * <p>Callers <em>must</em> register signing keys for all topics to which they intend to send notifications. Tokens
-     * may be registered at any time in a client's life-cycle.</p>
-     *
-     * @param signingKeyPemFile a PEM file that contains a PKCS#8-formatted elliptic-curve private key with which to
-     * sign authentication tokens
-     * @param teamId the Apple-issued, ten-character identifier for the team to which the given private key belongs
-     * @param keyId the Apple-issued, ten-character identifier for the given private key
-     * @param topics the topics to which the given signing key is applicable
-     *
-     * @throws InvalidKeyException if the given key is invalid for any reason
-     * @throws NoSuchAlgorithmException if the JRE does not support the required token-signing algorithm
-     * @throws IOException if a private key could not be loaded from the given file for any reason
-     *
-     * @since 0.9
-     */
-    public void registerSigningKey(final File signingKeyPemFile, final String teamId, final String keyId, final Collection<String> topics) throws InvalidKeyException, NoSuchAlgorithmException, IOException {
-        this.registerSigningKey(signingKeyPemFile, teamId, keyId, topics.toArray(new String[0]));
-    }
-
-    /**
-     * <p>Registers a private signing key for the given topics. Clears any topics and keys previously associated with
-     * the given team.</p>
-     *
-     * <p>Callers <em>must</em> register signing keys for all topics to which they intend to send notifications. Tokens
-     * may be registered at any time in a client's life-cycle.</p>
-     *
-     * @param signingKeyPemFile a PEM file that contains a PKCS#8-formatted elliptic-curve private key with which to
-     * sign authentication tokens
-     * @param teamId the Apple-issued, ten-character identifier for the team to which the given private key belongs
-     * @param keyId the Apple-issued, ten-character identifier for the given private key
-     * @param topics the topics to which the given signing key is applicable
-     *
-     * @throws InvalidKeyException if the given key is invalid for any reason
-     * @throws NoSuchAlgorithmException if the JRE does not support the required token-signing algorithm
-     * @throws IOException if a private key could not be loaded from the given file for any reason
-     *
-     * @since 0.9
-     */
-    public void registerSigningKey(final File signingKeyPemFile, final String teamId, final String keyId, final String... topics) throws InvalidKeyException, NoSuchAlgorithmException, IOException {
-        try (final FileInputStream signingKeyInputStream = new FileInputStream(signingKeyPemFile)) {
-            this.registerSigningKey(signingKeyInputStream, teamId, keyId, topics);
-        }
-    }
-
-    /**
-     * <p>Registers a private signing key for the given topics. Clears any topics and keys previously associated with
-     * the given team.</p>
-     *
-     * <p>Callers <em>must</em> register signing keys for all topics to which they intend to send notifications. Tokens
-     * may be registered at any time in a client's life-cycle.</p>
-     *
-     * @param signingKeyInputStream an input stream that provides a PEM-encoded, PKCS#8-formatted elliptic-curve private
-     * key with which to sign authentication tokens
-     * @param teamId the Apple-issued, ten-character identifier for the team to which the given private key belongs
-     * @param keyId the Apple-issued, ten-character identifier for the given private key
-     * @param topics the topics to which the given signing key is applicable
-     *
-     * @throws InvalidKeyException if the given key is invalid for any reason
-     * @throws NoSuchAlgorithmException if the JRE does not support the required token-signing algorithm
-     * @throws IOException if a private key could not be loaded from the given input stream for any reason
-     *
-     * @since 0.9
-     */
-    public void registerSigningKey(final InputStream signingKeyInputStream, final String teamId, final String keyId, final Collection<String> topics) throws InvalidKeyException, NoSuchAlgorithmException, IOException {
-        this.registerSigningKey(signingKeyInputStream, teamId, keyId, topics.toArray(new String[0]));
-    }
-
-    /**
-     * <p>Registers a private signing key for the given topics. Clears any topics and keys previously associated with
-     * the given team.</p>
-     *
-     * <p>Callers <em>must</em> register signing keys for all topics to which they intend to send notifications. Tokens
-     * may be registered at any time in a client's life-cycle.</p>
-     *
-     * @param signingKeyInputStream an input stream that provides a PEM-encoded, PKCS#8-formatted elliptic-curve private
-     * key with which to sign authentication tokens
-     * @param teamId the Apple-issued, ten-character identifier for the team to which the given private key belongs
-     * @param keyId the Apple-issued, ten-character identifier for the given private key
-     * @param topics the topics to which the given signing key is applicable
-     *
-     * @throws InvalidKeyException if the given key is invalid for any reason
-     * @throws NoSuchAlgorithmException if the JRE does not support the required token-signing algorithm
-     * @throws IOException if a private key could not be loaded from the given input stream for any reason
-     *
-     * @since 0.9
-     */
-    public void registerSigningKey(final InputStream signingKeyInputStream, final String teamId, final String keyId, final String... topics) throws InvalidKeyException, NoSuchAlgorithmException, IOException {
-        final ECPrivateKey signingKey;
-        {
-            final String base64EncodedPrivateKey;
-            {
-                final StringBuilder privateKeyBuilder = new StringBuilder();
-
-                final BufferedReader reader = new BufferedReader(new InputStreamReader(signingKeyInputStream));
-                boolean haveReadHeader = false;
-                boolean haveReadFooter = false;
-
-                for (String line; (line = reader.readLine()) != null; ) {
-                    if (!haveReadHeader) {
-                        if (line.contains("BEGIN PRIVATE KEY")) {
-                            haveReadHeader = true;
-                            continue;
-                        }
-                    } else {
-                        if (line.contains("END PRIVATE KEY")) {
-                            haveReadFooter = true;
-                            break;
-                        } else {
-                            privateKeyBuilder.append(line);
-                        }
-                    }
-                }
-
-                if (!(haveReadHeader && haveReadFooter)) {
-                    throw new IOException("Could not find private key header/footer");
-                }
-
-                base64EncodedPrivateKey = privateKeyBuilder.toString();
-            }
-
-            final ByteBuf wrappedEncodedPrivateKey = Unpooled.wrappedBuffer(base64EncodedPrivateKey.getBytes(StandardCharsets.US_ASCII));
-
-            try {
-                final ByteBuf decodedPrivateKey = Base64.decode(wrappedEncodedPrivateKey);
-
-                try {
-                    final byte[] keyBytes = new byte[decodedPrivateKey.readableBytes()];
-                    decodedPrivateKey.readBytes(keyBytes);
-
-                    final PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
-                    final KeyFactory keyFactory = KeyFactory.getInstance("EC");
-                    signingKey = (ECPrivateKey) keyFactory.generatePrivate(keySpec);
-                } catch (final InvalidKeySpecException e) {
-                    throw new InvalidKeyException(e);
-                } finally {
-                    decodedPrivateKey.release();
-                }
-            } finally {
-                wrappedEncodedPrivateKey.release();
-            }
-        }
-
-        this.registerSigningKey(signingKey, teamId, keyId, topics);
-    }
-
-    /**
-     * <p>Registers a private signing key for the given topics. Clears any topics and keys previously associated with
-     * the given team.</p>
-     *
-     * <p>Callers <em>must</em> register signing keys for all topics to which they intend to send notifications. Tokens
-     * may be registered at any time in a client's life-cycle.</p>
-     *
-     * @param signingKey the private key with which to sign authentication tokens
-     * @param teamId the Apple-issued, ten-character identifier for the team to which the given private key belongs
-     * @param keyId the Apple-issued, ten-character identifier for the given private key
-     * @param topics the topics to which the given signing key is applicable
-     *
-     * @throws InvalidKeyException if the given key is invalid for any reason
-     * @throws NoSuchAlgorithmException if the JRE does not support the required token-signing algorithm
-     *
-     * @since 0.9
-     */
-    public void registerSigningKey(final ECPrivateKey signingKey, final String teamId, final String keyId, final Collection<String> topics) throws InvalidKeyException, NoSuchAlgorithmException {
-        this.registerSigningKey(signingKey, teamId, keyId, topics.toArray(new String[0]));
-    }
-
-    /**
-     * <p>Registers a private signing key for the given topics. Clears any topics and keys previously associated with
-     * the given team.</p>
-     *
-     * <p>Callers <em>must</em> register signing keys for all topics to which they intend to send notifications. Tokens
-     * may be registered at any time in a client's life-cycle.</p>
-     *
-     * @param privateKey the private key with which to sign authentication tokens
-     * @param teamId the Apple-issued, ten-character identifier for the team to which the given private key belongs
-     * @param keyId the Apple-issued, ten-character identifier for the given private key
-     * @param topics the topics to which the given signing key is applicable
-     *
-     * @throws InvalidKeyException if the given key is invalid for any reason
-     * @throws NoSuchAlgorithmException if the JRE does not support the required token-signing algorithm
-     *
-     * @since 0.9
-     */
-    public void registerSigningKey(final ECPrivateKey privateKey, final String teamId, final String keyId, final String... topics) throws InvalidKeyException, NoSuchAlgorithmException {
-        this.signingKeyRegistry.registerKey(new ApnsSigningKey(keyId, teamId, privateKey), topics);
-    }
-
-    /**
-     * Revokes the signing key with the given identifiers.
-     *
-     * @param teamId the Apple-issued, ten-character identifier for the team to which the private to be removed belongs
-     * @param keyId the Apple-issued, ten-character identifier for the key to be removed
-     */
-    public void removeSigningKey(final String teamId, final String keyId) {
-        final ApnsSigningKey removedKey = this.signingKeyRegistry.removeKey(teamId, keyId);
-
-        final ChannelPromise connectionReadyPromise = this.connectionReadyPromise;
-
-        if (removedKey != null && connectionReadyPromise != null) {
-            connectionReadyPromise.channel().pipeline().fireUserEventTriggered(new ApnsKeyRemovalEvent<>(removedKey));
-        }
+    public ApnsSigningKeyRegistry getSigningKeyRegistry() {
+        return this.signingKeyRegistry;
     }
 
     /**
