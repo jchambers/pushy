@@ -22,6 +22,9 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.relayrides.pushy.apns.auth.ApnsSigningKeyRegistry;
+import com.relayrides.pushy.apns.auth.ApnsVerificationKeyRegistry;
+import com.relayrides.pushy.apns.auth.KeyPairUtil;
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 

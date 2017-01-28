@@ -1,4 +1,6 @@
-package com.relayrides.pushy.apns;
+package com.relayrides.pushy.apns.auth;
+
+import com.relayrides.pushy.apns.NoKeyForTopicException;
 
 import io.netty.util.concurrent.Promise;
 

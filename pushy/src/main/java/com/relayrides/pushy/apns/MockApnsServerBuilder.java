@@ -31,6 +31,9 @@ import javax.net.ssl.SSLException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.relayrides.pushy.apns.auth.ApnsKeySource;
+import com.relayrides.pushy.apns.auth.ApnsVerificationKey;
+
 import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.ssl.ApplicationProtocolConfig;

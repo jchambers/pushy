@@ -5,6 +5,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
+import com.relayrides.pushy.apns.auth.ApnsKeySource;
+import com.relayrides.pushy.apns.auth.ApnsVerificationKey;
+
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;

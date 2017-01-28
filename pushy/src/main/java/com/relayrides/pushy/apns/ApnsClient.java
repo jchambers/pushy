@@ -27,6 +27,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.relayrides.pushy.apns.auth.ApnsKeySource;
+import com.relayrides.pushy.apns.auth.ApnsSigningKey;
 import com.relayrides.pushy.apns.proxy.ProxyHandlerFactory;
 
 import io.netty.bootstrap.Bootstrap;

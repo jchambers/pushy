@@ -6,6 +6,8 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.relayrides.pushy.apns.auth.ApnsVerificationKeyRegistry;
+
 import io.netty.channel.nio.NioEventLoopGroup;
 
 public class MockApnsServerTest {

@@ -1,4 +1,4 @@
-package com.relayrides.pushy.apns;
+package com.relayrides.pushy.apns.auth;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -9,6 +9,11 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.junit.Test;
+
+import com.relayrides.pushy.apns.NoKeyForTopicException;
+import com.relayrides.pushy.apns.auth.ApnsKey;
+import com.relayrides.pushy.apns.auth.ApnsKeyRegistry;
+import com.relayrides.pushy.apns.auth.ApnsKeyRemovalListener;
 
 import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.GlobalEventExecutor;

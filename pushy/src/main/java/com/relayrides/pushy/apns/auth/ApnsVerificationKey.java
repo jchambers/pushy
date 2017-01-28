@@ -1,4 +1,4 @@
-package com.relayrides.pushy.apns;
+package com.relayrides.pushy.apns.auth;
 
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECPoint;

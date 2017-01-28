@@ -11,6 +11,11 @@ import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.relayrides.pushy.apns.AuthenticationToken;
+import com.relayrides.pushy.apns.auth.ApnsSigningKey;
+import com.relayrides.pushy.apns.auth.ApnsVerificationKey;
+import com.relayrides.pushy.apns.auth.KeyPairUtil;
+
 public class AuthenticationTokenTest {
 
     private ApnsSigningKey signingKey;

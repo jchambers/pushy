@@ -5,6 +5,8 @@ import java.io.InputStream;
 
 import org.junit.Test;
 
+import com.relayrides.pushy.apns.auth.ApnsVerificationKeyRegistry;
+
 public class MockApnsServerBuilderTest {
 
     private static final String SERVER_CERTIFICATES_FILENAME = "/server_certs.pem";

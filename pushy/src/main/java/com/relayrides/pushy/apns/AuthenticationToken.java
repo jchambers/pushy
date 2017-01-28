@@ -11,12 +11,15 @@ import java.util.concurrent.TimeUnit;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.annotations.SerializedName;
+import com.relayrides.pushy.apns.auth.ApnsSigningKey;
+import com.relayrides.pushy.apns.auth.ApnsVerificationKey;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.base64.Base64;
 import io.netty.handler.codec.base64.Base64Dialect;
 
-public class AuthenticationToken {
+class AuthenticationToken {
 
     private static class AuthenticationTokenHeader {
         @SerializedName("alg")

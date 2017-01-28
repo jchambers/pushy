@@ -4,6 +4,7 @@ import java.io.File;
 import java.net.InetSocketAddress;
 import java.util.concurrent.ExecutionException;
 
+import com.relayrides.pushy.apns.auth.ApnsSigningKeyRegistry;
 import com.relayrides.pushy.apns.proxy.Socks5ProxyHandlerFactory;
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;

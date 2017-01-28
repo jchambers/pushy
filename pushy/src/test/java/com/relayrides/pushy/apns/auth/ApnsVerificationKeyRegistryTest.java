@@ -1,7 +1,11 @@
-package com.relayrides.pushy.apns;
+package com.relayrides.pushy.apns.auth;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.ECPublicKey;
+
+import com.relayrides.pushy.apns.auth.ApnsKeyRegistry;
+import com.relayrides.pushy.apns.auth.ApnsVerificationKey;
+import com.relayrides.pushy.apns.auth.ApnsVerificationKeyRegistry;
 
 public class ApnsVerificationKeyRegistryTest extends ApnsKeyRegistryTest<ApnsVerificationKey> {
 

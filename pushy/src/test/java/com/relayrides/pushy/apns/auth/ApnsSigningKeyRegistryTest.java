@@ -1,4 +1,4 @@
-package com.relayrides.pushy.apns;
+package com.relayrides.pushy.apns.auth;
 
 import java.io.File;
 import java.io.InputStream;
@@ -6,6 +6,11 @@ import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.ECPrivateKey;
 
 import org.junit.Test;
+
+import com.relayrides.pushy.apns.ApnsClientTest;
+import com.relayrides.pushy.apns.auth.ApnsKeyRegistry;
+import com.relayrides.pushy.apns.auth.ApnsSigningKey;
+import com.relayrides.pushy.apns.auth.ApnsSigningKeyRegistry;
 
 public class ApnsSigningKeyRegistryTest extends ApnsKeyRegistryTest<ApnsSigningKey> {
 

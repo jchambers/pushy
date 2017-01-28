@@ -23,6 +23,8 @@ import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 
+import com.relayrides.pushy.apns.auth.ApnsSigningKeyRegistry;
+import com.relayrides.pushy.apns.auth.ApnsVerificationKeyRegistry;
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 

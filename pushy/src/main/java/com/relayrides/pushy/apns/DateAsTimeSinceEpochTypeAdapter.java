@@ -39,7 +39,7 @@ import com.google.gson.JsonSerializer;
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */
-class DateAsTimeSinceEpochTypeAdapter implements JsonSerializer<Date>, JsonDeserializer<Date> {
+public class DateAsTimeSinceEpochTypeAdapter implements JsonSerializer<Date>, JsonDeserializer<Date> {
 
     private final TimeUnit timeUnit;
 
