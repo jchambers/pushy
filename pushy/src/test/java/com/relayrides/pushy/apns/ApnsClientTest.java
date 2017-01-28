@@ -583,43 +583,22 @@ public class ApnsClientTest {
 
     @Test
     public void testSendNotificationWithInternalServerError() throws Exception {
-        // Shut down the "normal" server to free the port
-        this.tearDown();
-
-        final MockApnsServer terribleTerribleServer = new MockApnsServerBuilder()
-                .setServerCredentials(ApnsClientTest.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), ApnsClientTest.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
-                .setEventLoopGroup(EVENT_LOOP_GROUP)
-                .setEmulateInternalErrors(true)
-                .build();
-
-        final ApnsClient unfortunateClient = new ApnsClientBuilder()
-                .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                .setEventLoopGroup(EVENT_LOOP_GROUP)
-                .build();
-
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
-        ((ApnsSigningKeyRegistry) unfortunateClient.getSigningKeySource()).registerKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
-        ((ApnsVerificationKeyRegistry) terribleTerribleServer.getVerificationKeySource()).registerKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
+        ((ApnsSigningKeyRegistry) this.client.getSigningKeySource()).registerKey((ECPrivateKey) keyPair.getPrivate(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
+        ((ApnsVerificationKeyRegistry) this.server.getVerificationKeySource()).registerKey((ECPublicKey) keyPair.getPublic(), DEFAULT_TEAM_ID, DEFAULT_KEY_ID, DEFAULT_TOPIC);
 
-        terribleTerribleServer.start(PORT).await();
-        unfortunateClient.connect(HOST, PORT).await();
+        this.server.setEmulateInternalErrors(true);
 
-        try {
-            final SimpleApnsPushNotification pushNotification =
-                    new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), DEFAULT_TOPIC, "test-payload");
+        final SimpleApnsPushNotification pushNotification =
+                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), DEFAULT_TOPIC, "test-payload");
 
-            final Future<PushNotificationResponse<SimpleApnsPushNotification>> future =
-                    unfortunateClient.sendNotification(pushNotification).await();
+        final Future<PushNotificationResponse<SimpleApnsPushNotification>> future =
+                this.client.sendNotification(pushNotification).await();
 
-            assertTrue(future.isDone());
-            assertFalse(future.isSuccess());
-            assertTrue(future.cause() instanceof ApnsServerException);
-        } finally {
-            unfortunateClient.disconnect().await();
-            Thread.sleep(10);
-            terribleTerribleServer.shutdown().await();
-        }
+        assertTrue(future.isDone());
+        assertFalse(future.isSuccess());
+        assertTrue(future.cause() instanceof ApnsServerException);
     }
 
     @Test

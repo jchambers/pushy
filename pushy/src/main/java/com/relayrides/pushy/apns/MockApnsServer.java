@@ -152,7 +152,16 @@ public class MockApnsServer {
         this.handleConfigurationChange();
     }
 
-    protected void setEmulateInternalErrors(final boolean emulateInternalErrors) {
+    /**
+     * Sets whether this server should respond to all notifications with an internal server error. By default, the
+     * server will respond to notifications normally.
+     *
+     * @param emulateInternalErrors {@code true} if the server should respond to all notifications with an internal
+     * server error or {@code false} otherwise
+     *
+     * @since 0.10
+     */
+    public void setEmulateInternalErrors(final boolean emulateInternalErrors) {
         this.emulateInternalErrors = emulateInternalErrors;
 
         this.handleConfigurationChange();
@@ -185,35 +194,35 @@ public class MockApnsServer {
         final Future<Void> channelCloseFuture = (this.allChannels != null) ?
                 this.allChannels.close() : new SucceededFuture<Void>(GlobalEventExecutor.INSTANCE, null);
 
-                final Future<Void> disconnectFuture;
+        final Future<Void> disconnectFuture;
 
-                if (this.shouldShutDownEventLoopGroup) {
-                    // Wait for the channel to close before we try to shut down the event loop group
-                    channelCloseFuture.addListener(new GenericFutureListener<Future<Void>>() {
+        if (this.shouldShutDownEventLoopGroup) {
+            // Wait for the channel to close before we try to shut down the event loop group
+            channelCloseFuture.addListener(new GenericFutureListener<Future<Void>>() {
 
-                        @Override
-                        public void operationComplete(final Future<Void> future) throws Exception {
-                            MockApnsServer.this.bootstrap.config().group().shutdownGracefully();
-                        }
-                    });
-
-                    // Since the termination future for the event loop group is a Future<?> instead of a Future<Void>,
-                    // we'll need to create our own promise and then notify it when the termination future completes.
-                    disconnectFuture = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
-
-                    this.bootstrap.config().group().terminationFuture().addListener(new GenericFutureListener() {
-
-                        @Override
-                        public void operationComplete(final Future future) throws Exception {
-                            assert disconnectFuture instanceof DefaultPromise;
-                            ((DefaultPromise<Void>) disconnectFuture).trySuccess(null);
-                        }
-                    });
-                } else {
-                    // We're done once we've closed all the channels, so we can return the closure future directly.
-                    disconnectFuture = channelCloseFuture;
+                @Override
+                public void operationComplete(final Future<Void> future) throws Exception {
+                    MockApnsServer.this.bootstrap.config().group().shutdownGracefully();
                 }
+            });
 
-                return disconnectFuture;
+            // Since the termination future for the event loop group is a Future<?> instead of a Future<Void>,
+            // we'll need to create our own promise and then notify it when the termination future completes.
+            disconnectFuture = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
+
+            this.bootstrap.config().group().terminationFuture().addListener(new GenericFutureListener() {
+
+                @Override
+                public void operationComplete(final Future future) throws Exception {
+                    assert disconnectFuture instanceof DefaultPromise;
+                    ((DefaultPromise<Void>) disconnectFuture).trySuccess(null);
+                }
+            });
+        } else {
+            // We're done once we've closed all the channels, so we can return the closure future directly.
+            disconnectFuture = channelCloseFuture;
+        }
+
+        return disconnectFuture;
     }
 }

@@ -78,8 +78,6 @@ public class MockApnsServerBuilder {
 
     private EventLoopGroup eventLoopGroup;
 
-    private boolean emulateInternalErrors = false;
-
     private static final Logger log = LoggerFactory.getLogger(MockApnsServerBuilder.class);
 
     public MockApnsServerBuilder setVerificationKeySource(final ApnsKeySource<ApnsVerificationKey> verificationKeySource) {
@@ -204,22 +202,6 @@ public class MockApnsServerBuilder {
     }
 
     /**
-     * Sets whether the server under construction should respond to all notifications with an internal server error. By
-     * default, the server will respond to notifications normally.
-     *
-     * @param emulateInternalErrors {@code true} if the server should respond to all notifications with an internal
-     * server error or {@code false} otherwise
-     *
-     * @return a reference to this builder
-     *
-     * @since 0.8
-     */
-    public MockApnsServerBuilder setEmulateInternalErrors(final boolean emulateInternalErrors) {
-        this.emulateInternalErrors = emulateInternalErrors;
-        return this;
-    }
-
-    /**
      * Constructs a new {@link MockApnsServer} with the previously-set configuration.
      *
      * @return a new MockApnsServer instance with the previously-set configuration
@@ -277,10 +259,7 @@ public class MockApnsServerBuilder {
         final ApnsKeySource<ApnsVerificationKey> verificationKeySource =
                 this.verificationKeySource != null ? this.verificationKeySource : new ApnsVerificationKeyRegistry();
 
-        final MockApnsServer server = new MockApnsServer(verificationKeySource, sslContext, this.eventLoopGroup);
-        server.setEmulateInternalErrors(this.emulateInternalErrors);
-
-        return server;
+        return new MockApnsServer(verificationKeySource, sslContext, this.eventLoopGroup);
     }
 
 }
