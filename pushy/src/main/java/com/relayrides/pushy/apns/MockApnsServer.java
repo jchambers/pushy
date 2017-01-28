@@ -8,6 +8,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -80,13 +81,12 @@ public class MockApnsServer {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
                             final MockApnsServerHandlerConfiguration initialHandlerConfiguration =
                                     new MockApnsServerHandlerConfiguration(MockApnsServer.this.emulateInternalErrors,
-                                            new HashMap<>(MockApnsServer.this.tokenExpirationsByTopic),
-                                            MockApnsServer.this.verificationKeyRegistry);
+                                            new HashMap<>(MockApnsServer.this.tokenExpirationsByTopic));
 
                             context.pipeline().addLast(new MockApnsServerHandler.MockApnsServerHandlerBuilder()
                                     .initialHandlerConfiguration(initialHandlerConfiguration)
                                     .initialSettings(new Http2Settings().maxConcurrentStreams(8))
-                                    .verificationKeyRegistry(MockApnsServer.this.verificationKeyRegistry)
+                                    .verificationKeySource(MockApnsServer.this.verificationKeyRegistry)
                                     .build());
 
                             MockApnsServer.this.allChannels.add(context.channel());
@@ -203,8 +203,7 @@ public class MockApnsServer {
             for (final Channel channel : this.allChannels) {
                 channel.pipeline().fireUserEventTriggered(new MockApnsServerHandlerConfiguration(
                         this.emulateInternalErrors,
-                        new HashMap<>(this.tokenExpirationsByTopic),
-                        this.verificationKeyRegistry));
+                        new HashMap<>(this.tokenExpirationsByTopic)));
             }
         }
     }

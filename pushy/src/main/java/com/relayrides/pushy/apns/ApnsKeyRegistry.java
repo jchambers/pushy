@@ -5,11 +5,16 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Signature;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+
+import io.netty.util.concurrent.Promise;
 
 /**
  * <p>A registry for keys used to sign or verify APNs authentication tokens. In the APNs model, keys allow signing or
@@ -22,9 +27,9 @@ import java.util.Set;
  *
  * @since 0.10
  */
-class ApnsKeyRegistry<T extends ApnsKey> {
+public class ApnsKeyRegistry<T extends ApnsKey> implements ApnsKeySource<T> {
     private final Map<String, T> keysByTopic = new HashMap<>();
-    private final Map<String, T> keysByCombinedIdentifier = new HashMap<>();
+    private final List<ApnsKeyRemovalListener<T>> keyRemovalListeners = new ArrayList<>();
 
     /**
      * Associates a key with a set of topics and checks validity of the key. If another key was previously associated
@@ -38,7 +43,7 @@ class ApnsKeyRegistry<T extends ApnsKey> {
      * ({@value ApnsKey#APNS_SIGNATURE_ALGORITHM})
      * @throws InvalidKeyException if the given key is invalid for any reason
      */
-    public synchronized void registerKey(final T key, final String... topics) throws NoSuchAlgorithmException, InvalidKeyException {
+    public void registerKey(final T key, final String... topics) throws NoSuchAlgorithmException, InvalidKeyException {
         Objects.requireNonNull(topics, "Topics must not be null");
 
         if (topics.length == 0) {
@@ -60,35 +65,40 @@ class ApnsKeyRegistry<T extends ApnsKey> {
             }
         }
 
-        for (final String topic : topics) {
-            this.keysByTopic.put(topic, key);
+        synchronized (this.keysByTopic) {
+            for (final String topic : topics) {
+                this.keysByTopic.put(topic, key);
+            }
+        }
+    }
+
+    @Override
+    public void getKeyForTopic(final String topic, final Promise<T> keyPromise) {
+        final T apnsKey;
+
+        synchronized (this.keysByTopic) {
+            apnsKey = this.keysByTopic.get(topic);
         }
 
-        this.keysByCombinedIdentifier.put(getCombinedIdentifier(key), key);
+        if (apnsKey != null) {
+            keyPromise.setSuccess(apnsKey);
+        } else {
+            keyPromise.setFailure(new NoKeyForTopicException("No key found for topic: " + topic));
+        }
     }
 
-    /**
-     * Returns the key associated with the given topic.
-     *
-     * @param topic the topic for which to find a key
-     *
-     * @return the key associated with the given topic, or {@code null} if no key is associated with the given topic
-     */
-    public synchronized T getKeyForTopic(final String topic) {
-        return this.keysByTopic.get(topic);
+    @Override
+    public void addKeyRemovalListener(final ApnsKeyRemovalListener<T> listener) {
+        synchronized (this.keyRemovalListeners) {
+            this.keyRemovalListeners.add(listener);
+        }
     }
 
-    /**
-     * Returns the key registered with the given team identifier and key identifier.
-     *
-     * @param teamId the ten-digit team identifier of the key to retrieve
-     * @param keyId the ten-digit key identifier of the key to retrieve
-     *
-     * @return the key registered with the given team and key identifier, or {@code null} if no key with the given
-     * identifiers is registered
-     */
-    public synchronized T getKeyById(final String teamId, final String keyId) {
-        return this.keysByCombinedIdentifier.get(getCombinedIdentifier(teamId, keyId));
+    @Override
+    public boolean removeKeyRemovalListener(final ApnsKeyRemovalListener<T> listener) {
+        synchronized (this.keyRemovalListeners) {
+            return this.keyRemovalListeners.remove(listener);
+        }
     }
 
     /**
@@ -97,17 +107,18 @@ class ApnsKeyRegistry<T extends ApnsKey> {
      * @param teamId the ten-digit team identifier of the key to remove
      * @param keyId the ten-digit key identifier of the key to remove
      *
-     * @return the topics previously associated with the removed key; may be empty if no key was registered with the
-     * given identifiers
+     * @return the removed key, or {@code null} if no key was found for the given team and key identifiers
      */
-    public synchronized Set<String> removeKey(final String teamId, final String keyId) {
+    public T removeKey(final String teamId, final String keyId) {
         final Set<String> topicsToClear = new HashSet<>();
 
-        if (this.keysByCombinedIdentifier.remove(getCombinedIdentifier(teamId, keyId)) != null) {
-            for (final Map.Entry<String, T> entry : this.keysByTopic.entrySet()) {
-                final T apnsKey = entry.getValue();
+        T lastKeyFound = null;
 
-                if (apnsKey.getTeamId().equals(teamId) && apnsKey.getKeyId().equals(keyId)) {
+        synchronized (this.keysByTopic) {
+            for (final Map.Entry<String, T> entry : this.keysByTopic.entrySet()) {
+                lastKeyFound = entry.getValue();
+
+                if (lastKeyFound.getTeamId().equals(teamId) && lastKeyFound.getKeyId().equals(keyId)) {
                     topicsToClear.add(entry.getKey());
                 }
             }
@@ -117,19 +128,31 @@ class ApnsKeyRegistry<T extends ApnsKey> {
             }
         }
 
-        return topicsToClear;
+        synchronized (this.keyRemovalListeners) {
+            if (lastKeyFound != null) {
+                for (final ApnsKeyRemovalListener<T> listener : this.keyRemovalListeners) {
+                    listener.handleKeyRemoval(lastKeyFound);
+                }
+            }
+        }
+
+        return lastKeyFound;
     }
 
-    public synchronized void clear() {
-        this.keysByTopic.clear();
-        this.keysByCombinedIdentifier.clear();
-    }
+    public void clear() {
+        final Collection<T> removedKeys;
 
-    static String getCombinedIdentifier(final ApnsKey key) {
-        return getCombinedIdentifier(key.getTeamId(), key.getKeyId());
-    }
+        synchronized (this.keysByTopic) {
+            removedKeys = this.keysByTopic.values();
+            this.keysByTopic.clear();
+        }
 
-    static String getCombinedIdentifier(final String teamId, final String keyId) {
-        return teamId + "." + keyId;
+        synchronized (this.keyRemovalListeners) {
+            for (final T removedKey : removedKeys) {
+                for (final ApnsKeyRemovalListener<T> listener : this.keyRemovalListeners) {
+                    listener.handleKeyRemoval(removedKey);
+                }
+            }
+        }
     }
 }

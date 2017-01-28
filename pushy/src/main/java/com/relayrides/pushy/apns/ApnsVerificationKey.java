@@ -3,7 +3,7 @@ package com.relayrides.pushy.apns;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECPoint;
 
-class ApnsVerificationKey extends ApnsKey implements ECPublicKey {
+public class ApnsVerificationKey extends ApnsKey implements ECPublicKey {
 
     private static final long serialVersionUID = 1L;
 

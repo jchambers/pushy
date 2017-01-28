@@ -15,7 +15,7 @@ import java.util.Objects;
  *
  * @since 0.10
  */
-abstract class ApnsKey implements ECKey {
+public abstract class ApnsKey implements ECKey {
 
     private final String teamId;
     private final String keyId;

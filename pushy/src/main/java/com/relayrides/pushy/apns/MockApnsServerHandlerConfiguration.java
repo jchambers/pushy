@@ -8,8 +8,7 @@ class MockApnsServerHandlerConfiguration {
     private final Map<String, Map<String, Date>> tokenExpirationsByTopic;
 
     public MockApnsServerHandlerConfiguration(final boolean emulateInternalServerErrors,
-            final Map<String, Map<String, Date>> tokenExpirationsByTopic,
-            final ApnsKeyRegistry<ApnsVerificationKey> verificationKeyRegistry) {
+            final Map<String, Map<String, Date>> tokenExpirationsByTopic) {
 
         this.emulateInternalServerErrors = emulateInternalServerErrors;
         this.tokenExpirationsByTopic = tokenExpirationsByTopic;

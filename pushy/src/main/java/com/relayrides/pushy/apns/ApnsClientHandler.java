@@ -26,10 +26,12 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -57,22 +59,28 @@ import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.WriteTimeoutException;
 import io.netty.util.AsciiString;
+import io.netty.util.concurrent.DefaultPromise;
+import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
 import io.netty.util.concurrent.PromiseCombiner;
 import io.netty.util.concurrent.ScheduledFuture;
 
-class ApnsClientHandler extends Http2ConnectionHandler {
+class ApnsClientHandler extends Http2ConnectionHandler implements ApnsKeyRemovalListener<ApnsSigningKey> {
 
     private long nextStreamId = 1;
+
+    private volatile EventExecutor eventExecutor;
 
     private final Map<Integer, ApnsPushNotification> pushNotificationsByStreamId = new HashMap<>();
     private final Map<Integer, Http2Headers> headersByStreamId = new HashMap<>();
 
-    private final ApnsKeyRegistry<ApnsSigningKey> signingKeyRegistry;
+    private final ApnsKeySource<ApnsSigningKey> signingKeySource;
+    private final Map<String, Future<String>> authenticationTokenFuturesByTopic = new HashMap<>();
     private final Map<String, String> encodedAuthenticationTokensByTopic = new HashMap<>();
     private final Map<ApnsPushNotification, String> encodedAuthenticationTokensByPushNotification = new WeakHashMap<>();
+    private final Map<ApnsSigningKey, Set<String>> topicsBySigningKey = new HashMap<>();
 
     private final Map<ApnsPushNotification, Promise<PushNotificationResponse<ApnsPushNotification>>> responsePromises =
             new IdentityHashMap<>();
@@ -247,11 +255,26 @@ class ApnsClientHandler extends Http2ConnectionHandler {
         }
     }
 
-    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final String authority, final ApnsKeyRegistry<ApnsSigningKey> signingKeyRegistry) {
+    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final String authority, final ApnsKeySource<ApnsSigningKey> signingKeySource) {
         super(decoder, encoder, initialSettings);
 
         this.authority = authority;
-        this.signingKeyRegistry = signingKeyRegistry;
+        this.signingKeySource = signingKeySource;
+    }
+
+    @Override
+    public void channelActive(final ChannelHandlerContext context) throws Exception {
+        super.channelActive(context);
+
+        this.eventExecutor = context.executor();
+        this.signingKeySource.addKeyRemovalListener(this);
+    }
+
+    @Override
+    public void channelInactive(final ChannelHandlerContext context) throws Exception {
+        super.channelInactive(context);
+
+        this.signingKeySource.removeKeyRemovalListener(this);
     }
 
     @Override
@@ -281,75 +304,129 @@ class ApnsClientHandler extends Http2ConnectionHandler {
             }
         } else if (message instanceof ApnsPushNotification) {
             final ApnsPushNotification pushNotification = (ApnsPushNotification) message;
+            final String topic = pushNotification.getTopic();
 
-            final String encodedAuthenticationToken = this.getEncodedAuthenticationTokenForTopic(pushNotification.getTopic());
+            if (this.encodedAuthenticationTokensByTopic.containsKey(topic)) {
+                final String encodedAuthenticationToken = this.encodedAuthenticationTokensByTopic.get(topic);
 
-            final int streamId = (int) this.nextStreamId;
+                final int streamId = (int) this.nextStreamId;
 
-            final Http2Headers headers = new DefaultHttp2Headers()
-                    .method(HttpMethod.POST.asciiName())
-                    .authority(this.authority)
-                    .path(APNS_PATH_PREFIX + pushNotification.getToken())
-                    .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000))
-                    .add(APNS_AUTHORIZATION_HEADER, "bearer " + encodedAuthenticationToken);
+                final Http2Headers headers = new DefaultHttp2Headers()
+                        .method(HttpMethod.POST.asciiName())
+                        .authority(this.authority)
+                        .path(APNS_PATH_PREFIX + pushNotification.getToken())
+                        .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000))
+                        .add(APNS_AUTHORIZATION_HEADER, "bearer " + encodedAuthenticationToken);
 
-            if (pushNotification.getCollapseId() != null) {
-                headers.add(APNS_COLLAPSE_ID_HEADER, pushNotification.getCollapseId());
-            }
+                if (pushNotification.getCollapseId() != null) {
+                    headers.add(APNS_COLLAPSE_ID_HEADER, pushNotification.getCollapseId());
+                }
 
-            if (pushNotification.getPriority() != null) {
-                headers.addInt(APNS_PRIORITY_HEADER, pushNotification.getPriority().getCode());
-            }
+                if (pushNotification.getPriority() != null) {
+                    headers.addInt(APNS_PRIORITY_HEADER, pushNotification.getPriority().getCode());
+                }
 
-            if (pushNotification.getTopic() != null) {
-                headers.add(APNS_TOPIC_HEADER, pushNotification.getTopic());
-            }
+                if (pushNotification.getTopic() != null) {
+                    headers.add(APNS_TOPIC_HEADER, pushNotification.getTopic());
+                }
 
-            final ChannelPromise headersPromise = context.newPromise();
-            this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
-            log.trace("Wrote headers on stream {}: {}", streamId, headers);
+                final ChannelPromise headersPromise = context.newPromise();
+                this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
+                log.trace("Wrote headers on stream {}: {}", streamId, headers);
 
-            final ByteBuf payloadBuffer = context.alloc().ioBuffer(INITIAL_PAYLOAD_BUFFER_CAPACITY);
-            payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(StandardCharsets.UTF_8));
+                final ByteBuf payloadBuffer = context.alloc().ioBuffer(INITIAL_PAYLOAD_BUFFER_CAPACITY);
+                payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(StandardCharsets.UTF_8));
 
-            final ChannelPromise dataPromise = context.newPromise();
-            this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
-            log.trace("Wrote payload on stream {}: {}", streamId, pushNotification.getPayload());
+                final ChannelPromise dataPromise = context.newPromise();
+                this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
+                log.trace("Wrote payload on stream {}: {}", streamId, pushNotification.getPayload());
 
-            final PromiseCombiner promiseCombiner = new PromiseCombiner();
-            promiseCombiner.addAll(headersPromise, dataPromise);
-            promiseCombiner.finish(writePromise);
+                final PromiseCombiner promiseCombiner = new PromiseCombiner();
+                promiseCombiner.addAll(headersPromise, dataPromise);
+                promiseCombiner.finish(writePromise);
 
-            writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
+                writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
 
-                @Override
-                public void operationComplete(final ChannelPromise future) throws Exception {
-                    if (future.isSuccess()) {
-                        ApnsClientHandler.this.pushNotificationsByStreamId.put(streamId, pushNotification);
-                        ApnsClientHandler.this.encodedAuthenticationTokensByPushNotification.put(pushNotification, encodedAuthenticationToken);
-                    } else {
-                        log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
-
-                        final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
-                                ApnsClientHandler.this.responsePromises.get(pushNotification);
-
-                        if (responsePromise != null) {
-                            responsePromise.tryFailure(future.cause());
+                    @Override
+                    public void operationComplete(final ChannelPromise future) throws Exception {
+                        if (future.isSuccess()) {
+                            ApnsClientHandler.this.pushNotificationsByStreamId.put(streamId, pushNotification);
+                            ApnsClientHandler.this.encodedAuthenticationTokensByPushNotification.put(pushNotification, encodedAuthenticationToken);
                         } else {
-                            log.error("Notification write failed, but no response promise found.");
+                            log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
+
+                            final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
+                                    ApnsClientHandler.this.responsePromises.get(pushNotification);
+
+                            if (responsePromise != null) {
+                                responsePromise.tryFailure(future.cause());
+                            } else {
+                                log.error("Notification write failed, but no response promise found.");
+                            }
                         }
                     }
+                });
+
+                this.nextStreamId += 2;
+
+                if (this.nextStreamId >= STREAM_ID_RESET_THRESHOLD) {
+                    // This is very unlikely, but in the event that we run out of stream IDs (the maximum allowed is
+                    // 2^31, per https://httpwg.github.io/specs/rfc7540.html#StreamIdentifiers), we need to open a new
+                    // connection. Just closing the context should be enough; automatic reconnection should take things
+                    // from there.
+                    context.close();
                 }
-            });
+            } else {
+                // We don't have an authentication token for this topic; we need to either request one or wait for an
+                // existing request to finish, then try again.
+                if (!this.authenticationTokenFuturesByTopic.containsKey(topic)) {
+                    final DefaultPromise<String> authenticationTokenPromise = new DefaultPromise<>(context.executor());
+                    this.authenticationTokenFuturesByTopic.put(topic, authenticationTokenPromise);
 
-            this.nextStreamId += 2;
+                    final DefaultPromise<ApnsSigningKey> keyPromise = new DefaultPromise<>(context.executor());
+                    this.signingKeySource.getKeyForTopic(topic, keyPromise);
 
-            if (this.nextStreamId >= STREAM_ID_RESET_THRESHOLD) {
-                // This is very unlikely, but in the event that we run out of stream IDs (the maximum allowed is
-                // 2^31, per https://httpwg.github.io/specs/rfc7540.html#StreamIdentifiers), we need to open a new
-                // connection. Just closing the context should be enough; automatic reconnection should take things
-                // from there.
-                context.close();
+                    keyPromise.addListener(new GenericFutureListener<Future<ApnsSigningKey>>() {
+
+                        @Override
+                        public void operationComplete(final Future<ApnsSigningKey> future) {
+                            if (future.isSuccess()) {
+                                try {
+                                    final ApnsSigningKey signingKey = future.getNow();
+
+                                    final String encodedAuthenticationToken = new AuthenticationToken(signingKey, new Date()).toString();
+                                    ApnsClientHandler.this.encodedAuthenticationTokensByTopic.put(topic, encodedAuthenticationToken);
+
+                                    if (!ApnsClientHandler.this.topicsBySigningKey.containsKey(signingKey)) {
+                                        ApnsClientHandler.this.topicsBySigningKey.put(signingKey, new HashSet<String>());
+                                    }
+
+                                    ApnsClientHandler.this.topicsBySigningKey.get(signingKey).add(topic);
+
+                                    authenticationTokenPromise.trySuccess(encodedAuthenticationToken);
+                                } catch (InvalidKeyException | NoSuchAlgorithmException | SignatureException e) {
+                                    // This should never happen in practice because we check both the availability of the algorithm and the
+                                    // validity of the key when the key is added to the registry.
+                                    authenticationTokenPromise.tryFailure(e);
+                                }
+                            } else {
+                                authenticationTokenPromise.tryFailure(future.cause());
+                            }
+                        }
+                    });
+                }
+
+                this.authenticationTokenFuturesByTopic.get(topic).addListener(new GenericFutureListener<Future<String>>() {
+
+                    @Override
+                    public void operationComplete(final Future<String> future) throws Exception {
+                        if (future.isSuccess()) {
+                            context.channel().write(pushNotification, writePromise);
+                        } else {
+                            writePromise.tryFailure(future.cause());
+                        }
+                    }
+                });
             }
         } else {
             // This should never happen, but in case some foreign debris winds up in the pipeline, just pass it through.
@@ -389,12 +466,6 @@ class ApnsClientHandler extends Http2ConnectionHandler {
             });
 
             this.flush(context);
-        } else if (event instanceof SigningKeyRemovalEvent) {
-            final SigningKeyRemovalEvent signingKeyRemovalEvent = (SigningKeyRemovalEvent) event;
-
-            for (final String topic : signingKeyRemovalEvent.getTopicsToClear()) {
-                this.encodedAuthenticationTokensByTopic.remove(topic);
-            }
         }
 
         super.userEventTriggered(context, event);
@@ -424,23 +495,22 @@ class ApnsClientHandler extends Http2ConnectionHandler {
         this.responsePromises.clear();
     }
 
-    private String getEncodedAuthenticationTokenForTopic(final String topic) throws NoKeyForTopicException {
-        if (!this.encodedAuthenticationTokensByTopic.containsKey(topic)) {
-            final ApnsSigningKey key = this.signingKeyRegistry.getKeyForTopic(topic);
+    @Override
+    public void handleKeyRemoval(final ApnsSigningKey key) {
+        assert this.eventExecutor != null;
 
-            if (key == null) {
-                throw new NoKeyForTopicException("No key found for topic: " + topic);
+        this.eventExecutor.execute(new Runnable() {
+
+            @Override
+            public void run() {
+                final Set<String> topicsForRemovedKey = ApnsClientHandler.this.topicsBySigningKey.remove(key);
+
+                if (topicsForRemovedKey != null) {
+                    for (final String topic : topicsForRemovedKey) {
+                        ApnsClientHandler.this.encodedAuthenticationTokensByTopic.remove(topic);
+                    }
+                }
             }
-
-            try {
-                this.encodedAuthenticationTokensByTopic.put(topic, new AuthenticationToken(key, new Date()).toString());
-            } catch (InvalidKeyException | NoSuchAlgorithmException | SignatureException e) {
-                // This should never happen in practice because we check both the availability of the algorithm and the
-                // validity of the key when the key is added to the registry.
-                throw new RuntimeException(e);
-            }
-        }
-
-        return this.encodedAuthenticationTokensByTopic.get(topic);
+        });
     }
 }

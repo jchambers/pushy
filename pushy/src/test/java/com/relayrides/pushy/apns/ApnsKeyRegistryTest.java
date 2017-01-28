@@ -1,12 +1,19 @@
 package com.relayrides.pushy.apns;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.security.interfaces.ECPrivateKey;
+import java.util.HashSet;
 import java.util.Set;
 
 import org.junit.Before;
 import org.junit.Test;
+
+import io.netty.util.concurrent.DefaultPromise;
+import io.netty.util.concurrent.GlobalEventExecutor;
+import io.netty.util.concurrent.Promise;
 
 public class ApnsKeyRegistryTest {
 
@@ -14,6 +21,20 @@ public class ApnsKeyRegistryTest {
 
     private static final String KEY_ID = "TESTKEY123";
     private static final String TEAM_ID = "TEAMID0987";
+
+    private static class TestKeyRemovalListener<T extends ApnsKey> implements ApnsKeyRemovalListener<T> {
+
+        private Set<T> removedKeys = new HashSet<>();
+
+        @Override
+        public void handleKeyRemoval(final T key) {
+            this.removedKeys.add(key);
+        }
+
+        public Set<T> getRemovedKeys() {
+            return this.removedKeys;
+        }
+    }
 
     @Before
     public void setUp() throws Exception {
@@ -43,54 +64,53 @@ public class ApnsKeyRegistryTest {
         final String topic = "topic";
         registry.registerKey(this.signingKey, topic);
 
-        assertEquals(this.signingKey, registry.getKeyForTopic(topic));
-        assertNull(registry.getKeyForTopic(topic + ".different"));
+        {
+            final Promise<ApnsSigningKey> keyPromise = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
+            registry.getKeyForTopic(topic, keyPromise);
+
+            assertEquals(this.signingKey, keyPromise.get());
+
+            final Promise<ApnsSigningKey> differentKeyPromise = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
+            registry.getKeyForTopic(topic + ".different", differentKeyPromise);
+
+            differentKeyPromise.await();
+
+            assertFalse(differentKeyPromise.isSuccess());
+            assertTrue(differentKeyPromise.cause() instanceof NoKeyForTopicException);
+        }
 
         final ApnsSigningKey differentKey = new ApnsSigningKey(KEY_ID + "DIFFERENT", TEAM_ID, (ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate());
-
         registry.registerKey(differentKey, topic);
 
-        assertEquals(differentKey, registry.getKeyForTopic(topic));
-    }
+        {
+            final Promise<ApnsSigningKey> keyPromise = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
+            registry.getKeyForTopic(topic, keyPromise);
 
-    @Test
-    public void testGetKeyById() throws Exception {
-        final ApnsKeyRegistry<ApnsSigningKey> registry = new ApnsKeyRegistry<>();
-
-        registry.registerKey(this.signingKey, "topic");
-
-        assertEquals(this.signingKey, registry.getKeyById(TEAM_ID, KEY_ID));
-        assertNull(registry.getKeyById(TEAM_ID + "DIFFERENT", KEY_ID));
-        assertNull(registry.getKeyById(TEAM_ID, KEY_ID + "DIFFERENT"));
+            assertEquals(differentKey, keyPromise.get());
+        }
     }
 
     @Test
     public void testRemoveKey() throws Exception {
         final ApnsKeyRegistry<ApnsSigningKey> registry = new ApnsKeyRegistry<>();
 
+        final TestKeyRemovalListener<ApnsSigningKey> listener = new TestKeyRemovalListener<>();
+        registry.addKeyRemovalListener(listener);
+
         final String topic = "topic";
-        final String secondTopic = "topic.second";
 
-        registry.registerKey(this.signingKey, topic, secondTopic);
+        registry.registerKey(this.signingKey, topic);
 
-        {
-            final Set<String> topics = registry.removeKey(TEAM_ID, KEY_ID);
-
-            assertEquals(2, topics.size());
-            assertTrue(topics.contains(topic));
-            assertTrue(topics.contains(secondTopic));
-        }
-
-        final ApnsSigningKey differentKey = new ApnsSigningKey(KEY_ID + "DIFFERENT", TEAM_ID, (ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate());
-
-        registry.registerKey(this.signingKey, topic, secondTopic);
-        registry.registerKey(differentKey, topic);
+        assertTrue(listener.getRemovedKeys().isEmpty());
+        registry.removeKey(TEAM_ID, KEY_ID);
+        assertTrue(listener.getRemovedKeys().contains(this.signingKey));
 
         {
-            final Set<String> topics = registry.removeKey(TEAM_ID, KEY_ID);
+            final Promise<ApnsSigningKey> keyPromise = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
+            registry.getKeyForTopic(topic, keyPromise);
 
-            assertEquals(1, topics.size());
-            assertTrue(topics.contains(secondTopic));
+            assertFalse(keyPromise.isSuccess());
+            assertTrue(keyPromise.cause() instanceof NoKeyForTopicException);
         }
     }
 }

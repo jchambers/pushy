@@ -3,7 +3,7 @@ package com.relayrides.pushy.apns;
 import java.math.BigInteger;
 import java.security.interfaces.ECPrivateKey;
 
-class ApnsSigningKey extends ApnsKey implements ECPrivateKey {
+public class ApnsSigningKey extends ApnsKey implements ECPrivateKey {
 
     private static final long serialVersionUID = 1L;
 

@@ -35,7 +35,6 @@ import java.security.interfaces.ECPrivateKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Collection;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -746,12 +745,12 @@ public class ApnsClient {
      * @param keyId the Apple-issued, ten-character identifier for the key to be removed
      */
     public void removeSigningKey(final String teamId, final String keyId) {
-        final Set<String> topicsToRemove = this.signingKeyRegistry.removeKey(teamId, keyId);
+        final ApnsSigningKey removedKey = this.signingKeyRegistry.removeKey(teamId, keyId);
 
         final ChannelPromise connectionReadyPromise = this.connectionReadyPromise;
 
-        if (!topicsToRemove.isEmpty() && connectionReadyPromise != null) {
-            connectionReadyPromise.channel().pipeline().fireUserEventTriggered(new SigningKeyRemovalEvent(topicsToRemove));
+        if (removedKey != null && connectionReadyPromise != null) {
+            connectionReadyPromise.channel().pipeline().fireUserEventTriggered(new ApnsKeyRemovalEvent<>(removedKey));
         }
     }
 
