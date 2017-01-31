@@ -3,13 +3,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>pushy</artifactId>
-  <version>0.10-SNAPSHOT</version>
+  <version>0.9.1</version>
     <name>Pushy</name>
 
     <parent>
         <groupId>com.relayrides</groupId>
         <artifactId>pushy-parent</artifactId>
-        <version>0.10-SNAPSHOT</version>
+        <version>0.9.1</version>
     </parent>
 
     <dependencies>
