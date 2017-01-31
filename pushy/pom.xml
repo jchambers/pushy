@@ -106,7 +106,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <version>2.16</version>
                         <configuration>
-                            <argLine>${argLine.alpnAgent} -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -Dio.netty.leakDetectionLevel=PARANOID -ea</argLine>
+                            <argLine>${argLine.alpnAgent} -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -ea</argLine>
                         </configuration>
                     </plugin>
                 </plugins>
