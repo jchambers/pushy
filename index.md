@@ -134,7 +134,7 @@ try {
 }
 ```
 
-Again, it's important to note that the returned `Future` supports listeners; waiting for each individual push notification is inefficient in practice, and most users will be better serverd by adding a listener to the `Future` instead of blocking until it completes.
+Again, it's important to note that the returned `Future` supports listeners; waiting for each individual push notification is inefficient in practice, and most users will be better served by adding a listener to the `Future` instead of blocking until it completes.
 
 Finally, when your application is shutting down, you'll want to disconnect any active clients:
 
