@@ -34,7 +34,6 @@ import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.handler.ssl.SslProvider;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
@@ -44,7 +43,6 @@ public class ApnsClientTest {
 
     private static final String SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME = "/single-topic-client.p12";
     private static final String MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME = "/multi-topic-client.p12";
-    private static final String UNTRUSTED_CLIENT_KEYSTORE_FILENAME = "/untrusted-client.p12";
 
     private static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
     private static final String SERVER_KEYSTORE = "/server.p12";
@@ -68,8 +66,6 @@ public class ApnsClientTest {
     private MockApnsServer server;
     private ApnsClient tlsAuthenticationClient;
     private ApnsClient tokenAuthenticationClient;
-
-    private SslProvider preferredSslProvider;
 
     private static class TestMetricsListener implements ApnsClientMetricsListener {
 
@@ -227,21 +223,17 @@ public class ApnsClientTest {
 
         this.server.start(PORT).await();
 
-        this.preferredSslProvider = "jdk".equals(System.getenv("PUSHY_SSL_PROVIDER")) ? SslProvider.JDK : null;
-
         try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
             this.tlsAuthenticationClient = new ApnsClientBuilder()
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .setTrustedServerCertificateChain(CA_CERTIFICATE)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .setSslProvider(this.preferredSslProvider)
                     .build();
         }
 
         this.tokenAuthenticationClient = new ApnsClientBuilder()
                 .setTrustedServerCertificateChain(CA_CERTIFICATE)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
-                .setSslProvider(this.preferredSslProvider)
                 .build();
 
         this.tlsAuthenticationClient.connect(HOST, PORT).await();
@@ -364,24 +356,6 @@ public class ApnsClientTest {
 
         assertFalse(unconnectedClient.isConnected());
         assertFalse(reconnectionFuture.isSuccess());
-    }
-
-    @Test
-    public void testConnectWithUntrustedCertificate() throws Exception {
-        final ApnsClient untrustedClient;
-
-        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(UNTRUSTED_CLIENT_KEYSTORE_FILENAME)) {
-            untrustedClient = new ApnsClientBuilder()
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .build();
-        }
-
-        final Future<Void> connectFuture = untrustedClient.connect(HOST, PORT).await();
-        assertFalse(connectFuture.isSuccess());
-
-        untrustedClient.disconnect().await();
     }
 
     @Test(expected = IllegalStateException.class)
