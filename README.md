@@ -17,11 +17,11 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 <dependency>
     <groupId>com.relayrides</groupId>
     <artifactId>pushy</artifactId>
-    <version>0.9.2</version>
+    <version>0.9.3</version>
 </dependency>
 ```
 
-If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.9.2/pushy-0.9.2.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
+If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.9.3/pushy-0.9.3.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
 - [netty 4.1.9](http://netty.io/)
 - [netty-tcnative-2.0.0.Final](http://netty.io/wiki/forked-tomcat-native.html)
@@ -209,4 +209,4 @@ If you plan to use Pushy inside an application container (like Tomcat), you may 
 
 Pushy is available under the [MIT License](https://github.com/relayrides/pushy/blob/master/LICENSE.md).
 
-The current version of Pushy is 0.9.2. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
+The current version of Pushy is 0.9.3. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
