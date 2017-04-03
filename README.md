@@ -21,14 +21,13 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 </dependency>
 ```
 
-It's very important to note that you will also need to have either `netty-tcnative` (2.0.0.Final or newer) or `alpn-boot`, as discussed in the [system requirements](#system-requirements) section below.
-
 If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.9.2/pushy-0.9.2.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
 - [netty 4.1.9](http://netty.io/)
+- [netty-tcnative-2.0.0.Final](http://netty.io/wiki/forked-tomcat-native.html)
 - [gson 2.6](https://github.com/google/gson)
 - [slf4j 1.7.6](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
-- [alpn-api](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html) if you've opted to use a native SSL provider (`alpn-api` is included in `alpn-boot`); please see the [system requirements](#system-requirements) section for details)
+- [alpn-api](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html)
 
 Pushy itself requires Java 7 or newer to build and run.
 
@@ -148,38 +147,7 @@ When shutting down, clients will wait for all sent-but-not-acknowledged notifica
 
 ## System requirements
 
-Pushy works with Java 7 and newer, but has some additional dependencies depending on the environment in which it is running.
-
-The APNs protocol is built on top of the [HTTP/2 protocol](https://http2.github.io/). HTTP/2 is a relatively new protocol, and relies on some new developments that aren't yet wide-spread in the Java world. In particular:
-
-1. HTTP/2 depends on [ALPN](https://tools.ietf.org/html/rfc7301), a TLS extension for protocol negotiation. No version of Java has native ALPN support at this time. The ALPN requirement may be met either by [using a native SSL provider](#using-a-native-ssl-provider) or by [using Jetty's ALPN implementation](#using-jettys-alpn-implementation) under Java 7 or 8.
-2. The HTTP/2 specification requires the use of [ciphers](https://httpwg.github.io/specs/rfc7540.html#rfc.section.9.2.2) that weren't introduced in Java until Java 8. Using a native SSL provider is the best way to meet this requirement under Java 7. A native SSL provider isn't a requirement under Java 8, but may still yield performance gains.
-
-Generally speaking, a native SSL provider is the best way to fulfill the system requirements imposed by HTTP/2 because installation is fairly straightforward, it works for Java 7 onward and generally offers better SSL performance than the JDK SSL provider.
-
-### Using a native SSL provider
-
-Using a native SSL provider (like [OpenSSL](https://www.openssl.org/), [BoringSSL](https://boringssl.googlesource.com/boringssl/), or [LibreSSL](http://www.libressl.org/)) via `netty-tcnative` fulfills the ALPN and cipher suite requirements imposed by HTTP/2 under all supported versions of Java. To use a native SSL provider, you'll need to add `netty-tcnative` as a dependency to your project. The `netty-tcnative` wiki provides [detailed instructions](http://netty.io/wiki/forked-tomcat-native.html), but in short, you'll need to add one additional platform-specific dependency to your project; we recommend using a statically-linked "uber jar" flavor for supported operating systems/CPU architectures (currently `linux-x86_64`, `osx-x86_64`, and `windows-x86_64`). This approach will meet all requirements imposed by HTTP/2 under Java 7 and 8.
-
-To add the netty-tcnative uber-jar, you'll just need to add the following dependency (if you're using Maven):
-
-```xml
-<dependency>
-    <groupId>io.netty</groupId>
-    <artifactId>netty-tcnative-boringssl-static</artifactId>
-    <version>2.0.0.Final</version>
-</dependency>
-```
-
-Otherwise, you may add the jar to your classpath by the means of your choice.
-
-Please note that Pushy requires netty-tcnative 2.0.0.Final or newer. Additionally, you'll need [`alpn-api`](http://mvnrepository.com/artifact/org.eclipse.jetty.alpn/alpn-api) as a `runtime` dependency for your project. If you're managing dependencies manually, you'll just need to make sure the latest version of `alpn-api` is available on your classpath.
-
-### Using Jetty's ALPN implementation
-
-As an alternative to a native SSL provider, Jetty's ALPN implementation. Please note that if you're not using Oracle JDK 8 or newer (or if you're using a JDK other than Oracle's), you'll need to meet the cipher suite requirement separately; you may do so either by using a native SSL provider (which also fulfills the ALPN requirement) or by using another cryptography provider (which is beyond the scope of this document).
-
-Using Jetty's ALPN implementation is somewhat more complicated than using a native SSL provider. You'll need to choose a version of `alpn-boot` specific to the version (down to the update!) of the JDK you're using, and then add it to your *boot* class path (note that this is *not* the same as your regular classpath). [Detailed instructions](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html) are provided by Jetty. If you choose to use the `alpn-boot` approach instead of a native SSL provider, we strongly recommend using [`jetty-alpn-agent`](https://github.com/jetty-project/jetty-alpn-agent), which will automatically choose the correct version of `alpn-boot` for your JRE.
+Pushy works with Java 7 and newer. By default, it depends on `netty-tcnative` and should work "out of the box" for most users. Users who can't (or choose not to) use `netty-tcnative` will need to take extra steps to [configure a JDK SSL provider](https://github.com/relayrides/pushy/wiki/Using-a-JDK-SSL-provider).
 
 ## Metrics
 
