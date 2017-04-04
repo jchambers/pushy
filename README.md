@@ -203,7 +203,7 @@ Pushy uses logging levels as follows:
 
 ## Using Pushy in an application container
 
-If you plan to use Pushy inside an application container (like Tomcat), you may have to take some additional steps and should be aware of some limitations detailed on the ["Using Pushy in an application continer" wiki page](https://github.com/relayrides/pushy/wiki/Using-Pushy-in-an-application-container).
+If you plan to use Pushy inside an application container (like Tomcat), you may have to take some additional steps and should be aware of some limitations detailed on the ["Using Pushy in an application container" wiki page](https://github.com/relayrides/pushy/wiki/Using-Pushy-in-an-application-container).
 
 ## License and status
 
