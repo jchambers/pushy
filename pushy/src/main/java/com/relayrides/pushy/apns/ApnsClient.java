@@ -143,7 +143,6 @@ public class ApnsClient {
 
     private static final long INITIAL_RECONNECT_DELAY_SECONDS = 1; // second
     private static final long MAX_RECONNECT_DELAY_SECONDS = 60; // seconds
-    static final int PING_IDLE_TIME_MILLIS = 60_000; // milliseconds
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
@@ -200,7 +199,7 @@ public class ApnsClient {
                                 }
                             }
 
-                            context.pipeline().addLast(new IdleStateHandler(0, 0, PING_IDLE_TIME_MILLIS, TimeUnit.MILLISECONDS));
+                            context.pipeline().addLast(new IdleStateHandler(0, 0, ApnsClientHandler.PING_IDLE_TIME_MILLIS, TimeUnit.MILLISECONDS));
                             context.pipeline().addLast(apnsClientHandler);
 
                             final ChannelPromise connectionReadyPromise = ApnsClient.this.connectionReadyPromise;
