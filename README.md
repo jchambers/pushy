@@ -102,7 +102,7 @@ The `Future` will complete in one of three circumstances:
 
 1. The gateway accepts the notification and will attempt to deliver it to the destination device.
 2. The gateway rejects the notification; this should be considered a permanent failure, and the notification should not be sent again. Additionally, the APNs gateway may indicate a timestamp at which the destination token became invalid. If that happens, you should stop trying to send *any* notification to that token unless the token has been re-registered since that timestamp.
-3. The `Future` fails with an exception. This should generally be considered a temporary failure, and callers should try to send the notification again when the problem has been resolved. In particular, the `Future` may fail with a [`ClientNotConnectedException`](http://relayrides.github.io/pushy/apidocs/0.9/com/relayrides/pushy/apns/ClientNotConnectedException.html), in which case callers may wait for the connection to be restored automatically by waiting for the `Future` returned by [`ApnsClient#getReconnectionFuture()`](http://relayrides.github.io/pushy/apidocs/0.9/com/relayrides/pushy/apns/ApnsClient.html#getReconnectionFuture--).
+3. The `Future` fails with an exception. This should generally be considered a temporary failure, and callers should try to send the notification again when the problem has been resolved. In particular, the `Future` may fail with a [`ClientNotConnectedException`](http://relayrides.github.io/pushy/apidocs/0.9/com/relayrides/pushy/apns/ClientNotConnectedException.html) or a [`ApnsServerException`](http://relayrides.github.io/pushy/apidocs/0.9/com/relayrides/pushy/apns/ApnsServerException.html), in which case callers may wait for the connection to be restored automatically by waiting for the `Future` returned by [`ApnsClient#getReconnectionFuture()`](http://relayrides.github.io/pushy/apidocs/0.9/com/relayrides/pushy/apns/ApnsClient.html#getReconnectionFuture--).
 
 An example:
 
@@ -126,7 +126,8 @@ try {
     System.err.println("Failed to send push notification.");
     e.printStackTrace();
 
-    if (e.getCause() instanceof ClientNotConnectedException) {
+    if ((e.getCause() instanceof ClientNotConnectedException) ||
+        (e.getCause() instanceof ApnsServerException)) {
         System.out.println("Waiting for client to reconnect…");
         apnsClient.getReconnectionFuture().await();
         System.out.println("Reconnected.");
