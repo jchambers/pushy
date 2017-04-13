@@ -37,6 +37,8 @@ import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.util.AsciiString;
 import io.netty.util.concurrent.PromiseCombiner;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 class MockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
 
@@ -70,6 +72,8 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     private static final Gson AUTH_GSON = new GsonBuilder()
             .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.SECONDS))
             .create();
+
+    private static final Logger log = LoggerFactory.getLogger(MockApnsServerHandler.class);
 
     private enum ErrorReason {
         BAD_COLLAPSE_ID("BadCollapseId", HttpResponseStatus.BAD_REQUEST),
@@ -493,9 +497,12 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise writePromise) throws Exception {
         if (message instanceof AcceptNotificationResponse) {
             final AcceptNotificationResponse acceptNotificationResponse = (AcceptNotificationResponse) message;
+            log.trace("Successfully handled push notification");
             this.encoder().writeHeaders(context, acceptNotificationResponse.getStreamId(), SUCCESS_HEADERS, 0, true, writePromise);
         } else if (message instanceof RejectNotificationResponse) {
             final RejectNotificationResponse rejectNotificationResponse = (RejectNotificationResponse) message;
+
+            log.trace("Rejected PushNotification, with reason: '{}'", ((RejectNotificationResponse) message).getErrorReason().getReasonText());
 
             final Http2Headers headers = new DefaultHttp2Headers();
             headers.status(rejectNotificationResponse.getErrorReason().getHttpResponseStatus().codeAsText());
