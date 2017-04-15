@@ -17,8 +17,8 @@ public class MockApnsServerBuilderTest {
 
         // We're happy here as long as nothing explodes
         new MockApnsServerBuilder()
-        .setServerCredentials(certificateFile, keyFile, null)
-        .build();
+            .setServerCredentials(certificateFile, keyFile, null)
+            .build();
     }
 
     @Test
@@ -28,13 +28,14 @@ public class MockApnsServerBuilderTest {
 
             // We're happy here as long as nothing explodes
             new MockApnsServerBuilder()
-            .setServerCredentials(certificateInputStream, keyInputStream, null)
-            .build();
+                .setServerCredentials(certificateInputStream, keyInputStream, null)
+                .build();
         }
     }
 
     @Test(expected = IllegalStateException.class)
     public void testBuildWithoutServerCredentials() throws Exception {
-        new MockApnsServerBuilder().build();
+        new MockApnsServerBuilder()
+            .build();
     }
 }

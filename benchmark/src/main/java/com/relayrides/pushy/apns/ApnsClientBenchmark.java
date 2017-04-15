@@ -23,6 +23,8 @@ import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 
+import com.relayrides.pushy.apns.auth.ApnsSigningKeyRegistry;
+import com.relayrides.pushy.apns.auth.ApnsVerificationKeyRegistry;
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 
@@ -62,6 +64,7 @@ public class ApnsClientBenchmark {
         this.eventLoopGroup = new NioEventLoopGroup(2);
 
         final ApnsClientBuilder clientBuilder = new ApnsClientBuilder()
+                .setSigningKeySource(new ApnsSigningKeyRegistry())
                 .setTrustedServerCertificateChain(ApnsClientBenchmark.class.getResourceAsStream(CA_CERTIFICATE_FILENAME))
                 .setEventLoopGroup(this.eventLoopGroup);
 
@@ -82,8 +85,8 @@ public class ApnsClientBenchmark {
             keyPair = keyPairGenerator.generateKeyPair();
         }
 
-        this.client.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), TEAM_ID, KEY_ID, TOPIC);
-        this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), TEAM_ID, KEY_ID, TOPIC);
+        ((ApnsSigningKeyRegistry) this.client.getSigningKeySource()).registerKey((ECPrivateKey) keyPair.getPrivate(), TEAM_ID, KEY_ID, TOPIC);
+        ((ApnsVerificationKeyRegistry) this.server.getVerificationKeySource()).registerKey((ECPublicKey) keyPair.getPublic(), TEAM_ID, KEY_ID, TOPIC);
 
         final String token = generateRandomToken();
         this.server.registerDeviceTokenForTopic(TOPIC, token, null);

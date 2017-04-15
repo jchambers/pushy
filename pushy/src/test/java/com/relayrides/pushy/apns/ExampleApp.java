@@ -4,6 +4,7 @@ import java.io.File;
 import java.net.InetSocketAddress;
 import java.util.concurrent.ExecutionException;
 
+import com.relayrides.pushy.apns.auth.ApnsSigningKeyRegistry;
 import com.relayrides.pushy.apns.proxy.Socks5ProxyHandlerFactory;
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
@@ -29,7 +30,12 @@ public class ExampleApp {
         final ApnsClient apnsClient = new ApnsClientBuilder()
                 .build();
 
-        apnsClient.registerSigningKey(new File("/path/to/key.p8"),
+        // By default, clients will use an ApnsSigningKeyRegistry as their
+        // signing key source.
+        final ApnsSigningKeyRegistry signingKeyRegistry =
+                (ApnsSigningKeyRegistry) apnsClient.getSigningKeySource();
+
+        signingKeyRegistry.registerKey(new File("/path/to/key.p8"),
                 "TEAMID1234", "KEYID67890", "com.example.topic");
 
         // Optional: we can listen for metrics by setting a metrics listener.

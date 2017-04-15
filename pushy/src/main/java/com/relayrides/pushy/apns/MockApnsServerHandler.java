@@ -1,7 +1,7 @@
 package com.relayrides.pushy.apns;
 
-import java.nio.charset.StandardCharsets;
-import java.security.Signature;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
 import java.util.Date;
 import java.util.HashMap;
@@ -9,19 +9,24 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.WeakHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.relayrides.pushy.apns.auth.ApnsKeyRemovalListener;
+import com.relayrides.pushy.apns.auth.ApnsKeySource;
+import com.relayrides.pushy.apns.auth.ApnsVerificationKey;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
-import io.netty.handler.codec.base64.Base64;
-import io.netty.handler.codec.base64.Base64Dialect;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -36,16 +41,27 @@ import io.netty.handler.codec.http2.Http2FrameListener;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.util.AsciiString;
+import io.netty.util.concurrent.DefaultPromise;
+import io.netty.util.concurrent.EventExecutor;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.Promise;
 import io.netty.util.concurrent.PromiseCombiner;
 
-class MockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
+class MockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener, ApnsKeyRemovalListener<ApnsVerificationKey> {
 
-    private final MockApnsServer apnsServer;
+    private volatile EventExecutor eventExecutor;
 
-    private final Map<Integer, UUID> requestsWaitingForDataFrame = new HashMap<>();
+    private final Map<Integer, Http2Headers> headersByStreamId = new HashMap<>();
 
-    private final Map<String, Date> authenticationTokenExpirationTimes = new HashMap<>();
-    private final Map<String, Set<String>> verifiedAuthenticationTokensByTopic = new HashMap<>();
+    private Map<String, Map<String, Date>> deviceTokenExpirationsByTopic;
+
+    private final ApnsKeySource<ApnsVerificationKey> verificationKeySource;
+    private final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey = new HashMap<>();
+    private final Map<String, Date> expirationTimesByEncodedAuthenticationToken = new WeakHashMap<>();
+    private final Map<String, Set<String>> verifiedEncodedAuthenticationTokensByTopic = new HashMap<>();
+
+    private boolean emulateInternalServerErrors;
 
     private static final Http2Headers SUCCESS_HEADERS = new DefaultHttp2Headers()
             .status(HttpResponseStatus.OK.codeAsText());
@@ -57,16 +73,12 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     private static final AsciiString APNS_AUTHORIZATION_HEADER = new AsciiString("authorization");
 
     private static final int MAX_CONTENT_LENGTH = 4096;
-    private static final Pattern TOKEN_PATTERN = Pattern.compile("[0-9a-fA-F]{64}");
+    private static final Pattern DEVIDE_TOKEN_PATTERN = Pattern.compile("[0-9a-fA-F]{64}");
 
-    private static final long AUTH_TOKEN_EXPIRATION_MILLIS = TimeUnit.HOURS.toMillis(1);
+    private static final Logger log = LoggerFactory.getLogger(MockApnsServerHandler.class);
 
-    private static final Gson PAYLOAD_GSON = new GsonBuilder()
+    private static final Gson GSON = new GsonBuilder()
             .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
-            .create();
-
-    private static final Gson AUTH_GSON = new GsonBuilder()
-            .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.SECONDS))
             .create();
 
     private enum ErrorReason {
@@ -124,42 +136,37 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
     }
 
-    private static class ExpiredAuthenticationTokenException extends Exception {
-        private static final long serialVersionUID = 1L;
-    }
-
-    private static class InvalidAuthenticationTokenException extends Exception {
-        private static final long serialVersionUID = 1L;
-
-        public InvalidAuthenticationTokenException() {
-            super();
-        }
-
-        public InvalidAuthenticationTokenException(final Throwable cause) {
-            super(cause);
-        }
-    }
-
     public static final class MockApnsServerHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<MockApnsServerHandler, MockApnsServerHandlerBuilder> {
-        private MockApnsServer apnsServer;
+        private MockApnsServerHandlerConfiguration initialHandlerConfiguration;
+        private ApnsKeySource<ApnsVerificationKey> verificationKeySource;
 
-        public MockApnsServerHandlerBuilder apnsServer(final MockApnsServer apnsServer) {
-            this.apnsServer = apnsServer;
+        public MockApnsServerHandlerBuilder initialHandlerConfiguration(final MockApnsServerHandlerConfiguration initialHandlerConfiguration) {
+            this.initialHandlerConfiguration = initialHandlerConfiguration;
             return this;
         }
 
-        public MockApnsServer apnsServer() {
-            return this.apnsServer;
+        public MockApnsServerHandlerConfiguration initialHandlerConfiguration() {
+            return this.initialHandlerConfiguration;
+        }
+
+        public MockApnsServerHandlerBuilder verificationKeySource(final ApnsKeySource<ApnsVerificationKey> verificationKeySource) {
+            this.verificationKeySource = verificationKeySource;
+            return this;
+        }
+
+        public ApnsKeySource<ApnsVerificationKey> verificationKeySource() {
+            return this.verificationKeySource;
         }
 
         @Override
         public MockApnsServerHandlerBuilder initialSettings(final Http2Settings initialSettings) {
+            // This method isn't externally-visible by default; we're just exposing it to outside callers here.
             return super.initialSettings(initialSettings);
         }
 
         @Override
         public MockApnsServerHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
-            final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, initialSettings, this.apnsServer());
+            final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, initialSettings, this.initialHandlerConfiguration(), this.verificationKeySource());
             this.frameListener(handler);
             return handler;
         }
@@ -187,10 +194,6 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         private final UUID apnsId;
         private final ErrorReason errorReason;
         private final Date timestamp;
-
-        public RejectNotificationResponse(final int streamId, final UUID apnsId, final ErrorReason errorReason) {
-            this(streamId, apnsId, errorReason, null);
-        }
 
         public RejectNotificationResponse(final int streamId, final UUID apnsId, final ErrorReason errorReason, final Date timestamp) {
             this.streamId = streamId;
@@ -228,180 +231,72 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
     }
 
-    protected MockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final MockApnsServer apnsServer) {
+    private static class InvalidAuthenticationTokenException extends Exception {
+        private static final long serialVersionUID = 1L;
+
+        private final ErrorReason errorReason;
+
+        public InvalidAuthenticationTokenException(final ErrorReason errorReason) {
+            this.errorReason = errorReason;
+        }
+
+        public ErrorReason getErrorReason() {
+            return this.errorReason;
+        }
+    }
+
+    private static class RejectedNotificationException extends Exception {
+        private static final long serialVersionUID = 1L;
+
+        private final UUID apnsId;
+        private final ErrorReason errorReason;
+        private final Date timestamp;
+
+        public RejectedNotificationException(final UUID apnsId, final ErrorReason errorReason) {
+            this(apnsId, errorReason, null);
+        }
+
+        public RejectedNotificationException(final UUID apnsId, final ErrorReason errorReason, final Date timestamp) {
+            this.apnsId = apnsId;
+            this.errorReason = errorReason;
+            this.timestamp = timestamp;
+        }
+
+        public UUID getApnsId() {
+            return this.apnsId;
+        }
+
+        public ErrorReason getErrorReason() {
+            return this.errorReason;
+        }
+
+        public Date getTimestamp() {
+            return this.timestamp;
+        }
+    }
+
+    protected MockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final MockApnsServerHandlerConfiguration initialHandlerConfiguration, final ApnsKeySource<ApnsVerificationKey> verificationKeySource) {
         super(decoder, encoder, initialSettings);
 
-        this.apnsServer = apnsServer;
+        this.emulateInternalServerErrors = initialHandlerConfiguration.shouldEmulateInternalServerErrors();
+        this.deviceTokenExpirationsByTopic = initialHandlerConfiguration.getTokenExpirationsByTopic();
+
+        this.verificationKeySource = verificationKeySource;
     }
 
     @Override
-    public int onDataRead(final ChannelHandlerContext context, final int streamId, final ByteBuf data, final int padding, final boolean endOfStream) throws Http2Exception {
-        final int bytesProcessed = data.readableBytes() + padding;
+    public void channelActive(final ChannelHandlerContext context) throws Exception {
+        super.channelActive(context);
 
-        if (endOfStream) {
-            // Presumably, we spotted an error earlier and sent a response immediately if we don't have an entry in the
-            // "waiting for data frame" map.
-            if (this.requestsWaitingForDataFrame.containsKey(streamId)) {
-                final UUID apnsId = this.requestsWaitingForDataFrame.remove(streamId);
-
-                if (data.readableBytes() <= MAX_CONTENT_LENGTH) {
-                    context.channel().writeAndFlush(new AcceptNotificationResponse(streamId));
-                } else {
-                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.PAYLOAD_TOO_LARGE));
-                }
-            }
-        }
-
-        return bytesProcessed;
+        this.eventExecutor = context.executor();
+        this.verificationKeySource.addKeyRemovalListener(this);
     }
 
     @Override
-    public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
-        if (this.apnsServer.shouldEmulateInternalErrors()) {
-            context.channel().writeAndFlush(new InternalServerErrorResponse(streamId));
-        }
+    public void channelInactive(final ChannelHandlerContext context) throws Exception {
+        super.channelInactive(context);
 
-        if (!HttpMethod.POST.asciiName().contentEquals(headers.get(Http2Headers.PseudoHeaderName.METHOD.value()))) {
-            context.channel().writeAndFlush(new RejectNotificationResponse(streamId, null, ErrorReason.METHOD_NOT_ALLOWED));
-            return;
-        }
-
-        final UUID apnsId;
-        {
-            final CharSequence apnsIdSequence = headers.get(APNS_ID_HEADER);
-
-            if (apnsIdSequence != null) {
-                try {
-                    apnsId = UUID.fromString(apnsIdSequence.toString());
-                } catch (final IllegalArgumentException e) {
-                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, null, ErrorReason.BAD_MESSAGE_ID));
-                    return;
-                }
-            } else {
-                // If the client didn't send us a UUID, make one up (for now)
-                apnsId = UUID.randomUUID();
-            }
-        }
-
-        if (endOfStream) {
-            context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.PAYLOAD_EMPTY));
-            return;
-        }
-
-        final String authenticationToken;
-        {
-            final CharSequence authorizationSequence = headers.get(APNS_AUTHORIZATION_HEADER);
-
-            if (authorizationSequence != null) {
-                final String authorizationString = authorizationSequence.toString();
-
-                if (authorizationString.startsWith("bearer")) {
-                    authenticationToken = authorizationString.substring("bearer".length()).trim();
-                } else {
-                    authenticationToken = null;
-                }
-            } else {
-                authenticationToken = null;
-            }
-        }
-
-        final String topic;
-        {
-            final CharSequence topicSequence = headers.get(APNS_TOPIC_HEADER);
-            topic = (topicSequence != null) ? topicSequence.toString() : null;
-        }
-
-        if (topic == null) {
-            context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.MISSING_TOPIC));
-            return;
-        }
-
-        final Set<String> verifiedTokensForTopic = this.verifiedAuthenticationTokensByTopic.get(topic);
-
-        if (verifiedTokensForTopic != null && verifiedTokensForTopic.contains(authenticationToken)) {
-            final Date tokenExpiration = this.authenticationTokenExpirationTimes.get(authenticationToken);
-            final Date now = new Date();
-
-            if (now.after(tokenExpiration)) {
-                verifiedTokensForTopic.remove(authenticationToken);
-                this.authenticationTokenExpirationTimes.remove(authenticationToken);
-
-                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.EXPIRED_PROVIDER_TOKEN));
-                return;
-            }
-        } else {
-            try {
-                final AuthenticationTokenClaims claims = this.getVerifiedClaimsFromAuthenticationToken(authenticationToken);
-                final Set<String> topics = this.apnsServer.getTopicsForTeamId(claims.getIssuer());
-
-                if (topics == null || !topics.contains(topic)) {
-                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.DEVICE_TOKEN_NOT_FOR_TOPIC));
-                    return;
-                }
-
-                if (!this.verifiedAuthenticationTokensByTopic.containsKey(topic)) {
-                    this.verifiedAuthenticationTokensByTopic.put(topic, new HashSet<String>());
-                }
-
-                this.verifiedAuthenticationTokensByTopic.get(topic).add(authenticationToken);
-                this.authenticationTokenExpirationTimes.put(authenticationToken, new Date(System.currentTimeMillis() + AUTH_TOKEN_EXPIRATION_MILLIS));
-            } catch (final InvalidAuthenticationTokenException e) {
-                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.INVALID_PROVIDER_TOKEN));
-                return;
-            } catch (final ExpiredAuthenticationTokenException e) {
-                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.EXPIRED_PROVIDER_TOKEN));
-                return;
-            }
-        }
-
-        {
-            final Integer priorityCode = headers.getInt(APNS_PRIORITY_HEADER);
-
-            if (priorityCode != null) {
-                try {
-                    DeliveryPriority.getFromCode(priorityCode);
-                } catch (final IllegalArgumentException e) {
-                    context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.BAD_PRIORITY));
-                    return;
-                }
-            }
-        }
-
-        {
-            final CharSequence pathSequence = headers.get(Http2Headers.PseudoHeaderName.PATH.value());
-
-            if (pathSequence != null) {
-                final String pathString = pathSequence.toString();
-
-                if (pathString.startsWith(APNS_PATH_PREFIX)) {
-                    final String tokenString = pathString.substring(APNS_PATH_PREFIX.length());
-
-                    final Matcher tokenMatcher = TOKEN_PATTERN.matcher(tokenString);
-
-                    if (!tokenMatcher.matches()) {
-                        context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.BAD_DEVICE_TOKEN));
-                        return;
-                    }
-
-                    final Date expirationTimestamp = this.apnsServer.getExpirationTimestampForTokenInTopic(tokenString, topic);
-
-                    if (expirationTimestamp != null) {
-                        context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.UNREGISTERED, expirationTimestamp));
-                        return;
-                    }
-
-                    if (!this.apnsServer.isTokenRegisteredForTopic(tokenString, topic)) {
-                        context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.DEVICE_TOKEN_NOT_FOR_TOPIC));
-                        return;
-                    }
-                }
-            } else {
-                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.BAD_PATH));
-                return;
-            }
-        }
-
-        this.requestsWaitingForDataFrame.put(streamId, apnsId);
+        this.verificationKeySource.removeKeyRemovalListener(this);
     }
 
     @Override
@@ -409,6 +304,240 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             final short weight, final boolean exclusive, final int padding, final boolean endOfStream) throws Http2Exception {
 
         this.onHeadersRead(ctx, streamId, headers, padding, endOfStream);
+    }
+
+    @Override
+    public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
+        if (endOfStream) {
+            // It looks like we don't have any data coming, so process (and presumably reject) this notification
+            // immediately.
+            this.processPushNotification(context, streamId, headers, null);
+        } else {
+            // Store the headers so we can process them when the data arrives.
+            this.headersByStreamId.put(streamId, headers);
+        }
+    }
+
+    @Override
+    public int onDataRead(final ChannelHandlerContext context, final int streamId, final ByteBuf data, final int padding, final boolean endOfStream) throws Http2Exception {
+        final int bytesProcessed = data.readableBytes() + padding;
+
+        if (endOfStream) {
+            this.processPushNotification(context, streamId, this.headersByStreamId.remove(streamId), data);
+        } else {
+            log.error("Received a `DATA` frame on stream {} that was not the end of the stream.", streamId);
+        }
+
+        return bytesProcessed;
+    }
+
+    private void processPushNotification(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final ByteBuf data) {
+        if (this.emulateInternalServerErrors) {
+            context.channel().writeAndFlush(new InternalServerErrorResponse(streamId));
+        } else {
+            try {
+                if (!HttpMethod.POST.asciiName().contentEquals(headers.get(Http2Headers.PseudoHeaderName.METHOD.value()))) {
+                    throw new RejectedNotificationException(null, ErrorReason.METHOD_NOT_ALLOWED);
+                }
+
+                final UUID apnsId;
+                {
+                    final CharSequence apnsIdSequence = headers.get(APNS_ID_HEADER);
+
+                    if (apnsIdSequence != null) {
+                        try {
+                            apnsId = UUID.fromString(apnsIdSequence.toString());
+                        } catch (final IllegalArgumentException e) {
+                            throw new RejectedNotificationException(null, ErrorReason.BAD_MESSAGE_ID);
+                        }
+                    } else {
+                        // If the client didn't send us a UUID, make one up (for now)
+                        apnsId = UUID.randomUUID();
+                    }
+                }
+
+                final String topic;
+                {
+                    final CharSequence topicSequence = headers.get(APNS_TOPIC_HEADER);
+                    topic = (topicSequence != null) ? topicSequence.toString() : null;
+                }
+
+                if (topic == null) {
+                    throw new RejectedNotificationException(apnsId, ErrorReason.MISSING_TOPIC);
+                }
+
+                final String encodedAuthenticationToken;
+                {
+                    final CharSequence authorizationSequence = headers.get(APNS_AUTHORIZATION_HEADER);
+
+                    if (authorizationSequence != null) {
+                        final String authorizationString = authorizationSequence.toString();
+
+                        if (authorizationString.startsWith("bearer")) {
+                            encodedAuthenticationToken = authorizationString.substring("bearer".length()).trim();
+                        } else {
+                            encodedAuthenticationToken = null;
+                        }
+                    } else {
+                        encodedAuthenticationToken = null;
+                    }
+                }
+
+                if (encodedAuthenticationToken == null) {
+                    throw new RejectedNotificationException(apnsId, ErrorReason.MISSING_PROVIDER_TOKEN);
+                }
+
+                final DefaultPromise<Void> signatureVerificationPromise = new DefaultPromise<>(context.executor());
+                this.verifyAuthenticationToken(encodedAuthenticationToken, topic, signatureVerificationPromise, context.executor());
+
+                signatureVerificationPromise.addListener(new GenericFutureListener<Future<Void>>() {
+
+                    @Override
+                    public void operationComplete(final Future<Void> signatureVerificationFuture) throws Exception {
+                        try {
+                            if (signatureVerificationFuture.isSuccess()) {
+                                {
+                                    final Integer priorityCode = headers.getInt(APNS_PRIORITY_HEADER);
+
+                                    if (priorityCode != null) {
+                                        try {
+                                            DeliveryPriority.getFromCode(priorityCode);
+                                        } catch (final IllegalArgumentException e) {
+                                            throw new RejectedNotificationException(apnsId, ErrorReason.BAD_PRIORITY);
+                                        }
+                                    }
+                                }
+
+                                {
+                                    final CharSequence pathSequence = headers.get(Http2Headers.PseudoHeaderName.PATH.value());
+
+                                    if (pathSequence != null) {
+                                        final String pathString = pathSequence.toString();
+
+                                        if (pathString.startsWith(APNS_PATH_PREFIX)) {
+                                            final String deviceTokenString = pathString.substring(APNS_PATH_PREFIX.length());
+
+                                            final Matcher deviceTokenMatcher = DEVIDE_TOKEN_PATTERN.matcher(deviceTokenString);
+
+                                            if (!deviceTokenMatcher.matches()) {
+                                                throw new RejectedNotificationException(apnsId, ErrorReason.BAD_DEVICE_TOKEN);
+                                            }
+
+                                            final Date expirationTimestamp;
+                                            {
+                                                final Map<String, Date> tokensWithinTopic = MockApnsServerHandler.this.deviceTokenExpirationsByTopic.get(topic);
+                                                expirationTimestamp = tokensWithinTopic != null ? tokensWithinTopic.get(deviceTokenString) : null;
+                                            }
+
+                                            if (expirationTimestamp != null) {
+                                                throw new RejectedNotificationException(apnsId, ErrorReason.UNREGISTERED, expirationTimestamp);
+                                            }
+
+                                            final boolean deviceTokenIsRegisteredForTopic;
+                                            {
+                                                final Map<String, Date> tokensWithinTopic = MockApnsServerHandler.this.deviceTokenExpirationsByTopic.get(topic);
+                                                deviceTokenIsRegisteredForTopic = tokensWithinTopic != null && tokensWithinTopic.containsKey(deviceTokenString);
+                                            }
+
+                                            if (!deviceTokenIsRegisteredForTopic) {
+                                                throw new RejectedNotificationException(apnsId, ErrorReason.DEVICE_TOKEN_NOT_FOR_TOPIC);
+                                            }
+                                        }
+                                    } else {
+                                        throw new RejectedNotificationException(apnsId, ErrorReason.BAD_PATH);
+                                    }
+                                }
+
+                                if (data == null) {
+                                    throw new RejectedNotificationException(apnsId, ErrorReason.PAYLOAD_EMPTY);
+                                } else {
+                                    if (data.readableBytes() > MAX_CONTENT_LENGTH) {
+                                        throw new RejectedNotificationException(apnsId, ErrorReason.PAYLOAD_TOO_LARGE);
+                                    }
+                                }
+
+                                context.channel().writeAndFlush(new AcceptNotificationResponse(streamId));
+                            } else {
+                                assert signatureVerificationFuture.cause() instanceof InvalidAuthenticationTokenException;
+
+                                if (signatureVerificationFuture.cause() instanceof InvalidAuthenticationTokenException) {
+                                    InvalidAuthenticationTokenException cause = (InvalidAuthenticationTokenException) signatureVerificationFuture.cause();
+                                    throw new RejectedNotificationException(apnsId, cause.getErrorReason());
+                                } else {
+                                    throw new RejectedNotificationException(apnsId, ErrorReason.INVALID_PROVIDER_TOKEN);
+                                }
+                            }
+                        } catch (RejectedNotificationException e) {
+                            context.channel().writeAndFlush(new RejectNotificationResponse(streamId, e.getApnsId(), e.getErrorReason(), e.getTimestamp()));
+                        }
+                    }
+                });
+            } catch (RejectedNotificationException e) {
+                context.channel().writeAndFlush(new RejectNotificationResponse(streamId, e.getApnsId(), e.getErrorReason(), e.getTimestamp()));
+            }
+        }
+    }
+
+    private void verifyAuthenticationToken(final String encodedAuthenticationToken, final String topic, final Promise<Void> verificationPromise, final EventExecutor executor) {
+        final Set<String> verifiedTokensForTopic = this.verifiedEncodedAuthenticationTokensByTopic.get(topic);
+
+        if (verifiedTokensForTopic != null && verifiedTokensForTopic.contains(encodedAuthenticationToken)) {
+            // We've previously verified the signature for the given encoded token, but it may have expired
+            // since then.
+            final Date tokenExpiration = this.expirationTimesByEncodedAuthenticationToken.get(encodedAuthenticationToken);
+
+            if (new Date().after(tokenExpiration)) {
+                verifiedTokensForTopic.remove(encodedAuthenticationToken);
+                verificationPromise.tryFailure(new InvalidAuthenticationTokenException(ErrorReason.EXPIRED_PROVIDER_TOKEN));
+            } else {
+                verificationPromise.trySuccess(null);
+            }
+        } else {
+            // We don't trust this token yet and need to verify it.
+            final DefaultPromise<ApnsVerificationKey> keyPromise = new DefaultPromise<>(executor);
+            this.verificationKeySource.getKeyForTopic(topic, keyPromise);
+
+            keyPromise.addListener(new GenericFutureListener<Future<ApnsVerificationKey>>() {
+
+                @Override
+                public void operationComplete(final Future<ApnsVerificationKey> keyFuture) {
+                    if (keyFuture.isSuccess()) {
+                        final AuthenticationToken authenticationToken = new AuthenticationToken(encodedAuthenticationToken);
+
+                        if (new Date().after(authenticationToken.getExpiration())) {
+                            verificationPromise.tryFailure(new InvalidAuthenticationTokenException(ErrorReason.EXPIRED_PROVIDER_TOKEN));
+                        }
+
+                        final ApnsVerificationKey verificationKey = keyFuture.getNow();
+
+                        try {
+                            if (!authenticationToken.verifySignature(verificationKey)) {
+                                verificationPromise.tryFailure(new InvalidAuthenticationTokenException(ErrorReason.INVALID_PROVIDER_TOKEN));
+                            }
+                        } catch (InvalidKeyException | NoSuchAlgorithmException | SignatureException e) {
+                            verificationPromise.tryFailure(new InvalidAuthenticationTokenException(ErrorReason.INVALID_PROVIDER_TOKEN));
+                        }
+
+                        if (!MockApnsServerHandler.this.verifiedEncodedAuthenticationTokensByTopic.containsKey(topic)) {
+                            MockApnsServerHandler.this.verifiedEncodedAuthenticationTokensByTopic.put(topic, new HashSet<String>());
+                        }
+
+                        MockApnsServerHandler.this.verifiedEncodedAuthenticationTokensByTopic.get(topic).add(encodedAuthenticationToken);
+                        MockApnsServerHandler.this.expirationTimesByEncodedAuthenticationToken.put(encodedAuthenticationToken, authenticationToken.getExpiration());
+
+                        if (!MockApnsServerHandler.this.topicsByVerificationKey.containsKey(verificationKey)) {
+                            MockApnsServerHandler.this.topicsByVerificationKey.put(verificationKey, new HashSet<String>());
+                        }
+
+                        MockApnsServerHandler.this.topicsByVerificationKey.get(verificationKey).add(topic);
+
+                        verificationPromise.trySuccess(null);
+                    } else {
+                        verificationPromise.tryFailure(new InvalidAuthenticationTokenException(ErrorReason.BAD_TOPIC));
+                    }
+                }
+            });
+        }
     }
 
     @Override
@@ -473,7 +602,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
                         new ErrorResponse(rejectNotificationResponse.getErrorReason().getReasonText(),
                                 rejectNotificationResponse.getTimestamp());
 
-                payloadBytes = PAYLOAD_GSON.toJson(errorResponse).getBytes();
+                payloadBytes = GSON.toJson(errorResponse).getBytes();
             }
 
             final ChannelPromise headersPromise = context.newPromise();
@@ -497,115 +626,40 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
     }
 
-    protected AuthenticationTokenClaims getVerifiedClaimsFromAuthenticationToken(final String authenticationToken) throws InvalidAuthenticationTokenException, ExpiredAuthenticationTokenException {
-        if (authenticationToken == null) {
-            throw new InvalidAuthenticationTokenException();
+    @Override
+    public void userEventTriggered(final ChannelHandlerContext context, final Object event) throws Exception {
+        if (event instanceof MockApnsServerHandlerConfiguration) {
+            final MockApnsServerHandlerConfiguration configuration = (MockApnsServerHandlerConfiguration) event;
+
+            this.emulateInternalServerErrors = configuration.shouldEmulateInternalServerErrors();
+            this.deviceTokenExpirationsByTopic = configuration.getTokenExpirationsByTopic();
+        } else {
+            context.fireUserEventTriggered(event);
         }
-
-        final ByteBuf tokenBuffer = Unpooled.wrappedBuffer(authenticationToken.getBytes(StandardCharsets.US_ASCII));
-
-        final AuthenticationTokenHeader header;
-        final AuthenticationTokenClaims claims;
-        final byte[] headerAndClaimsBytes;
-        final byte[] expectedSignature;
-
-        try {
-            {
-                final ByteBuf decodedHeaderBuffer = this.padAndBase64Decode(tokenBuffer.readSlice(tokenBuffer.bytesBefore((byte) '.')));
-
-                header = AUTH_GSON.fromJson(decodedHeaderBuffer.toString(StandardCharsets.US_ASCII),
-                        AuthenticationTokenHeader.class);
-
-                decodedHeaderBuffer.release();
-            }
-
-            tokenBuffer.skipBytes(1);
-
-            {
-                final ByteBuf decodedClaimsBuffer = this.padAndBase64Decode(tokenBuffer.readSlice(tokenBuffer.bytesBefore((byte) '.')));
-
-                claims = AUTH_GSON.fromJson(decodedClaimsBuffer.toString(StandardCharsets.US_ASCII),
-                        AuthenticationTokenClaims.class);
-
-                decodedClaimsBuffer.release();
-            }
-
-            headerAndClaimsBytes = new byte[tokenBuffer.readerIndex()];
-            tokenBuffer.getBytes(0, headerAndClaimsBytes, 0, tokenBuffer.readerIndex());
-
-            tokenBuffer.skipBytes(1);
-
-            {
-                final ByteBuf decodedSignatureBuffer = this.padAndBase64Decode(tokenBuffer);
-
-                expectedSignature = new byte[decodedSignatureBuffer.readableBytes()];
-                decodedSignatureBuffer.readBytes(expectedSignature);
-
-                decodedSignatureBuffer.release();
-            }
-        } catch (final RuntimeException e) {
-            e.printStackTrace();
-            throw new InvalidAuthenticationTokenException(e);
-        } finally {
-            tokenBuffer.release();
-        }
-
-        final Date oldestAllowableIssueDate = new Date(System.currentTimeMillis() - AUTH_TOKEN_EXPIRATION_MILLIS);
-
-        if (claims.getIssuedAt().before(oldestAllowableIssueDate)) {
-            throw new ExpiredAuthenticationTokenException();
-        }
-
-        final Signature signature = this.apnsServer.getSignatureForKeyId(header.getKeyId());
-
-        if (signature == null) {
-            throw new InvalidAuthenticationTokenException();
-        }
-
-        try {
-            signature.update(headerAndClaimsBytes);
-
-            if (!signature.verify(expectedSignature)) {
-                throw new InvalidAuthenticationTokenException();
-            }
-        } catch (final SignatureException e) {
-            throw new InvalidAuthenticationTokenException(e);
-        }
-
-        // At this point, we know that the claims and header were signed by the private key identified in the header,
-        // but we still need to verify that the key belongs to the team named in the claims.
-        final String teamId = this.apnsServer.getTeamIdForKeyId(header.getKeyId());
-
-        if (!claims.getIssuer().equals(teamId)) {
-            throw new InvalidAuthenticationTokenException();
-        }
-
-        return claims;
     }
 
-    private ByteBuf padAndBase64Decode(final ByteBuf source) {
-        final int paddedLength = source.readableBytes() + 2;
-        final ByteBuf paddedSource = source.alloc().heapBuffer(paddedLength, paddedLength);
+    @Override
+    public void handleKeyRemoval(final ApnsVerificationKey key) {
+        assert this.eventExecutor != null;
 
-        source.getBytes(source.readerIndex(), paddedSource, source.readableBytes());
+        this.eventExecutor.execute(new Runnable() {
 
-        switch (source.readableBytes() % 4) {
-            case 2: {
-                paddedSource.writeByte('=');
-                paddedSource.writeByte('=');
-                break;
+            @Override
+            public void run() {
+                final Set<String> topicsForRemovedKey = MockApnsServerHandler.this.topicsByVerificationKey.remove(key);
+
+                if (topicsForRemovedKey != null) {
+                    for (final String topic : topicsForRemovedKey) {
+                        final Set<String> encodedAuthenticationTokens = MockApnsServerHandler.this.verifiedEncodedAuthenticationTokensByTopic.remove(topic);
+
+                        if (encodedAuthenticationTokens != null) {
+                            for (final String encodedAuthenticationToken : encodedAuthenticationTokens) {
+                                MockApnsServerHandler.this.expirationTimesByEncodedAuthenticationToken.remove(encodedAuthenticationToken);
+                            }
+                        }
+                    }
+                }
             }
-
-            case 3: {
-                paddedSource.writeByte('=');
-                break;
-            }
-        }
-
-        final ByteBuf decoded = Base64.decode(paddedSource, Base64Dialect.URL_SAFE);
-
-        paddedSource.release();
-
-        return decoded;
+        });
     }
 }
