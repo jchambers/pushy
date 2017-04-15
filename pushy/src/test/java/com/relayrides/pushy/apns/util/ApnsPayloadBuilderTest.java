@@ -108,6 +108,9 @@ public class ApnsPayloadBuilderTest {
             assertNull(alert.get("body"));
         }
 
+        // We're happy here as long as nothing explodes
+        this.builder.setLocalizedAlertMessage(alertKey, null);
+
         final String[] alertArgs = new String[] { "Moose", "helicopter" };
         this.builder.setLocalizedAlertMessage(alertKey, alertArgs);
 
@@ -121,7 +124,6 @@ public class ApnsPayloadBuilderTest {
             assertEquals(alertArgs.length, argsArray.size());
             assertTrue(argsArray.containsAll(java.util.Arrays.asList(alertArgs)));
         }
-
     }
 
     @Test
@@ -160,6 +162,9 @@ public class ApnsPayloadBuilderTest {
             assertNull(alert.get("title-loc-args"));
             assertNull(alert.get("title"));
         }
+
+        // We're happy here as long as nothing explodes
+        this.builder.setLocalizedAlertTitle(localizedAlertTitleKey, null);
 
         final String[] alertArgs = new String[] { "Moose", "helicopter" };
         this.builder.setLocalizedAlertTitle(localizedAlertTitleKey, alertArgs);
@@ -214,6 +219,9 @@ public class ApnsPayloadBuilderTest {
             assertNull(alert.get("subtitle-loc-args"));
             assertNull(alert.get("subtitle"));
         }
+
+        // We're happy here as long as nothing explodes
+        this.builder.setLocalizedAlertSubtitle(subtitleKey, null);
 
         final String[] subtitleArgs = new String[] { "Moose", "helicopter" };
         this.builder.setLocalizedAlertSubtitle(subtitleKey, subtitleArgs);

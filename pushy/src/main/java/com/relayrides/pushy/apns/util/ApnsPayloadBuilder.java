@@ -166,7 +166,7 @@ public class ApnsPayloadBuilder {
      */
     public ApnsPayloadBuilder setLocalizedAlertMessage(final String localizedAlertKey, final String... alertArguments) {
         this.localizedAlertKey = localizedAlertKey;
-        this.localizedAlertArguments = alertArguments.length > 0 ? alertArguments : null;
+        this.localizedAlertArguments = (alertArguments != null && alertArguments.length > 0) ? alertArguments : null;
 
         this.alertBody = null;
 
@@ -211,7 +211,7 @@ public class ApnsPayloadBuilder {
      */
     public ApnsPayloadBuilder setLocalizedAlertTitle(final String localizedAlertTitleKey, final String... alertTitleArguments) {
         this.localizedAlertTitleKey = localizedAlertTitleKey;
-        this.localizedAlertTitleArguments = alertTitleArguments.length > 0 ? alertTitleArguments : null;
+        this.localizedAlertTitleArguments = (alertTitleArguments != null && alertTitleArguments.length > 0) ? alertTitleArguments : null;
 
         this.alertTitle = null;
 
@@ -255,7 +255,7 @@ public class ApnsPayloadBuilder {
      */
     public ApnsPayloadBuilder setLocalizedAlertSubtitle(final String localizedAlertSubtitleKey, final String... alertSubtitleArguments) {
         this.localizedAlertSubtitleKey = localizedAlertSubtitleKey;
-        this.localizedAlertSubtitleArguments = alertSubtitleArguments.length > 0 ? alertSubtitleArguments : null;
+        this.localizedAlertSubtitleArguments = (alertSubtitleArguments != null && alertSubtitleArguments.length > 0) ? alertSubtitleArguments : null;
 
         this.alertSubtitle = null;
 

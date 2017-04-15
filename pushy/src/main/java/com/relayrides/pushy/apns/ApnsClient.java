@@ -271,22 +271,6 @@ public class ApnsClient {
     }
 
     /**
-     * Sets the buffer usage watermark range for this client. When a the amount of buffered and not-yet-flushed data in
-     * the client's network channel exceeds the given "high-water" mark, the channel will begin rejecting new data until
-     * enough data has been flushed to cross the given "low-water" mark. Notifications sent when the client's network
-     * channel is "flooded" will fail with a {@link ClientBusyException}.
-     *
-     * @param writeBufferWatermark the buffer usage watermark range for the client's network channel
-     *
-     * @since 0.8.2
-     */
-    protected void setChannelWriteBufferWatermark(final WriteBufferWaterMark writeBufferWaterMark) {
-        synchronized (this.bootstrap) {
-            this.bootstrap.option(ChannelOption.WRITE_BUFFER_WATER_MARK, writeBufferWaterMark);
-        }
-    }
-
-    /**
      * Sets the metrics listener for this client. Metrics listeners gather information that describes the performance
      * and behavior of a client, and are completely optional.
      *
@@ -889,6 +873,7 @@ public class ApnsClient {
 
         synchronized (this.bootstrap) {
             this.reconnectionPromise = null;
+
             if (this.scheduledReconnectFuture != null) {
                 this.scheduledReconnectFuture.cancel(true);
             }
