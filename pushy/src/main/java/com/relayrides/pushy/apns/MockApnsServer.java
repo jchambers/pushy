@@ -17,10 +17,14 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.util.concurrent.*;
 
+import javax.net.ssl.SSLPeerUnverifiedException;
+import javax.net.ssl.SSLSession;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * <p>A mock APNs server emulates the behavior of a real APNs server (but doesn't actually deliver notifications to
@@ -74,12 +78,47 @@ public class MockApnsServer {
                     @Override
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) throws Exception {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                            context.pipeline().addLast(new MockApnsServerHandler.MockApnsServerHandlerBuilder()
+                            AbstractMockApnsServerHandler.AbstractMockApnsServerHandlerBuilder handlerBuilder;
+
+                            try {
+                                final SSLSession sslSession = sslHandler.engine().getSession();
+
+                                // This will throw an exception if the peer hasn't authenticated (i.e. we're expecting
+                                // token authentication).
+                                final String principalName = sslSession.getPeerPrincipal().getName();
+
+                                final Pattern pattern = Pattern.compile(".*UID=([^,]+).*");
+                                final Matcher matcher = pattern.matcher(principalName);
+
+                                final String baseTopic;
+
+                                if (matcher.matches()) {
+                                    baseTopic = matcher.group(1);
+                                } else {
+                                    throw new IllegalArgumentException("Client certificate does not specify a base topic.");
+                                }
+
+                                final TlsAuthenticationMockApnsServerHandler.TlsAuthenticationMockApnsServerHandlerBuilder tlsAuthenticationHandlerBuilder =
+                                        new TlsAuthenticationMockApnsServerHandler.TlsAuthenticationMockApnsServerHandlerBuilder();
+
+                                tlsAuthenticationHandlerBuilder.baseTopic(baseTopic);
+
+                                handlerBuilder = tlsAuthenticationHandlerBuilder;
+                            } catch (final SSLPeerUnverifiedException e) {
+                                // No need for alarm; this is an expected case
+                                final TokenAuthenticationMockApnsServerHandler.TokenAuthenticationMockApnsServerHandlerBuilder tokenAuthenticationHandlerBuilder =
+                                        new TokenAuthenticationMockApnsServerHandler.TokenAuthenticationMockApnsServerHandlerBuilder();
+
+                                tokenAuthenticationHandlerBuilder.verificationKeysByKeyId(MockApnsServer.this.verificationKeysByKeyId);
+                                tokenAuthenticationHandlerBuilder.topicsByVerificationKey(MockApnsServer.this.topicsByVerificationKey);
+
+                                handlerBuilder = tokenAuthenticationHandlerBuilder;
+                            }
+
+                            context.pipeline().addLast(handlerBuilder
                                     .initialSettings(new Http2Settings().maxConcurrentStreams(8))
                                     .emulateInternalErrors(MockApnsServer.this.emulateInternalErrors)
                                     .deviceTokenExpirationsByTopic(MockApnsServer.this.deviceTokenExpirationsByTopic)
-                                    .verificationKeysByKeyId(MockApnsServer.this.verificationKeysByKeyId)
-                                    .topicsByVerificationKey(MockApnsServer.this.topicsByVerificationKey)
                                     .build());
 
                             MockApnsServer.this.allChannels.add(context.channel());
