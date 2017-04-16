@@ -24,8 +24,8 @@ public class ApnsClientTest {
     private static NioEventLoopGroup EVENT_LOOP_GROUP;
 
     private static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
-    private static final String SERVER_CERTIFICATES_FILENAME = "/server_certs.pem";
-    private static final String SERVER_KEY_FILENAME = "/server_key.pem";
+    private static final String SERVER_CERTIFICATES_FILENAME = "/server-certs.pem";
+    private static final String SERVER_KEY_FILENAME = "/server-key.pem";
 
     private static File CA_CERTIFICATE;
 

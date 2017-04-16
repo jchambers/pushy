@@ -1,14 +1,14 @@
 package com.relayrides.pushy.apns;
 
+import org.junit.Test;
+
 import java.io.File;
 import java.io.InputStream;
 
-import org.junit.Test;
-
 public class MockApnsServerBuilderTest {
 
-    private static final String SERVER_CERTIFICATES_FILENAME = "/server_certs.pem";
-    private static final String SERVER_KEY_FILENAME = "/server_key.pem";
+    private static final String SERVER_CERTIFICATES_FILENAME = "/server-certs.pem";
+    private static final String SERVER_KEY_FILENAME = "/server-key.pem";
 
     @Test
     public void testSetServerCredentialsFileFileString() throws Exception {
