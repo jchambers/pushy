@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.relayrides.pushy.apns.auth.ApnsVerificationKey;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.HttpHeaderNames;
@@ -506,7 +507,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             this.encoder().writeData(context, rejectNotificationResponse.getStreamId(), Unpooled.wrappedBuffer(payloadBytes), 0, true, dataPromise);
 
             final PromiseCombiner promiseCombiner = new PromiseCombiner();
-            promiseCombiner.addAll(headersPromise, dataPromise);
+            promiseCombiner.addAll((ChannelFuture) headersPromise, dataPromise);
             promiseCombiner.finish(writePromise);
         } else if (message instanceof InternalServerErrorResponse) {
             final InternalServerErrorResponse internalServerErrorResponse = (InternalServerErrorResponse) message;
