@@ -190,12 +190,20 @@ public class ApnsClient {
                     @Override
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                            final ApnsClientHandler apnsClientHandler = new ApnsClientHandler.ApnsClientHandlerBuilder()
-                                    .server(false)
-                                    .authority(((InetSocketAddress) context.channel().remoteAddress()).getHostName())
-                                    .signingKey(ApnsClient.this.signingKey)
-                                    .encoderEnforceMaxConcurrentStreams(true)
-                                    .build();
+                            final ApnsClientHandler apnsClientHandler;
+
+                            final String authority = ((InetSocketAddress) context.channel().remoteAddress()).getHostName();
+
+                            if (ApnsClient.this.signingKey != null) {
+                                apnsClientHandler = new TokenAuthenticationApnsClientHandler.TokenAuthenticationApnsClientHandlerBuilder()
+                                        .signingKey(ApnsClient.this.signingKey)
+                                        .authority(authority)
+                                        .build();
+                            } else {
+                                apnsClientHandler = new ApnsClientHandler.ApnsClientHandlerBuilder()
+                                        .authority(authority)
+                                        .build();
+                            }
 
                             synchronized (ApnsClient.this.bootstrap) {
                                 if (ApnsClient.this.gracefulShutdownTimeoutMillis != null) {
