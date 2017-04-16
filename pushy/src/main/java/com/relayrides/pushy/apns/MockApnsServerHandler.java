@@ -27,9 +27,9 @@ import java.util.regex.Pattern;
 
 class MockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
 
-    private final Map<Integer, UUID> requestsWaitingForDataFrame = new HashMap<>();
-
     private final boolean emulateInternalErrors;
+
+    private final Http2Connection.PropertyKey apnsIdPropertyKey;
 
     private final Map<String, Map<String, Date>> deviceTokenExpirationsByTopic;
 
@@ -272,6 +272,8 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
         super(decoder, encoder, initialSettings);
 
+        this.apnsIdPropertyKey = this.connection().newKey();
+
         this.emulateInternalErrors = emulateInternalErrors;
 
         this.deviceTokenExpirationsByTopic = deviceTokenExpirationsByTopic;
@@ -285,10 +287,12 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         final int bytesProcessed = data.readableBytes() + padding;
 
         if (endOfStream) {
-            // Presumably, we spotted an error earlier and sent a response immediately if we don't have an entry in the
-            // "waiting for data frame" map.
-            if (this.requestsWaitingForDataFrame.containsKey(streamId)) {
-                final UUID apnsId = this.requestsWaitingForDataFrame.remove(streamId);
+            final Http2Stream stream = this.connection().stream(streamId);
+
+            // Presumably, we spotted an error earlier and sent a response immediately if the stream is closed on our
+            // side.
+            if (stream.state() == Http2Stream.State.OPEN) {
+                final UUID apnsId = stream.getProperty(this.apnsIdPropertyKey);
 
                 if (data.readableBytes() <= MAX_CONTENT_LENGTH) {
                     context.channel().writeAndFlush(new AcceptNotificationResponse(streamId));
@@ -306,6 +310,8 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         if (this.emulateInternalErrors) {
             context.channel().writeAndFlush(new InternalServerErrorResponse(streamId));
         } else {
+            final Http2Stream stream = this.connection().stream(streamId);
+
             UUID apnsId = null;
 
             try {
@@ -333,7 +339,11 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
                 }
 
                 this.verifyHeaders(headers);
-                this.requestsWaitingForDataFrame.put(streamId, apnsId);
+
+                // At this point, we've made it through all of the headers without an exception and know we're waiting
+                // for a data frame. The data frame handler will want the APNs ID in case it needs to send an error
+                // response.
+                stream.setProperty(this.apnsIdPropertyKey, apnsId);
             } catch (final RejectedNotificationException e) {
                 context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, e.getErrorReason(), e.getDeviceTokenExpirationTimestamp()));
             }
