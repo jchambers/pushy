@@ -1,5 +1,6 @@
 package com.relayrides.pushy.apns;
 
+import com.relayrides.pushy.apns.auth.ApnsSigningKey;
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -8,7 +9,6 @@ import io.netty.util.concurrent.GenericFutureListener;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.openjdk.jmh.annotations.*;
 
-import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.SecureRandom;
 import java.security.interfaces.ECPrivateKey;
@@ -47,7 +47,18 @@ public class ApnsClientBenchmark {
     public void setUp() throws Exception {
         this.eventLoopGroup = new NioEventLoopGroup(2);
 
+        final ApnsSigningKey signingKey;
+        {
+            final KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
+            final SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
+
+            keyPairGenerator.initialize(256, random);
+
+            signingKey = new ApnsSigningKey(KEY_ID, TEAM_ID, (ECPrivateKey) keyPairGenerator.generateKeyPair().getPrivate());
+        }
+
         final ApnsClientBuilder clientBuilder = new ApnsClientBuilder()
+                .setSigningKey(signingKey)
                 .setTrustedServerCertificateChain(ApnsClientBenchmark.class.getResourceAsStream(CA_CERTIFICATE_FILENAME))
                 .setEventLoopGroup(this.eventLoopGroup);
 
@@ -55,18 +66,6 @@ public class ApnsClientBenchmark {
         this.server = new BenchmarkApnsServer(ApnsClientBenchmark.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME),
                 ApnsClientBenchmark.class.getResourceAsStream(SERVER_KEY_FILENAME),
                 this.eventLoopGroup);
-
-        final KeyPair keyPair;
-        {
-            final KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
-            final SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
-
-            keyPairGenerator.initialize(256, random);
-
-            keyPair = keyPairGenerator.generateKeyPair();
-        }
-
-        this.client.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), TEAM_ID, KEY_ID, TOPIC);
 
         final String token = generateRandomToken();
 

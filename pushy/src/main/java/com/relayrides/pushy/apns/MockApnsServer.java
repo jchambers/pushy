@@ -1,17 +1,6 @@
 package com.relayrides.pushy.apns;
 
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.Signature;
-import java.security.interfaces.ECPublicKey;
-import java.util.Collection;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-
+import com.relayrides.pushy.apns.auth.ApnsVerificationKey;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
@@ -26,11 +15,12 @@ import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
-import io.netty.util.concurrent.DefaultPromise;
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
-import io.netty.util.concurrent.GlobalEventExecutor;
-import io.netty.util.concurrent.SucceededFuture;
+import io.netty.util.concurrent.*;
+
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /**
  * <p>A mock APNs server emulates the behavior of a real APNs server (but doesn't actually deliver notifications to
@@ -50,15 +40,16 @@ public class MockApnsServer {
     private final ServerBootstrap bootstrap;
     private final boolean shouldShutDownEventLoopGroup;
 
-    private final Map<String, Map<String, Date>> tokenExpirationsByTopic = new HashMap<>();
+    private final Map<String, Map<String, Date>> deviceTokenExpirationsByTopic = new HashMap<>();
 
-    private final Map<String, Signature> signaturesByKeyId = new HashMap<>();
-    private final Map<String, String> teamIdsByKeyId = new HashMap<>();
-    private final Map<String, Set<String>> topicsByTeamId = new HashMap<>();
+    private final Map<String, ApnsVerificationKey> verificationKeysByKeyId = new HashMap<>();
+    private final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey = new HashMap<>();
 
     private ChannelGroup allChannels;
 
     private boolean emulateInternalErrors = false;
+
+    public static final long AUTHENTICATION_TOKEN_EXPIRATION_MILLIS = TimeUnit.HOURS.toMillis(1);
 
     protected MockApnsServer(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
         this.bootstrap = new ServerBootstrap();
@@ -119,89 +110,35 @@ public class MockApnsServer {
      * Registers a public key for verifying authentication tokens for the given topics. Clears any keys and topics
      * previously associated with the given team.
      *
-     * @param publicKey a public key to be used to verify authentication tokens
-     * @param teamId an identifier for the team to which the given public key belongs
-     * @param keyId an identifier for the given public key
+     * @param verificationKey TODO
      * @param topics the topics belonging to the given team for which the given public key can be used to verify
-     * authentication tokens
+     * authentication tokens; must not be {@code null}
      *
      * @throws NoSuchAlgorithmException if the required signing algorithm is not available
      * @throws InvalidKeyException if the given key is invalid for any reason
      *
-     * @since 0.9
+     * @since 0.10
      */
-    public void registerPublicKey(final ECPublicKey publicKey, final String teamId, final String keyId, final Collection<String> topics) throws NoSuchAlgorithmException, InvalidKeyException {
-        this.registerPublicKey(publicKey, teamId, keyId, topics.toArray(new String[0]));
+    public void registerVerificationKey(final ApnsVerificationKey verificationKey, final Collection<String> topics) throws NoSuchAlgorithmException, InvalidKeyException {
+        this.registerVerificationKey(verificationKey, topics.toArray(new String[0]));
     }
 
     /**
      * Registers a public key for verifying authentication tokens for the given topics. Clears any keys and topics
      * previously associated with the given team.
      *
-     * @param publicKey a public key to be used to verify authentication tokens
-     * @param teamId an identifier for the team to which the given public key belongs
-     * @param keyId an identifier for the given public key
+     * @param verificationKey TODO
      * @param topics the topics belonging to the given team for which the given public key can be used to verify
-     * authentication tokens
+     * authentication tokens; must not be null
      *
      * @throws NoSuchAlgorithmException if the required signing algorithm is not available
      * @throws InvalidKeyException if the given key is invalid for any reason
      *
-     * @since 0.9
+     * @since 0.10
      */
-    public void registerPublicKey(final ECPublicKey publicKey, final String teamId, final String keyId, final String... topics) throws NoSuchAlgorithmException, InvalidKeyException {
-        // First, clear out any old keys/topics
-        {
-            final Set<String> keyIdsToRemove = new HashSet<>();
-
-            for (final Map.Entry<String, String> entry : this.teamIdsByKeyId.entrySet()) {
-                if (entry.getValue().equals(teamId)) {
-                    keyIdsToRemove.add(entry.getKey());
-                }
-            }
-
-            for (final String keyIdToRemove : keyIdsToRemove) {
-                this.teamIdsByKeyId.remove(keyIdToRemove);
-                this.signaturesByKeyId.remove(keyIdToRemove);
-            }
-
-            this.topicsByTeamId.remove(teamId);
-        }
-
-        final Signature signature = Signature.getInstance("SHA256withECDSA");
-        signature.initVerify(publicKey);
-
-        this.signaturesByKeyId.put(keyId, signature);
-        this.teamIdsByKeyId.put(keyId, teamId);
-
-        final Set<String> topicSet = new HashSet<>();
-
-        for (final String topic : topics) {
-            topicSet.add(topic);
-        }
-
-        this.topicsByTeamId.put(teamId, topicSet);
-    }
-
-    protected Signature getSignatureForKeyId(final String keyId) {
-        return this.signaturesByKeyId.get(keyId);
-    }
-
-    protected String getTeamIdForKeyId(final String keyId) {
-        return this.teamIdsByKeyId.get(keyId);
-    }
-
-    protected Set<String> getTopicsForTeamId(final String teamId) {
-        return this.topicsByTeamId.get(teamId);
-    }
-
-    /**
-     * Unregisters all teams, topics, and public keys from this server.
-     */
-    public void clearPublicKeys() {
-        this.signaturesByKeyId.clear();
-        this.teamIdsByKeyId.clear();
-        this.topicsByTeamId.clear();
+    public void registerVerificationKey(final ApnsVerificationKey verificationKey, final String... topics) throws NoSuchAlgorithmException, InvalidKeyException {
+        this.verificationKeysByKeyId.put(verificationKey.getKeyId(), verificationKey);
+        this.topicsByVerificationKey.put(verificationKey, new HashSet<String>(Arrays.asList(topics)));
     }
 
     /**
@@ -217,28 +154,36 @@ public class MockApnsServer {
         Objects.requireNonNull(topic);
         Objects.requireNonNull(token);
 
-        if (!this.tokenExpirationsByTopic.containsKey(topic)) {
-            this.tokenExpirationsByTopic.put(topic, new HashMap<String, Date>());
+        if (!this.deviceTokenExpirationsByTopic.containsKey(topic)) {
+            this.deviceTokenExpirationsByTopic.put(topic, new HashMap<String, Date>());
         }
 
-        this.tokenExpirationsByTopic.get(topic).put(token, expiration);
+        this.deviceTokenExpirationsByTopic.get(topic).put(token, expiration);
+    }
+
+    ApnsVerificationKey getVerificationKeyById(final String keyId) {
+        return this.verificationKeysByKeyId.get(keyId);
+    }
+
+    Set<String> getTopicsForVerificationKey(final ApnsVerificationKey verificationKey) {
+        return this.topicsByVerificationKey.get(verificationKey);
     }
 
     /**
      * Unregisters all tokens from this server.
      */
     public void clearTokens() {
-        this.tokenExpirationsByTopic.clear();
+        this.deviceTokenExpirationsByTopic.clear();
     }
 
-    protected boolean isTokenRegisteredForTopic(final String token, final String topic) {
-        final Map<String, Date> tokensWithinTopic = this.tokenExpirationsByTopic.get(topic);
+    protected boolean isDeviceTokenRegisteredForTopic(final String token, final String topic) {
+        final Map<String, Date> tokensWithinTopic = this.deviceTokenExpirationsByTopic.get(topic);
 
         return tokensWithinTopic != null && tokensWithinTopic.containsKey(token);
     }
 
     protected Date getExpirationTimestampForTokenInTopic(final String token, final String topic) {
-        final Map<String, Date> tokensWithinTopic = this.tokenExpirationsByTopic.get(topic);
+        final Map<String, Date> tokensWithinTopic = this.deviceTokenExpirationsByTopic.get(topic);
 
         return tokensWithinTopic != null ? tokensWithinTopic.get(token) : null;
     }
