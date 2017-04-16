@@ -35,6 +35,7 @@ public class ApnsClientTest {
     private static final String DEFAULT_TEAM_ID = "team-id";
     private static final String DEFAULT_KEY_ID = "key-id";
     private static final String DEFAULT_TOPIC = "com.relayrides.pushy";
+    private static final String DEFAULT_DEVICE_TOKEN = generateRandomDeviceToken();
 
     private static final int TOKEN_LENGTH = 32; // bytes
 
@@ -198,6 +199,7 @@ public class ApnsClientTest {
                 .build();
 
         this.server.registerVerificationKey(this.verificationKey, DEFAULT_TOPIC);
+        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, DEFAULT_DEVICE_TOKEN, null);
 
         this.server.start(PORT).await();
 
@@ -331,7 +333,7 @@ public class ApnsClientTest {
 
     @Test
     public void testSendNotification() throws Exception {
-        final String testToken = ApnsClientTest.generateRandomToken();
+        final String testToken = ApnsClientTest.generateRandomDeviceToken();
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
         this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
@@ -352,7 +354,7 @@ public class ApnsClientTest {
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .build();
 
-        final String testToken = ApnsClientTest.generateRandomToken();
+        final String testToken = ApnsClientTest.generateRandomDeviceToken();
 
         this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
 
@@ -367,7 +369,7 @@ public class ApnsClientTest {
     // TODO
     /* @Test
     public void testSendNotificationWithExpiredAuthenticationToken() throws Exception {
-        final String testToken = ApnsClientTest.generateRandomToken();
+        final String testToken = ApnsClientTest.generateRandomDeviceToken();
 
         this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
 
@@ -401,7 +403,7 @@ public class ApnsClientTest {
         final List<SimpleApnsPushNotification> pushNotifications = new ArrayList<>();
 
         for (int i = 0; i < notificationCount; i++) {
-            final String token = ApnsClientTest.generateRandomToken();
+            final String token = ApnsClientTest.generateRandomDeviceToken();
             final String payload = ApnsClientTest.generateRandomPayload();
 
             this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, token, null);
@@ -429,7 +431,7 @@ public class ApnsClientTest {
         final List<SimpleApnsPushNotification> pushNotifications = new ArrayList<>();
 
         for (int i = 0; i < notificationCount; i++) {
-            final String token = ApnsClientTest.generateRandomToken();
+            final String token = ApnsClientTest.generateRandomDeviceToken();
             final String payload = ApnsClientTest.generateRandomPayload();
 
             this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, token, null);
@@ -468,7 +470,7 @@ public class ApnsClientTest {
         final int notificationCount = 1000;
 
         final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(
-                ApnsClientTest.generateRandomToken(), DEFAULT_TOPIC, ApnsClientTest.generateRandomPayload());
+                ApnsClientTest.generateRandomDeviceToken(), DEFAULT_TOPIC, ApnsClientTest.generateRandomPayload());
 
         final CountDownLatch countDownLatch = new CountDownLatch(notificationCount);
 
@@ -492,7 +494,7 @@ public class ApnsClientTest {
 
     @Test
     public void testSendNotificationWithExpiredToken() throws Exception {
-        final String testToken = ApnsClientTest.generateRandomToken();
+        final String testToken = ApnsClientTest.generateRandomDeviceToken();
         final Date now = new Date();
 
         this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, now);
@@ -530,7 +532,7 @@ public class ApnsClientTest {
 
         try {
             final SimpleApnsPushNotification pushNotification =
-                    new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), DEFAULT_TOPIC, "test-payload");
+                    new SimpleApnsPushNotification(ApnsClientTest.generateRandomDeviceToken(), DEFAULT_TOPIC, "test-payload");
 
             final Future<PushNotificationResponse<SimpleApnsPushNotification>> future =
                     unfortunateClient.sendNotification(pushNotification).await();
@@ -557,7 +559,7 @@ public class ApnsClientTest {
         unconnectedClient.setMetricsListener(metricsListener);
 
         final SimpleApnsPushNotification pushNotification =
-                new SimpleApnsPushNotification(ApnsClientTest.generateRandomToken(), DEFAULT_TOPIC, ApnsClientTest.generateRandomPayload());
+                new SimpleApnsPushNotification(ApnsClientTest.generateRandomDeviceToken(), DEFAULT_TOPIC, ApnsClientTest.generateRandomPayload());
 
         final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
                 unconnectedClient.sendNotification(pushNotification);
@@ -643,7 +645,7 @@ public class ApnsClientTest {
         assertEquals(0, metricsListener.getSuccessfulConnectionAttempts().get());
     }
 
-    private static String generateRandomToken() {
+    private static String generateRandomDeviceToken() {
         final byte[] tokenBytes = new byte[TOKEN_LENGTH];
         new Random().nextBytes(tokenBytes);
 

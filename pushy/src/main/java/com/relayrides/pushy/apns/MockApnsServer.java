@@ -75,8 +75,11 @@ public class MockApnsServer {
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) throws Exception {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
                             context.pipeline().addLast(new MockApnsServerHandler.MockApnsServerHandlerBuilder()
-                                    .apnsServer(MockApnsServer.this)
                                     .initialSettings(new Http2Settings().maxConcurrentStreams(8))
+                                    .emulateInternalErrors(MockApnsServer.this.emulateInternalErrors)
+                                    .deviceTokenExpirationsByTopic(MockApnsServer.this.deviceTokenExpirationsByTopic)
+                                    .verificationKeysByKeyId(MockApnsServer.this.verificationKeysByKeyId)
+                                    .topicsByVerificationKey(MockApnsServer.this.topicsByVerificationKey)
                                     .build());
 
                             MockApnsServer.this.allChannels.add(context.channel());
@@ -161,14 +164,6 @@ public class MockApnsServer {
         this.deviceTokenExpirationsByTopic.get(topic).put(token, expiration);
     }
 
-    ApnsVerificationKey getVerificationKeyById(final String keyId) {
-        return this.verificationKeysByKeyId.get(keyId);
-    }
-
-    Set<String> getTopicsForVerificationKey(final ApnsVerificationKey verificationKey) {
-        return this.topicsByVerificationKey.get(verificationKey);
-    }
-
     /**
      * Unregisters all tokens from this server.
      */
@@ -176,24 +171,8 @@ public class MockApnsServer {
         this.deviceTokenExpirationsByTopic.clear();
     }
 
-    protected boolean isDeviceTokenRegisteredForTopic(final String token, final String topic) {
-        final Map<String, Date> tokensWithinTopic = this.deviceTokenExpirationsByTopic.get(topic);
-
-        return tokensWithinTopic != null && tokensWithinTopic.containsKey(token);
-    }
-
-    protected Date getExpirationTimestampForTokenInTopic(final String token, final String topic) {
-        final Map<String, Date> tokensWithinTopic = this.deviceTokenExpirationsByTopic.get(topic);
-
-        return tokensWithinTopic != null ? tokensWithinTopic.get(token) : null;
-    }
-
     protected void setEmulateInternalErrors(final boolean emulateInternalErrors) {
         this.emulateInternalErrors = emulateInternalErrors;
-    }
-
-    protected boolean shouldEmulateInternalErrors() {
-        return this.emulateInternalErrors;
     }
 
     /**
@@ -213,35 +192,35 @@ public class MockApnsServer {
         final Future<Void> channelCloseFuture = (this.allChannels != null) ?
                 this.allChannels.close() : new SucceededFuture<Void>(GlobalEventExecutor.INSTANCE, null);
 
-                final Future<Void> disconnectFuture;
+        final Future<Void> disconnectFuture;
 
-                if (this.shouldShutDownEventLoopGroup) {
-                    // Wait for the channel to close before we try to shut down the event loop group
-                    channelCloseFuture.addListener(new GenericFutureListener<Future<Void>>() {
+        if (this.shouldShutDownEventLoopGroup) {
+            // Wait for the channel to close before we try to shut down the event loop group
+            channelCloseFuture.addListener(new GenericFutureListener<Future<Void>>() {
 
-                        @Override
-                        public void operationComplete(final Future<Void> future) throws Exception {
-                            MockApnsServer.this.bootstrap.config().group().shutdownGracefully();
-                        }
-                    });
-
-                    // Since the termination future for the event loop group is a Future<?> instead of a Future<Void>,
-                    // we'll need to create our own promise and then notify it when the termination future completes.
-                    disconnectFuture = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
-
-                    this.bootstrap.config().group().terminationFuture().addListener(new GenericFutureListener() {
-
-                        @Override
-                        public void operationComplete(final Future future) throws Exception {
-                            assert disconnectFuture instanceof DefaultPromise;
-                            ((DefaultPromise<Void>) disconnectFuture).trySuccess(null);
-                        }
-                    });
-                } else {
-                    // We're done once we've closed all the channels, so we can return the closure future directly.
-                    disconnectFuture = channelCloseFuture;
+                @Override
+                public void operationComplete(final Future<Void> future) throws Exception {
+                    MockApnsServer.this.bootstrap.config().group().shutdownGracefully();
                 }
+            });
 
-                return disconnectFuture;
+            // Since the termination future for the event loop group is a Future<?> instead of a Future<Void>,
+            // we'll need to create our own promise and then notify it when the termination future completes.
+            disconnectFuture = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
+
+            this.bootstrap.config().group().terminationFuture().addListener(new GenericFutureListener() {
+
+                @Override
+                public void operationComplete(final Future future) throws Exception {
+                    assert disconnectFuture instanceof DefaultPromise;
+                    ((DefaultPromise<Void>) disconnectFuture).trySuccess(null);
+                }
+            });
+        } else {
+            // We're done once we've closed all the channels, so we can return the closure future directly.
+            disconnectFuture = channelCloseFuture;
+        }
+
+        return disconnectFuture;
     }
 }

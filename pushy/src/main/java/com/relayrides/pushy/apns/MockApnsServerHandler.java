@@ -26,9 +26,14 @@ import java.util.regex.Pattern;
 
 class MockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
 
-    private final MockApnsServer apnsServer;
-
     private final Map<Integer, UUID> requestsWaitingForDataFrame = new HashMap<>();
+
+    private final boolean emulateInternalErrors;
+
+    private final Map<String, Map<String, Date>> deviceTokenExpirationsByTopic;
+
+    private final Map<String, ApnsVerificationKey> verificationKeysByKeyId;
+    private final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey;
 
     private static final Http2Headers SUCCESS_HEADERS = new DefaultHttp2Headers().status(HttpResponseStatus.OK.codeAsText());
 
@@ -119,25 +124,53 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     }
 
     public static final class MockApnsServerHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<MockApnsServerHandler, MockApnsServerHandlerBuilder> {
-        private MockApnsServer apnsServer;
 
-        public MockApnsServerHandlerBuilder apnsServer(final MockApnsServer apnsServer) {
-            this.apnsServer = apnsServer;
-            return this;
-        }
+        private boolean emulateInternalErrors;
 
-        public MockApnsServer apnsServer() {
-            return this.apnsServer;
-        }
+        private Map<String, Map<String, Date>> deviceTokenExpirationsByTopic;
+        private Map<String, ApnsVerificationKey> verificationKeysByKeyId;
+        private Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey;
 
         @Override
         public MockApnsServerHandlerBuilder initialSettings(final Http2Settings initialSettings) {
             return super.initialSettings(initialSettings);
         }
 
+        public MockApnsServerHandlerBuilder emulateInternalErrors(final boolean emulateInternalErrors) {
+            this.emulateInternalErrors = emulateInternalErrors;
+            return this;
+        }
+
+        public MockApnsServerHandlerBuilder deviceTokenExpirationsByTopic(final Map<String, Map<String, Date>> deviceTokenExpirationsByTopic) {
+            this.deviceTokenExpirationsByTopic = deviceTokenExpirationsByTopic;
+            return this;
+        }
+
+        public Map<String, Map<String, Date>> deviceTokenExpirationsByTopic() {
+            return this.deviceTokenExpirationsByTopic;
+        }
+
+        public MockApnsServerHandlerBuilder verificationKeysByKeyId(final Map<String, ApnsVerificationKey> verificationKeysByKeyId) {
+            this.verificationKeysByKeyId = verificationKeysByKeyId;
+            return this;
+        }
+
+        public Map<String, ApnsVerificationKey> verificationKeysByKeyId() {
+            return this.verificationKeysByKeyId;
+        }
+
+        public MockApnsServerHandlerBuilder topicsByVerificationKey(final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey) {
+            this.topicsByVerificationKey = topicsByVerificationKey;
+            return this;
+        }
+
+        public Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey() {
+            return this.topicsByVerificationKey;
+        }
+
         @Override
         public MockApnsServerHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
-            final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, initialSettings, this.apnsServer());
+            final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, initialSettings, emulateInternalErrors, deviceTokenExpirationsByTopic, verificationKeysByKeyId, topicsByVerificationKey);
             this.frameListener(handler);
             return handler;
         }
@@ -206,10 +239,22 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
     }
 
-    protected MockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final MockApnsServer apnsServer) {
+    protected MockApnsServerHandler(final Http2ConnectionDecoder decoder,
+                                    final Http2ConnectionEncoder encoder,
+                                    final Http2Settings initialSettings,
+                                    final boolean emulateInternalErrors,
+                                    final Map<String, Map<String, Date>> deviceTokenExpirationsByTopic,
+                                    final Map<String, ApnsVerificationKey> verificationKeysByKeyId,
+                                    final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey) {
+
         super(decoder, encoder, initialSettings);
 
-        this.apnsServer = apnsServer;
+        this.emulateInternalErrors = emulateInternalErrors;
+
+        this.deviceTokenExpirationsByTopic = deviceTokenExpirationsByTopic;
+
+        this.verificationKeysByKeyId = verificationKeysByKeyId;
+        this.topicsByVerificationKey = topicsByVerificationKey;
     }
 
     @Override
@@ -235,7 +280,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
     @Override
     public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
-        if (this.apnsServer.shouldEmulateInternalErrors()) {
+        if (this.emulateInternalErrors) {
             context.channel().writeAndFlush(new InternalServerErrorResponse(streamId));
         }
 
@@ -295,8 +340,10 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
 
         // TODO Restore caching
+        // TODO Check for missing keys
+        // TODO Enforce "one team per connection" rule
         final AuthenticationToken authenticationToken = new AuthenticationToken(base64EncodedAuthenticationToken);
-        final ApnsVerificationKey verificationKey = this.apnsServer.getVerificationKeyById(authenticationToken.getKeyId());
+        final ApnsVerificationKey verificationKey = this.verificationKeysByKeyId.get(authenticationToken.getKeyId());
 
         try {
             if (!authenticationToken.verifySignature(verificationKey)) {
@@ -315,7 +362,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             return;
         }
 
-        final Set<String> topics = this.apnsServer.getTopicsForVerificationKey(verificationKey);
+        final Set<String> topics = this.topicsByVerificationKey.get(verificationKey);
 
         if (topics == null || !topics.contains(topic)) {
             context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.DEVICE_TOKEN_NOT_FOR_TOPIC));
@@ -351,14 +398,22 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
                         return;
                     }
 
-                    final Date expirationTimestamp = this.apnsServer.getExpirationTimestampForTokenInTopic(tokenString, topic);
+                    final boolean deviceTokenRegisteredForTopic;
+                    final Date expirationTimestamp;
+                    {
+                        final Map<String, Date> expirationTimestampsByDeviceToken = this.deviceTokenExpirationsByTopic.get(topic);
+
+                        expirationTimestamp = expirationTimestampsByDeviceToken != null ? expirationTimestampsByDeviceToken.get(tokenString) : null;
+                        deviceTokenRegisteredForTopic = expirationTimestampsByDeviceToken != null && expirationTimestampsByDeviceToken.containsKey(tokenString);
+
+                    }
 
                     if (expirationTimestamp != null) {
                         context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.UNREGISTERED, expirationTimestamp));
                         return;
                     }
 
-                    if (!this.apnsServer.isDeviceTokenRegisteredForTopic(tokenString, topic)) {
+                    if (!deviceTokenRegisteredForTopic) {
                         context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.DEVICE_TOKEN_NOT_FOR_TOPIC));
                         return;
                     }
