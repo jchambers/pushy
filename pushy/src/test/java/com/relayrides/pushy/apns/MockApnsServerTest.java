@@ -1,18 +1,12 @@
 package com.relayrides.pushy.apns;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-
-import java.security.interfaces.ECPublicKey;
-import java.util.Date;
-
+import io.netty.channel.nio.NioEventLoopGroup;
 import org.junit.Before;
 import org.junit.Test;
 
-import io.netty.channel.nio.NioEventLoopGroup;
+import java.util.Date;
+
+import static org.junit.Assert.*;
 
 public class MockApnsServerTest {
 
@@ -31,39 +25,14 @@ public class MockApnsServerTest {
     }
 
     @Test
-    public void testRegisterPublicKey() throws Exception {
-        final String teamId = "team-id";
-        final String firstKeyId = "key-id";
-        final String secondKeyId = "different-key-id";
-        final String firstTopic = "first-topic";
-        final String secondTopic = "second-topic";
-
-        this.server.registerPublicKey((ECPublicKey) KeyPairUtil.generateKeyPair().getPublic(), teamId, firstKeyId, firstTopic);
-
-        assertNotNull(this.server.getSignatureForKeyId(firstKeyId));
-        assertEquals(teamId, this.server.getTeamIdForKeyId(firstKeyId));
-        assertEquals(1, this.server.getTopicsForTeamId(teamId).size());
-        assertTrue(this.server.getTopicsForTeamId(teamId).contains(firstTopic));
-
-        this.server.registerPublicKey((ECPublicKey) KeyPairUtil.generateKeyPair().getPublic(), teamId, secondKeyId, secondTopic);
-
-        assertNull(this.server.getSignatureForKeyId(firstKeyId));
-        assertNotNull(this.server.getSignatureForKeyId(secondKeyId));
-        assertNull(this.server.getTeamIdForKeyId(firstKeyId));
-        assertEquals(teamId, this.server.getTeamIdForKeyId(secondKeyId));
-        assertEquals(1, this.server.getTopicsForTeamId(teamId).size());
-        assertTrue(this.server.getTopicsForTeamId(teamId).contains(secondTopic));
-    }
-
-    @Test
-    public void testRegisterTokenForTopic() {
+    public void testRegisterDeviceTokenForTopic() {
         final String token = "example-token";
         final String topic = "com.example.topic";
 
-        assertFalse(this.server.isTokenRegisteredForTopic(token, topic));
+        assertFalse(this.server.isDeviceTokenRegisteredForTopic(token, topic));
 
         this.server.registerDeviceTokenForTopic(topic, token, null);
-        assertTrue(this.server.isTokenRegisteredForTopic(token, topic));
+        assertTrue(this.server.isDeviceTokenRegisteredForTopic(token, topic));
     }
 
     @Test
@@ -72,10 +41,10 @@ public class MockApnsServerTest {
         final String topic = "com.example.topic";
 
         this.server.registerDeviceTokenForTopic(topic, token, null);
-        assertTrue(this.server.isTokenRegisteredForTopic(token, topic));
+        assertTrue(this.server.isDeviceTokenRegisteredForTopic(token, topic));
 
         this.server.clearTokens();
-        assertFalse(this.server.isTokenRegisteredForTopic(token, topic));
+        assertFalse(this.server.isDeviceTokenRegisteredForTopic(token, topic));
     }
 
     @Test

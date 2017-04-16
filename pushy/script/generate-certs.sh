@@ -7,8 +7,9 @@ openssl req -extensions v3_ca -new -x509 -days 36500 -nodes -subj "/CN=PushyTest
 openssl req -new -keyout server_key.pem -nodes -newkey rsa:2048 -subj "/CN=com.relayrides.pushy" | \
     openssl x509 -req -CAkey ca.key -CA ca.pem -days 36500 -set_serial $RANDOM -sha512 -out server_certs.pem
 
-# Generate a private key for token authentication testing
+# Generate an elliptic key pair for token authentication testing
 openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt -out token-auth-private-key.p8
+openssl ec -in token-auth-private-key.p8 -pubout -out token-auth-private-key.p8
 
 # Clean up intermediate files
 rm ca.key

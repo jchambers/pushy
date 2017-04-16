@@ -20,30 +20,23 @@
 
 package com.relayrides.pushy.apns;
 
-import java.io.File;
-import java.io.InputStream;
-import java.security.cert.X509Certificate;
-import java.util.concurrent.TimeUnit;
-
-import javax.net.ssl.SSLException;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import com.relayrides.pushy.apns.auth.ApnsSigningKey;
 import com.relayrides.pushy.apns.proxy.ProxyHandlerFactory;
-
 import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
-import io.netty.handler.ssl.ApplicationProtocolConfig;
+import io.netty.handler.ssl.*;
 import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
-import io.netty.handler.ssl.ApplicationProtocolNames;
-import io.netty.handler.ssl.OpenSsl;
-import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.handler.ssl.SslProvider;
-import io.netty.handler.ssl.SupportedCipherSuiteFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.net.ssl.SSLException;
+import java.io.File;
+import java.io.InputStream;
+import java.security.cert.X509Certificate;
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 /**
  * An {@code ApnsClientBuilder} constructs new {@link ApnsClient} instances. All settings are optional. Client builders
@@ -52,6 +45,8 @@ import io.netty.handler.ssl.SupportedCipherSuiteFilter;
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */
 public class ApnsClientBuilder {
+    private ApnsSigningKey signingKey;
+
     private File trustedServerCertificatePemFile;
     private InputStream trustedServerCertificateInputStream;
     private X509Certificate[] trustedServerCertificates;
@@ -72,6 +67,11 @@ public class ApnsClientBuilder {
     private TimeUnit gracefulShutdownTimeoutUnit;
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientBuilder.class);
+
+    public ApnsClientBuilder setSigningKey(final ApnsSigningKey signingKey) {
+        this.signingKey = signingKey;
+        return this;
+    }
 
     /**
      * <p>Sets the trusted certificate chain for the client under construction using the contents of the given PEM
@@ -266,6 +266,8 @@ public class ApnsClientBuilder {
      * @since 0.8
      */
     public ApnsClient build() throws SSLException {
+        Objects.requireNonNull(this.signingKey, "Must specify a signing key before constructing an APNs client.");
+
         final SslContext sslContext;
         {
             final SslProvider sslProvider;
@@ -303,7 +305,7 @@ public class ApnsClientBuilder {
             sslContext = sslContextBuilder.build();
         }
 
-        final ApnsClient apnsClient = new ApnsClient(sslContext, this.eventLoopGroup);
+        final ApnsClient apnsClient = new ApnsClient(sslContext, this.signingKey, this.eventLoopGroup);
 
         apnsClient.setMetricsListener(this.metricsListener);
         apnsClient.setProxyHandlerFactory(this.proxyHandlerFactory);
