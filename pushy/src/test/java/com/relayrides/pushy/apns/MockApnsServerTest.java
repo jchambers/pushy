@@ -4,9 +4,8 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.Date;
-
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class MockApnsServerTest {
 
@@ -22,51 +21,6 @@ public class MockApnsServerTest {
         this.server = new MockApnsServerBuilder()
                 .setServerCredentials(MockApnsServerTest.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), MockApnsServerTest.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
                 .build();
-    }
-
-    @Test
-    public void testRegisterDeviceTokenForTopic() {
-        final String token = "example-token";
-        final String topic = "com.example.topic";
-
-        assertFalse(this.server.isDeviceTokenRegisteredForTopic(token, topic));
-
-        this.server.registerDeviceTokenForTopic(topic, token, null);
-        assertTrue(this.server.isDeviceTokenRegisteredForTopic(token, topic));
-    }
-
-    @Test
-    public void testClearTokens() {
-        final String token = "example-token";
-        final String topic = "com.example.topic";
-
-        this.server.registerDeviceTokenForTopic(topic, token, null);
-        assertTrue(this.server.isDeviceTokenRegisteredForTopic(token, topic));
-
-        this.server.clearTokens();
-        assertFalse(this.server.isDeviceTokenRegisteredForTopic(token, topic));
-    }
-
-    @Test
-    public void testGetExpirationTimestampForTokenInTopic() {
-        final String topic = "com.example.topic";
-
-        {
-            final String token = "example-token";
-            final Date expiration = new Date();
-
-            this.server.registerDeviceTokenForTopic(topic, token, expiration);
-            assertEquals(expiration, this.server.getExpirationTimestampForTokenInTopic(token, topic));
-        }
-
-        this.server.clearTokens();
-
-        {
-            final String token = "token-without-expiration";
-
-            this.server.registerDeviceTokenForTopic(topic, token, null);
-            assertNull(this.server.getExpirationTimestampForTokenInTopic(token, topic));
-        }
     }
 
     @Test
