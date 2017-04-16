@@ -36,6 +36,8 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     private final Map<String, ApnsVerificationKey> verificationKeysByKeyId;
     private final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey;
 
+    private String expectedTeamId;
+
     private static final Http2Headers SUCCESS_HEADERS = new DefaultHttp2Headers().status(HttpResponseStatus.OK.codeAsText());
 
     private static final String APNS_PATH_PREFIX = "/3/device/";
@@ -341,10 +343,14 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
 
         // TODO Restore caching
-        // TODO Check for missing keys
-        // TODO Enforce "one team per connection" rule
         final AuthenticationToken authenticationToken = new AuthenticationToken(base64EncodedAuthenticationToken);
         final ApnsVerificationKey verificationKey = this.verificationKeysByKeyId.get(authenticationToken.getKeyId());
+
+        // Have we ever heard of the key in question?
+        if (verificationKey == null) {
+            context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.INVALID_PROVIDER_TOKEN));
+            return;
+        }
 
         try {
             if (!authenticationToken.verifySignature(verificationKey)) {
@@ -356,6 +362,19 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             // going to go wrong, it will go wrong before we ever get here.
             log.error("Failed to verify signature.", e);
             throw new RuntimeException(e);
+        }
+
+        // At this point, we've verified that the token is signed by somebody with the named team's private key. The
+        // real APNs server only allows one team per connection, so if this is our first notification, we want to keep
+        // track of the team that sent it so we can reject notifications from other teams, even if they're signed
+        // correctly.
+        if (this.expectedTeamId == null) {
+            this.expectedTeamId = authenticationToken.getTeamId();
+        }
+
+        if (!this.expectedTeamId.equals(authenticationToken.getTeamId())) {
+            context.channel().writeAndFlush(new RejectNotificationResponse(streamId, apnsId, ErrorReason.INVALID_PROVIDER_TOKEN));
+            return;
         }
 
         if (authenticationToken.getIssuedAt().getTime() + MockApnsServer.AUTHENTICATION_TOKEN_EXPIRATION_MILLIS < System.currentTimeMillis()) {
