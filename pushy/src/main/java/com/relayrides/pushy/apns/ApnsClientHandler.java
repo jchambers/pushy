@@ -48,8 +48,8 @@ class ApnsClientHandler extends Http2ConnectionHandler {
 
     private long nextStreamId = 1;
 
-    private final Map<Integer, ApnsPushNotification> pushNotificationsByStreamId = new HashMap<>();
-    private final Map<Integer, Http2Headers> headersByStreamId = new HashMap<>();
+    private final Http2Connection.PropertyKey pushNotificationPropertyKey;
+    private final Http2Connection.PropertyKey headersPropertyKey;
 
     private final ApnsSigningKey signingKey;
 
@@ -146,8 +146,10 @@ class ApnsClientHandler extends Http2ConnectionHandler {
             final int bytesProcessed = data.readableBytes() + padding;
 
             if (endOfStream) {
-                final Http2Headers headers = ApnsClientHandler.this.headersByStreamId.remove(streamId);
-                final ApnsPushNotification pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
+                final Http2Stream stream = ApnsClientHandler.this.connection().stream(streamId);
+
+                final Http2Headers headers = stream.getProperty(ApnsClientHandler.this.headersPropertyKey);
+                final ApnsPushNotification pushNotification = stream.getProperty(ApnsClientHandler.this.pushNotificationPropertyKey);
 
                 final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
                 final String responseBody = data.toString(StandardCharsets.UTF_8);
@@ -186,6 +188,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
         @Override
         public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
             log.trace("Received headers from APNs gateway on stream {}: {}", streamId, headers);
+            final Http2Stream stream = ApnsClientHandler.this.connection().stream(streamId);
 
             if (endOfStream) {
                 final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
@@ -195,7 +198,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                     log.warn("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
                 }
 
-                final ApnsPushNotification pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
+                final ApnsPushNotification pushNotification = stream.getProperty(ApnsClientHandler.this.pushNotificationPropertyKey);
 
                 if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
                     log.warn("APNs server reported an internal error when sending {}.", pushNotification);
@@ -205,7 +208,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                             new SimplePushNotificationResponse<>(pushNotification, success, null, null));
                 }
             } else {
-                ApnsClientHandler.this.headersByStreamId.put(streamId, headers);
+                stream.setProperty(ApnsClientHandler.this.headersPropertyKey, headers);
             }
         }
 
@@ -230,6 +233,9 @@ class ApnsClientHandler extends Http2ConnectionHandler {
 
         this.authority = authority;
         this.signingKey = signingKey;
+
+        this.pushNotificationPropertyKey = this.connection().newKey();
+        this.headersPropertyKey = this.connection().newKey();
     }
 
     @Override
@@ -314,7 +320,8 @@ class ApnsClientHandler extends Http2ConnectionHandler {
                     @Override
                     public void operationComplete(final ChannelPromise future) throws Exception {
                         if (future.isSuccess()) {
-                            ApnsClientHandler.this.pushNotificationsByStreamId.put(streamId, pushNotification);
+                            final Http2Stream stream = ApnsClientHandler.this.connection().stream(streamId);
+                            stream.setProperty(ApnsClientHandler.this.pushNotificationPropertyKey, pushNotification);
                         } else {
                             log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
 
