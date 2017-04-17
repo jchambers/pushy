@@ -68,6 +68,7 @@ public class MockApnsServerBuilder {
     private EventLoopGroup eventLoopGroup;
 
     private boolean emulateInternalErrors = false;
+    private boolean emulateExpiredFirstToken = false;
 
     private static final Logger log = LoggerFactory.getLogger(MockApnsServerBuilder.class);
 
@@ -264,6 +265,22 @@ public class MockApnsServerBuilder {
     }
 
     /**
+     * Sets whether the server under construction should reject the first notification received as if its token had
+     * expired.
+     *
+     * @param emulateExpiredFirstToken {@code true} if the server should respond to the first notification as if its
+     * token had expired or {@code false} otherwise
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.10
+     */
+    public MockApnsServerBuilder setEmulateExpiredFirstToken(final boolean emulateExpiredFirstToken) {
+        this.emulateExpiredFirstToken = emulateExpiredFirstToken;
+        return this;
+    }
+
+    /**
      * Constructs a new {@link MockApnsServer} with the previously-set configuration.
      *
      * @return a new MockApnsServer instance with the previously-set configuration
@@ -307,13 +324,13 @@ public class MockApnsServerBuilder {
             }
 
             sslContextBuilder.sslProvider(sslProvider)
-            .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-            .clientAuth(ClientAuth.OPTIONAL)
-            .applicationProtocolConfig(new ApplicationProtocolConfig(
-                    Protocol.ALPN,
-                    SelectorFailureBehavior.NO_ADVERTISE,
-                    SelectedListenerFailureBehavior.ACCEPT,
-                    ApplicationProtocolNames.HTTP_2));
+                    .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
+                    .clientAuth(ClientAuth.OPTIONAL)
+                    .applicationProtocolConfig(new ApplicationProtocolConfig(
+                            Protocol.ALPN,
+                            SelectorFailureBehavior.NO_ADVERTISE,
+                            SelectedListenerFailureBehavior.ACCEPT,
+                            ApplicationProtocolNames.HTTP_2));
 
             if (this.trustedClientCertificatePemFile != null) {
                 sslContextBuilder.trustManager(this.trustedClientCertificatePemFile);
@@ -328,6 +345,7 @@ public class MockApnsServerBuilder {
 
         final MockApnsServer server = new MockApnsServer(sslContext, this.eventLoopGroup);
         server.setEmulateInternalErrors(this.emulateInternalErrors);
+        server.setEmulateExpiredFirstToken(this.emulateExpiredFirstToken);
 
         return server;
     }

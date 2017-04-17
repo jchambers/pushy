@@ -373,7 +373,6 @@ public class ApnsClientBuilder {
         }
 
         final SslContext sslContext;
-        final boolean useTlsAuthentication;
         {
             final SslProvider sslProvider;
 
@@ -399,9 +398,7 @@ public class ApnsClientBuilder {
                                     SelectedListenerFailureBehavior.ACCEPT,
                                     ApplicationProtocolNames.HTTP_2));
 
-            useTlsAuthentication = (this.clientCertificate != null && this.privateKey != null);
-
-            if (useTlsAuthentication) {
+            if (this.clientCertificate != null && this.privateKey != null) {
                 sslContextBuilder.keyManager(this.privateKey, this.privateKeyPassword, this.clientCertificate);
             }
 

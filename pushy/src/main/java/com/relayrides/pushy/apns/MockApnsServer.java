@@ -52,6 +52,7 @@ public class MockApnsServer {
     private ChannelGroup allChannels;
 
     private boolean emulateInternalErrors = false;
+    private boolean emulateExpiredFirstToken = false;
 
     public static final long AUTHENTICATION_TOKEN_EXPIRATION_MILLIS = TimeUnit.HOURS.toMillis(1);
 
@@ -111,6 +112,7 @@ public class MockApnsServer {
 
                                 tokenAuthenticationHandlerBuilder.verificationKeysByKeyId(MockApnsServer.this.verificationKeysByKeyId);
                                 tokenAuthenticationHandlerBuilder.topicsByVerificationKey(MockApnsServer.this.topicsByVerificationKey);
+                                tokenAuthenticationHandlerBuilder.emulateExpiredFirstToken(MockApnsServer.this.emulateExpiredFirstToken);
 
                                 handlerBuilder = tokenAuthenticationHandlerBuilder;
                             }
@@ -212,6 +214,10 @@ public class MockApnsServer {
 
     protected void setEmulateInternalErrors(final boolean emulateInternalErrors) {
         this.emulateInternalErrors = emulateInternalErrors;
+    }
+
+    protected void setEmulateExpiredFirstToken(final boolean emulateExpiredFirstToken) {
+        this.emulateExpiredFirstToken = emulateExpiredFirstToken;
     }
 
     /**

@@ -166,7 +166,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
             log.trace("Wrote payload on stream {}: {}", streamId, pushNotification.getPayload());
 
             final PromiseCombiner promiseCombiner = new PromiseCombiner();
-            promiseCombiner.addAll(headersPromise, dataPromise);
+            promiseCombiner.addAll((ChannelFuture) headersPromise, dataPromise);
             promiseCombiner.finish(writePromise);
 
             writePromise.addListener(new GenericFutureListener<ChannelPromise>() {

@@ -21,6 +21,9 @@ import java.util.Set;
  */
 public class TokenAuthenticationMockApnsServerHandler extends AbstractMockApnsServerHandler {
 
+    private final boolean emulateExpiredFirstToken;
+    private boolean rejectedFirstExpiredToken = false;
+
     private final Map<String, ApnsVerificationKey> verificationKeysByKeyId;
     private final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey;
 
@@ -33,8 +36,15 @@ public class TokenAuthenticationMockApnsServerHandler extends AbstractMockApnsSe
 
     public static final class TokenAuthenticationMockApnsServerHandlerBuilder extends AbstractMockApnsServerHandlerBuilder {
 
+        private boolean emulateExpiredFirstToken;
+
         private Map<String, ApnsVerificationKey> verificationKeysByKeyId;
         private Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey;
+
+        public AbstractMockApnsServerHandlerBuilder emulateExpiredFirstToken(final boolean emulateExpiredFirstToken) {
+            this.emulateExpiredFirstToken = emulateExpiredFirstToken;
+            return this;
+        }
 
         public AbstractMockApnsServerHandlerBuilder verificationKeysByKeyId(final Map<String, ApnsVerificationKey> verificationKeysByKeyId) {
             this.verificationKeysByKeyId = verificationKeysByKeyId;
@@ -48,7 +58,7 @@ public class TokenAuthenticationMockApnsServerHandler extends AbstractMockApnsSe
 
         @Override
         public TokenAuthenticationMockApnsServerHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
-            final TokenAuthenticationMockApnsServerHandler handler = new TokenAuthenticationMockApnsServerHandler(decoder, encoder, initialSettings, super.emulateInternalErrors(), super.deviceTokenExpirationsByTopic(), verificationKeysByKeyId, topicsByVerificationKey);
+            final TokenAuthenticationMockApnsServerHandler handler = new TokenAuthenticationMockApnsServerHandler(decoder, encoder, initialSettings, super.emulateInternalErrors(), super.deviceTokenExpirationsByTopic(), emulateExpiredFirstToken, verificationKeysByKeyId, topicsByVerificationKey);
             this.frameListener(handler);
             return handler;
         }
@@ -59,8 +69,10 @@ public class TokenAuthenticationMockApnsServerHandler extends AbstractMockApnsSe
         }
     }
 
-    protected TokenAuthenticationMockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final boolean emulateInternalErrors, final Map<String, Map<String, Date>> deviceTokenExpirationsByTopic, final Map<String, ApnsVerificationKey> verificationKeysByKeyId, final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey) {
+    protected TokenAuthenticationMockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final boolean emulateInternalErrors, final Map<String, Map<String, Date>> deviceTokenExpirationsByTopic, final boolean emulateExpiredFirstToken, final Map<String, ApnsVerificationKey> verificationKeysByKeyId, final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey) {
         super(decoder, encoder, initialSettings, emulateInternalErrors, deviceTokenExpirationsByTopic);
+
+        this.emulateExpiredFirstToken = emulateExpiredFirstToken;
 
         this.verificationKeysByKeyId = verificationKeysByKeyId;
         this.topicsByVerificationKey = topicsByVerificationKey;
@@ -119,6 +131,11 @@ public class TokenAuthenticationMockApnsServerHandler extends AbstractMockApnsSe
         }
 
         if (authenticationToken.getIssuedAt().getTime() + MockApnsServer.AUTHENTICATION_TOKEN_EXPIRATION_MILLIS < System.currentTimeMillis()) {
+            throw new RejectedNotificationException(ErrorReason.EXPIRED_PROVIDER_TOKEN);
+        }
+
+        if (this.emulateExpiredFirstToken && !this.rejectedFirstExpiredToken) {
+            this.rejectedFirstExpiredToken = true;
             throw new RejectedNotificationException(ErrorReason.EXPIRED_PROVIDER_TOKEN);
         }
 
