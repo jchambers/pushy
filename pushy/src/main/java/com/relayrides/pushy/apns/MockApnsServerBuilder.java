@@ -20,29 +20,20 @@
 
 package com.relayrides.pushy.apns;
 
+import io.netty.channel.EventLoopGroup;
+import io.netty.handler.codec.http2.Http2SecurityUtil;
+import io.netty.handler.ssl.*;
+import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
+import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
+import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.net.ssl.SSLException;
 import java.io.File;
 import java.io.InputStream;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
-
-import javax.net.ssl.SSLException;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import io.netty.channel.EventLoopGroup;
-import io.netty.handler.codec.http2.Http2SecurityUtil;
-import io.netty.handler.ssl.ApplicationProtocolConfig;
-import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
-import io.netty.handler.ssl.ApplicationProtocolNames;
-import io.netty.handler.ssl.ClientAuth;
-import io.netty.handler.ssl.OpenSsl;
-import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.handler.ssl.SslProvider;
-import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 
 /**
  * <p>A {@code MockApnsServerBuilder} constructs new {@link MockApnsServer} instances. Callers must supply server
@@ -67,6 +58,10 @@ public class MockApnsServerBuilder {
     private InputStream privateKeyPkcs8InputStream;
 
     private String privateKeyPassword;
+
+    private File trustedClientCertificatePemFile;
+    private InputStream trustedClientCertificateInputStream;
+    private X509Certificate[] trustedClientCertificates;
 
     private SslProvider preferredSslProvider;
 
@@ -157,6 +152,66 @@ public class MockApnsServerBuilder {
         this.privateKeyPkcs8InputStream = null;
 
         this.privateKeyPassword = privateKeyPassword;
+
+        return this;
+    }
+
+    /**
+     * <p>Sets the trusted certificate chain for the server under construction using the contents of the given PEM
+     * file. If not set (or {@code null}), the server will use the JVM's default trust manager.</p>
+     *
+     * <p>In development environments, callers will almost always need to provide a trusted certificate chain for
+     * clients (since clients in development environments will generally not present credentials recognized by the JVM's
+     * default trust manager).</p>
+     *
+     * @param certificatePemFile a PEM file containing one or more trusted certificates
+     *
+     * @return a reference to this builder
+     */
+    public MockApnsServerBuilder setTrustedClientCertificateChain(final File certificatePemFile) {
+        this.trustedClientCertificatePemFile = certificatePemFile;
+        this.trustedClientCertificateInputStream = null;
+        this.trustedClientCertificates = null;
+
+        return this;
+    }
+
+    /**
+     * <p>Sets the trusted certificate chain for the server under construction using the contents of the given PEM
+     * input stream. If not set (or {@code null}), the server will use the JVM's default trust manager.</p>
+     *
+     * <p>In development environments, callers will almost always need to provide a trusted certificate chain for
+     * clients (since clients in development environments will generally not present credentials recognized by the JVM's
+     * default trust manager).</p>
+     *
+     * @param certificateInputStream an input stream to PEM-formatted data containing one or more trusted certificates
+     *
+     * @return a reference to this builder
+     */
+    public MockApnsServerBuilder setTrustedClientCertificateChain(final InputStream certificateInputStream) {
+        this.trustedClientCertificatePemFile = null;
+        this.trustedClientCertificateInputStream = certificateInputStream;
+        this.trustedClientCertificates = null;
+
+        return this;
+    }
+
+    /**
+     * <p>Sets the trusted certificate chain for the server under construction. If not set (or {@code null}), the
+     * server will use the JVM's default trust manager.</p>
+     *
+     * <p>In development environments, callers will almost always need to provide a trusted certificate chain for
+     * clients (since clients in development environments will generally not present credentials recognized by the JVM's
+     * default trust manager).</p>
+     *
+     * @param certificates one or more trusted certificates
+     *
+     * @return a reference to this builder
+     */
+    public MockApnsServerBuilder setTrustedServerCertificateChain(final X509Certificate... certificates) {
+        this.trustedClientCertificatePemFile = null;
+        this.trustedClientCertificateInputStream = null;
+        this.trustedClientCertificates = certificates;
 
         return this;
     }
@@ -259,6 +314,14 @@ public class MockApnsServerBuilder {
                     SelectorFailureBehavior.NO_ADVERTISE,
                     SelectedListenerFailureBehavior.ACCEPT,
                     ApplicationProtocolNames.HTTP_2));
+
+            if (this.trustedClientCertificatePemFile != null) {
+                sslContextBuilder.trustManager(this.trustedClientCertificatePemFile);
+            } else if (this.trustedClientCertificateInputStream != null) {
+                sslContextBuilder.trustManager(this.trustedClientCertificateInputStream);
+            } else if (this.trustedClientCertificates != null) {
+                sslContextBuilder.trustManager(this.trustedClientCertificates);
+            }
 
             sslContext = sslContextBuilder.build();
         }
