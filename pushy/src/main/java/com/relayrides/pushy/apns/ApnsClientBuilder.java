@@ -374,20 +374,7 @@ public class ApnsClientBuilder {
 
         final SslContext sslContext;
         {
-            final SslProvider sslProvider;
-
-            if (OpenSsl.isAvailable()) {
-                if (OpenSsl.isAlpnSupported()) {
-                    log.info("Native SSL provider is available and supports ALPN; will use native provider.");
-                    sslProvider = SslProvider.OPENSSL;
-                } else {
-                    log.info("Native SSL provider is available, but does not support ALPN; will use JDK SSL provider.");
-                    sslProvider = SslProvider.JDK;
-                }
-            } else {
-                log.info("Native SSL provider not available; will use JDK SSL provider.");
-                sslProvider = SslProvider.JDK;
-            }
+            final SslProvider sslProvider = SslUtil.getSslProvider();
 
             final SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
                     .sslProvider(sslProvider)

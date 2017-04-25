@@ -63,8 +63,6 @@ public class MockApnsServerBuilder {
     private InputStream trustedClientCertificateInputStream;
     private X509Certificate[] trustedClientCertificates;
 
-    private SslProvider preferredSslProvider;
-
     private EventLoopGroup eventLoopGroup;
 
     private boolean emulateInternalErrors = false;
@@ -218,21 +216,6 @@ public class MockApnsServerBuilder {
     }
 
     /**
-     * Sets the SSL provider to be used by the mock server. By default, the server will use a native SSL provider if
-     * available and fall back to the JDK provider otherwise.
-     *
-     * @param sslProvider the SSL provider to be used by this server, or {@code null} to choose a provider automatically
-     *
-     * @return a reference to this builder
-     *
-     * @since 0.9
-     */
-    public MockApnsServerBuilder setSslProvider(final SslProvider sslProvider) {
-        this.preferredSslProvider = sslProvider;
-        return this;
-    }
-
-    /**
      * <p>Sets the event loop group to be used by the server under construction. If not set (or if {@code null}), the
      * server will create and manage its own event loop group.</p>
      *
@@ -292,24 +275,7 @@ public class MockApnsServerBuilder {
     public MockApnsServer build() throws SSLException {
         final SslContext sslContext;
         {
-            final SslProvider sslProvider;
-
-            if (this.preferredSslProvider != null) {
-                sslProvider = this.preferredSslProvider;
-            } else {
-                if (OpenSsl.isAvailable()) {
-                    if (OpenSsl.isAlpnSupported()) {
-                        log.info("Native SSL provider is available and supports ALPN; will use native provider.");
-                        sslProvider = SslProvider.OPENSSL;
-                    } else {
-                        log.info("Native SSL provider is available, but does not support ALPN; will use JDK SSL provider.");
-                        sslProvider = SslProvider.JDK;
-                    }
-                } else {
-                    log.info("Native SSL provider not available; will use JDK SSL provider.");
-                    sslProvider = SslProvider.JDK;
-                }
-            }
+            final SslProvider sslProvider = SslUtil.getSslProvider();
 
             final SslContextBuilder sslContextBuilder;
 
