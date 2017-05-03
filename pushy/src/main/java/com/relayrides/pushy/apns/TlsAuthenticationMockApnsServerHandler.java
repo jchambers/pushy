@@ -8,10 +8,7 @@ import io.netty.util.AsciiString;
 
 import java.util.*;
 
-/**
- * @author <a href="https://github.com/jchambers">Jon Chambers</a>
- */
-public class TlsAuthenticationMockApnsServerHandler extends AbstractMockApnsServerHandler {
+class TlsAuthenticationMockApnsServerHandler extends AbstractMockApnsServerHandler {
 
     private final Set<String> allowedTopics;
 

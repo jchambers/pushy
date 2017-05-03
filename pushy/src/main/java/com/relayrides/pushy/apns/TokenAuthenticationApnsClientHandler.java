@@ -16,7 +16,7 @@ import java.security.SignatureException;
 import java.util.Date;
 import java.util.Objects;
 
-public class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
+class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
 
     private final ApnsSigningKey signingKey;
 

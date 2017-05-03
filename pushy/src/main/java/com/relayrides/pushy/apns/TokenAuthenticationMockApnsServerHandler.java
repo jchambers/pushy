@@ -16,10 +16,7 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * @author <a href="https://github.com/jchambers">Jon Chambers</a>
- */
-public class TokenAuthenticationMockApnsServerHandler extends AbstractMockApnsServerHandler {
+class TokenAuthenticationMockApnsServerHandler extends AbstractMockApnsServerHandler {
 
     private final boolean emulateExpiredFirstToken;
     private boolean rejectedFirstExpiredToken = false;
