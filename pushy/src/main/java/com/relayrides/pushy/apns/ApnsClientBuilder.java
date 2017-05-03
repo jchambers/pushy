@@ -69,9 +69,6 @@ public class ApnsClientBuilder {
     private Long connectionTimeout;
     private TimeUnit connectionTimeoutUnit;
 
-    private Long writeTimeout;
-    private TimeUnit writeTimeoutUnit;
-
     private Long gracefulShutdownTimeout;
     private TimeUnit gracefulShutdownTimeoutUnit;
 
@@ -330,29 +327,6 @@ public class ApnsClientBuilder {
     }
 
     /**
-     * <p>Sets the write timeout for the client to build. If an attempt to send a notification to the APNs server takes
-     * longer than the given timeout, the connection will be closed (and automatically reconnected later). Note that
-     * write timeouts refer to the amount of time taken to <em>send</em> a notification to the server, and not the time
-     * taken by the server to process and respond to a notification.</p>
-     *
-     * <p>By default, clients have a write timeout of
-     * {@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_WRITE_TIMEOUT_MILLIS} milliseconds.</p>
-     *
-     * @param writeTimeout the write timeout for the client under construction
-     * @param timeoutUnit the time unit for the given timeout
-     *
-     * @return a reference to this builder
-     *
-     * @since 0.8
-     */
-    public ApnsClientBuilder setWriteTimeout(final long writeTimeout, final TimeUnit timeoutUnit) {
-        this.writeTimeout = writeTimeout;
-        this.writeTimeoutUnit = timeoutUnit;
-
-        return this;
-    }
-
-    /**
      * Sets the amount of time clients should wait for in-progress requests to complete before closing a connection
      * during a graceful shutdown.
      *
@@ -425,10 +399,6 @@ public class ApnsClientBuilder {
 
         if (this.connectionTimeout != null) {
             apnsClient.setConnectionTimeout((int) this.connectionTimeoutUnit.toMillis(this.connectionTimeout));
-        }
-
-        if (this.writeTimeout != null) {
-            apnsClient.setWriteTimeout(this.writeTimeoutUnit.toMillis(this.writeTimeout));
         }
 
         if (this.gracefulShutdownTimeout != null) {
