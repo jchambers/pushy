@@ -154,7 +154,7 @@ public class MockApnsServer {
      * Registers a public key for verifying authentication tokens for the given topics. Clears any keys and topics
      * previously associated with the given team.
      *
-     * @param verificationKey TODO
+     * @param verificationKey the key to be used to verify authentication tokens for the given topics
      * @param topics the topics belonging to the given team for which the given public key can be used to verify
      * authentication tokens; must not be {@code null}
      *
@@ -171,7 +171,7 @@ public class MockApnsServer {
      * Registers a public key for verifying authentication tokens for the given topics. Clears any keys and topics
      * previously associated with the given team.
      *
-     * @param verificationKey TODO
+     * @param verificationKey the key to be used to verify authentication tokens for the given topics
      * @param topics the topics belonging to the given team for which the given public key can be used to verify
      * authentication tokens; must not be null
      *
