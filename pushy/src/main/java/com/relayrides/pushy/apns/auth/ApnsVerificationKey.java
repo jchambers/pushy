@@ -10,7 +10,7 @@ import java.security.Signature;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECPoint;
 import java.security.spec.InvalidKeySpecException;
-import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 
 public class ApnsVerificationKey extends ApnsKey implements ECPublicKey {
 
@@ -91,7 +91,7 @@ public class ApnsVerificationKey extends ApnsKey implements ECPublicKey {
 
             final byte[] keyBytes = Base64.decodeBase64(base64EncodedPublicKey);
 
-            final PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
+            final X509EncodedKeySpec keySpec = new X509EncodedKeySpec(keyBytes);
             final KeyFactory keyFactory = KeyFactory.getInstance("EC");
 
             try {
