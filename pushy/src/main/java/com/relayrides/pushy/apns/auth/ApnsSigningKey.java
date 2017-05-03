@@ -12,10 +12,28 @@ import java.security.interfaces.ECPrivateKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 
+/**
+ * A private key used to sign authentication tokens. Signing keys are associated with a developer team (in Apple's
+ * parlance), and can be used to sign authentication tokens for any topic associated with that team.
+ *
+ * @author <a href="https://github.com/jchambers">Jon Chambers</a>
+ *
+ * @since 0.10
+ */
 public class ApnsSigningKey extends ApnsKey implements ECPrivateKey {
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     * Constructs a new signing key with the given key identifier, team identifier, and elliptic curve private key.
+     *
+     * @param keyId the ten-character, Apple-issued identifier for the key itself
+     * @param teamId the ten-character, Apple-issued identifier for the team to which the key belongs
+     * @param key the elliptic curve public key underpinning this verification key
+     *
+     * @throws NoSuchAlgorithmException if the {@value APNS_SIGNATURE_ALGORITHM} algorith is not supported by the JVM
+     * @throws InvalidKeyException if the given elliptic curve private key is invalid for any reason
+     */
     public ApnsSigningKey(final String keyId, final String teamId, final ECPrivateKey key) throws NoSuchAlgorithmException, InvalidKeyException {
         super(keyId, teamId, key);
 
@@ -50,12 +68,38 @@ public class ApnsSigningKey extends ApnsKey implements ECPrivateKey {
         return this.getKey().getS();
     }
 
+    /**
+     * Loads a signing key from the given PKCS#8 file.
+     *
+     * @param pkcs8File the file from which to load the key
+     * @param teamId the ten-character, Apple-issued identifier for the team to which the key belongs
+     * @param keyId the ten-character, Apple-issued identitifier for the key itself
+     *
+     * @return an APNs signing key with the given key ID and associated with the given team
+     *
+     * @throws IOException if a key could not be loaded from the given file for any reason
+     * @throws NoSuchAlgorithmException if the JVM does not support elliptic curve keys
+     * @throws InvalidKeyException if the loaded key is invalid for any reason
+     */
     public static ApnsSigningKey loadFromPkcs8File(final File pkcs8File, final String teamId, final String keyId) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         try (final FileInputStream fileInputStream = new FileInputStream(pkcs8File)) {
             return ApnsSigningKey.loadFromInputStream(fileInputStream, teamId, keyId);
         }
     }
 
+    /**
+     * Loads a signing key from the given input stream.
+     *
+     * @param inputStream the input stream from which to load the key
+     * @param teamId the ten-character, Apple-issued identifier for the team to which the key belongs
+     * @param keyId the ten-character, Apple-issued identitifier for the key itself
+     *
+     * @return an APNs signing key with the given key ID and associated with the given team
+     *
+     * @throws IOException if a key could not be loaded from the given file for any reason
+     * @throws NoSuchAlgorithmException if the JVM does not support elliptic curve keys
+     * @throws InvalidKeyException if the loaded key is invalid for any reason
+     */
     public static ApnsSigningKey loadFromInputStream(final InputStream inputStream, final String teamId, final String keyId) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         final ECPrivateKey signingKey;
         {
