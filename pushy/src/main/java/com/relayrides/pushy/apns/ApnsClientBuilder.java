@@ -78,8 +78,11 @@ public class ApnsClientBuilder {
     private static final Logger log = LoggerFactory.getLogger(ApnsClientBuilder.class);
 
     /**
-     * <p>Sets the credentials for the client under construction using the contents of the given PKCS#12 file. The
+     * <p>Sets the TLS credentials for the client under construction using the contents of the given PKCS#12 file.
+     * Clients constructed with TLS credentials will use TLS-based authentication when sending push notifications. The
      * PKCS#12 file <em>must</em> contain a certificate/private key pair.</p>
+     *
+     * <p>Clients may not have both TLS credentials and a signing key.</p>
      *
      * @param p12File a PKCS#12-formatted file containing the certificate and private key to be used to identify the
      * client to the APNs server
@@ -102,8 +105,11 @@ public class ApnsClientBuilder {
     }
 
     /**
-     * <p>Sets the credentials for the client under construction using the data from the given PKCS#12 input stream. The
+     * <p>Sets the TLS credentials for the client under construction using the data from the given PKCS#12 input stream.
+     * Clients constructed with TLS credentials will use TLS-based authentication when sending push notifications. The
      * PKCS#12 data <em>must</em> contain a certificate/private key pair.</p>
+     *
+     * <p>Clients may not have both TLS credentials and a signing key.</p>
      *
      * @param p12InputStream an input stream to a PKCS#12-formatted file containing the certificate and private key to
      * be used to identify the client to the APNs server
@@ -141,7 +147,10 @@ public class ApnsClientBuilder {
     }
 
     /**
-     * <p>Sets the credentials for the client under construction.</p>
+     * <p>Sets the TLS credentials for the client under construction. Clients constructed with TLS credentials will use
+     * TLS-based authentication when sending push notifications.</p>
+     *
+     * <p>Clients may not have both TLS credentials and a signing key.</p>
      *
      * @param clientCertificate the certificate to be used to identify the client to the APNs server
      * @param privateKey the private key for the client certificate
@@ -157,18 +166,25 @@ public class ApnsClientBuilder {
         this.privateKey = privateKey;
         this.privateKeyPassword = privateKeyPassword;
 
-        // TODO Document
-        this.signingKey = null;
-
         return this;
     }
 
+    /**
+     * <p>Sets the signing key for the client under construction. Clients constructed with a signing key will use
+     * token-based authentication when sending push notifications.</p>
+     *
+     * <p>Clients may not have both a signing key and TLS credentials.</p>
+     *
+     * @param signingKey the signing key to be used by the client under construction
+     *
+     * @return a reference to this builder
+     *
+     * @see ApnsSigningKey#loadFromPkcs8File(File, String, String)
+     * @see ApnsSigningKey#loadFromInputStream(InputStream, String, String)
+     *
+     * @since 0.10
+     */
     public ApnsClientBuilder setSigningKey(final ApnsSigningKey signingKey) {
-        // TODO Document
-        this.clientCertificate = null;
-        this.privateKey = null;
-        this.privateKeyPassword = null;
-
         this.signingKey = signingKey;
 
         return this;
@@ -370,6 +386,8 @@ public class ApnsClientBuilder {
         if (this.clientCertificate == null && this.privateKey == null && this.signingKey == null) {
             throw new IllegalStateException("No client credentials specified; either TLS credentials (a " +
                     "certificate/private key) or an APNs signing key must be provided before building a client.");
+        } else if ((this.clientCertificate != null || this.privateKey != null) && this.signingKey != null) {
+            throw new IllegalStateException("Clients may not have both a signing key and TLS credentials.");
         }
 
         final SslContext sslContext;

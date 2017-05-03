@@ -42,13 +42,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * <p>An APNs client sends push notifications to the APNs gateway. APNs clients communicate with an APNs server using
- * HTTP/2 over a TLS-protected connection. Clients include an authentication token with each notification they send;
- * authentication tokens are cryptographically-signed with a signing key, and clients may send notifications to any
- * "topic" for which they have a key. Please see Apple's
+ * <p>An APNs client sends push notifications to the APNs gateway. Clients authenticate themselves to APNs servers in
+ * one of two ways: they may either present a TLS certificate to the server at connection time, or they may present
+ * authentication tokens for each notification they send. Clients that opt to use TLS-based authentication may send
+ * notifications to any topic named in the client certificate. Clients that opt to use token-based authentication may
+ * send notifications to any topic associated with the team to which the client's signing key belongs. Please see the
  * <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html">Local
- * and Remote Notification Programming Guide</a> for a detailed discussion of the APNs protocol, topics, and key
- * provisioning.</p>
+ * and Remote Notification Programming Guide</a> for a detailed discussion of the APNs protocol, topics, and
+ * certificate/key provisioning.</p>
  *
  * <p>Clients are constructed using an {@link ApnsClientBuilder}. Callers may
  * optionally specify an {@link EventLoopGroup} when constructing a new client. If no event loop group is specified,
@@ -57,8 +58,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * also want to provide a specific event loop group to take advantage of platform-specific features (i.e.
  * {@code epoll}).</p>
  *
- * <p>Callers must register signing keys for the topics to which the client will send notifications using one of the
- * {@code registerSigningKey} methods. Callers may register keys at any time after a client has been constructed.</p>
+ * <p>Callers must either provide an SSL context with the client's certificate or a signing key at client construction
+ * time. If a signing key is provided, the client will use token authentication when sending notifications; otherwise,
+ * it will use TLS-based authentication. It is an error to provide both a client certificate and a signing key.</p>
  *
  * <p>Once a client has been constructed, it must connect to an APNs server before it can begin sending push
  * notifications. Apple provides a production and development gateway; see {@link ApnsClient#PRODUCTION_APNS_HOST} and
