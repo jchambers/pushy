@@ -20,58 +20,38 @@
 
 package com.relayrides.pushy.apns;
 
-import java.nio.charset.StandardCharsets;
-import java.security.SignatureException;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.IdentityHashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Random;
-import java.util.concurrent.TimeUnit;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http2.AbstractHttp2ConnectionHandlerBuilder;
-import io.netty.handler.codec.http2.DefaultHttp2Headers;
-import io.netty.handler.codec.http2.Http2ConnectionDecoder;
-import io.netty.handler.codec.http2.Http2ConnectionEncoder;
-import io.netty.handler.codec.http2.Http2ConnectionHandler;
-import io.netty.handler.codec.http2.Http2Exception;
-import io.netty.handler.codec.http2.Http2FrameAdapter;
-import io.netty.handler.codec.http2.Http2Headers;
-import io.netty.handler.codec.http2.Http2Settings;
+import io.netty.handler.codec.http2.*;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.WriteTimeoutException;
 import io.netty.util.AsciiString;
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
-import io.netty.util.concurrent.Promise;
-import io.netty.util.concurrent.PromiseCombiner;
-import io.netty.util.concurrent.ScheduledFuture;
+import io.netty.util.concurrent.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-class ApnsClientHandler extends Http2ConnectionHandler {
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+
+class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameListener {
 
     private long nextStreamId = 1;
 
-    private final Map<Integer, ApnsPushNotification> pushNotificationsByStreamId = new HashMap<>();
-    private final Map<Integer, String> authenticationTokensByStreamId = new HashMap<>();
-    private final Map<Integer, Http2Headers> headersByStreamId = new HashMap<>();
+    private final Http2Connection.PropertyKey pushNotificationPropertyKey;
+    private final Http2Connection.PropertyKey headersPropertyKey;
 
     private final Map<ApnsPushNotification, Promise<PushNotificationResponse<ApnsPushNotification>>> responsePromises =
             new IdentityHashMap<>();
 
-    private final ApnsClient apnsClient;
     private final String authority;
 
     private long nextPingId = new Random().nextLong();
@@ -84,15 +64,12 @@ class ApnsClientHandler extends Http2ConnectionHandler {
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
     private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
     private static final AsciiString APNS_COLLAPSE_ID_HEADER = new AsciiString("apns-collapse-id");
-    private static final AsciiString APNS_AUTHORIZATION_HEADER = new AsciiString("authorization");
 
     private static final long STREAM_ID_RESET_THRESHOLD = Integer.MAX_VALUE - 1;
 
     private static final int INITIAL_PAYLOAD_BUFFER_CAPACITY = 4096;
 
-    private static final String EXPIRED_AUTH_TOKEN_REASON = "ExpiredProviderToken";
-
-    private static final Gson gson = new GsonBuilder()
+    private static final Gson GSON = new GsonBuilder()
             .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
             .create();
 
@@ -100,17 +77,7 @@ class ApnsClientHandler extends Http2ConnectionHandler {
 
     public static class ApnsClientHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<ApnsClientHandler, ApnsClientHandlerBuilder> {
 
-        private ApnsClient apnsClient;
         private String authority;
-
-        public ApnsClientHandlerBuilder apnsClient(final ApnsClient apnsClient) {
-            this.apnsClient = apnsClient;
-            return this;
-        }
-
-        public ApnsClient apnsClient() {
-            return this.apnsClient;
-        }
 
         public ApnsClientHandlerBuilder authority(final String authority) {
             this.authority = authority;
@@ -120,22 +87,23 @@ class ApnsClientHandler extends Http2ConnectionHandler {
         public String authority() {
             return this.authority;
         }
+
         @Override
-        public ApnsClientHandlerBuilder server(final boolean isServer) {
-            return super.server(isServer);
+        protected final boolean isServer() {
+            return false;
         }
 
         @Override
-        public ApnsClientHandlerBuilder encoderEnforceMaxConcurrentStreams(final boolean enforceMaxConcurrentStreams) {
-            return super.encoderEnforceMaxConcurrentStreams(enforceMaxConcurrentStreams);
+        protected boolean encoderEnforceMaxConcurrentStreams() {
+            return true;
         }
 
         @Override
         public ApnsClientHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
             Objects.requireNonNull(this.authority(), "Authority must be set before building an ApnsClientHandler.");
 
-            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, initialSettings, this.apnsClient(), this.authority());
-            this.frameListener(handler.new ApnsClientHandlerFrameAdapter());
+            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, initialSettings, this.authority());
+            this.frameListener(handler);
             return handler;
         }
 
@@ -145,112 +113,17 @@ class ApnsClientHandler extends Http2ConnectionHandler {
         }
     }
 
-    private class ApnsClientHandlerFrameAdapter extends Http2FrameAdapter {
-        @Override
-        public void onSettingsRead(final ChannelHandlerContext context, final Http2Settings settings) {
-            log.trace("Received settings from APNs gateway: {}", settings);
-        }
-
-        @Override
-        public int onDataRead(final ChannelHandlerContext context, final int streamId, final ByteBuf data, final int padding, final boolean endOfStream) throws Http2Exception {
-            log.trace("Received data from APNs gateway on stream {}: {}", streamId, data.toString(StandardCharsets.UTF_8));
-
-            final int bytesProcessed = data.readableBytes() + padding;
-
-            if (endOfStream) {
-                final Http2Headers headers = ApnsClientHandler.this.headersByStreamId.remove(streamId);
-                final String authenticationToken = ApnsClientHandler.this.authenticationTokensByStreamId.remove(streamId);
-                final ApnsPushNotification pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
-
-                final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
-                final String responseBody = data.toString(StandardCharsets.UTF_8);
-
-                if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
-                    log.warn("APNs server reported an internal error when sending {}.", pushNotification);
-                    ApnsClientHandler.this.responsePromises.get(pushNotification).tryFailure(new ApnsServerException(responseBody));
-                } else {
-                    final ErrorResponse errorResponse = gson.fromJson(responseBody, ErrorResponse.class);
-
-                    if (ApnsClientHandler.EXPIRED_AUTH_TOKEN_REASON.equals(errorResponse.getReason())) {
-                        try {
-                            ApnsClientHandler.this.apnsClient.getAuthenticationTokenSupplierForTopic(pushNotification.getTopic()).invalidateToken(authenticationToken);
-
-                            // Once we've invalidated an expired token, it's reasonable to expect that re-sending the
-                            // notification will succeed.
-                            context.channel().write(pushNotification);
-                        } catch (final NoKeyForTopicException e) {
-                            // This should only happen if somebody de-registered the topic after a notification was sent
-                            log.warn("Authentication token expired, but no key registered for topic {}", pushNotification.getTopic());
-                        }
-                    } else {
-                        ApnsClientHandler.this.responsePromises.get(pushNotification).trySuccess(
-                                new SimplePushNotificationResponse<>(pushNotification, HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
-                    }
-                }
-            } else {
-                log.error("Gateway sent a DATA frame that was not the end of a stream.");
-            }
-
-            return bytesProcessed;
-        }
-
-        @Override
-        public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int streamDependency, final short weight, final boolean exclusive, final int padding, final boolean endOfStream) throws Http2Exception {
-            this.onHeadersRead(context, streamId, headers, padding, endOfStream);
-        }
-
-        @Override
-        public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
-            log.trace("Received headers from APNs gateway on stream {}: {}", streamId, headers);
-
-            if (endOfStream) {
-                final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
-                final boolean success = HttpResponseStatus.OK.equals(status);
-
-                if (!success) {
-                    log.warn("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
-                }
-
-                final ApnsPushNotification pushNotification = ApnsClientHandler.this.pushNotificationsByStreamId.remove(streamId);
-                ApnsClientHandler.this.authenticationTokensByStreamId.remove(streamId);
-
-                if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
-                    log.warn("APNs server reported an internal error when sending {}.", pushNotification);
-                    ApnsClientHandler.this.responsePromises.get(pushNotification).tryFailure(new ApnsServerException(null));
-                } else {
-                    ApnsClientHandler.this.responsePromises.get(pushNotification).trySuccess(
-                            new SimplePushNotificationResponse<>(pushNotification, success, null, null));
-                }
-            } else {
-                ApnsClientHandler.this.headersByStreamId.put(streamId, headers);
-            }
-        }
-
-        @Override
-        public void onPingAckRead(final ChannelHandlerContext context, final ByteBuf data) {
-            if (ApnsClientHandler.this.pingTimeoutFuture != null) {
-                log.trace("Received reply to ping.");
-                ApnsClientHandler.this.pingTimeoutFuture.cancel(false);
-            } else {
-                log.error("Received PING ACK, but no corresponding outbound PING found.");
-            }
-        }
-
-        @Override
-        public void onGoAwayRead(final ChannelHandlerContext context, final int lastStreamId, final long errorCode, final ByteBuf debugData) throws Http2Exception {
-            log.info("Received GOAWAY from APNs server: {}", debugData.toString(StandardCharsets.UTF_8));
-        }
-    }
-
-    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final ApnsClient apnsClient, final String authority) {
+    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final String authority) {
         super(decoder, encoder, initialSettings);
 
-        this.apnsClient = apnsClient;
         this.authority = authority;
+
+        this.pushNotificationPropertyKey = this.connection().newKey();
+        this.headersPropertyKey = this.connection().newKey();
     }
 
     @Override
-    public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise writePromise) throws Http2Exception {
+    public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise writePromise) throws Http2Exception, InvalidKeyException, NoSuchAlgorithmException {
         if (message instanceof PushNotificationAndResponsePromise) {
             final PushNotificationAndResponsePromise pushNotificationAndResponsePromise =
                     (PushNotificationAndResponsePromise) message;
@@ -277,85 +150,83 @@ class ApnsClientHandler extends Http2ConnectionHandler {
         } else if (message instanceof ApnsPushNotification) {
             final ApnsPushNotification pushNotification = (ApnsPushNotification) message;
 
-            try {
-                final int streamId = (int) this.nextStreamId;
+            final int streamId = (int) this.nextStreamId;
 
-                final Http2Headers headers = new DefaultHttp2Headers()
-                        .method(HttpMethod.POST.asciiName())
-                        .authority(this.authority)
-                        .path(APNS_PATH_PREFIX + pushNotification.getToken())
-                        .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
+            final Http2Headers headers = getHeadersForPushNotification(pushNotification, streamId);
 
-                final String authenticationToken = this.apnsClient.getAuthenticationTokenSupplierForTopic(pushNotification.getTopic()).getToken();
-                headers.add(APNS_AUTHORIZATION_HEADER, "bearer " + authenticationToken);
+            final ChannelPromise headersPromise = context.newPromise();
+            this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
+            log.trace("Wrote headers on stream {}: {}", streamId, headers);
 
-                if (pushNotification.getCollapseId() != null) {
-                    headers.add(APNS_COLLAPSE_ID_HEADER, pushNotification.getCollapseId());
-                }
+            final ByteBuf payloadBuffer = context.alloc().ioBuffer(INITIAL_PAYLOAD_BUFFER_CAPACITY);
+            payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(StandardCharsets.UTF_8));
 
-                if (pushNotification.getPriority() != null) {
-                    headers.addInt(APNS_PRIORITY_HEADER, pushNotification.getPriority().getCode());
-                }
+            final ChannelPromise dataPromise = context.newPromise();
+            this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
+            log.trace("Wrote payload on stream {}: {}", streamId, pushNotification.getPayload());
 
-                if (pushNotification.getTopic() != null) {
-                    headers.add(APNS_TOPIC_HEADER, pushNotification.getTopic());
-                }
+            final PromiseCombiner promiseCombiner = new PromiseCombiner();
+            promiseCombiner.addAll((ChannelFuture) headersPromise, dataPromise);
+            promiseCombiner.finish(writePromise);
 
-                final ChannelPromise headersPromise = context.newPromise();
-                this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
-                log.trace("Wrote headers on stream {}: {}", streamId, headers);
+            writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
 
-                final ByteBuf payloadBuffer = context.alloc().ioBuffer(INITIAL_PAYLOAD_BUFFER_CAPACITY);
-                payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(StandardCharsets.UTF_8));
+                @Override
+                public void operationComplete(final ChannelPromise future) throws Exception {
+                    if (future.isSuccess()) {
+                        final Http2Stream stream = ApnsClientHandler.this.connection().stream(streamId);
+                        stream.setProperty(ApnsClientHandler.this.pushNotificationPropertyKey, pushNotification);
+                    } else {
+                        log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
 
-                final ChannelPromise dataPromise = context.newPromise();
-                this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
-                log.trace("Wrote payload on stream {}: {}", streamId, pushNotification.getPayload());
+                        final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
+                                ApnsClientHandler.this.responsePromises.get(pushNotification);
 
-                final PromiseCombiner promiseCombiner = new PromiseCombiner();
-                promiseCombiner.addAll(headersPromise, dataPromise);
-                promiseCombiner.finish(writePromise);
-
-                writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
-
-                    @Override
-                    public void operationComplete(final ChannelPromise future) throws Exception {
-                        if (future.isSuccess()) {
-                            ApnsClientHandler.this.pushNotificationsByStreamId.put(streamId, pushNotification);
-                            ApnsClientHandler.this.authenticationTokensByStreamId.put(streamId, authenticationToken);
+                        if (responsePromise != null) {
+                            responsePromise.tryFailure(future.cause());
                         } else {
-                            log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
-
-                            final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
-                                    ApnsClientHandler.this.responsePromises.get(pushNotification);
-
-                            if (responsePromise != null) {
-                                responsePromise.tryFailure(future.cause());
-                            } else {
-                                log.error("Notification write failed, but no response promise found.");
-                            }
+                            log.error("Notification write failed, but no response promise found.");
                         }
                     }
-                });
-
-                this.nextStreamId += 2;
-
-                if (this.nextStreamId >= STREAM_ID_RESET_THRESHOLD) {
-                    // This is very unlikely, but in the event that we run out of stream IDs (the maximum allowed is
-                    // 2^31, per https://httpwg.github.io/specs/rfc7540.html#StreamIdentifiers), we need to open a new
-                    // connection. Just closing the context should be enough; automatic reconnection should take things
-                    // from there.
-                    context.close();
                 }
-            } catch (NoKeyForTopicException | SignatureException e) {
-                writePromise.tryFailure(e);
-            }
+            });
 
+            this.nextStreamId += 2;
+
+            if (this.nextStreamId >= STREAM_ID_RESET_THRESHOLD) {
+                // This is very unlikely, but in the event that we run out of stream IDs (the maximum allowed is
+                // 2^31, per https://httpwg.github.io/specs/rfc7540.html#StreamIdentifiers), we need to open a new
+                // connection. Just closing the context should be enough; automatic reconnection should take things
+                // from there.
+                context.close();
+            }
         } else {
             // This should never happen, but in case some foreign debris winds up in the pipeline, just pass it through.
             log.error("Unexpected object in pipeline: {}", message);
             context.write(message, writePromise);
         }
+    }
+
+    protected Http2Headers getHeadersForPushNotification(final ApnsPushNotification pushNotification, final int streamId) {
+        final Http2Headers headers = new DefaultHttp2Headers()
+                .method(HttpMethod.POST.asciiName())
+                .authority(this.authority)
+                .path(APNS_PATH_PREFIX + pushNotification.getToken())
+                .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
+
+        if (pushNotification.getCollapseId() != null) {
+            headers.add(APNS_COLLAPSE_ID_HEADER, pushNotification.getCollapseId());
+        }
+
+        if (pushNotification.getPriority() != null) {
+            headers.addInt(APNS_PRIORITY_HEADER, pushNotification.getPriority().getCode());
+        }
+
+        if (pushNotification.getTopic() != null) {
+            headers.add(APNS_TOPIC_HEADER, pushNotification.getTopic());
+        }
+
+        return headers;
     }
 
     @Override
@@ -416,5 +287,120 @@ class ApnsClientHandler extends Http2ConnectionHandler {
         }
 
         this.responsePromises.clear();
+    }
+
+    @Override
+    public int onDataRead(final ChannelHandlerContext context, final int streamId, final ByteBuf data, final int padding, final boolean endOfStream) throws Http2Exception {
+        log.trace("Received data from APNs gateway on stream {}: {}", streamId, data.toString(StandardCharsets.UTF_8));
+
+        final int bytesProcessed = data.readableBytes() + padding;
+
+        if (endOfStream) {
+            final Http2Stream stream = this.connection().stream(streamId);
+
+            final Http2Headers headers = stream.getProperty(this.headersPropertyKey);
+            final ApnsPushNotification pushNotification = stream.getProperty(this.pushNotificationPropertyKey);
+
+            final ErrorResponse errorResponse = GSON.fromJson(data.toString(StandardCharsets.UTF_8), ErrorResponse.class);
+
+            this.handleErrorResponse(context, streamId, headers, pushNotification, errorResponse);
+        } else {
+            log.error("Gateway sent a DATA frame that was not the end of a stream.");
+        }
+
+        return bytesProcessed;
+    }
+
+    protected void handleErrorResponse(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final ApnsPushNotification pushNotification, final ErrorResponse errorResponse) {
+        final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
+
+        if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
+            log.warn("APNs server reported an internal error when sending {}.", pushNotification);
+            this.responsePromises.get(pushNotification).tryFailure(new ApnsServerException(GSON.toJson(errorResponse)));
+        } else {
+            this.responsePromises.get(pushNotification).trySuccess(
+                    new SimplePushNotificationResponse<>(pushNotification, HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
+        }
+
+    }
+
+    @Override
+    public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int streamDependency, final short weight, final boolean exclusive, final int padding, final boolean endOfStream) throws Http2Exception {
+        this.onHeadersRead(context, streamId, headers, padding, endOfStream);
+    }
+
+    @Override
+    public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
+        log.trace("Received headers from APNs gateway on stream {}: {}", streamId, headers);
+        final Http2Stream stream = this.connection().stream(streamId);
+
+        if (endOfStream) {
+            final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
+            final boolean success = HttpResponseStatus.OK.equals(status);
+
+            if (!success) {
+                log.warn("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
+            }
+
+            final ApnsPushNotification pushNotification = stream.getProperty(this.pushNotificationPropertyKey);
+
+            if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
+                log.warn("APNs server reported an internal error when sending {}.", pushNotification);
+                this.responsePromises.get(pushNotification).tryFailure(new ApnsServerException(null));
+            } else {
+                this.responsePromises.get(pushNotification).trySuccess(
+                        new SimplePushNotificationResponse<>(pushNotification, success, null, null));
+            }
+        } else {
+            stream.setProperty(this.headersPropertyKey, headers);
+        }
+    }
+
+    @Override
+    public void onPriorityRead(final ChannelHandlerContext ctx, final int streamId, final int streamDependency, final short weight, final boolean exclusive) throws Http2Exception {
+    }
+
+    @Override
+    public void onRstStreamRead(final ChannelHandlerContext ctx, final int streamId, final long errorCode) throws Http2Exception {
+    }
+
+    @Override
+    public void onSettingsAckRead(final ChannelHandlerContext ctx) throws Http2Exception {
+    }
+
+    @Override
+    public void onSettingsRead(final ChannelHandlerContext context, final Http2Settings settings) {
+        log.trace("Received settings from APNs gateway: {}", settings);
+    }
+
+    @Override
+    public void onPingRead(final ChannelHandlerContext ctx, final ByteBuf data) throws Http2Exception {
+    }
+
+    @Override
+    public void onPingAckRead(final ChannelHandlerContext context, final ByteBuf data) {
+        if (this.pingTimeoutFuture != null) {
+            log.trace("Received reply to ping.");
+            this.pingTimeoutFuture.cancel(false);
+        } else {
+            log.error("Received PING ACK, but no corresponding outbound PING found.");
+        }
+    }
+
+    @Override
+    public void onPushPromiseRead(final ChannelHandlerContext ctx, final int streamId, final int promisedStreamId, final Http2Headers headers, final int padding) throws Http2Exception {
+    }
+
+    @Override
+    public void onGoAwayRead(final ChannelHandlerContext context, final int lastStreamId, final long errorCode, final ByteBuf debugData) throws Http2Exception {
+        log.info("Received GOAWAY from APNs server: {}", debugData.toString(StandardCharsets.UTF_8));
+    }
+
+    @Override
+    public void onWindowUpdateRead(final ChannelHandlerContext ctx, final int streamId, final int windowSizeIncrement) throws Http2Exception {
+    }
+
+    @Override
+    public void onUnknownFrame(final ChannelHandlerContext ctx, final byte frameType, final int streamId, final Http2Flags flags, final ByteBuf payload) throws Http2Exception {
     }
 }

@@ -1,15 +1,15 @@
 package com.relayrides.pushy.apns;
 
-import java.io.File;
-import java.net.InetSocketAddress;
-import java.util.concurrent.ExecutionException;
-
+import com.relayrides.pushy.apns.auth.ApnsSigningKey;
 import com.relayrides.pushy.apns.proxy.Socks5ProxyHandlerFactory;
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 import com.relayrides.pushy.apns.util.TokenUtil;
-
 import io.netty.util.concurrent.Future;
+
+import java.io.File;
+import java.net.InetSocketAddress;
+import java.util.concurrent.ExecutionException;
 
 /**
  * This is a simple app that goes through the motions of creating an {@link ApnsClient}, connecting to the APNs
@@ -27,10 +27,9 @@ public class ExampleApp {
         // most common way to store the certificate and key is in a
         // password-protected PKCS#12 file.
         final ApnsClient apnsClient = new ApnsClientBuilder()
+                .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
+                        "TEAMID1234", "KEYID67890"))
                 .build();
-
-        apnsClient.registerSigningKey(new File("/path/to/key.p8"),
-                "TEAMID1234", "KEYID67890", "com.example.topic");
 
         // Optional: we can listen for metrics by setting a metrics listener.
         apnsClient.setMetricsListener(new NoopMetricsListener());
