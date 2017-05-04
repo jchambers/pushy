@@ -27,7 +27,6 @@ If you don't use Maven (or something else that understands Maven dependencies, l
 - [netty-tcnative-2.0.0.Final](http://netty.io/wiki/forked-tomcat-native.html)
 - [gson 2.6](https://github.com/google/gson)
 - [slf4j 1.7.6](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
-- [alpn-api](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html)
 
 Pushy itself requires Java 7 or newer to build and run.
 
