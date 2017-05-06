@@ -160,7 +160,7 @@ public class DropwizardApnsClientMetricsListener implements ApnsClientMetricsLis
         this.metrics = new MetricRegistry();
 
         this.notificationTimer = this.metrics.timer(NOTIFICATION_TIMER_NAME);
-        this.notificationTimerContexts = new HashMap<Long, Timer.Context>();
+        this.notificationTimerContexts = new HashMap<>();
 
         this.writeFailures = this.metrics.meter(WRITE_FAILURES_METER_NAME);
         this.sentNotifications = this.metrics.meter(SENT_NOTIFICATIONS_METER_NAME);

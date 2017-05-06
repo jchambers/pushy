@@ -5,7 +5,7 @@
 
 Pushy is a Java library for sending [APNs](https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html) (iOS, OS X, and Safari) push notifications. It is written and maintained by the engineers at [Turo](https://turo.com/).
 
-Pushy sends push notifications using Apple's HTTP/2-based APNs protocol. It distinguishes itself from other push notification libraries with a focus on [thorough documentation](http://relayrides.github.io/pushy/apidocs/0.9/), asynchronous operation, and design for industrial-scale operation; with Pushy, it's easy and efficient to maintain multiple parallel connections to the APNs gateway to send large numbers of notifications to many different applications ("topics").
+Pushy sends push notifications using Apple's HTTP/2-based APNs protocol and supports both TLS and token-based authentication. It distinguishes itself from other push notification libraries with a focus on [thorough documentation](http://relayrides.github.io/pushy/apidocs/0.9/), asynchronous operation, and design for industrial-scale operation; with Pushy, it's easy and efficient to maintain multiple parallel connections to the APNs gateway to send large numbers of notifications to many different applications ("topics").
 
 We believe that Pushy is already the best tool for sending APNs push notifications from Java applications, and we hope you'll help us make it even better via bug reports and pull requests. If you have questions about using Pushy, please join us on [the Pushy mailing list](https://groups.google.com/d/forum/pushy-apns) or take a look at [the wiki](https://github.com/relayrides/pushy/wiki). Thanks!
 
@@ -27,7 +27,6 @@ If you don't use Maven (or something else that understands Maven dependencies, l
 - [netty-tcnative-2.0.0.Final](http://netty.io/wiki/forked-tomcat-native.html)
 - [gson 2.6](https://github.com/google/gson)
 - [slf4j 1.7.6](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
-- [alpn-api](http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html)
 
 Pushy itself requires Java 7 or newer to build and run.
 
@@ -53,17 +52,13 @@ final ApnsClient apnsClient = new ApnsClientBuilder()
 
 In token-based authentication, clients still connect to the server using a TLS-secured connection, but do *not* present a certificate to the server when connecting. Instead, clients include a cryptographically-signed token with each notification they send (don't worry—Pushy handles this for you automatically). Clients may send push notifications to any "topic" for which they have a valid signing key.
 
-To get started with a token-based client, you'll need to get signing keys (also called private keys in some contexts) from Apple. Once you have your signing keys, you can create a new client:
+To get started with a token-based client, you'll need to get a signing key (also called a private key in some contexts) from Apple. Once you have your signing key, you can create a new client:
 
 ```java
-final ApnsClient apnsClient = new ApnsClientBuilder().build();
-```
-
-Note that, unlike the TLS-authenticated client, we do *not* need to specify credentials at construction time. Instead, we register our signing key after the client has been constructed:
-
-```java
-apnsClient.registerSigningKey(new File("/path/to/key.p8"),
-        "TEAMID1234", "KEYID67890", "com.example.topic");
+final ApnsClient apnsClient = new ApnsClientBuilder()
+        .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
+                "TEAMID1234", "KEYID67890"))
+        .build();
 ```
 
 ## Sending push notifications
@@ -75,7 +70,7 @@ final Future<Void> connectFuture = apnsClient.connect(ApnsClient.DEVELOPMENT_APN
 connectFuture.await();
 ```
 
-Once the client has finished connecting to the APNs server, you can begin sending push notifications. At a minimum, [push notifications](http://relayrides.github.io/pushy/apidocs/0.9/com/relayrides/pushy/apns/ApnsPushNotification.html) need a device token (which is a distinct idea from an authentication token) that identifies the notification's destination, a topic, and a payload.
+Once the client has finished connecting to the APNs server, you can begin sending push notifications. At minimum, [push notifications](http://relayrides.github.io/pushy/apidocs/0.9/com/relayrides/pushy/apns/ApnsPushNotification.html) need a device token (which is a distinct idea from an authentication token) that identifies the notification's destination, a topic, and a payload.
 
 ```java
 final SimpleApnsPushNotification pushNotification;
@@ -155,7 +150,8 @@ Pushy includes an interface for monitoring metrics that provide insight into cli
 
 ```java
 final ApnsClient apnsClient = new ApnsClientBuilder()
-        .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
+        .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
+                "TEAMID1234", "KEYID67890"))
         .setMetricsListener(new MyCustomMetricsListener())
         .build();
 ```
@@ -170,7 +166,8 @@ An example:
 
 ```java
 final ApnsClient apnsClient = new ApnsClientBuilder()
-        .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
+        .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
+                "TEAMID1234", "KEYID67890"))
         .setProxyHandlerFactory(new Socks5ProxyHandlerFactory(
             new InetSocketAddress("my.proxy.com", 1080), "username", "password"))
         .build();

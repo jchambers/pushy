@@ -45,10 +45,6 @@
             <artifactId>netty-tcnative-boringssl-static</artifactId>
             <scope>runtime</scope>
         </dependency>
-        <dependency>
-            <groupId>org.eclipse.jetty.alpn</groupId>
-            <artifactId>alpn-api</artifactId>
-        </dependency>
     </dependencies>
 
     <properties>

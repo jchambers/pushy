@@ -1,22 +1,6 @@
 package com.relayrides.pushy.apns;
 
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.Signature;
-import java.security.interfaces.ECPublicKey;
-import java.util.Collection;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import javax.net.ssl.SSLPeerUnverifiedException;
-import javax.net.ssl.SSLSession;
-
+import com.relayrides.pushy.apns.auth.ApnsVerificationKey;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
@@ -31,11 +15,16 @@ import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
-import io.netty.util.concurrent.DefaultPromise;
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
-import io.netty.util.concurrent.GlobalEventExecutor;
-import io.netty.util.concurrent.SucceededFuture;
+import io.netty.util.concurrent.*;
+
+import javax.net.ssl.SSLPeerUnverifiedException;
+import javax.net.ssl.SSLSession;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * <p>A mock APNs server emulates the behavior of a real APNs server (but doesn't actually deliver notifications to
@@ -55,15 +44,17 @@ public class MockApnsServer {
     private final ServerBootstrap bootstrap;
     private final boolean shouldShutDownEventLoopGroup;
 
-    private final Map<String, Map<String, Date>> tokenExpirationsByTopic = new HashMap<>();
+    private final Map<String, Map<String, Date>> deviceTokenExpirationsByTopic = new HashMap<>();
 
-    private final Map<String, Signature> signaturesByKeyId = new HashMap<>();
-    private final Map<String, String> teamIdsByKeyId = new HashMap<>();
-    private final Map<String, Set<String>> topicsByTeamId = new HashMap<>();
+    private final Map<String, ApnsVerificationKey> verificationKeysByKeyId = new HashMap<>();
+    private final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey = new HashMap<>();
 
     private ChannelGroup allChannels;
 
     private boolean emulateInternalErrors = false;
+    private boolean emulateExpiredFirstToken = false;
+
+    public static final long AUTHENTICATION_TOKEN_EXPIRATION_MILLIS = TimeUnit.HOURS.toMillis(1);
 
     protected MockApnsServer(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
         this.bootstrap = new ServerBootstrap();
@@ -88,31 +79,49 @@ public class MockApnsServer {
                     @Override
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) throws Exception {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                            final MockApnsServerHandler.MockApnsServerHandlerBuilder handlerBuilder =
-                                    new MockApnsServerHandler.MockApnsServerHandlerBuilder()
-                                    .apnsServer(MockApnsServer.this)
-                                    .initialSettings(new Http2Settings().maxConcurrentStreams(8));
+                            AbstractMockApnsServerHandler.AbstractMockApnsServerHandlerBuilder handlerBuilder;
 
                             try {
                                 final SSLSession sslSession = sslHandler.engine().getSession();
 
-                                // This will throw an exception if the peer hasn't authenticated
+                                // This will throw an exception if the peer hasn't authenticated (i.e. we're expecting
+                                // token authentication).
                                 final String principalName = sslSession.getPeerPrincipal().getName();
 
                                 final Pattern pattern = Pattern.compile(".*UID=([^,]+).*");
                                 final Matcher matcher = pattern.matcher(principalName);
 
+                                final String baseTopic;
+
                                 if (matcher.matches()) {
-                                    handlerBuilder.baseTopicFromCertificate(matcher.group(1));
+                                    baseTopic = matcher.group(1);
+                                } else {
+                                    throw new IllegalArgumentException("Client certificate does not specify a base topic.");
                                 }
 
-                                handlerBuilder.useTokenAuthentication(false);
+                                final TlsAuthenticationMockApnsServerHandler.TlsAuthenticationMockApnsServerHandlerBuilder tlsAuthenticationHandlerBuilder =
+                                        new TlsAuthenticationMockApnsServerHandler.TlsAuthenticationMockApnsServerHandlerBuilder();
+
+                                tlsAuthenticationHandlerBuilder.baseTopic(baseTopic);
+
+                                handlerBuilder = tlsAuthenticationHandlerBuilder;
                             } catch (final SSLPeerUnverifiedException e) {
                                 // No need for alarm; this is an expected case
-                                handlerBuilder.useTokenAuthentication(true);
+                                final TokenAuthenticationMockApnsServerHandler.TokenAuthenticationMockApnsServerHandlerBuilder tokenAuthenticationHandlerBuilder =
+                                        new TokenAuthenticationMockApnsServerHandler.TokenAuthenticationMockApnsServerHandlerBuilder();
+
+                                tokenAuthenticationHandlerBuilder.verificationKeysByKeyId(MockApnsServer.this.verificationKeysByKeyId);
+                                tokenAuthenticationHandlerBuilder.topicsByVerificationKey(MockApnsServer.this.topicsByVerificationKey);
+                                tokenAuthenticationHandlerBuilder.emulateExpiredFirstToken(MockApnsServer.this.emulateExpiredFirstToken);
+
+                                handlerBuilder = tokenAuthenticationHandlerBuilder;
                             }
 
-                            context.pipeline().addLast(handlerBuilder.build());
+                            context.pipeline().addLast(handlerBuilder
+                                    .initialSettings(new Http2Settings().maxConcurrentStreams(8))
+                                    .emulateInternalErrors(MockApnsServer.this.emulateInternalErrors)
+                                    .deviceTokenExpirationsByTopic(MockApnsServer.this.deviceTokenExpirationsByTopic)
+                                    .build());
 
                             MockApnsServer.this.allChannels.add(context.channel());
                         } else {
@@ -145,89 +154,35 @@ public class MockApnsServer {
      * Registers a public key for verifying authentication tokens for the given topics. Clears any keys and topics
      * previously associated with the given team.
      *
-     * @param publicKey a public key to be used to verify authentication tokens
-     * @param teamId an identifier for the team to which the given public key belongs
-     * @param keyId an identifier for the given public key
+     * @param verificationKey the key to be used to verify authentication tokens for the given topics
      * @param topics the topics belonging to the given team for which the given public key can be used to verify
-     * authentication tokens
+     * authentication tokens; must not be {@code null}
      *
      * @throws NoSuchAlgorithmException if the required signing algorithm is not available
      * @throws InvalidKeyException if the given key is invalid for any reason
      *
-     * @since 0.9
+     * @since 0.10
      */
-    public void registerPublicKey(final ECPublicKey publicKey, final String teamId, final String keyId, final Collection<String> topics) throws NoSuchAlgorithmException, InvalidKeyException {
-        this.registerPublicKey(publicKey, teamId, keyId, topics.toArray(new String[0]));
+    public void registerVerificationKey(final ApnsVerificationKey verificationKey, final Collection<String> topics) throws NoSuchAlgorithmException, InvalidKeyException {
+        this.registerVerificationKey(verificationKey, topics.toArray(new String[0]));
     }
 
     /**
      * Registers a public key for verifying authentication tokens for the given topics. Clears any keys and topics
      * previously associated with the given team.
      *
-     * @param publicKey a public key to be used to verify authentication tokens
-     * @param teamId an identifier for the team to which the given public key belongs
-     * @param keyId an identifier for the given public key
+     * @param verificationKey the key to be used to verify authentication tokens for the given topics
      * @param topics the topics belonging to the given team for which the given public key can be used to verify
-     * authentication tokens
+     * authentication tokens; must not be null
      *
      * @throws NoSuchAlgorithmException if the required signing algorithm is not available
      * @throws InvalidKeyException if the given key is invalid for any reason
      *
-     * @since 0.9
+     * @since 0.10
      */
-    public void registerPublicKey(final ECPublicKey publicKey, final String teamId, final String keyId, final String... topics) throws NoSuchAlgorithmException, InvalidKeyException {
-        // First, clear out any old keys/topics
-        {
-            final Set<String> keyIdsToRemove = new HashSet<>();
-
-            for (final Map.Entry<String, String> entry : this.teamIdsByKeyId.entrySet()) {
-                if (entry.getValue().equals(teamId)) {
-                    keyIdsToRemove.add(entry.getKey());
-                }
-            }
-
-            for (final String keyIdToRemove : keyIdsToRemove) {
-                this.teamIdsByKeyId.remove(keyIdToRemove);
-                this.signaturesByKeyId.remove(keyIdToRemove);
-            }
-
-            this.topicsByTeamId.remove(teamId);
-        }
-
-        final Signature signature = Signature.getInstance("SHA256withECDSA");
-        signature.initVerify(publicKey);
-
-        this.signaturesByKeyId.put(keyId, signature);
-        this.teamIdsByKeyId.put(keyId, teamId);
-
-        final Set<String> topicSet = new HashSet<>();
-
-        for (final String topic : topics) {
-            topicSet.add(topic);
-        }
-
-        this.topicsByTeamId.put(teamId, topicSet);
-    }
-
-    protected Signature getSignatureForKeyId(final String keyId) {
-        return this.signaturesByKeyId.get(keyId);
-    }
-
-    protected String getTeamIdForKeyId(final String keyId) {
-        return this.teamIdsByKeyId.get(keyId);
-    }
-
-    protected Set<String> getTopicsForTeamId(final String teamId) {
-        return this.topicsByTeamId.get(teamId);
-    }
-
-    /**
-     * Unregisters all teams, topics, and public keys from this server.
-     */
-    public void clearPublicKeys() {
-        this.signaturesByKeyId.clear();
-        this.teamIdsByKeyId.clear();
-        this.topicsByTeamId.clear();
+    public void registerVerificationKey(final ApnsVerificationKey verificationKey, final String... topics) throws NoSuchAlgorithmException, InvalidKeyException {
+        this.verificationKeysByKeyId.put(verificationKey.getKeyId(), verificationKey);
+        this.topicsByVerificationKey.put(verificationKey, new HashSet<String>(Arrays.asList(topics)));
     }
 
     /**
@@ -243,38 +198,26 @@ public class MockApnsServer {
         Objects.requireNonNull(topic);
         Objects.requireNonNull(token);
 
-        if (!this.tokenExpirationsByTopic.containsKey(topic)) {
-            this.tokenExpirationsByTopic.put(topic, new HashMap<String, Date>());
+        if (!this.deviceTokenExpirationsByTopic.containsKey(topic)) {
+            this.deviceTokenExpirationsByTopic.put(topic, new HashMap<String, Date>());
         }
 
-        this.tokenExpirationsByTopic.get(topic).put(token, expiration);
+        this.deviceTokenExpirationsByTopic.get(topic).put(token, expiration);
     }
 
     /**
      * Unregisters all tokens from this server.
      */
     public void clearTokens() {
-        this.tokenExpirationsByTopic.clear();
-    }
-
-    protected boolean isTokenRegisteredForTopic(final String token, final String topic) {
-        final Map<String, Date> tokensWithinTopic = this.tokenExpirationsByTopic.get(topic);
-
-        return tokensWithinTopic != null && tokensWithinTopic.containsKey(token);
-    }
-
-    protected Date getExpirationTimestampForTokenInTopic(final String token, final String topic) {
-        final Map<String, Date> tokensWithinTopic = this.tokenExpirationsByTopic.get(topic);
-
-        return tokensWithinTopic != null ? tokensWithinTopic.get(token) : null;
+        this.deviceTokenExpirationsByTopic.clear();
     }
 
     protected void setEmulateInternalErrors(final boolean emulateInternalErrors) {
         this.emulateInternalErrors = emulateInternalErrors;
     }
 
-    protected boolean shouldEmulateInternalErrors() {
-        return this.emulateInternalErrors;
+    protected void setEmulateExpiredFirstToken(final boolean emulateExpiredFirstToken) {
+        this.emulateExpiredFirstToken = emulateExpiredFirstToken;
     }
 
     /**
@@ -294,35 +237,35 @@ public class MockApnsServer {
         final Future<Void> channelCloseFuture = (this.allChannels != null) ?
                 this.allChannels.close() : new SucceededFuture<Void>(GlobalEventExecutor.INSTANCE, null);
 
-                final Future<Void> disconnectFuture;
+        final Future<Void> disconnectFuture;
 
-                if (this.shouldShutDownEventLoopGroup) {
-                    // Wait for the channel to close before we try to shut down the event loop group
-                    channelCloseFuture.addListener(new GenericFutureListener<Future<Void>>() {
+        if (this.shouldShutDownEventLoopGroup) {
+            // Wait for the channel to close before we try to shut down the event loop group
+            channelCloseFuture.addListener(new GenericFutureListener<Future<Void>>() {
 
-                        @Override
-                        public void operationComplete(final Future<Void> future) throws Exception {
-                            MockApnsServer.this.bootstrap.config().group().shutdownGracefully();
-                        }
-                    });
-
-                    // Since the termination future for the event loop group is a Future<?> instead of a Future<Void>,
-                    // we'll need to create our own promise and then notify it when the termination future completes.
-                    disconnectFuture = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
-
-                    this.bootstrap.config().group().terminationFuture().addListener(new GenericFutureListener() {
-
-                        @Override
-                        public void operationComplete(final Future future) throws Exception {
-                            assert disconnectFuture instanceof DefaultPromise;
-                            ((DefaultPromise<Void>) disconnectFuture).trySuccess(null);
-                        }
-                    });
-                } else {
-                    // We're done once we've closed all the channels, so we can return the closure future directly.
-                    disconnectFuture = channelCloseFuture;
+                @Override
+                public void operationComplete(final Future<Void> future) throws Exception {
+                    MockApnsServer.this.bootstrap.config().group().shutdownGracefully();
                 }
+            });
 
-                return disconnectFuture;
+            // Since the termination future for the event loop group is a Future<?> instead of a Future<Void>,
+            // we'll need to create our own promise and then notify it when the termination future completes.
+            disconnectFuture = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
+
+            this.bootstrap.config().group().terminationFuture().addListener(new GenericFutureListener() {
+
+                @Override
+                public void operationComplete(final Future future) throws Exception {
+                    assert disconnectFuture instanceof DefaultPromise;
+                    ((DefaultPromise<Void>) disconnectFuture).trySuccess(null);
+                }
+            });
+        } else {
+            // We're done once we've closed all the channels, so we can return the closure future directly.
+            disconnectFuture = channelCloseFuture;
+        }
+
+        return disconnectFuture;
     }
 }

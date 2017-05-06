@@ -20,29 +20,20 @@
 
 package com.relayrides.pushy.apns;
 
+import io.netty.channel.EventLoopGroup;
+import io.netty.handler.codec.http2.Http2SecurityUtil;
+import io.netty.handler.ssl.*;
+import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
+import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
+import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.net.ssl.SSLException;
 import java.io.File;
 import java.io.InputStream;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
-
-import javax.net.ssl.SSLException;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import io.netty.channel.EventLoopGroup;
-import io.netty.handler.codec.http2.Http2SecurityUtil;
-import io.netty.handler.ssl.ApplicationProtocolConfig;
-import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
-import io.netty.handler.ssl.ApplicationProtocolNames;
-import io.netty.handler.ssl.ClientAuth;
-import io.netty.handler.ssl.OpenSsl;
-import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.handler.ssl.SslProvider;
-import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 
 /**
  * <p>A {@code MockApnsServerBuilder} constructs new {@link MockApnsServer} instances. Callers must supply server
@@ -72,11 +63,10 @@ public class MockApnsServerBuilder {
     private InputStream trustedClientCertificateInputStream;
     private X509Certificate[] trustedClientCertificates;
 
-    private SslProvider preferredSslProvider;
-
     private EventLoopGroup eventLoopGroup;
 
     private boolean emulateInternalErrors = false;
+    private boolean emulateExpiredFirstToken = false;
 
     private static final Logger log = LoggerFactory.getLogger(MockApnsServerBuilder.class);
 
@@ -226,21 +216,6 @@ public class MockApnsServerBuilder {
     }
 
     /**
-     * Sets the SSL provider to be used by the mock server. By default, the server will use a native SSL provider if
-     * available and fall back to the JDK provider otherwise.
-     *
-     * @param sslProvider the SSL provider to be used by this server, or {@code null} to choose a provider automatically
-     *
-     * @return a reference to this builder
-     *
-     * @since 0.9
-     */
-    public MockApnsServerBuilder setSslProvider(final SslProvider sslProvider) {
-        this.preferredSslProvider = sslProvider;
-        return this;
-    }
-
-    /**
      * <p>Sets the event loop group to be used by the server under construction. If not set (or if {@code null}), the
      * server will create and manage its own event loop group.</p>
      *
@@ -273,6 +248,22 @@ public class MockApnsServerBuilder {
     }
 
     /**
+     * Sets whether the server under construction should reject the first notification received as if its token had
+     * expired.
+     *
+     * @param emulateExpiredFirstToken {@code true} if the server should respond to the first notification as if its
+     * token had expired or {@code false} otherwise
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.10
+     */
+    public MockApnsServerBuilder setEmulateExpiredFirstToken(final boolean emulateExpiredFirstToken) {
+        this.emulateExpiredFirstToken = emulateExpiredFirstToken;
+        return this;
+    }
+
+    /**
      * Constructs a new {@link MockApnsServer} with the previously-set configuration.
      *
      * @return a new MockApnsServer instance with the previously-set configuration
@@ -284,24 +275,7 @@ public class MockApnsServerBuilder {
     public MockApnsServer build() throws SSLException {
         final SslContext sslContext;
         {
-            final SslProvider sslProvider;
-
-            if (this.preferredSslProvider != null) {
-                sslProvider = this.preferredSslProvider;
-            } else {
-                if (OpenSsl.isAvailable()) {
-                    if (OpenSsl.isAlpnSupported()) {
-                        log.info("Native SSL provider is available and supports ALPN; will use native provider.");
-                        sslProvider = SslProvider.OPENSSL;
-                    } else {
-                        log.info("Native SSL provider is available, but does not support ALPN; will use JDK SSL provider.");
-                        sslProvider = SslProvider.JDK;
-                    }
-                } else {
-                    log.info("Native SSL provider not available; will use JDK SSL provider.");
-                    sslProvider = SslProvider.JDK;
-                }
-            }
+            final SslProvider sslProvider = SslUtil.getSslProvider();
 
             final SslContextBuilder sslContextBuilder;
 
@@ -316,13 +290,13 @@ public class MockApnsServerBuilder {
             }
 
             sslContextBuilder.sslProvider(sslProvider)
-            .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-            .clientAuth(ClientAuth.OPTIONAL)
-            .applicationProtocolConfig(new ApplicationProtocolConfig(
-                    Protocol.ALPN,
-                    SelectorFailureBehavior.NO_ADVERTISE,
-                    SelectedListenerFailureBehavior.ACCEPT,
-                    ApplicationProtocolNames.HTTP_2));
+                    .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
+                    .clientAuth(ClientAuth.OPTIONAL)
+                    .applicationProtocolConfig(new ApplicationProtocolConfig(
+                            Protocol.ALPN,
+                            SelectorFailureBehavior.NO_ADVERTISE,
+                            SelectedListenerFailureBehavior.ACCEPT,
+                            ApplicationProtocolNames.HTTP_2));
 
             if (this.trustedClientCertificatePemFile != null) {
                 sslContextBuilder.trustManager(this.trustedClientCertificatePemFile);
@@ -337,6 +311,7 @@ public class MockApnsServerBuilder {
 
         final MockApnsServer server = new MockApnsServer(sslContext, this.eventLoopGroup);
         server.setEmulateInternalErrors(this.emulateInternalErrors);
+        server.setEmulateExpiredFirstToken(this.emulateExpiredFirstToken);
 
         return server;
     }

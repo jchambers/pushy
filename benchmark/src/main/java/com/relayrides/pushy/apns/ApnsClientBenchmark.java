@@ -1,57 +1,38 @@
 package com.relayrides.pushy.apns;
 
-import java.security.KeyPair;
+import com.relayrides.pushy.apns.auth.ApnsSigningKey;
+import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
+import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.openjdk.jmh.annotations.*;
+
 import java.security.KeyPairGenerator;
 import java.security.SecureRandom;
 import java.security.interfaces.ECPrivateKey;
-import java.security.interfaces.ECPublicKey;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 
-import org.apache.commons.lang3.RandomStringUtils;
-import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.BenchmarkMode;
-import org.openjdk.jmh.annotations.Measurement;
-import org.openjdk.jmh.annotations.Mode;
-import org.openjdk.jmh.annotations.Param;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
-import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.TearDown;
-import org.openjdk.jmh.annotations.Threads;
-import org.openjdk.jmh.annotations.Warmup;
-
-import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
-import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
-
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
-
 @State(Scope.Thread)
 public class ApnsClientBenchmark {
 
-    private EventLoopGroup eventLoopGroup;
+    private NioEventLoopGroup eventLoopGroup;
 
     private ApnsClient client;
-    private MockApnsServer server;
+    private BenchmarkApnsServer server;
 
     private List<SimpleApnsPushNotification> pushNotifications;
 
     @Param({"10000"})
     public int notificationCount;
 
-    @Param({"true", "false"})
-    public boolean useTokenAuthentication;
-
     private static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
-    private static final String CLIENT_KEYSTORE_FILENAME = "/client.p12";
     private static final String SERVER_CERTIFICATES_FILENAME = "/server_certs.pem";
     private static final String SERVER_KEY_FILENAME = "/server_key.pem";
-    private static final String KEYSTORE_PASSWORD = "pushy-test";
 
     private static final String TOPIC = "com.relayrides.pushy";
     private static final String TEAM_ID = "benchmark.team";
@@ -66,39 +47,27 @@ public class ApnsClientBenchmark {
     public void setUp() throws Exception {
         this.eventLoopGroup = new NioEventLoopGroup(2);
 
+        final ApnsSigningKey signingKey;
+        {
+            final KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
+            final SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
+
+            keyPairGenerator.initialize(256, random);
+
+            signingKey = new ApnsSigningKey(KEY_ID, TEAM_ID, (ECPrivateKey) keyPairGenerator.generateKeyPair().getPrivate());
+        }
+
         final ApnsClientBuilder clientBuilder = new ApnsClientBuilder()
+                .setSigningKey(signingKey)
                 .setTrustedServerCertificateChain(ApnsClientBenchmark.class.getResourceAsStream(CA_CERTIFICATE_FILENAME))
                 .setEventLoopGroup(this.eventLoopGroup);
 
-        final MockApnsServerBuilder serverBuilder = new MockApnsServerBuilder()
-                .setServerCredentials(ApnsClientBenchmark.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), ApnsClientBenchmark.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
-                .setEventLoopGroup(this.eventLoopGroup);
-
-        if (!this.useTokenAuthentication) {
-            clientBuilder.setClientCredentials(ApnsClientBenchmark.class.getResourceAsStream(CLIENT_KEYSTORE_FILENAME), KEYSTORE_PASSWORD);
-            serverBuilder.setTrustedClientCertificateChain(ApnsClientBenchmark.class.getResourceAsStream(CA_CERTIFICATE_FILENAME));
-        }
-
         this.client = clientBuilder.build();
-        this.server = serverBuilder.build();
-
-        if (this.useTokenAuthentication) {
-            final KeyPair keyPair;
-            {
-                final KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
-                final SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
-
-                keyPairGenerator.initialize(256, random);
-
-                keyPair = keyPairGenerator.generateKeyPair();
-            }
-
-            this.client.registerSigningKey((ECPrivateKey) keyPair.getPrivate(), TEAM_ID, KEY_ID, TOPIC);
-            this.server.registerPublicKey((ECPublicKey) keyPair.getPublic(), TEAM_ID, KEY_ID, TOPIC);
-        }
+        this.server = new BenchmarkApnsServer(ApnsClientBenchmark.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME),
+                ApnsClientBenchmark.class.getResourceAsStream(SERVER_KEY_FILENAME),
+                this.eventLoopGroup);
 
         final String token = generateRandomToken();
-        this.server.registerDeviceTokenForTopic(TOPIC, token, null);
 
         this.pushNotifications = new ArrayList<>(this.notificationCount);
 
@@ -118,8 +87,8 @@ public class ApnsClientBenchmark {
     @Benchmark
     @BenchmarkMode(Mode.SingleShotTime)
     @Threads(1)
-    @Measurement(iterations = 10, batchSize = 1)
-    @Warmup(iterations = 10, batchSize = 1)
+    @Measurement(iterations = 20, batchSize = 1)
+    @Warmup(iterations = 20, batchSize = 1)
     public long testSendNotifications() throws InterruptedException {
         final CountDownLatch countDownLatch = new CountDownLatch(this.pushNotifications.size());
 

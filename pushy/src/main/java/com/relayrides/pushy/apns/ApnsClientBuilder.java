@@ -20,45 +20,32 @@
 
 package com.relayrides.pushy.apns;
 
+import com.relayrides.pushy.apns.auth.ApnsSigningKey;
+import com.relayrides.pushy.apns.proxy.ProxyHandlerFactory;
+import io.netty.channel.EventLoopGroup;
+import io.netty.handler.codec.http2.Http2SecurityUtil;
+import io.netty.handler.ssl.*;
+import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
+import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
+import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.net.ssl.SSLException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.security.KeyStore.PrivateKeyEntry;
+import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.util.concurrent.TimeUnit;
 
-import javax.net.ssl.SSLException;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.relayrides.pushy.apns.proxy.ProxyHandlerFactory;
-
-import io.netty.channel.EventLoopGroup;
-import io.netty.handler.codec.http2.Http2SecurityUtil;
-import io.netty.handler.ssl.ApplicationProtocolConfig;
-import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
-import io.netty.handler.ssl.ApplicationProtocolNames;
-import io.netty.handler.ssl.OpenSsl;
-import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.handler.ssl.SslProvider;
-import io.netty.handler.ssl.SupportedCipherSuiteFilter;
-
 /**
- * <p>An {@code ApnsClientBuilder} constructs new {@link ApnsClient} instances. All settings are optional. Callers must
- * provide a certificate and private key via one of the {@code setClientCredentials} methods in order to use TLS-based
- * client authentication; if client credentials are not specified, the constructed client will use token-based
- * authentication, and callers will need to register signing keys directly with the client after construction.</p>
- *
- * <p>Client builders may be reused to generate multiple clients, and their settings may be changed from one client to
- * the next.</p>
+ * An {@code ApnsClientBuilder} constructs new {@link ApnsClient} instances. All settings are optional. Client builders
+ * may be reused to generate multiple clients, and their settings may be changed from one client to the next.
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */
@@ -66,6 +53,8 @@ public class ApnsClientBuilder {
     private X509Certificate clientCertificate;
     private PrivateKey privateKey;
     private String privateKeyPassword;
+
+    private ApnsSigningKey signingKey;
 
     private File trustedServerCertificatePemFile;
     private InputStream trustedServerCertificateInputStream;
@@ -80,17 +69,17 @@ public class ApnsClientBuilder {
     private Long connectionTimeout;
     private TimeUnit connectionTimeoutUnit;
 
-    private Long writeTimeout;
-    private TimeUnit writeTimeoutUnit;
-
     private Long gracefulShutdownTimeout;
     private TimeUnit gracefulShutdownTimeoutUnit;
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientBuilder.class);
 
     /**
-     * <p>Sets the credentials for the client under construction using the contents of the given PKCS#12 file. The
+     * <p>Sets the TLS credentials for the client under construction using the contents of the given PKCS#12 file.
+     * Clients constructed with TLS credentials will use TLS-based authentication when sending push notifications. The
      * PKCS#12 file <em>must</em> contain a certificate/private key pair.</p>
+     *
+     * <p>Clients may not have both TLS credentials and a signing key.</p>
      *
      * @param p12File a PKCS#12-formatted file containing the certificate and private key to be used to identify the
      * client to the APNs server
@@ -113,8 +102,11 @@ public class ApnsClientBuilder {
     }
 
     /**
-     * <p>Sets the credentials for the client under construction using the data from the given PKCS#12 input stream. The
+     * <p>Sets the TLS credentials for the client under construction using the data from the given PKCS#12 input stream.
+     * Clients constructed with TLS credentials will use TLS-based authentication when sending push notifications. The
      * PKCS#12 data <em>must</em> contain a certificate/private key pair.</p>
+     *
+     * <p>Clients may not have both TLS credentials and a signing key.</p>
      *
      * @param p12InputStream an input stream to a PKCS#12-formatted file containing the certificate and private key to
      * be used to identify the client to the APNs server
@@ -134,7 +126,7 @@ public class ApnsClientBuilder {
         final PrivateKey privateKey;
 
         try {
-            final PrivateKeyEntry privateKeyEntry = P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, p12Password);
+            final KeyStore.PrivateKeyEntry privateKeyEntry = P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, p12Password);
 
             final Certificate certificate = privateKeyEntry.getCertificate();
 
@@ -152,7 +144,10 @@ public class ApnsClientBuilder {
     }
 
     /**
-     * <p>Sets the credentials for the client under construction.</p>
+     * <p>Sets the TLS credentials for the client under construction. Clients constructed with TLS credentials will use
+     * TLS-based authentication when sending push notifications.</p>
+     *
+     * <p>Clients may not have both TLS credentials and a signing key.</p>
      *
      * @param clientCertificate the certificate to be used to identify the client to the APNs server
      * @param privateKey the private key for the client certificate
@@ -167,6 +162,27 @@ public class ApnsClientBuilder {
         this.clientCertificate = clientCertificate;
         this.privateKey = privateKey;
         this.privateKeyPassword = privateKeyPassword;
+
+        return this;
+    }
+
+    /**
+     * <p>Sets the signing key for the client under construction. Clients constructed with a signing key will use
+     * token-based authentication when sending push notifications.</p>
+     *
+     * <p>Clients may not have both a signing key and TLS credentials.</p>
+     *
+     * @param signingKey the signing key to be used by the client under construction
+     *
+     * @return a reference to this builder
+     *
+     * @see ApnsSigningKey#loadFromPkcs8File(File, String, String)
+     * @see ApnsSigningKey#loadFromInputStream(InputStream, String, String)
+     *
+     * @since 0.10
+     */
+    public ApnsClientBuilder setSigningKey(final ApnsSigningKey signingKey) {
+        this.signingKey = signingKey;
 
         return this;
     }
@@ -311,29 +327,6 @@ public class ApnsClientBuilder {
     }
 
     /**
-     * <p>Sets the write timeout for the client to build. If an attempt to send a notification to the APNs server takes
-     * longer than the given timeout, the connection will be closed (and automatically reconnected later). Note that
-     * write timeouts refer to the amount of time taken to <em>send</em> a notification to the server, and not the time
-     * taken by the server to process and respond to a notification.</p>
-     *
-     * <p>By default, clients have a write timeout of
-     * {@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_WRITE_TIMEOUT_MILLIS} milliseconds.</p>
-     *
-     * @param writeTimeout the write timeout for the client under construction
-     * @param timeoutUnit the time unit for the given timeout
-     *
-     * @return a reference to this builder
-     *
-     * @since 0.8
-     */
-    public ApnsClientBuilder setWriteTimeout(final long writeTimeout, final TimeUnit timeoutUnit) {
-        this.writeTimeout = writeTimeout;
-        this.writeTimeoutUnit = timeoutUnit;
-
-        return this;
-    }
-
-    /**
      * Sets the amount of time clients should wait for in-progress requests to complete before closing a connection
      * during a graceful shutdown.
      *
@@ -364,23 +357,16 @@ public class ApnsClientBuilder {
      * @since 0.8
      */
     public ApnsClient build() throws SSLException {
-        final SslContext sslContext;
-        final boolean useTlsAuthentication;
-        {
-            final SslProvider sslProvider;
+        if (this.clientCertificate == null && this.privateKey == null && this.signingKey == null) {
+            throw new IllegalStateException("No client credentials specified; either TLS credentials (a " +
+                    "certificate/private key) or an APNs signing key must be provided before building a client.");
+        } else if ((this.clientCertificate != null || this.privateKey != null) && this.signingKey != null) {
+            throw new IllegalStateException("Clients may not have both a signing key and TLS credentials.");
+        }
 
-            if (OpenSsl.isAvailable()) {
-                if (OpenSsl.isAlpnSupported()) {
-                    log.info("Native SSL provider is available and supports ALPN; will use native provider.");
-                    sslProvider = SslProvider.OPENSSL;
-                } else {
-                    log.info("Native SSL provider is available, but does not support ALPN; will use JDK SSL provider.");
-                    sslProvider = SslProvider.JDK;
-                }
-            } else {
-                log.info("Native SSL provider not available; will use JDK SSL provider.");
-                sslProvider = SslProvider.JDK;
-            }
+        final SslContext sslContext;
+        {
+            final SslProvider sslProvider = SslUtil.getSslProvider();
 
             final SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
                     .sslProvider(sslProvider)
@@ -391,9 +377,7 @@ public class ApnsClientBuilder {
                                     SelectedListenerFailureBehavior.ACCEPT,
                                     ApplicationProtocolNames.HTTP_2));
 
-            useTlsAuthentication = (this.clientCertificate != null && this.privateKey != null);
-
-            if (useTlsAuthentication) {
+            if (this.clientCertificate != null && this.privateKey != null) {
                 sslContextBuilder.keyManager(this.privateKey, this.privateKeyPassword, this.clientCertificate);
             }
 
@@ -408,17 +392,13 @@ public class ApnsClientBuilder {
             sslContext = sslContextBuilder.build();
         }
 
-        final ApnsClient apnsClient = new ApnsClient(sslContext, !useTlsAuthentication, this.eventLoopGroup);
+        final ApnsClient apnsClient = new ApnsClient(sslContext, this.signingKey, this.eventLoopGroup);
 
         apnsClient.setMetricsListener(this.metricsListener);
         apnsClient.setProxyHandlerFactory(this.proxyHandlerFactory);
 
         if (this.connectionTimeout != null) {
             apnsClient.setConnectionTimeout((int) this.connectionTimeoutUnit.toMillis(this.connectionTimeout));
-        }
-
-        if (this.writeTimeout != null) {
-            apnsClient.setWriteTimeout(this.writeTimeoutUnit.toMillis(this.writeTimeout));
         }
 
         if (this.gracefulShutdownTimeout != null) {

@@ -65,7 +65,7 @@ public class ApnsPayloadBuilder {
 
     private boolean preferStringRepresentationForAlerts = false;
 
-    private final CharArrayWriter buffer = new CharArrayWriter(DEFAULT_PAYLOAD_SIZE / 4);
+    private final CharArrayWriter buffer = new CharArrayWriter(DEFAULT_MAXIMUM_PAYLOAD_SIZE / 4);
 
     private static final String APS_KEY = "aps";
     private static final String ALERT_KEY = "alert";
@@ -92,8 +92,6 @@ public class ApnsPayloadBuilder {
 
     private final HashMap<String, Object> customProperties = new HashMap<>();
 
-    private static final int DEFAULT_PAYLOAD_SIZE = 4096;
-
     private static final String ABBREVIATION_SUBSTRING = "…";
 
     private static final Gson gson = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
@@ -105,6 +103,13 @@ public class ApnsPayloadBuilder {
      * @see com.relayrides.pushy.apns.util.ApnsPayloadBuilder#setSoundFileName(String)
      */
     public static final String DEFAULT_SOUND_FILENAME = "default";
+
+    /**
+     * The default maximum size, in bytes, for a push notification payload.
+     *
+     * @see com.relayrides.pushy.apns.util.ApnsPayloadBuilder#buildWithDefaultMaximumLength()
+     */
+    public static final int DEFAULT_MAXIMUM_PAYLOAD_SIZE = 4096;
 
     /**
      * Sets whether this payload builder will attempt to represent alerts as strings when possible. Older versions of
@@ -523,13 +528,17 @@ public class ApnsPayloadBuilder {
 
     /**
      * <p>Returns a JSON representation of the push notification payload under construction. If the payload length is
-     * longer than the default maximum (2048 bytes), the literal alert body will be shortened if possible. If the alert
-     * body cannot be shortened or is not present, an {@code IllegalArgumentException} is thrown.</p>
+     * longer than the default maximum ({@value com.relayrides.pushy.apns.util.ApnsPayloadBuilder#DEFAULT_MAXIMUM_PAYLOAD_SIZE}
+     * bytes), the literal alert body will be shortened if possible. If the alert body cannot be shortened or is not
+     * present, an {@code IllegalArgumentException} is thrown.</p>
      *
      * @return a JSON representation of the payload under construction (possibly with an abbreviated alert body)
+     *
+     * @throws IllegalArgumentException if the payload is too large and cannot be compressed by truncating its literal
+     * alert message
      */
     public String buildWithDefaultMaximumLength() {
-        return this.buildWithMaximumLength(DEFAULT_PAYLOAD_SIZE);
+        return this.buildWithMaximumLength(DEFAULT_MAXIMUM_PAYLOAD_SIZE);
     }
 
     /**
@@ -540,6 +549,9 @@ public class ApnsPayloadBuilder {
      * @param maximumPayloadSize the maximum length of the payload in bytes
      *
      * @return a JSON representation of the payload under construction (possibly with an abbreviated alert body)
+     *
+     * @throws IllegalArgumentException if the payload is too large and cannot be compressed by truncating its literal
+     * alert message
      */
     public String buildWithMaximumLength(final int maximumPayloadSize) {
         final Map<String, Object> payload = new HashMap<>();

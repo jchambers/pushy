@@ -1,16 +1,16 @@
 package com.relayrides.pushy.apns;
 
+import org.junit.Test;
+
 import java.io.File;
 import java.io.InputStream;
 import java.security.KeyStore.PrivateKeyEntry;
 import java.security.cert.X509Certificate;
 
-import org.junit.Test;
-
 public class MockApnsServerBuilderTest {
 
-    private static final String SERVER_CERTIFICATE_FILENAME = "/server.pem";
-    private static final String SERVER_KEY_FILENAME = "/server.key";
+    private static final String SERVER_CERTIFICATE_FILENAME = "/server-certs.pem";
+    private static final String SERVER_KEY_FILENAME = "/server-key.pem";
     private static final String SERVER_KEYSTORE_FILENAME = "/server.p12";
     private static final String KEYSTORE_PASSWORD = "pushy-test";
 
@@ -44,8 +44,8 @@ public class MockApnsServerBuilderTest {
 
             // We're happy here as long as nothing explodes
             new MockApnsServerBuilder()
-            .setServerCredentials(new X509Certificate[] { (X509Certificate) privateKeyEntry.getCertificate() }, privateKeyEntry.getPrivateKey(), null)
-            .build();
+                .setServerCredentials(new X509Certificate[] { (X509Certificate) privateKeyEntry.getCertificate() }, privateKeyEntry.getPrivateKey(), null)
+                .build();
         }
     }
 
