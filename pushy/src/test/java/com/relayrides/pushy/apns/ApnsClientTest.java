@@ -419,6 +419,10 @@ public class ApnsClientTest {
 
             assertTrue(response.isAccepted());
 
+            // Hack: stall until we're confident everything (including listener updates) has made it through the event
+            // loop.
+            this.tokenAuthenticationClient.disconnect().await();
+
             // See https://github.com/relayrides/pushy/issues/448
             assertEquals(1, metricsListener.getSentNotifications().size());
             assertEquals(1, metricsListener.getAcceptedNotifications().size());
