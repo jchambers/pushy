@@ -401,6 +401,9 @@ public class ApnsClientTest {
                 .setEmulateExpiredFirstToken(true)
                 .build();
 
+        final TestMetricsListener metricsListener = new TestMetricsListener();
+        this.tokenAuthenticationClient.setMetricsListener(metricsListener);
+
         try {
             expiredTokenServer.registerVerificationKey(this.verificationKey, DEFAULT_TOPIC);
 
@@ -415,6 +418,11 @@ public class ApnsClientTest {
                     this.tokenAuthenticationClient.sendNotification(pushNotification).get();
 
             assertTrue(response.isAccepted());
+
+            // See https://github.com/relayrides/pushy/issues/448
+            assertEquals(1, metricsListener.getSentNotifications().size());
+            assertEquals(1, metricsListener.getAcceptedNotifications().size());
+            assertTrue(metricsListener.getRejectedNotifications().isEmpty());
         } finally {
             expiredTokenServer.shutdown().await();
         }
