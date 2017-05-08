@@ -96,6 +96,7 @@ public class ApnsClient {
     private final ApnsSigningKey signingKey;
 
     private Long gracefulShutdownTimeoutMillis;
+    long idlePingIntervalMillis = DEFAULT_PING_IDLE_TIME_MILLIS;
 
     private volatile ChannelPromise connectionReadyPromise;
     private volatile ChannelPromise reconnectionPromise;
@@ -138,6 +139,13 @@ public class ApnsClient {
      * @since 0.5
      */
     public static final int ALTERNATE_APNS_PORT = 2197;
+
+    /**
+     * The default max idle time-period after which a PING frame is sent, in milliseconds.
+     *
+     * @since 0.10
+     */
+    public static final int DEFAULT_PING_IDLE_TIME_MILLIS = 60_000;
 
     private static final ClientNotConnectedException NOT_CONNECTED_EXCEPTION = new ClientNotConnectedException();
 
@@ -186,10 +194,12 @@ public class ApnsClient {
                                 apnsClientHandler = new TokenAuthenticationApnsClientHandler.TokenAuthenticationApnsClientHandlerBuilder()
                                         .signingKey(ApnsClient.this.signingKey)
                                         .authority(authority)
+                                        .idlePingIntervalMillis(ApnsClient.this.idlePingIntervalMillis)
                                         .build();
                             } else {
                                 apnsClientHandler = new ApnsClientHandler.ApnsClientHandlerBuilder()
                                         .authority(authority)
+                                        .idlePingIntervalMillis(ApnsClient.this.idlePingIntervalMillis)
                                         .build();
                             }
 
@@ -199,7 +209,7 @@ public class ApnsClient {
                                 }
                             }
 
-                            context.pipeline().addLast(new IdleStateHandler(0, 0, ApnsClientHandler.PING_IDLE_TIME_MILLIS, TimeUnit.MILLISECONDS));
+                            context.pipeline().addLast(new IdleStateHandler(0, 0, idlePingIntervalMillis, TimeUnit.MILLISECONDS));
                             context.pipeline().addLast(apnsClientHandler);
 
                             final ChannelPromise connectionReadyPromise = ApnsClient.this.connectionReadyPromise;
@@ -257,6 +267,20 @@ public class ApnsClient {
     protected void setProxyHandlerFactory(final ProxyHandlerFactory proxyHandlerFactory) {
         this.proxyHandlerFactory = proxyHandlerFactory;
         this.bootstrap.resolver(proxyHandlerFactory == null ? DefaultAddressResolverGroup.INSTANCE : NoopAddressResolverGroup.INSTANCE);
+    }
+
+    /**
+     * Sets the maximum amount of idle time, that the client under construction will wait before sending a PING frame
+     * to keep a connection alive.
+     *
+     * @param pingIntervalMillis the ping interval for this client, in millis.
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.10
+     */
+    protected void setPingInterval(final long pingIntervalMillis) {
+        this.idlePingIntervalMillis = pingIntervalMillis;
     }
 
     /**

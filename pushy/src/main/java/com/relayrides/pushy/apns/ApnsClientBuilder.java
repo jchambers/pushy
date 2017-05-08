@@ -69,6 +69,9 @@ public class ApnsClientBuilder {
     private Long connectionTimeout;
     private TimeUnit connectionTimeoutUnit;
 
+    private Long idlePingInterval;
+    private TimeUnit idlePingIntervalUnit;
+
     private Long gracefulShutdownTimeout;
     private TimeUnit gracefulShutdownTimeoutUnit;
 
@@ -326,6 +329,28 @@ public class ApnsClientBuilder {
         return this;
     }
 
+
+    /**
+     * Sets the maximum amount of idle time, that the client under construction will wait before sending a PING frame
+     * to keep a connection alive.
+     *
+     * <p>By default, clients have a idle interval of
+     * {@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_PING_IDLE_TIME_MILLIS} milliseconds.</p>
+     *
+     * @param pingInterval the ping interval for the client under construction
+     * @param timeoutUnit the time unit for the given interval
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.10
+     */
+    public ApnsClientBuilder setIdlePingInterval(final long pingInterval, final TimeUnit timeoutUnit) {
+        this.idlePingInterval = pingInterval;
+        this.idlePingIntervalUnit = timeoutUnit;
+
+        return this;
+    }
+
     /**
      * Sets the amount of time clients should wait for in-progress requests to complete before closing a connection
      * during a graceful shutdown.
@@ -399,6 +424,10 @@ public class ApnsClientBuilder {
 
         if (this.connectionTimeout != null) {
             apnsClient.setConnectionTimeout((int) this.connectionTimeoutUnit.toMillis(this.connectionTimeout));
+        }
+
+        if (this.idlePingInterval != null) {
+            apnsClient.setPingInterval(this.idlePingIntervalUnit.toMillis(this.idlePingInterval));
         }
 
         if (this.gracefulShutdownTimeout != null) {
