@@ -331,14 +331,12 @@ public class ApnsClientBuilder {
 
 
     /**
-     * Sets the maximum amount of idle time, that the client under construction will wait before sending a PING frame
-     * to keep a connection alive.
+     * Sets the amount of idle time (in milliseconds) after which the client under construction will send a PING frame
+     * to the APNs server. By default, clients will send a PING frame after
+     * {@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_PING_IDLE_TIME_MILLIS} milliseconds of inactivity.
      *
-     * <p>By default, clients have a idle interval of
-     * {@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_PING_IDLE_TIME_MILLIS} milliseconds.</p>
-     *
-     * @param pingInterval the ping interval for the client under construction
-     * @param timeoutUnit the time unit for the given interval
+     * @param pingInterval the amount of idle time after which the client will send a PING frame
+     * @param timeoutUnit the time unit for the given idle time
      *
      * @return a reference to this builder
      *

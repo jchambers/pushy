@@ -141,7 +141,7 @@ public class ApnsClient {
     public static final int ALTERNATE_APNS_PORT = 2197;
 
     /**
-     * The default max idle time-period after which a PING frame is sent, in milliseconds.
+     * The default idle time in milliseconds after which the client will send a PING frame to the APNs server.
      *
      * @since 0.10
      */
@@ -209,7 +209,7 @@ public class ApnsClient {
                                 }
                             }
 
-                            context.pipeline().addLast(new IdleStateHandler(0, 0, idlePingIntervalMillis, TimeUnit.MILLISECONDS));
+                            context.pipeline().addLast(new IdleStateHandler(0, 0, ApnsClient.this.idlePingIntervalMillis, TimeUnit.MILLISECONDS));
                             context.pipeline().addLast(apnsClientHandler);
 
                             final ChannelPromise connectionReadyPromise = ApnsClient.this.connectionReadyPromise;
@@ -270,12 +270,9 @@ public class ApnsClient {
     }
 
     /**
-     * Sets the maximum amount of idle time, that the client under construction will wait before sending a PING frame
-     * to keep a connection alive.
+     * Sets the amount of idle time (in milliseconds) after which the client will send a PING frame to the APNs server.
      *
-     * @param pingIntervalMillis the ping interval for this client, in millis.
-     *
-     * @return a reference to this builder
+     * @param pingIntervalMillis the amount of idle time in milliseconds after which the client will send a PING frame
      *
      * @since 0.10
      */
