@@ -411,6 +411,8 @@ abstract class AbstractMockApnsServerHandler extends Http2ConnectionHandler impl
         if (message instanceof AcceptNotificationResponse) {
             final AcceptNotificationResponse acceptNotificationResponse = (AcceptNotificationResponse) message;
             this.encoder().writeHeaders(context, acceptNotificationResponse.getStreamId(), SUCCESS_HEADERS, 0, true, writePromise);
+
+            log.trace("Accepted push notification on stream {}", acceptNotificationResponse.getStreamId());
         } else if (message instanceof RejectNotificationResponse) {
             final RejectNotificationResponse rejectNotificationResponse = (RejectNotificationResponse) message;
 
@@ -440,6 +442,8 @@ abstract class AbstractMockApnsServerHandler extends Http2ConnectionHandler impl
             final PromiseCombiner promiseCombiner = new PromiseCombiner();
             promiseCombiner.addAll((ChannelFuture) headersPromise, dataPromise);
             promiseCombiner.finish(writePromise);
+
+            log.trace("Rejected push notification on stream {}: {}", rejectNotificationResponse.getStreamId(), rejectNotificationResponse.getErrorReason());
         } else if (message instanceof InternalServerErrorResponse) {
             final InternalServerErrorResponse internalServerErrorResponse = (InternalServerErrorResponse) message;
 
@@ -447,6 +451,8 @@ abstract class AbstractMockApnsServerHandler extends Http2ConnectionHandler impl
             headers.status(HttpResponseStatus.INTERNAL_SERVER_ERROR.codeAsText());
 
             this.encoder().writeHeaders(context, internalServerErrorResponse.getStreamId(), headers, 0, true, writePromise);
+
+            log.trace("Encountered an internal error on stream {}", internalServerErrorResponse.getStreamId());
         } else {
             context.write(message, writePromise);
         }
