@@ -8,7 +8,7 @@
     <description>A metrics listener for Pushy that uses the Dropwizard Metrics library for gathering and reporting metrics.</description>
 
     <parent>
-        <groupId>com.relayrides</groupId>
+        <groupId>com.urbanairship</groupId>
         <artifactId>pushy-parent</artifactId>
         <version>0.10-SNAPSHOT</version>
     </parent>
