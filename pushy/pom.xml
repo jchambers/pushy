@@ -90,6 +90,7 @@
                     <!-- Download the alpn-boot.jar in advance to add it to the boot classpath. -->
                     <plugin>
                         <artifactId>maven-dependency-plugin</artifactId>
+                        <version>2.10</version>
                         <executions>
                             <execution>
                                 <id>get-alpn-boot</id>
@@ -101,6 +102,7 @@
                                     <groupId>org.mortbay.jetty.alpn</groupId>
                                     <artifactId>jetty-alpn-agent</artifactId>
                                     <version>${jetty.alpnAgent.version}</version>
+                                    <remoteRepositories>http://nexus.prod.urbanairship.com/</remoteRepositories>
                                 </configuration>
                             </execution>
                         </executions>
