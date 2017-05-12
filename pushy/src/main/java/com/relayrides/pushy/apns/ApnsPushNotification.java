@@ -21,6 +21,7 @@
 package com.relayrides.pushy.apns;
 
 import java.util.Date;
+import java.util.UUID;
 
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 
@@ -99,4 +100,13 @@ public interface ApnsPushNotification {
      * @since 0.8.1
      */
     String getCollapseId();
+
+    /**
+     * Returns an optional identifier for this notification that is specified in the apns-id header when sending.
+     *
+     * @return an apns identifier for this notification; may be {@code null}
+     *
+     * @since 0.9.4
+     */
+    UUID getApnsId();
 }
