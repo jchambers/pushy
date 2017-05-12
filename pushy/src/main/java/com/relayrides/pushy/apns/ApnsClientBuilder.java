@@ -23,6 +23,7 @@ package com.relayrides.pushy.apns;
 import com.relayrides.pushy.apns.auth.ApnsSigningKey;
 import com.relayrides.pushy.apns.proxy.ProxyHandlerFactory;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.WriteBufferWaterMark;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.ssl.*;
 import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
@@ -74,6 +75,8 @@ public class ApnsClientBuilder {
 
     private Long gracefulShutdownTimeout;
     private TimeUnit gracefulShutdownTimeoutUnit;
+
+    private WriteBufferWaterMark channelWriteBufferWaterMark;
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientBuilder.class);
 
@@ -371,6 +374,24 @@ public class ApnsClientBuilder {
     }
 
     /**
+   ￼ * <p>Sets the buffer usage watermark range for the client to build. When a the amount of buffered and
+   ￼ * not-yet-flushed data in a client's network channel exceeds the given "high-water" mark, the channel will begin
+   ￼ * rejecting new data until enough data has been flushed to cross the given "low-water" mark.
+   ￼ *
+   ￼ * <p>By default, the high-water mark is 64kB, and the low-water mark is 32kB.</p>
+   ￼ *
+   ￼ * @param writeBufferWatermark the buffer usage watermark range for the client's network channel
+   ￼ *
+   ￼ * @return a reference to this builder
+   ￼ *
+     * @since 0.9.4
+    ￼*/
+    public ApnsClientBuilder setChannelWriteBufferWatermark(final WriteBufferWaterMark writeBufferWatermark) {
+        this.channelWriteBufferWaterMark = writeBufferWatermark;
+        return this;
+    }
+
+    /**
      * Constructs a new {@link ApnsClient} with the previously-set configuration.
      *
      * @return a new ApnsClient instance with the previously-set configuration
@@ -430,6 +451,10 @@ public class ApnsClientBuilder {
 
         if (this.gracefulShutdownTimeout != null) {
             apnsClient.setGracefulShutdownTimeout(this.gracefulShutdownTimeoutUnit.toMillis(this.gracefulShutdownTimeout));
+        }
+
+        if (this.channelWriteBufferWaterMark != null) {
+            apnsClient.setChannelWriteBufferWatermark(this.channelWriteBufferWaterMark);
         }
 
         return apnsClient;

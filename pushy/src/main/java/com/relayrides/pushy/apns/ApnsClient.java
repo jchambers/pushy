@@ -306,6 +306,19 @@ public class ApnsClient {
     }
 
     /**
+     * Sets the write buffer watermark option on the underlying Netty channel
+     *
+     * @param writeBufferWaterMark the write buffer watermark range for the netty channel
+     *
+     * @since 0.9.4
+     */
+    protected void setChannelWriteBufferWatermark(WriteBufferWaterMark writeBufferWaterMark) {
+        synchronized (this.bootstrap) {
+            this.bootstrap.option(ChannelOption.WRITE_BUFFER_WATER_MARK, writeBufferWaterMark);
+        }
+    }
+
+    /**
      * <p>Connects to the given APNs gateway on the default (HTTPS) port
      * ({@value com.relayrides.pushy.apns.ApnsClient#DEFAULT_APNS_PORT}).</p>
      *
