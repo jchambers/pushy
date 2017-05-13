@@ -264,7 +264,7 @@ public class ApnsClientBuilder {
      * an event loop group under certain circumstances. In particular, specifying an event loop group that is shared
      * among multiple {@code ApnsClient} instances can keep thread counts manageable. Regardless of the number of
      * concurrent {@code ApnsClient} instances, callers may also wish to specify an event loop group to take advantage
-     * of certain platform-specific optimizations (e.g. epoll event loop groups).</p>
+     * of certain platform-specific optimizations (e.g. {@code epoll} or {@code KQueue} event loop groups).</p>
      *
      * @param eventLoopGroup the event loop group to use for this client, or {@code null} to let the client manage its
      * own event loop group

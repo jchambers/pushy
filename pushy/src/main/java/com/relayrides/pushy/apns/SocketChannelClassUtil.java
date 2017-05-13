@@ -1,10 +1,5 @@
 package com.relayrides.pushy.apns;
 
-import java.util.Objects;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
@@ -14,12 +9,20 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.channel.socket.oio.OioServerSocketChannel;
 import io.netty.channel.socket.oio.OioSocketChannel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Objects;
 
 class SocketChannelClassUtil {
 
     private static final String EPOLL_EVENT_LOOP_GROUP_CLASS = "io.netty.channel.epoll.EpollEventLoopGroup";
     private static final String EPOLL_SOCKET_CHANNEL_CLASS = "io.netty.channel.epoll.EpollSocketChannel";
     private static final String EPOLL_SERVER_SOCKET_CHANNEL_CLASS = "io.netty.channel.epoll.EpollServerSocketChannel";
+
+    private static final String KQUEUE_EVENT_LOOP_GROUP_CLASS = "io.netty.channel.kqueue.KQueueEventLoopGroup";
+    private static final String KQUEUE_SOCKET_CHANNEL_CLASS = "io.netty.channel.kqueue.KQueueSocketChannel";
+    private static final String KQUEUE_SERVER_SOCKET_CHANNEL_CLASS = "io.netty.channel.kqueue.KQueueServerSocketChannel";
 
     private static final Logger log = LoggerFactory.getLogger(SocketChannelClassUtil.class);
 
@@ -44,6 +47,8 @@ class SocketChannelClassUtil {
             socketChannelClass = OioSocketChannel.class;
         } else if (EPOLL_EVENT_LOOP_GROUP_CLASS.equals(eventLoopGroup.getClass().getName())) {
             socketChannelClass = loadSocketChannelClass(EPOLL_SOCKET_CHANNEL_CLASS);
+        } else if (KQUEUE_EVENT_LOOP_GROUP_CLASS.equals(eventLoopGroup.getClass().getName())) {
+            socketChannelClass = loadSocketChannelClass(KQUEUE_SOCKET_CHANNEL_CLASS);
         } else {
             throw new IllegalArgumentException("Could not find socket class for event loop group class: " + eventLoopGroup.getClass().getName());
         }
@@ -73,6 +78,8 @@ class SocketChannelClassUtil {
             serverSocketChannelClass = OioServerSocketChannel.class;
         } else if (EPOLL_EVENT_LOOP_GROUP_CLASS.equals(eventLoopGroup.getClass().getName())) {
             serverSocketChannelClass = (Class<? extends ServerChannel>) loadSocketChannelClass(EPOLL_SERVER_SOCKET_CHANNEL_CLASS);
+        } else if (KQUEUE_EVENT_LOOP_GROUP_CLASS.equals(eventLoopGroup.getClass().getName())) {
+            serverSocketChannelClass = (Class<? extends ServerChannel>) loadSocketChannelClass(KQUEUE_SERVER_SOCKET_CHANNEL_CLASS);
         } else {
             throw new IllegalArgumentException("Could not find server socket class for event loop group class: " + eventLoopGroup.getClass().getName());
         }
