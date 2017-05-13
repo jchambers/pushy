@@ -7,7 +7,7 @@
     <name>Pushy</name>
 
     <parent>
-        <groupId>com.relayrides</groupId>
+        <groupId>com.turo</groupId>
         <artifactId>pushy-parent</artifactId>
         <version>0.10-SNAPSHOT</version>
     </parent>
