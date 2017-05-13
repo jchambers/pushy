@@ -15,9 +15,9 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 
 ```xml
 <dependency>
-    <groupId>com.relayrides</groupId>
+    <groupId>com.turo</groupId>
     <artifactId>pushy</artifactId>
-    <version>0.9.3</version>
+    <version>0.10</version>
 </dependency>
 ```
 
