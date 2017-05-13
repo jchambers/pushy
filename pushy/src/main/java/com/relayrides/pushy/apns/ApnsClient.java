@@ -55,7 +55,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * clients will create and manage their own single-thread event loop group. If many clients are operating in parallel,
  * specifying a shared event loop group serves as a mechanism to keep the total number of threads in check. Callers may
  * also want to provide a specific event loop group to take advantage of platform-specific features (i.e.
- * {@code epoll}).</p>
+ * {@code epoll} or {@code KQueue}).</p>
  *
  * <p>Callers must either provide an SSL context with the client's certificate or a signing key at client construction
  * time. If a signing key is provided, the client will use token authentication when sending notifications; otherwise,
