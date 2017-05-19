@@ -148,6 +148,7 @@ public class ApnsClient {
     public static final int DEFAULT_PING_IDLE_TIME_MILLIS = 60_000;
 
     private static final ClientNotConnectedException NOT_CONNECTED_EXCEPTION = new ClientNotConnectedException();
+    private static final ClientBusyException CLIENT_BUSY_EXCEPTION = new ClientBusyException();
 
     private static final long INITIAL_RECONNECT_DELAY_SECONDS = 1; // second
     private static final long MAX_RECONNECT_DELAY_SECONDS = 60; // seconds
@@ -169,6 +170,7 @@ public class ApnsClient {
 
         this.bootstrap.channel(SocketChannelClassUtil.getSocketChannelClass(this.bootstrap.config().group()));
         this.bootstrap.option(ChannelOption.TCP_NODELAY, true);
+        this.bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
         this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
             @Override
@@ -549,6 +551,10 @@ public class ApnsClient {
         final ChannelPromise connectionReadyPromise = this.connectionReadyPromise;
 
         if (connectionReadyPromise != null && connectionReadyPromise.isSuccess() && connectionReadyPromise.channel().isActive()) {
+            if (!connectionReadyPromise.channel().isWritable()) {
+                return new FailedFuture<>(GlobalEventExecutor.INSTANCE, CLIENT_BUSY_EXCEPTION);
+            }
+
             final Channel channel = connectionReadyPromise.channel();
             final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
                     new DefaultPromise(channel.eventLoop());

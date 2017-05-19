@@ -4,12 +4,17 @@ import com.relayrides.pushy.apns.auth.ApnsSigningKey;
 import com.relayrides.pushy.apns.auth.ApnsVerificationKey;
 import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
+import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
-import org.junit.*;
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
@@ -17,11 +22,17 @@ import java.io.InputStream;
 import java.security.KeyPair;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 @RunWith(JUnitParamsRunner.class)
 public class ApnsClientTest {
@@ -545,6 +556,31 @@ public class ApnsClientTest {
         assertFalse(response.isAccepted());
         assertEquals("Unregistered", response.getRejectionReason());
         assertEquals(now, response.getTokenInvalidationTimestamp());
+    }
+
+    @Test
+    public void testSendNotificationOnBusyChannel() throws Exception {
+        ApnsClient busyClient;
+
+        try (final InputStream p12InputStream = ApnsClientTest.class.getResourceAsStream(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
+            busyClient = new ApnsClientBuilder()
+                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
+                    .setTrustedServerCertificateChain(CA_CERTIFICATE)
+                    .setEventLoopGroup(EVENT_LOOP_GROUP)
+                    .setChannelWriteBufferWatermark(new WriteBufferWaterMark(0,0))
+                    .build();
+        }
+        busyClient.connect(HOST, PORT).await();
+
+        final String testToken = ApnsClientTest.generateRandomDeviceToken();
+
+        this.server.registerDeviceTokenForTopic(DEFAULT_TOPIC, testToken, null);
+
+        final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(testToken, DEFAULT_TOPIC, "test-payload");
+
+        Future<PushNotificationResponse<SimpleApnsPushNotification>> responseFuture = busyClient.sendNotification(pushNotification);
+
+        assertTrue(responseFuture.cause() instanceof ClientBusyException);
     }
 
     @Test
