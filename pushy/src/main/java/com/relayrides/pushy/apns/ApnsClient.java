@@ -170,6 +170,7 @@ public class ApnsClient {
 
         this.bootstrap.channel(SocketChannelClassUtil.getSocketChannelClass(this.bootstrap.config().group()));
         this.bootstrap.option(ChannelOption.TCP_NODELAY, true);
+        this.bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
         this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
             @Override
