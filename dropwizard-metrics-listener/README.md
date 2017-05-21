@@ -1,12 +1,12 @@
 # Dropwizard Metrics listener for Pushy
 
-This module is an implementation of Pushy's [`ApnsClientMetricsListener`](http://relayrides.github.io/pushy/apidocs/0.7/com/relayrides/pushy/apns/ApnsClientMetricsListener.html) interface that uses the [Dropwizard Metrics library](http://metrics.dropwizard.io/) to gather and report metrics. If you use [Maven](http://maven.apache.org/), you can add the listener to your project by adding the following dependency declaration to your POM:
+This module is an implementation of Pushy's [`ApnsClientMetricsListener`](http://relayrides.github.io/pushy/apidocs/0.10/com/relayrides/pushy/apns/ApnsClientMetricsListener.html) interface that uses the [Dropwizard Metrics library](http://metrics.dropwizard.io/) to gather and report metrics. If you use [Maven](http://maven.apache.org/), you can add the listener to your project by adding the following dependency declaration to your POM:
 
 ```xml
 <dependency>
-    <groupId>com.relayrides</groupId>
+    <groupId>com.turo</groupId>
     <artifactId>pushy-dropwizard-metrics-listener</artifactId>
-    <version>0.7.3</version>
+    <version>0.10</version>
 </dependency>
 ```
 
