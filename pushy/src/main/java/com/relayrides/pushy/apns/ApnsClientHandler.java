@@ -31,6 +31,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http2.*;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.AsciiString;
+import io.netty.util.ReferenceCountUtil;
 import io.netty.util.concurrent.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -141,6 +142,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
             if (this.responsePromises.containsKey(pushNotification)) {
                 writePromise.tryFailure(new PushNotificationStillPendingException());
+                ReferenceCountUtil.release(message);
             } else {
                 this.responsePromises.put(pushNotification, pushNotificationAndResponsePromise.getResponsePromise());
 
@@ -403,5 +405,12 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     @Override
     public void onUnknownFrame(final ChannelHandlerContext ctx, final byte frameType, final int streamId, final Http2Flags flags, final ByteBuf payload) throws Http2Exception {
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        super.exceptionCaught(ctx, cause);
+        log.error("Caught exception in HTTP2 frame handler, closing channel", cause);
+        ctx.close();
     }
 }
