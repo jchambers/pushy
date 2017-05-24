@@ -411,6 +411,5 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         super.exceptionCaught(ctx, cause);
         log.error("Caught exception in HTTP2 frame handler, closing channel", cause);
-        ctx.close();
     }
 }
