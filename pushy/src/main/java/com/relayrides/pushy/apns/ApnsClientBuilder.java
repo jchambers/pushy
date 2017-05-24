@@ -76,6 +76,11 @@ public class ApnsClientBuilder {
     private Long gracefulShutdownTimeout;
     private TimeUnit gracefulShutdownTimeoutUnit;
 
+    private Long sessionCacheSize = 0L;
+
+    private Long sessionTimeout = 0L;
+    private TimeUnit sessionTimeoutUnit = TimeUnit.SECONDS;
+
     private WriteBufferWaterMark channelWriteBufferWaterMark;
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientBuilder.class);
@@ -392,6 +397,35 @@ public class ApnsClientBuilder {
     }
 
     /**
+     * <p>Sets the session timeout on the SSLContext
+     *
+     * @param sessionTimeout the amount of time until the ssl cache expires
+     * @param sessionTimeoutUnit the time unit for the given timeout
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.12.0
+     */
+    public ApnsClientBuilder setSessionTimeout(final long sessionTimeout, final TimeUnit sessionTimeoutUnit) {
+        this.sessionTimeout = sessionTimeout;
+        this.sessionTimeoutUnit = sessionTimeoutUnit;
+        return this;
+    }
+
+    /**
+     * <p>Sets the session timeout on the SSLContext
+     *
+     * @param sessionCacheSize the number of items to cache for the ssl context
+     *
+     * @return a reference to this builder
+     * @since 0.12.0
+     */
+    public ApnsClientBuilder setSessionCacheSize(final long sessionCacheSize) {
+        this.sessionCacheSize = sessionCacheSize;
+        return this;
+    }
+
+    /**
      * Constructs a new {@link ApnsClient} with the previously-set configuration.
      *
      * @return a new ApnsClient instance with the previously-set configuration
@@ -414,6 +448,8 @@ public class ApnsClientBuilder {
 
             final SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
                     .sslProvider(sslProvider)
+                    .sessionCacheSize(this.sessionCacheSize)
+                    .sessionTimeout(this.sessionTimeoutUnit.toSeconds(this.sessionTimeout))
                     .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
                     .applicationProtocolConfig(
                             new ApplicationProtocolConfig(Protocol.ALPN,
@@ -432,6 +468,7 @@ public class ApnsClientBuilder {
             } else if (this.trustedServerCertificates != null) {
                 sslContextBuilder.trustManager(this.trustedServerCertificates);
             }
+
 
             sslContext = sslContextBuilder.build();
         }
