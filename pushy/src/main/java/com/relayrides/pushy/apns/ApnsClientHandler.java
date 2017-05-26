@@ -40,7 +40,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameListener {
@@ -51,7 +50,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private final Http2Connection.PropertyKey headersPropertyKey;
 
     private final Map<ApnsPushNotification, Promise<PushNotificationResponse<ApnsPushNotification>>> responsePromises =
-            new ConcurrentHashMap<>();
+            new IdentityHashMap<>();
 
     private final String authority;
 
