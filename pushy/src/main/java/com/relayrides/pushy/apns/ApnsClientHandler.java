@@ -40,6 +40,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameListener {
@@ -50,7 +51,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private final Http2Connection.PropertyKey headersPropertyKey;
 
     private final Map<ApnsPushNotification, Promise<PushNotificationResponse<ApnsPushNotification>>> responsePromises =
-            new IdentityHashMap<>();
+            new ConcurrentHashMap<>();
 
     private final String authority;
 
@@ -196,7 +197,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
                         if (responsePromise != null) {
                             responsePromise.tryFailure(future.cause());
                         } else {
-                            log.error("Notification write failed, but no response promise found.");
+                            log.error("Notification write failed, but no response promise found.", future.cause());
                         }
                     }
                 }
