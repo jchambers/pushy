@@ -1,7 +1,7 @@
 # pushy
 
 [![Build Status](https://travis-ci.org/relayrides/pushy.svg?branch=master)](https://travis-ci.org/relayrides/pushy)
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.relayrides/pushy/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.relayrides/pushy)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.turo/pushy/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.turo/pushy)
 
 Pushy is a Java library for sending [APNs](https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html) (iOS, OS X, and Safari) push notifications. It is written and maintained by the engineers at [Turo](https://turo.com/).
 
