@@ -196,7 +196,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
                         if (responsePromise != null) {
                             responsePromise.tryFailure(future.cause());
                         } else {
-                            log.error("Notification write failed, but no response promise found.");
+                            log.error("Notification write failed, but no response promise found.", future.cause());
                         }
                     }
                 }
