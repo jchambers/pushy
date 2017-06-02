@@ -6,6 +6,7 @@ import com.relayrides.pushy.apns.util.ApnsPayloadBuilder;
 import com.relayrides.pushy.apns.util.SimpleApnsPushNotification;
 import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import junitparams.JUnitParamsRunner;
@@ -14,6 +15,7 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -28,6 +30,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertEquals;
@@ -377,6 +380,31 @@ public class ApnsClientTest {
                 client.sendNotification(pushNotification).get();
 
         assertTrue(response.isAccepted());
+    }
+
+    @Test
+    public void testWriteFailureUsingMaxHeaderSizeExceeded() throws Exception {
+        StringBuilder bigCollapseId = new StringBuilder();
+        for (int i = 0; i < 10000; i++) {
+            bigCollapseId.append("a");
+        }
+
+        SimpleApnsPushNotification notification = new SimpleApnsPushNotification(
+                ApnsClientTest.generateRandomDeviceToken(),
+                DEFAULT_TOPIC,
+                "wat",
+                null,
+                null,
+                bigCollapseId.toString()
+        );
+
+        Future<PushNotificationResponse<SimpleApnsPushNotification>> response = tlsAuthenticationClient.sendNotification(notification);
+
+        response.await(10, TimeUnit.SECONDS);
+        assertFalse(response.isSuccess());
+
+        Throwable cause = response.cause();
+        assertTrue(cause instanceof Http2Exception.HeaderListSizeException);
     }
 
     @Test
