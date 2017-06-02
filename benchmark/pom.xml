@@ -5,11 +5,11 @@
     <parent>
         <artifactId>pushy-parent</artifactId>
         <groupId>com.urbanairship</groupId>
-        <version>0.15</version>
+        <version>0.16-SNAPSHOT</version>
     </parent>
     
     <artifactId>pushy-benchmark</artifactId>
-  <version>0.15</version>
+  <version>0.16-SNAPSHOT</version>
     <packaging>jar</packaging>
     
     <name>Pushy benchmarks</name>
