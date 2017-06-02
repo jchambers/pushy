@@ -187,17 +187,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
                     if (future.isSuccess()) {
                         final Http2Stream stream = ApnsClientHandler.this.connection().stream(streamId);
                         stream.setProperty(ApnsClientHandler.this.pushNotificationPropertyKey, pushNotification);
-                    } else {
-                        log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
-
-                        final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
-                                ApnsClientHandler.this.responsePromises.get(pushNotification);
-
-                        if (responsePromise != null) {
-                            responsePromise.tryFailure(future.cause());
-                        } else {
-                            log.error("Notification write failed, but no response promise found.", future.cause());
-                        }
                     }
                 }
             });
