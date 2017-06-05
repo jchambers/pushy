@@ -104,6 +104,7 @@ public class ApnsClient {
     private long reconnectDelaySeconds = INITIAL_RECONNECT_DELAY_SECONDS;
 
     private ApnsClientMetricsListener metricsListener = new NoopMetricsListener();
+    private HandlerMetrics handlerMetrics = new NoopHandlerMetrics();
     private final AtomicLong nextNotificationId = new AtomicLong(0);
 
     /**
@@ -197,11 +198,13 @@ public class ApnsClient {
                                         .signingKey(ApnsClient.this.signingKey)
                                         .authority(authority)
                                         .idlePingIntervalMillis(ApnsClient.this.idlePingIntervalMillis)
+                                        .setHandlerMetrics(handlerMetrics)
                                         .build();
                             } else {
                                 apnsClientHandler = new ApnsClientHandler.ApnsClientHandlerBuilder()
                                         .authority(authority)
                                         .idlePingIntervalMillis(ApnsClient.this.idlePingIntervalMillis)
+                                        .setHandlerMetrics(handlerMetrics)
                                         .build();
                             }
 
@@ -253,6 +256,10 @@ public class ApnsClient {
      */
     protected void setMetricsListener(final ApnsClientMetricsListener metricsListener) {
         this.metricsListener = metricsListener != null ? metricsListener : new NoopMetricsListener();
+    }
+
+    protected void setHandlerMetrics(HandlerMetrics handlerMetrics) {
+        this.handlerMetrics = handlerMetrics != null ? handlerMetrics : new NoopHandlerMetrics();
     }
 
     /**
