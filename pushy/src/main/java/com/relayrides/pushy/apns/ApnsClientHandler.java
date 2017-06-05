@@ -56,6 +56,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     private ScheduledFuture<?> pingTimeoutFuture;
     private long pingTimeoutMillis;
+    private HandlerMetrics metrics;
 
     private static final String APNS_PATH_PREFIX = "/3/device/";
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
@@ -75,6 +76,8 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private static final Logger log = LoggerFactory.getLogger(ApnsClientHandler.class);
 
     public static class ApnsClientHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<ApnsClientHandler, ApnsClientHandlerBuilder> {
+
+        private HandlerMetrics handlerMetrics = new NoopHandlerMetrics();
 
         private String authority;
         private long idlePingIntervalMillis;
@@ -97,6 +100,15 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
             return this;
         }
 
+        protected HandlerMetrics getHandlerMetrics() {
+            return handlerMetrics;
+        }
+
+        public ApnsClientHandlerBuilder setHandlerMetrics(HandlerMetrics handlerMetrics) {
+            this.handlerMetrics = handlerMetrics;
+            return self();
+        }
+
         @Override
         protected final boolean isServer() {
             return false;
@@ -111,7 +123,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         public ApnsClientHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
             Objects.requireNonNull(this.authority(), "Authority must be set before building an ApnsClientHandler.");
 
-            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, initialSettings, this.authority(), this.idlePingIntervalMillis());
+            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, initialSettings, this.authority(), this.idlePingIntervalMillis(), this.getHandlerMetrics());
             this.frameListener(handler);
             return handler;
         }
@@ -122,7 +134,8 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         }
     }
 
-    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final String authority, final long idlePingIntervalMillis) {
+    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final String authority, final long idlePingIntervalMillis,
+                                HandlerMetrics metrics) {
         super(decoder, encoder, initialSettings);
 
         this.authority = authority;
@@ -130,6 +143,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         this.pushNotificationPropertyKey = this.connection().newKey();
         this.headersPropertyKey = this.connection().newKey();
         this.pingTimeoutMillis = idlePingIntervalMillis/2;
+        this.metrics = metrics;
     }
 
     @Override
@@ -164,6 +178,10 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
             final int streamId = (int) this.nextStreamId;
 
             final Http2Headers headers = getHeadersForPushNotification(pushNotification, streamId);
+
+            if (!connection().local().canOpenStream()) {
+                metrics.maxStreamsHit();
+            }
 
             final ChannelPromise headersPromise = context.newPromise();
             this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
@@ -246,8 +264,12 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
                 @Override
                 public void operationComplete(final ChannelFuture future) throws Exception {
                     if (!future.isSuccess()) {
+                        metrics.pingWriteFailure();
                         log.debug("Failed to write PING frame.", future.cause());
                         future.channel().close();
+                    }
+                    else {
+                        metrics.pingSent();
                     }
                 }
             });
@@ -256,6 +278,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
                 @Override
                 public void run() {
+                    metrics.pingTimeout();
                     log.debug("Closing channel due to ping timeout.");
                     context.channel().close();
                 }
@@ -306,14 +329,20 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     protected void handleErrorResponse(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final ApnsPushNotification pushNotification, final ErrorResponse errorResponse) {
         final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
 
-        if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
-            log.warn("APNs server reported an internal error when sending {}.", pushNotification);
-            this.responsePromises.get(pushNotification).tryFailure(new ApnsServerException(GSON.toJson(errorResponse)));
-        } else {
-            this.responsePromises.get(pushNotification).trySuccess(
-                    new SimplePushNotificationResponse<>(pushNotification, HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
+        Promise<PushNotificationResponse<ApnsPushNotification>> future = this.responsePromises.get(pushNotification);
+        if (future == null) {
+            log.error("Received response but no promise registered for notification sent to token " + pushNotification.getToken());
         }
-
+        else {
+            if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
+                log.warn("APNs server reported an internal error when sending {}.", pushNotification);
+                future.tryFailure(new ApnsServerException(GSON.toJson(errorResponse)));
+            }
+            else {
+                future.trySuccess(
+                        new SimplePushNotificationResponse<>(pushNotification, HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
+            }
+        }
     }
 
     @Override
@@ -336,12 +365,19 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
             final ApnsPushNotification pushNotification = stream.getProperty(this.pushNotificationPropertyKey);
 
-            if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
-                log.warn("APNs server reported an internal error when sending {}.", pushNotification);
-                this.responsePromises.get(pushNotification).tryFailure(new ApnsServerException(null));
-            } else {
-                this.responsePromises.get(pushNotification).trySuccess(
-                        new SimplePushNotificationResponse<>(pushNotification, success, null, null));
+            Promise<PushNotificationResponse<ApnsPushNotification>> future = this.responsePromises.get(pushNotification);
+            if (future == null) {
+                log.error("Received response but no promise registered for notification sent to token " + pushNotification.getToken() + " (headers only)");
+            }
+            else {
+                if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
+                    log.warn("APNs server reported an internal error when sending {}.", pushNotification);
+                    future.tryFailure(new ApnsServerException(null));
+                }
+                else {
+                    future.trySuccess(
+                            new SimplePushNotificationResponse<>(pushNotification, success, null, null));
+                }
             }
         } else {
             stream.setProperty(this.headersPropertyKey, headers);
@@ -363,6 +399,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     @Override
     public void onSettingsRead(final ChannelHandlerContext context, final Http2Settings settings) {
         log.trace("Received settings from APNs gateway: {}", settings);
+        metrics.recordMaxConcurrentStreams(settings.maxConcurrentStreams());
     }
 
     @Override
@@ -374,6 +411,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         if (this.pingTimeoutFuture != null) {
             log.trace("Received reply to ping.");
             this.pingTimeoutFuture.cancel(false);
+            metrics.pingSuccess();
         } else {
             log.error("Received PING ACK, but no corresponding outbound PING found.");
         }
@@ -386,6 +424,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     @Override
     public void onGoAwayRead(final ChannelHandlerContext context, final int lastStreamId, final long errorCode, final ByteBuf debugData) throws Http2Exception {
         log.info("Received GOAWAY from APNs server: {}", debugData.toString(StandardCharsets.UTF_8));
+        metrics.goAway();
     }
 
     @Override
