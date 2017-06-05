@@ -64,6 +64,7 @@ public class ApnsClientBuilder {
     private EventLoopGroup eventLoopGroup;
 
     private ApnsClientMetricsListener metricsListener;
+    private HandlerMetrics handlerMetrics;
 
     private ProxyHandlerFactory proxyHandlerFactory;
 
@@ -302,6 +303,11 @@ public class ApnsClientBuilder {
         return this;
     }
 
+    public ApnsClientBuilder setHandlerMetrics(HandlerMetrics handlerMetrics) {
+        this.handlerMetrics = handlerMetrics;
+        return this;
+    }
+
     /**
      * Sets the proxy handler factory to be used to construct proxy handlers when establishing a new connection to the
      * APNs gateway. A client's proxy handler factory may be {@code null}, in which case the client will connect to the
@@ -476,6 +482,7 @@ public class ApnsClientBuilder {
         final ApnsClient apnsClient = new ApnsClient(sslContext, this.signingKey, this.eventLoopGroup);
 
         apnsClient.setMetricsListener(this.metricsListener);
+        apnsClient.setHandlerMetrics(this.handlerMetrics);
         apnsClient.setProxyHandlerFactory(this.proxyHandlerFactory);
 
         if (this.connectionTimeout != null) {
