@@ -1,0 +1,166 @@
+// Headings
+//
+
+%header {
+    margin-bottom: $margin-small;
+
+    @include minimum-display-size(medium) {
+        margin-bottom: $margin-base;
+    }
+}
+
+%header-freight {
+    @extend %header;
+
+    font-family: $font-freight;
+    font-weight: normal;
+    line-height: $lineHeight-tighter;
+}
+
+%header-plantin {
+    @extend %header;
+
+    font-family: $font-plantin;
+    font-weight: normal;
+    line-height: $lineHeight-tight;
+    text-transform: uppercase;
+}
+
+%header-basis {
+    @extend %header;
+
+    font-family: $font-basis;
+    font-weight: bold;
+    line-height: $lineHeight-tight;
+}
+
+%text-bold {
+    font-family: $font-basis;
+    font-weight: bold;
+}
+
+%text-plantin {
+    font-family: $font-plantin;
+    text-transform: uppercase;
+}
+
+%font-variant-common-ligatures {
+    font-variant-ligatures: common-ligatures;
+    -moz-font-feature-settings: "liga", "clig";
+    -ms-font-feature-settings: "liga", "clig";
+    -webkit-font-feature-settings: "liga", "clig";
+    font-feature-settings: "liga", "clig";
+}
+
+%font-smoothing {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+%block-font-boosting {
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+
+    @include minimum-display-size(small) {
+        // Since this method is experimental, setting it back to auto for desktop screens. https://developer.mozilla.org/en-US/docs/Web/CSS/text-size-adjust
+        -webkit-text-size-adjust: auto;
+        -moz-text-size-adjust: auto;
+        -ms-text-size-adjust: auto;
+    }
+}
+
+h1 {
+    @extend %header-plantin;
+
+    font-size: 28px;
+
+    @include minimum-display-size(small) {
+        font-size: 48px;
+    }
+}
+
+h2 {
+    @extend %header-plantin;
+
+    font-size: 22px;
+
+    @include minimum-display-size(small) {
+        font-size: 36px;
+    }
+}
+
+h3 {
+    @extend %header-plantin;
+
+    font-size: 18px;
+
+    @include minimum-display-size(small) {
+        font-size: 22px;
+    }
+}
+
+h4 {
+    @extend %header-basis;
+}
+
+h5 {
+    @extend %header-basis;
+}
+
+h6 {
+    @extend %header-basis;
+}
+
+.title-heading {
+    @extend %header-freight;
+
+    font-size: 48px;
+    text-transform: none;
+
+    @include minimum-display-size(small) {
+        font-size: 72px;
+    }
+
+    @include minimum-display-size(medium) {
+        font-size: 92px;
+    }
+}
+
+.title-subtitle {
+    @extend %header-basis;
+
+    font-size: 18px;
+
+    @include minimum-display-size(small) {
+        font-size: 22px;
+    }
+}
+
+// Body text
+//
+
+body {
+    @extend %font-variant-common-ligatures;
+    @extend %font-smoothing;
+    @extend %block-font-boosting;
+
+    color: $color-black;
+    font-family: $font-basis;
+    font-weight: normal;
+    font-size: $fontSize-base;
+    line-height: $lineHeight-base;
+}
+
+code {
+    font-family: $font-inconsolata;
+    margin-top: $margin-base;
+}
+
+p {
+    margin-top: $margin-base;
+}
+
+p.noTopMargin {
+    margin-top: 0;
+}

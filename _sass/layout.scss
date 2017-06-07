@@ -1,0 +1,55 @@
+// Force element to self-clear its children
+//
+// http://css-tricks.com/snippets/css/clear-fix/
+//
+@mixin clearfix() {
+    &:before {
+        display: table;
+        content: "";
+    }
+
+    &:after {
+        display: table;
+        clear: both;
+        content: "";
+    }
+}
+
+.container {
+    @include clearfix();
+
+    padding-left: $margin-smaller;
+    padding-right: $margin-smaller;
+
+    @include minimum-display-size(small) {
+        width: $width-small--container;
+        padding-left: 0;
+        padding-right: 0;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    @include minimum-display-size(medium) {
+        width: $width--container;
+    }
+}
+
+.container--withTopMargin {
+    margin-top: $margin-large;
+}
+
+.container--flex {
+    display: flex;
+    width: 100%;
+    align-items: center;
+}
+
+.container--fluid {
+    width: 100%;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.u-alignCenter {
+    text-align: center;
+}

@@ -1,0 +1,75 @@
+// Fonts
+//
+// Using woff and woff2 provides the following browser support:
+// Chrome 5+, Safari 5.1+, Firefox 3.6+, Opera 11.50+, IE 9+, Android 4.4+, iOS 5.1+
+// https://css-tricks.com/snippets/css/using-font-face/
+
+@font-face {
+    font-family: 'Freight';
+    src: url('../fonts/freight/freight.woff2') format('woff2'), url('../fonts/freight/freight.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Plantin';
+    src: url('../fonts/plantin/plantin.woff2') format('woff2'), url('../fonts/plantin/plantin.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'BasisGrotesque';
+    src: url('../fonts/basis/basis_grotesque_medium.woff2') format('woff2'), url('../fonts/basis/basis_grotesque_medium.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'BasisGrotesque';
+    src: url('../fonts/basis/basis_grotesque_bold.woff2') format('woff2'), url('../fonts/basis/basis_grotesque_bold.woff') format('woff');
+    font-weight: bold;
+    font-style: normal;
+}
+
+// latin-ext
+@font-face {
+    font-family: 'Inconsolata';
+    font-style: normal;
+    font-weight: 400;
+    src: local('Inconsolata Regular'), local('Inconsolata-Regular'), url('../fonts/inconsolata/inconsolata_latin_ext.woff2') format('woff2');
+    unicode-range: U+0100-024F, U+1E00-1EFF, U+20A0-20AB, U+20AD-20CF, U+2C60-2C7F, U+A720-A7FF;
+}
+
+// latin
+@font-face {
+    font-family: 'Inconsolata';
+    font-style: normal;
+    font-weight: 400;
+    src: local('Inconsolata Regular'), local('Inconsolata-Regular'), url('../fonts/inconsolata/inconsolata_latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2212, U+2215;
+}
+
+// latin-ext
+@font-face {
+    font-family: 'Inconsolata';
+    font-style: normal;
+    font-weight: 700;
+    src: local('Inconsolata Bold'), local('Inconsolata-Bold'), url('../fonts/inconsolata/inconsolata_bold_latin_ext.woff2') format('woff2');
+    unicode-range: U+0100-024F, U+1E00-1EFF, U+20A0-20AB, U+20AD-20CF, U+2C60-2C7F, U+A720-A7FF;
+}
+
+// latin
+@font-face {
+    font-family: 'Inconsolata';
+    font-style: normal;
+    font-weight: 700;
+    src: local('Inconsolata Bold'), local('Inconsolata-Bold'), url('../fonts/inconsolata/inconsolata_bold_latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2212, U+2215;
+}
+
+$font-freight: Freight, HoeflerText-Black, Times New Roman, serif;
+$font-title-freight: FreightDispProBlack-Regular, Freight, HoeflerText-Black, Times New Roman, serif;
+$font-plantin: Plantin, AmericanTypewriter-Condensed, Times New Roman, serif;
+$font-basis: BasisGrotesque, Avenir, Helvetica Neue, Helvetica, sans-serif;
+$font-inconsolata: Inconsolata, Consolas, Monaco, monospace;

@@ -1,0 +1,119 @@
+// Media Queries
+//
+
+$screen-xsmall: 480px;
+$screen-small: 768px;
+$screen-medium: 992px;
+$screen-large: 1200px;
+
+@mixin minimum-display-size($size) {
+    @if $size == xsmall {
+        @media only screen and (min-width: $screen-xsmall) { @content; }
+    } @else if $size == small {
+        @media only screen and (min-width: $screen-small) { @content; }
+    } @else if $size == medium {
+        @media only screen and (min-width: $screen-medium) { @content; }
+    } @else if $size == large {
+        @media only screen and (min-width: $screen-large) { @content; }
+    }
+}
+
+@mixin high-dpi() {
+    @media (-webkit-min-device-pixel-ratio: 1.5), (min--moz-device-pixel-ratio: 1.5), (min-resolution: 1.5dppx) { @content; }
+}
+
+// Brand colors
+//
+// Color names are from http://chir.ag/projects/name-that-color.
+
+$color-red: #DF4A32;
+
+$color-green: #59D389;
+$color-greenLight: #67E499;
+
+$color-purple: #8F63F4;
+
+$color-black: #231F20;
+$color-greyMineShaft: #2e2a2b;
+$color-greyTundora: #454545;
+$color-greyScorpion: #5D5D5D;
+$color-greyDusty: #949494;
+$color-greySilver: #C7C7C7;
+$color-greyMercury: #E6E6E6;
+$color-whiteSmoke: #F3F3F3;
+$color-white: #FFFFFF;
+
+$color-greyMercury--divider: $color-greyMercury;
+$color-greyDusty--border: $color-greyDusty;
+
+// Third party brand colors
+//
+
+$color-facebook: #3B5998;
+$color-twitter: #9AE4E8;
+$color-google: #dd4b39;
+
+// Font sizes
+//
+$fontSize-nano: 10px;
+$fontSize-micro: 11px;
+$fontSize-smallest: 12px;
+$fontSize-smaller: 13px;
+$fontSize-small: 15px;
+$fontSize-base: 16px;
+$fontSize-large: 18px;
+$fontSize-larger: 24px;
+$fontSize-largest: 36px;
+$fontSize-huge: 62px;
+
+// Line heights
+//
+
+$lineHeight-tightest: 0.8;
+$lineHeight-tighter: 1;
+$lineHeight-tight: 1.2;
+$lineHeight-base: 1.5;
+$lineHeight-loose: 1.8;
+
+// Margins
+//
+
+$margin-smallest: 5px;
+$margin-smaller: 10px;
+$margin-small: 15px;
+$margin-base: 20px;
+$margin-large: 30px;
+$margin-larger: 40px;
+$margin-largest: 50px;
+
+// Layout
+//
+$minHeight--body: 600px;
+
+$width--container: 940px;
+$width-small--container: 750px;
+
+$width--gridGutter: 20px;
+
+$width--singleColumn: 620px;
+$width--sidebar: $width--container - $width--gridGutter - 620px;
+
+$width-small--singleColumn: 425px;
+$width-medium--singleColumn: 450px;
+
+$width-large--singleColumn: 700px;
+$width-small--sidebar: $width--container - $width--gridGutter - $width-large--singleColumn;
+
+$gridColumns: 12;
+
+$height--header: 60px;
+
+// Footer
+//
+$minHeight-large--footer: 343px;
+$minHeight-medium--footer: 636px;
+$minHeight-small--footer: 693px;
+$minHeight-xsmall--footer: 915px;
+
+$height--loadingIndicator: 18px;
+$height-large--loadingIndicator: 36px;

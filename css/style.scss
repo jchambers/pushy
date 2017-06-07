@@ -1,0 +1,110 @@
+---
+---
+
+@import 'variables';
+@import 'fonts';
+@import 'typography';
+@import 'layout';
+
+@import 'highlight';
+
+body {
+    color: $color-white;
+    background-color: $color-greyMineShaft;
+
+    @media print {
+        color: #000;
+        background: none;
+    }
+
+    margin: 0;
+}
+
+a {
+    @extend %text-bold;
+
+    color: $color-purple;
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+.pageHeader {
+    text-align: center;
+
+    @include minimum-display-size(small) {
+        text-align: left;
+    }
+
+    @media print {
+        display: none;
+    }
+}
+
+.pageHeader-logo {
+    @include minimum-display-size(small) {
+        float: left;
+    }
+
+    width: 88px;
+    height: 32px;
+
+    padding: 14px 0;
+    border: none;
+}
+
+.pageHeader-navigation {
+    list-style: none;
+    padding: 0;
+    margin-top: 18px;
+
+    @include minimum-display-size(small) {
+        float: right;
+    }
+}
+
+.navigation-item {
+    @include minimum-display-size(small) {
+        display: inline;
+        margin-left: $margin-small;
+    }
+}
+
+.navigation-item--text {
+    color: $color-white;
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+.pageContent {
+    color: $color-black;
+    background-color: $color-white;
+
+    @media print {
+        color: #000;
+        background: none;
+    }
+
+    padding-bottom: $margin-larger;
+}
+
+.pageFooter {
+    @media print {
+        border-top: solid $color-greyDusty 1px;
+        font-size: $fontSize-small;
+    }
+
+    a {
+        color: $color-white;
+        text-decoration: underline;
+
+        @media print {
+            color: #000;
+        }
+    }
+}

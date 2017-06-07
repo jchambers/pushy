@@ -1,6 +1,3 @@
-name: Pushy v0.10
-date: May 24, 2017
-tag: https://github.com/relayrides/pushy/releases/tag/pushy-0.10
-jar: https://github.com/relayrides/pushy/releases/download/pushy-0.10/pushy-0.10.jar
-source: https://github.com/relayrides/pushy/archive/pushy-0.10.tar.gz
-javadoc: http://relayrides.github.io/pushy/apidocs/0.10/
+url: https://github.com/relayrides/pushy/releases/tag/pushy-0.10
+version: '0.10'
+documentation_url: http://relayrides.github.io/pushy/apidocs/0.10/

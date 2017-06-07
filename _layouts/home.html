@@ -1,0 +1,46 @@
+<!doctype html>
+
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <title>{{ site.title }}</title>
+
+        <link rel="stylesheet" type="text/css" href="css/style.css"/>
+
+        <!--[if lt IE 9]>
+            <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+    </head>
+
+    <body>
+        <div class="container pageHeader">
+            <a href="https://turo.com/"><img class="pageHeader-logo" src="img/turo.png" alt="Turo" /></a>
+
+            <ul class="pageHeader-navigation">
+                <li class="navigation-item"><a class="navigation-item--text" href="{{ site.data.latest_version.url }}">Latest release ({{ site.data.latest_version.version}})</a></li>
+                <li class="navigation-item"><a class="navigation-item--text" href="{{ site.data.latest_version.documentation_url }}">Documentation</a></li>
+                <li class="navigation-item"><a class="navigation-item--text" href="{{ site.project_url }}">GitHub project page</a></li>
+            </ul>
+        </div>
+
+        <div class="pageContent">
+            <div class="container u-alignCenter">
+                <h1 class="title-heading">{{ site.title }}</h1>
+                <p class="title-subtitle">{{ site.description }}</p>
+            </div>
+
+            <div class="container">
+                {{ content }}
+            </div>
+        </div>
+
+        <div class="container pageFooter">
+            {% capture footer_include %}{% include footer.md %}{% endcapture %}
+            {{ footer_include | markdownify }}
+
+            <p>&copy;{{ "now" | date: "%Y" }} <a href="https://turo.com/">Turo</a>. Available under the <a href="{{ site.license_url }}">{{ site.license_name }}</a>.</p>
+        </div>
+    </body>
+</html>
