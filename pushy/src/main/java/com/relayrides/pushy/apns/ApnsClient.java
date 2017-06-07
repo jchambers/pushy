@@ -566,11 +566,13 @@ public class ApnsClient {
             final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
                     new DefaultPromise(channel.eventLoop());
 
+            final long submitTime = System.currentTimeMillis();
             channel.writeAndFlush(new PushNotificationAndResponsePromise(notification, responsePromise)).addListener(new GenericFutureListener<ChannelFuture>() {
 
                 @Override
                 public void operationComplete(final ChannelFuture future) throws Exception {
                     if (future.isSuccess()) {
+                        ApnsClient.this.handlerMetrics.recordSubmitToWriteLag(System.currentTimeMillis() - submitTime);
                         ApnsClient.this.metricsListener.handleNotificationSent(ApnsClient.this, notificationId);
                     } else {
                         responsePromise.tryFailure(future.cause());
