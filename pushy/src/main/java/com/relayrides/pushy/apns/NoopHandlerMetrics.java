@@ -1,6 +1,12 @@
 package com.relayrides.pushy.apns;
 
 public final class NoopHandlerMetrics implements HandlerMetrics {
+
+    @Override
+    public void recordSubmitToWriteLag(long millis) {
+
+    }
+
     @Override
     public void recordMaxConcurrentStreams(long maxConcurrentStreams) {
 

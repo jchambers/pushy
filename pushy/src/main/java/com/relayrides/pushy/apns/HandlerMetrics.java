@@ -2,6 +2,8 @@ package com.relayrides.pushy.apns;
 
 public interface HandlerMetrics {
 
+    void recordSubmitToWriteLag(long millis);
+
     void recordMaxConcurrentStreams(long maxConcurrentStreams);
 
     void maxStreamsHit();
