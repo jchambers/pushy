@@ -26,12 +26,15 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.resolver.DefaultAddressResolverGroup;
 import io.netty.resolver.NoopAddressResolverGroup;
+import io.netty.resolver.dns.DefaultDnsServerAddressStreamProvider;
+import io.netty.resolver.dns.RoundRobinDnsAddressResolverGroup;
 import io.netty.util.concurrent.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -154,6 +157,13 @@ public class ApnsClient {
     private static final long INITIAL_RECONNECT_DELAY_SECONDS = 1; // second
     private static final long MAX_RECONNECT_DELAY_SECONDS = 60; // seconds
 
+    /**
+     * Apple appears to rely on DNS round robin load balancing for its APNS servers,
+     * judging by the churn in the published dns records for the apns endpoints. Use the netty provided round robin
+     * dns resolver to properly utilize this scheme.
+     */
+    private static final RoundRobinDnsAddressResolverGroup ADDRESS_RESOLVER_GROUP = new RoundRobinDnsAddressResolverGroup(NioDatagramChannel.class, DefaultDnsServerAddressStreamProvider.INSTANCE);
+
     private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
     protected ApnsClient(final SslContext sslContext, final ApnsSigningKey signingKey, final EventLoopGroup eventLoopGroup) {
@@ -172,6 +182,7 @@ public class ApnsClient {
         this.bootstrap.channel(SocketChannelClassUtil.getSocketChannelClass(this.bootstrap.config().group()));
         this.bootstrap.option(ChannelOption.TCP_NODELAY, true);
         this.bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+        this.bootstrap.resolver(ADDRESS_RESOLVER_GROUP);
         this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
             @Override
