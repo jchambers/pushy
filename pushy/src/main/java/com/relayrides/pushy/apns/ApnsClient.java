@@ -237,6 +237,15 @@ public class ApnsClient {
                             throw new IllegalArgumentException("Unexpected protocol: " + protocol);
                         }
                     }
+
+                    @Override
+                    protected void handshakeFailure(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+                        if (ApnsClient.this.connectionReadyPromise != null) {
+                            ApnsClient.this.connectionReadyPromise.tryFailure(cause);
+                        }
+
+                        super.handshakeFailure(ctx, cause);
+                    }
                 });
             }
         });
