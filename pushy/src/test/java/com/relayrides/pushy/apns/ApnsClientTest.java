@@ -19,6 +19,7 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import javax.net.ssl.SSLHandshakeException;
 import java.io.File;
 import java.io.InputStream;
 import java.security.KeyPair;
@@ -302,6 +303,7 @@ public class ApnsClientTest {
         final Future<Void> connectFuture = cautiousClient.connect(HOST, PORT).await();
 
         assertFalse(connectFuture.isSuccess());
+        assertTrue(connectFuture.cause() instanceof SSLHandshakeException);
 
         cautiousClient.disconnect().await();
     }
