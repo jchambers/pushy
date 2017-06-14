@@ -31,7 +31,6 @@ import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.timeout.IdleStateHandler;
-import io.netty.resolver.DefaultAddressResolverGroup;
 import io.netty.resolver.NoopAddressResolverGroup;
 import io.netty.resolver.dns.DefaultDnsServerAddressStreamProvider;
 import io.netty.resolver.dns.RoundRobinDnsAddressResolverGroup;
@@ -162,7 +161,7 @@ public class ApnsClient {
      * judging by the churn in the published dns records for the apns endpoints. Use the netty provided round robin
      * dns resolver to properly utilize this scheme.
      */
-    private static final RoundRobinDnsAddressResolverGroup ADDRESS_RESOLVER_GROUP = new RoundRobinDnsAddressResolverGroup(NioDatagramChannel.class, DefaultDnsServerAddressStreamProvider.INSTANCE);
+    private static final RoundRobinDnsAddressResolverGroup ROUND_ROBIN_ADDRESS_RESOLVER_GROUP = new RoundRobinDnsAddressResolverGroup(NioDatagramChannel.class, DefaultDnsServerAddressStreamProvider.INSTANCE);
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
@@ -182,7 +181,6 @@ public class ApnsClient {
         this.bootstrap.channel(SocketChannelClassUtil.getSocketChannelClass(this.bootstrap.config().group()));
         this.bootstrap.option(ChannelOption.TCP_NODELAY, true);
         this.bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
-        this.bootstrap.resolver(ADDRESS_RESOLVER_GROUP);
         this.bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
             @Override
@@ -286,7 +284,7 @@ public class ApnsClient {
      */
     protected void setProxyHandlerFactory(final ProxyHandlerFactory proxyHandlerFactory) {
         this.proxyHandlerFactory = proxyHandlerFactory;
-        this.bootstrap.resolver(proxyHandlerFactory == null ? DefaultAddressResolverGroup.INSTANCE : NoopAddressResolverGroup.INSTANCE);
+        this.bootstrap.resolver(proxyHandlerFactory == null ? ROUND_ROBIN_ADDRESS_RESOLVER_GROUP : NoopAddressResolverGroup.INSTANCE);
     }
 
     /**
