@@ -274,11 +274,11 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     }
 
     @Override
-    public void close(final ChannelHandlerContext context, final ChannelPromise promise) throws Exception {
-        super.close(context, promise);
+    public void channelInactive(final ChannelHandlerContext context) {
+        assert context.executor().inEventLoop();
 
         final ClientNotConnectedException clientNotConnectedException =
-                new ClientNotConnectedException("Client disconnected unexpectedly.");
+                new ClientNotConnectedException("Client disconnected before receiving a response from the APNs server.");
 
         for (final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise : this.responsePromises.values()) {
             responsePromise.tryFailure(clientNotConnectedException);
