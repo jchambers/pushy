@@ -1,12 +1,6 @@
-# Workaround for Travis CI issue 5227, which results in a buffer overflow
-# caused by Java when running the build on OpenJDK.
-# https://github.com/travis-ci/travis-ci/issues/5227
-before_install:
-    - cat /etc/hosts # optionally check the content *before*
-    - sudo hostname "$(hostname | cut -c1-63)"
-    - sed -e "s/^\\(127\\.0\\.0\\.1.*\\)/\\1 $(hostname | cut -c1-63)/" /etc/hosts | sudo tee /etc/hosts
-    - cat /etc/hosts # optionally check the content *after*
 language: java
+dist: trusty
+sudo: required
 jdk:
     - oraclejdk8
     - oraclejdk7
