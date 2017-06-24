@@ -110,7 +110,7 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
 
             // Once we've invalidated an expired token, it's reasonable to expect that re-sending the notification might
             // succeed.
-            context.channel().write(pushNotification);
+            this.retryPushNotificationFromStream(context, streamId);
         } else {
             super.handleErrorResponse(context, streamId, headers, pushNotification, errorResponse);
         }
