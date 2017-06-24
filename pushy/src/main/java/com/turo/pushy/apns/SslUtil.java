@@ -49,7 +49,7 @@ class SslUtil {
         if (OpenSsl.isAvailable()) {
             if (OpenSsl.isAlpnSupported()) {
                 log.info("Native SSL provider is available and supports ALPN; will use native provider.");
-                sslProvider = SslProvider.OPENSSL_REFCNT;
+                sslProvider = SslProvider.OPENSSL;
             } else {
                 log.info("Native SSL provider is available, but does not support ALPN; will use JDK SSL provider.");
                 sslProvider = SslProvider.JDK;
