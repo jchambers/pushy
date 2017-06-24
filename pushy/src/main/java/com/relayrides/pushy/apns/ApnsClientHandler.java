@@ -370,7 +370,14 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     }
 
     @Override
-    public void onRstStreamRead(final ChannelHandlerContext ctx, final int streamId, final long errorCode) throws Http2Exception {
+    public void onRstStreamRead(final ChannelHandlerContext context, final int streamId, final long errorCode) throws Http2Exception {
+        if (errorCode == Http2Error.REFUSED_STREAM.code()) {
+            // This can happen if the server reduces MAX_CONCURRENT_STREAMS while we already have notifications in
+            // flight. We may get RST_STREAM frames per stream since we send multiple frames (HEADERS and DATA) for each
+            // push notification, but we should only get one REFUSED_STREAM error; the rest should all be
+            // STREAM_CLOSED.
+            this.retryPushNotificationFromStream(context, streamId);
+        }
     }
 
     @Override
