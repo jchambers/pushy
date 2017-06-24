@@ -45,8 +45,6 @@ import java.util.concurrent.TimeUnit;
 
 class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameListener {
 
-    private long nextStreamId = 1;
-
     private final Http2Connection.PropertyKey pushNotificationPropertyKey;
     private final Http2Connection.PropertyKey headersPropertyKey;
 
@@ -63,8 +61,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
     private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
     private static final AsciiString APNS_COLLAPSE_ID_HEADER = new AsciiString("apns-collapse-id");
-
-    private static final long STREAM_ID_RESET_THRESHOLD = Integer.MAX_VALUE - 1;
 
     private static final int INITIAL_PAYLOAD_BUFFER_CAPACITY = 4096;
 
@@ -158,57 +154,56 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
                 this.write(context, pushNotification, writePromise);
             }
         } else if (message instanceof ApnsPushNotification) {
-            final ApnsPushNotification pushNotification = (ApnsPushNotification) message;
+            final int streamId = this.connection().local().incrementAndGetNextStreamId();
 
-            final int streamId = (int) this.nextStreamId;
-
-            final Http2Headers headers = getHeadersForPushNotification(pushNotification, streamId);
-
-            final ChannelPromise headersPromise = context.newPromise();
-            this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
-            log.trace("Wrote headers on stream {}: {}", streamId, headers);
-
-            final ByteBuf payloadBuffer = context.alloc().ioBuffer(INITIAL_PAYLOAD_BUFFER_CAPACITY);
-            payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(StandardCharsets.UTF_8));
-
-            final ChannelPromise dataPromise = context.newPromise();
-            this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
-            log.trace("Wrote payload on stream {}: {}", streamId, pushNotification.getPayload());
-
-            final PromiseCombiner promiseCombiner = new PromiseCombiner();
-            promiseCombiner.addAll((ChannelFuture) headersPromise, dataPromise);
-            promiseCombiner.finish(writePromise);
-
-            writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
-
-                @Override
-                public void operationComplete(final ChannelPromise future) throws Exception {
-                    if (future.isSuccess()) {
-                        final Http2Stream stream = ApnsClientHandler.this.connection().stream(streamId);
-                        stream.setProperty(ApnsClientHandler.this.pushNotificationPropertyKey, pushNotification);
-                    } else {
-                        log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
-
-                        final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
-                                ApnsClientHandler.this.responsePromises.get(pushNotification);
-
-                        if (responsePromise != null) {
-                            responsePromise.tryFailure(future.cause());
-                        } else {
-                            log.error("Notification write failed, but no response promise found.");
-                        }
-                    }
-                }
-            });
-
-            this.nextStreamId += 2;
-
-            if (this.nextStreamId >= STREAM_ID_RESET_THRESHOLD) {
+            if (streamId < 0) {
                 // This is very unlikely, but in the event that we run out of stream IDs (the maximum allowed is
                 // 2^31, per https://httpwg.github.io/specs/rfc7540.html#StreamIdentifiers), we need to open a new
                 // connection. Just closing the context should be enough; automatic reconnection should take things
                 // from there.
-                context.close();
+                writePromise.tryFailure(new ClientNotConnectedException("HTTP/2 streams exhausted; closing connection."));
+                context.channel().close();
+            } else {
+
+                final ApnsPushNotification pushNotification = (ApnsPushNotification) message;
+                final Http2Headers headers = getHeadersForPushNotification(pushNotification, streamId);
+
+                final ChannelPromise headersPromise = context.newPromise();
+                this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
+                log.trace("Wrote headers on stream {}: {}", streamId, headers);
+
+                final ByteBuf payloadBuffer = context.alloc().ioBuffer(INITIAL_PAYLOAD_BUFFER_CAPACITY);
+                payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(StandardCharsets.UTF_8));
+
+                final ChannelPromise dataPromise = context.newPromise();
+                this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
+                log.trace("Wrote payload on stream {}: {}", streamId, pushNotification.getPayload());
+
+                final PromiseCombiner promiseCombiner = new PromiseCombiner();
+                promiseCombiner.addAll((ChannelFuture) headersPromise, dataPromise);
+                promiseCombiner.finish(writePromise);
+
+                writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
+
+                    @Override
+                    public void operationComplete(final ChannelPromise future) throws Exception {
+                        if (future.isSuccess()) {
+                            final Http2Stream stream = ApnsClientHandler.this.connection().stream(streamId);
+                            stream.setProperty(ApnsClientHandler.this.pushNotificationPropertyKey, pushNotification);
+                        } else {
+                            log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
+
+                            final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
+                                    ApnsClientHandler.this.responsePromises.get(pushNotification);
+
+                            if (responsePromise != null) {
+                                responsePromise.tryFailure(future.cause());
+                            } else {
+                                log.error("Notification write failed, but no response promise found.");
+                            }
+                        }
+                    }
+                });
             }
         } else {
             // This should never happen, but in case some foreign debris winds up in the pipeline, just pass it through.
