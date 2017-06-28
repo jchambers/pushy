@@ -12,6 +12,12 @@ public class ApnsServerException extends Exception {
 
     /**
      * Constructs a new APNs server exception.
+     */
+    public ApnsServerException() {
+    }
+
+    /**
+     * Constructs a new APNs server exception.
      *
      * @param message a message from the server (if any) explaining the error; may be {@code null}
      */
