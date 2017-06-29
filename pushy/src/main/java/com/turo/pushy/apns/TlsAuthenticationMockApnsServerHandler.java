@@ -71,6 +71,8 @@ class TlsAuthenticationMockApnsServerHandler extends AbstractMockApnsServerHandl
 
     @Override
     protected void verifyHeaders(final Http2Headers headers) throws RejectedNotificationException {
+        super.verifyHeaders(headers);
+
         final String topic;
         {
             final CharSequence topicSequence = headers.get(APNS_TOPIC_HEADER);
