@@ -45,6 +45,6 @@ public class ExampleApp {
 
         // DropwizardApnsClientMetricsListeners are themselves Metrics and can
         // be added to a registry.
-        registry.register("com.example.MyApnsClient", listener);
+        registry.register(MetricRegistry.name(ExampleApp.class, "apnsClient"), listener);
     }
 }

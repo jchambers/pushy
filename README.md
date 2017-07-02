@@ -30,11 +30,11 @@ If you don't use Maven (or something else that understands Maven dependencies, l
 
 Pushy itself requires Java 7 or newer to build and run.
 
-## Connecting and authenticating
+## Authenticating with the APNs server
 
 Before you can get started with Pushy, you'll need to do some provisioning work with Apple to register your app and get the required certificates or signing keys (more on these shortly). For details on this process, please see the [Provisioning Procedures](https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html) section of Apple's official documentation. Please note that there are [some caveats](https://github.com/relayrides/pushy/wiki/Certificates), particularly under Mac OS X 10.11 (El Capitan).
 
-Generally speaking, APNs clients must authenticate with the APNs server by some means before they can send push notifications. Currently, APNs (and Pushy) support two authentication methods: TLS-based authentication and token-based authentication. The two approaches are mutually-exclusive; you'll need to pick one or the other for each client.
+Generally speaking, APNs clients must authenticate with the APNs server by some means before they can send push notifications. Currently, APNs (and Pushy) supports two authentication methods: TLS-based authentication and token-based authentication. The two approaches are mutually-exclusive; you'll need to pick one or the other for each client.
 
 ### TLS authentication
 
@@ -63,14 +63,7 @@ final ApnsClient apnsClient = new ApnsClientBuilder()
 
 ## Sending push notifications
 
-Regardless of the authentication method you choose, once you've created a client, you can connect it to the APNs gateway. Note that this process is asynchronous; the client will return a `Future` right away, but you'll need to wait for it to complete before you can send any notifications. Note that this is a Netty [`Future`](http://netty.io/4.1/api/io/netty/util/concurrent/Future.html), which is an extension of the Java [`Future`](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/Future.html) interface that allows callers to add listeners and adds methods for checking the status of the `Future`.
-
-```java
-final Future<Void> connectFuture = apnsClient.connect(ApnsClient.DEVELOPMENT_APNS_HOST);
-connectFuture.await();
-```
-
-Once the client has finished connecting to the APNs server, you can begin sending push notifications. At minimum, [push notifications](http://relayrides.github.io/pushy/apidocs/0.10/com/turo/pushy/apns/ApnsPushNotification.html) need a device token (which is a distinct idea from an authentication token) that identifies the notification's destination, a topic, and a payload.
+Pushy's APNs clients maintain an internal pool of connections to the APNs server and create new connections on demand. As a result, clients do not need to be started explicitly. Regardless of the authentication method you choose, once you've created a client, it's ready to start sending push notifications. At minimum, [push notifications](http://relayrides.github.io/pushy/apidocs/0.10/com/turo/pushy/apns/ApnsPushNotification.html) need a device token (which identifies the notification's destination device and is a distinct idea from an authentication token), a topic, and a payload.
 
 ```java
 final SimpleApnsPushNotification pushNotification;
@@ -86,7 +79,7 @@ final SimpleApnsPushNotification pushNotification;
 }
 ```
 
-Like connecting, sending notifications is an asynchronous process. You'll get a `Future` immediately, but will need to wait for the `Future` to complete before you'll know whether the notification was accepted or rejected by the APNs gateway.
+The process of sending a push notification is asynchronous; although the process of sending a notification and getting a reply from the server may take some time, the client will return a [`io.netty.util.concurrent.Future`](http://netty.io/4.1/api/io/netty/util/concurrent/Future.html) right away. You can use that `Future` to track the progress and eventual outcome of the sending operation. Note that an `io.netty.util.concurrent.Future` is an extension of the Java [`Future`](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/Future.html) interface that allows callers to add listeners and adds methods for checking the status of the `Future`.
 
 ```java
 final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendNotificationFuture =
@@ -97,7 +90,7 @@ The `Future` will complete in one of three circumstances:
 
 1. The gateway accepts the notification and will attempt to deliver it to the destination device.
 2. The gateway rejects the notification; this should be considered a permanent failure, and the notification should not be sent again. Additionally, the APNs gateway may indicate a timestamp at which the destination token became invalid. If that happens, you should stop trying to send *any* notification to that token unless the token has been re-registered since that timestamp.
-3. The `Future` fails with an exception. This should generally be considered a temporary failure, and callers should try to send the notification again when the problem has been resolved. In particular, the `Future` may fail with a [`ClientNotConnectedException`](http://relayrides.github.io/pushy/apidocs/0.10/com/turo/pushy/apns/ClientNotConnectedException.html), in which case callers may wait for the connection to be restored automatically by waiting for the `Future` returned by [`ApnsClient#getReconnectionFuture()`](http://relayrides.github.io/pushy/apidocs/0.10/com/turo/pushy/apns/ApnsClient.html#getReconnectionFuture--).
+3. The `Future` fails with an exception. This should generally be considered a temporary failure, and callers should try to send the notification again when the problem has been resolved.
 
 An example:
 
@@ -120,22 +113,16 @@ try {
 } catch (final ExecutionException e) {
     System.err.println("Failed to send push notification.");
     e.printStackTrace();
-
-    if (e.getCause() instanceof ClientNotConnectedException) {
-        System.out.println("Waiting for client to reconnect…");
-        apnsClient.getReconnectionFuture().await();
-        System.out.println("Reconnected.");
-    }
 }
 ```
 
 Again, it's important to note that the returned `Future` supports listeners; waiting for each individual push notification is inefficient in practice, and most users will be better serverd by adding a listener to the `Future` instead of blocking until it completes.
 
-Finally, when your application is shutting down, you'll want to disconnect any active clients:
+All APNs clients—even those that have never sent a message—may allocate and hold on to system resources, and it's important to release them. APNs clients are intended to be persistent, long-lived resources; you definitely don't need to shut down a client after sending a notification (or even batch of notifications), but you'll want to shut down your client (or clients) when your application is shutting down:
 
 ```java
-final Future<Void> disconnectFuture = apnsClient.disconnect();
-disconnectFuture.await();
+final Future<Void> closeFuture = apnsClient.close();
+closeFuture.await();
 ```
 
 When shutting down, clients will wait for all sent-but-not-acknowledged notifications to receive a reply from the server. Notifications that have been passed to `sendNotification` but not yet sent to the server (i.e. notifications waiting in an internal queue) will fail immediately when disconnecting. Callers should generally make sure that all sent notifications have been acknowledged by the server before shutting down.

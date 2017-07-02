@@ -30,14 +30,13 @@ import io.netty.handler.ssl.*;
 import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetSocketAddress;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.PrivateKey;
@@ -52,6 +51,8 @@ import java.util.concurrent.TimeUnit;
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */
 public class ApnsClientBuilder {
+    private InetSocketAddress apnsServerAddress;
+
     private X509Certificate clientCertificate;
     private PrivateKey privateKey;
     private String privateKeyPassword;
@@ -64,20 +65,100 @@ public class ApnsClientBuilder {
 
     private EventLoopGroup eventLoopGroup;
 
+    private int concurrentConnections = 1;
+
     private ApnsClientMetricsListener metricsListener;
 
     private ProxyHandlerFactory proxyHandlerFactory;
 
-    private Long connectionTimeout;
-    private TimeUnit connectionTimeoutUnit;
+    private int connectionTimeoutMillis;
+    private long idlePingIntervalMillis = DEFAULT_PING_IDLE_TIME_MILLIS;
+    private long gracefulShutdownTimeoutMillis;
 
-    private Long idlePingInterval;
-    private TimeUnit idlePingIntervalUnit;
+    /**
+     * The default idle time in milliseconds after which the client will send a PING frame to the APNs server.
+     *
+     * @since 0.11
+     */
+    public static final int DEFAULT_PING_IDLE_TIME_MILLIS = 60_000;
 
-    private Long gracefulShutdownTimeout;
-    private TimeUnit gracefulShutdownTimeoutUnit;
+    /**
+     * The hostname for the production APNs gateway.
+     *
+     * @since 0.5
+     */
+    public static final String PRODUCTION_APNS_HOST = "api.push.apple.com";
 
-    private static final Logger log = LoggerFactory.getLogger(ApnsClientBuilder.class);
+    /**
+     * The hostname for the development APNs gateway.
+     *
+     * @since 0.5
+     */
+    public static final String DEVELOPMENT_APNS_HOST = "api.development.push.apple.com";
+
+    /**
+     * The default (HTTPS) port for communication with the APNs gateway.
+     *
+     * @since 0.5
+     */
+    public static final int DEFAULT_APNS_PORT = 443;
+
+    /**
+     * <p>An alternative port for communication with the APNs gateway. According to Apple's documentation:</p>
+     *
+     * <blockquote>You can alternatively use port 2197 when communicating with APNs. You might do this, for example, to
+     * allow APNs traffic through your firewall but to block other HTTPS traffic.</blockquote>
+     *
+     * @see <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html#//apple_ref/doc/uid/TP40008194-CH11-SW1">Communicating
+     * with APNs</a>
+     *
+     * @since 0.5
+     */
+    public static final int ALTERNATE_APNS_PORT = 2197;
+
+    /**
+     * Sets the hostname of the server to which the client under construction will connect. Apple provides a production
+     * and development environment.
+     *
+     * @param hostname the hostname of the server to which the client under construction should connect
+     *
+     * @return a reference to this builder
+     *
+     * @see ApnsClientBuilder#DEVELOPMENT_APNS_HOST
+     * @see ApnsClientBuilder#PRODUCTION_APNS_HOST
+     *
+     * @see <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html#//apple_ref/doc/uid/TP40008194-CH11-SW1">Communicating with APNs</a>
+     *
+     * @since 0.11
+     */
+    public ApnsClientBuilder setApnsServer(final String hostname) {
+        return this.setApnsServer(hostname, DEFAULT_APNS_PORT);
+    }
+
+    /**
+     * Sets the hostname and port of the server to which the client under construction will connect. Apple provides a
+     * production and development environment, both of which listen for traffic on the default HTTPS port
+     * ({@value DEFAULT_APNS_PORT}) and an alternate port ({@value ALTERNATE_APNS_PORT}), which callers may use to work
+     * around firewall or proxy restrictions.
+     *
+     * @param hostname the hostname of the server to which the client under construction should connect
+     * @param port the port to which the client under contruction should connect
+     *
+     * @return a reference to this builder
+     *
+     * @see ApnsClientBuilder#DEVELOPMENT_APNS_HOST
+     * @see ApnsClientBuilder#PRODUCTION_APNS_HOST
+     * @see ApnsClientBuilder#DEFAULT_APNS_PORT
+     * @see ApnsClientBuilder#ALTERNATE_APNS_PORT
+     *
+     * @see <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html#//apple_ref/doc/uid/TP40008194-CH11-SW1">Communicating with APNs</a>
+     *
+     * @since 0.11
+     */
+    public ApnsClientBuilder setApnsServer(final String hostname, final int port) {
+        this.apnsServerAddress = new InetSocketAddress(hostname, port);
+        return this;
+    }
 
     /**
      * <p>Sets the TLS credentials for the client under construction using the contents of the given PKCS#12 file.
@@ -281,6 +362,22 @@ public class ApnsClientBuilder {
     }
 
     /**
+     * Sets the maximum number of concurrent connections the client under construction may attempt to maintain to the
+     * APNs server. By default, clients will attempt to maintain a single connection to the APNs server.
+     *
+     * @param concurrentConnections the maximum number of concurrent connections the client under construction may
+     * attempt to maintain
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.11
+     */
+    public ApnsClientBuilder setConcurrentConnections(final int concurrentConnections) {
+        this.concurrentConnections = concurrentConnections;
+        return this;
+    }
+
+    /**
      * Sets the metrics listener for the client under construction. Metrics listeners gather information that describes
      * the performance and behavior of a client, and are completely optional.
      *
@@ -325,9 +422,7 @@ public class ApnsClientBuilder {
      * @since 0.8
      */
     public ApnsClientBuilder setConnectionTimeout(final long connectionTimeout, final TimeUnit timeoutUnit) {
-        this.connectionTimeout = connectionTimeout;
-        this.connectionTimeoutUnit = timeoutUnit;
-
+        this.connectionTimeoutMillis = (int) timeoutUnit.toMillis(connectionTimeout);
         return this;
     }
 
@@ -335,19 +430,17 @@ public class ApnsClientBuilder {
     /**
      * Sets the amount of idle time (in milliseconds) after which the client under construction will send a PING frame
      * to the APNs server. By default, clients will send a PING frame after
-     * {@value com.turo.pushy.apns.ApnsClient#DEFAULT_PING_IDLE_TIME_MILLIS} milliseconds of inactivity.
+     * {@value com.turo.pushy.apns.ApnsClientBuilder#DEFAULT_PING_IDLE_TIME_MILLIS} milliseconds of inactivity.
      *
      * @param pingInterval the amount of idle time after which the client will send a PING frame
-     * @param timeoutUnit the time unit for the given idle time
+     * @param pingIntervalUnit the time unit for the given idle time
      *
      * @return a reference to this builder
      *
      * @since 0.10
      */
-    public ApnsClientBuilder setIdlePingInterval(final long pingInterval, final TimeUnit timeoutUnit) {
-        this.idlePingInterval = pingInterval;
-        this.idlePingIntervalUnit = timeoutUnit;
-
+    public ApnsClientBuilder setIdlePingInterval(final long pingInterval, final TimeUnit pingIntervalUnit) {
+        this.idlePingIntervalMillis = pingIntervalUnit.toMillis(pingInterval);
         return this;
     }
 
@@ -361,14 +454,12 @@ public class ApnsClientBuilder {
      *
      * @return a reference to this builder
      *
-     * @see ApnsClient#disconnect()
+     * @see ApnsClient#close()
      *
      * @since 0.8
      */
     public ApnsClientBuilder setGracefulShutdownTimeout(final long gracefulShutdownTimeout, final TimeUnit timeoutUnit) {
-        this.gracefulShutdownTimeout = gracefulShutdownTimeout;
-        this.gracefulShutdownTimeoutUnit = timeoutUnit;
-
+        this.gracefulShutdownTimeoutMillis = timeoutUnit.toMillis(gracefulShutdownTimeout);
         return this;
     }
 
@@ -382,6 +473,10 @@ public class ApnsClientBuilder {
      * @since 0.8
      */
     public ApnsClient build() throws SSLException {
+        if (this.apnsServerAddress == null) {
+            throw new IllegalStateException("No APNs server address specified.");
+        }
+
         if (this.clientCertificate == null && this.privateKey == null && this.signingKey == null) {
             throw new IllegalStateException("No client credentials specified; either TLS credentials (a " +
                     "certificate/private key) or an APNs signing key must be provided before building a client.");
@@ -417,23 +512,8 @@ public class ApnsClientBuilder {
             sslContext = sslContextBuilder.build();
         }
 
-        final ApnsClient apnsClient = new ApnsClient(sslContext, this.signingKey, this.eventLoopGroup);
-
-        apnsClient.setMetricsListener(this.metricsListener);
-        apnsClient.setProxyHandlerFactory(this.proxyHandlerFactory);
-
-        if (this.connectionTimeout != null) {
-            apnsClient.setConnectionTimeout((int) this.connectionTimeoutUnit.toMillis(this.connectionTimeout));
-        }
-
-        if (this.idlePingInterval != null) {
-            apnsClient.setPingInterval(this.idlePingIntervalUnit.toMillis(this.idlePingInterval));
-        }
-
-        if (this.gracefulShutdownTimeout != null) {
-            apnsClient.setGracefulShutdownTimeout(this.gracefulShutdownTimeoutUnit.toMillis(this.gracefulShutdownTimeout));
-        }
-
-        return apnsClient;
+        return new ApnsClient(this.apnsServerAddress, sslContext, this.signingKey, this.proxyHandlerFactory,
+                this.connectionTimeoutMillis, this.idlePingIntervalMillis, this.gracefulShutdownTimeoutMillis,
+                this.concurrentConnections, this.metricsListener, this.eventLoopGroup);
     }
 }

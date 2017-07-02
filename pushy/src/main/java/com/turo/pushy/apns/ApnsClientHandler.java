@@ -37,10 +37,12 @@ import io.netty.util.concurrent.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.*;
+import java.util.Date;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameListener, Http2Connection.Listener {
@@ -62,11 +64,11 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     private static final int INITIAL_PAYLOAD_BUFFER_CAPACITY = 4096;
 
-    private static final ClientNotConnectedException STREAMS_EXHAUSTED_EXCEPTION =
-            new ClientNotConnectedException("HTTP/2 streams exhausted; closing connection.");
+    private static final IOException STREAMS_EXHAUSTED_EXCEPTION =
+            new IOException("HTTP/2 streams exhausted; closing connection.");
 
-    private static final ClientNotConnectedException STREAM_CLOSED_BEFORE_REPLY_EXCEPTION =
-            new ClientNotConnectedException("Stream closed before a reply was received");
+    private static final IOException STREAM_CLOSED_BEFORE_REPLY_EXCEPTION =
+            new IOException("Stream closed before a reply was received");
 
     private static final Gson GSON = new GsonBuilder()
             .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
