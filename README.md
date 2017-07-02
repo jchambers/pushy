@@ -40,7 +40,7 @@ Generally speaking, APNs clients must authenticate with the APNs server by some 
 
 In TLS-based authentication, clients present a TLS certificate to the server when connecting, and may send notifications to any "topic" named in the certificate. Generally, this means that a single client can only send push notifications to a single receiving app.
 
-Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an [`ApnsClient`](http://relayrides.github.io/pushy/apidocs/0.10/com/relayrides/pushy/apns/ApnsClient.html). Clients using TLS authentication need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing). To create a client that will use TLS-based authentication:
+Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an [`ApnsClient`](http://relayrides.github.io/pushy/apidocs/0.10/com/turo/pushy/apns/ApnsClient.html). Clients using TLS authentication need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing). To create a client that will use TLS-based authentication:
 
 ```java
 final ApnsClient apnsClient = new ApnsClientBuilder()
@@ -70,7 +70,7 @@ final Future<Void> connectFuture = apnsClient.connect(ApnsClient.DEVELOPMENT_APN
 connectFuture.await();
 ```
 
-Once the client has finished connecting to the APNs server, you can begin sending push notifications. At minimum, [push notifications](http://relayrides.github.io/pushy/apidocs/0.10/com/relayrides/pushy/apns/ApnsPushNotification.html) need a device token (which is a distinct idea from an authentication token) that identifies the notification's destination, a topic, and a payload.
+Once the client has finished connecting to the APNs server, you can begin sending push notifications. At minimum, [push notifications](http://relayrides.github.io/pushy/apidocs/0.10/com/turo/pushy/apns/ApnsPushNotification.html) need a device token (which is a distinct idea from an authentication token) that identifies the notification's destination, a topic, and a payload.
 
 ```java
 final SimpleApnsPushNotification pushNotification;
@@ -97,7 +97,7 @@ The `Future` will complete in one of three circumstances:
 
 1. The gateway accepts the notification and will attempt to deliver it to the destination device.
 2. The gateway rejects the notification; this should be considered a permanent failure, and the notification should not be sent again. Additionally, the APNs gateway may indicate a timestamp at which the destination token became invalid. If that happens, you should stop trying to send *any* notification to that token unless the token has been re-registered since that timestamp.
-3. The `Future` fails with an exception. This should generally be considered a temporary failure, and callers should try to send the notification again when the problem has been resolved. In particular, the `Future` may fail with a [`ClientNotConnectedException`](http://relayrides.github.io/pushy/apidocs/0.10/com/relayrides/pushy/apns/ClientNotConnectedException.html), in which case callers may wait for the connection to be restored automatically by waiting for the `Future` returned by [`ApnsClient#getReconnectionFuture()`](http://relayrides.github.io/pushy/apidocs/0.10/com/relayrides/pushy/apns/ApnsClient.html#getReconnectionFuture--).
+3. The `Future` fails with an exception. This should generally be considered a temporary failure, and callers should try to send the notification again when the problem has been resolved. In particular, the `Future` may fail with a [`ClientNotConnectedException`](http://relayrides.github.io/pushy/apidocs/0.10/com/turo/pushy/apns/ClientNotConnectedException.html), in which case callers may wait for the connection to be restored automatically by waiting for the `Future` returned by [`ApnsClient#getReconnectionFuture()`](http://relayrides.github.io/pushy/apidocs/0.10/com/turo/pushy/apns/ApnsClient.html#getReconnectionFuture--).
 
 An example:
 
@@ -160,7 +160,7 @@ Please note that the metric-handling methods in your listener implementation sho
 
 ## Using a proxy
 
-If you need to use a proxy for outbound connections, you may specify a [`ProxyHandlerFactory`](http://relayrides.github.io/pushy/apidocs/0.10/com/relayrides/pushy/apns/proxy/ProxyHandlerFactory.html) when building your `ApnsClient` instance. Concrete implementations of `ProxyHandlerFactory` are provided for HTTP, SOCKS4, and SOCKS5 proxies.
+If you need to use a proxy for outbound connections, you may specify a [`ProxyHandlerFactory`](http://relayrides.github.io/pushy/apidocs/0.10/com/turo/pushy/apns/proxy/ProxyHandlerFactory.html) when building your `ApnsClient` instance. Concrete implementations of `ProxyHandlerFactory` are provided for HTTP, SOCKS4, and SOCKS5 proxies.
 
 An example:
 
