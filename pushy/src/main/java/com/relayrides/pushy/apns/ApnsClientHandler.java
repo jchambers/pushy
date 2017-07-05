@@ -31,7 +31,6 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http2.*;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.AsciiString;
-import io.netty.util.ReferenceCountUtil;
 import io.netty.util.concurrent.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,15 +41,11 @@ import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
-class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameListener {
-
-    private long nextStreamId = 1;
+class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameListener, Http2Connection.Listener {
 
     private final Http2Connection.PropertyKey pushNotificationPropertyKey;
-    private final Http2Connection.PropertyKey headersPropertyKey;
-
-    private final Map<ApnsPushNotification, Promise<PushNotificationResponse<ApnsPushNotification>>> responsePromises =
-            new IdentityHashMap<>();
+    private final Http2Connection.PropertyKey responseHeadersPropertyKey;
+    private final Http2Connection.PropertyKey responsePromisePropertyKey;
 
     private final String authority;
 
@@ -65,9 +60,13 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private static final AsciiString APNS_COLLAPSE_ID_HEADER = new AsciiString("apns-collapse-id");
     private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
 
-    private static final long STREAM_ID_RESET_THRESHOLD = Integer.MAX_VALUE - 1;
-
     private static final int INITIAL_PAYLOAD_BUFFER_CAPACITY = 4096;
+
+    private static final ClientNotConnectedException STREAMS_EXHAUSTED_EXCEPTION =
+            new ClientNotConnectedException("HTTP/2 streams exhausted; closing connection.");
+
+    private static final ClientNotConnectedException STREAM_CLOSED_BEFORE_REPLY_EXCEPTION =
+            new ClientNotConnectedException("Stream closed before a reply was received");
 
     private static final Gson GSON = new GsonBuilder()
             .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
@@ -141,9 +140,12 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         this.authority = authority;
 
         this.pushNotificationPropertyKey = this.connection().newKey();
-        this.headersPropertyKey = this.connection().newKey();
-        this.pingTimeoutMillis = idlePingIntervalMillis/2;
+        this.responseHeadersPropertyKey = this.connection().newKey();
+        this.responsePromisePropertyKey = this.connection().newKey();
+
         this.metrics = metrics;
+
+        this.pingTimeoutMillis = idlePingIntervalMillis / 2;
     }
 
     @Override
@@ -152,31 +154,28 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
             final PushNotificationAndResponsePromise pushNotificationAndResponsePromise =
                     (PushNotificationAndResponsePromise) message;
 
-            final ApnsPushNotification pushNotification = pushNotificationAndResponsePromise.getPushNotification();
+            this.writePushNotification(context, pushNotificationAndResponsePromise.getPushNotification(), pushNotificationAndResponsePromise.getResponsePromise(), writePromise);
+        } else {
+            // This should never happen, but in case some foreign debris winds up in the pipeline, just pass it through.
+            log.error("Unexpected object in pipeline: {}", message);
+            context.write(message, writePromise);
+        }
+    }
 
-            if (this.responsePromises.containsKey(pushNotification)) {
-                writePromise.tryFailure(new PushNotificationStillPendingException());
-                ReferenceCountUtil.release(message);
-            } else {
-                this.responsePromises.put(pushNotification, pushNotificationAndResponsePromise.getResponsePromise());
+    protected void retryPushNotificationFromStream(final ChannelHandlerContext context, final int streamId) {
+        final Http2Stream stream = this.connection().stream(streamId);
 
-                pushNotificationAndResponsePromise.getResponsePromise().addListener(new GenericFutureListener<Future<PushNotificationResponse<ApnsPushNotification>>> () {
+        final ApnsPushNotification pushNotification = stream.getProperty(this.pushNotificationPropertyKey);
+        final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise = stream.getProperty(this.responsePromisePropertyKey);
 
-                    @Override
-                    public void operationComplete(final Future<PushNotificationResponse<ApnsPushNotification>> future) {
-                        // Regardless of the outcome, when the response promise is finished, we want to remove it from
-                        // the map of pending promises.
-                        ApnsClientHandler.this.responsePromises.remove(pushNotification);
-                    }
-                });
+        final ChannelPromise writePromise = context.channel().newPromise();
+        this.writePushNotification(context, pushNotification, responsePromise, writePromise);
+    }
 
-                this.write(context, pushNotification, writePromise);
-            }
-        } else if (message instanceof ApnsPushNotification) {
-            final ApnsPushNotification pushNotification = (ApnsPushNotification) message;
+    private void writePushNotification(final ChannelHandlerContext context, final ApnsPushNotification pushNotification, final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise, final ChannelPromise writePromise) {
+        final int streamId = this.connection().local().incrementAndGetNextStreamId();
 
-            final int streamId = (int) this.nextStreamId;
-
+        if (streamId > 0) {
             final Http2Headers headers = getHeadersForPushNotification(pushNotification, streamId);
 
             if (!connection().local().canOpenStream()) {
@@ -204,24 +203,21 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
                 public void operationComplete(final ChannelPromise future) throws Exception {
                     if (future.isSuccess()) {
                         final Http2Stream stream = ApnsClientHandler.this.connection().stream(streamId);
+
                         stream.setProperty(ApnsClientHandler.this.pushNotificationPropertyKey, pushNotification);
+                        stream.setProperty(ApnsClientHandler.this.responsePromisePropertyKey, responsePromise);
+                    } else {
+                        log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
+                        responsePromise.tryFailure(future.cause());
                     }
                 }
             });
-
-            this.nextStreamId += 2;
-
-            if (this.nextStreamId >= STREAM_ID_RESET_THRESHOLD) {
-                // This is very unlikely, but in the event that we run out of stream IDs (the maximum allowed is
-                // 2^31, per https://httpwg.github.io/specs/rfc7540.html#StreamIdentifiers), we need to open a new
-                // connection. Just closing the context should be enough; automatic reconnection should take things
-                // from there.
-                context.close();
-            }
         } else {
-            // This should never happen, but in case some foreign debris winds up in the pipeline, just pass it through.
-            log.error("Unexpected object in pipeline: {}", message);
-            context.write(message, writePromise);
+            // This is very unlikely, but in the event that we run out of stream IDs, we need to open a new
+            // connection. Just closing the context should be enough; automatic reconnection should take things
+            // from there.
+            writePromise.tryFailure(STREAMS_EXHAUSTED_EXCEPTION);
+            context.channel().close();
         }
     }
 
@@ -291,20 +287,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     }
 
     @Override
-    public void channelInactive(final ChannelHandlerContext context) {
-        assert context.executor().inEventLoop();
-
-        final ClientNotConnectedException clientNotConnectedException =
-                new ClientNotConnectedException("Client disconnected before receiving a response from the APNs server.");
-
-        for (final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise : this.responsePromises.values()) {
-            responsePromise.tryFailure(clientNotConnectedException);
-        }
-
-        this.responsePromises.clear();
-    }
-
-    @Override
     public int onDataRead(final ChannelHandlerContext context, final int streamId, final ByteBuf data, final int padding, final boolean endOfStream) throws Http2Exception {
         log.trace("Received data from APNs gateway on stream {}: {}", streamId, data.toString(StandardCharsets.UTF_8));
 
@@ -313,7 +295,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         if (endOfStream) {
             final Http2Stream stream = this.connection().stream(streamId);
 
-            final Http2Headers headers = stream.getProperty(this.headersPropertyKey);
+            final Http2Headers headers = stream.getProperty(this.responseHeadersPropertyKey);
             final ApnsPushNotification pushNotification = stream.getProperty(this.pushNotificationPropertyKey);
 
             final ErrorResponse errorResponse = GSON.fromJson(data.toString(StandardCharsets.UTF_8), ErrorResponse.class);
@@ -327,21 +309,17 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     }
 
     protected void handleErrorResponse(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final ApnsPushNotification pushNotification, final ErrorResponse errorResponse) {
+        final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
+                this.connection().stream(streamId).getProperty(this.responsePromisePropertyKey);
+
         final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
 
-        Promise<PushNotificationResponse<ApnsPushNotification>> future = this.responsePromises.get(pushNotification);
-        if (future == null) {
-            log.error("Received response but no promise registered for notification sent to token " + pushNotification.getToken());
-        }
-        else {
-            if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
-                log.warn("APNs server reported an internal error when sending {}.", pushNotification);
-                future.tryFailure(new ApnsServerException(GSON.toJson(errorResponse)));
-            }
-            else {
-                future.trySuccess(
-                        new SimplePushNotificationResponse<>(pushNotification, HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
-            }
+        if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
+            log.warn("APNs server reported an internal error when sending {}.", pushNotification);
+            responsePromise.tryFailure(new ApnsServerException(GSON.toJson(errorResponse)));
+        } else {
+            responsePromise.trySuccess(new SimplePushNotificationResponse<>(pushNotification,
+                    HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
         }
     }
 
@@ -364,23 +342,17 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
             }
 
             final ApnsPushNotification pushNotification = stream.getProperty(this.pushNotificationPropertyKey);
+            final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise = stream.getProperty(this.responsePromisePropertyKey);
 
-            Promise<PushNotificationResponse<ApnsPushNotification>> future = this.responsePromises.get(pushNotification);
-            if (future == null) {
-                log.error("Received response but no promise registered for notification sent to token " + pushNotification.getToken() + " (headers only)");
-            }
-            else {
-                if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
-                    log.warn("APNs server reported an internal error when sending {}.", pushNotification);
-                    future.tryFailure(new ApnsServerException(null));
-                }
-                else {
-                    future.trySuccess(
-                            new SimplePushNotificationResponse<>(pushNotification, success, null, null));
-                }
+            if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
+                log.warn("APNs server reported an internal error when sending {}.", pushNotification);
+                responsePromise.tryFailure(new ApnsServerException());
+            } else {
+                responsePromise.trySuccess(
+                        new SimplePushNotificationResponse<>(pushNotification, success, null, null));
             }
         } else {
-            stream.setProperty(this.headersPropertyKey, headers);
+            stream.setProperty(this.responseHeadersPropertyKey, headers);
         }
     }
 
@@ -389,7 +361,14 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     }
 
     @Override
-    public void onRstStreamRead(final ChannelHandlerContext ctx, final int streamId, final long errorCode) throws Http2Exception {
+    public void onRstStreamRead(final ChannelHandlerContext context, final int streamId, final long errorCode) throws Http2Exception {
+        if (errorCode == Http2Error.REFUSED_STREAM.code()) {
+            // This can happen if the server reduces MAX_CONCURRENT_STREAMS while we already have notifications in
+            // flight. We may get RST_STREAM frames per stream since we send multiple frames (HEADERS and DATA) for each
+            // push notification, but we should only get one REFUSED_STREAM error; the rest should all be
+            // STREAM_CLOSED.
+            this.retryPushNotificationFromStream(context, streamId);
+        }
     }
 
     @Override
@@ -439,5 +418,43 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         super.exceptionCaught(ctx, cause);
         log.error("Caught exception in HTTP2 frame handler, closing channel", cause);
+    }
+
+    public void onStreamAdded(final Http2Stream stream) {
+    }
+
+    @Override
+    public void onStreamActive(final Http2Stream stream) {
+    }
+
+    @Override
+    public void onStreamHalfClosed(final Http2Stream stream) {
+    }
+
+    @Override
+    public void onStreamClosed(final Http2Stream stream) {
+        // Always try to fail promises associated with closed streams; most of the time, this should fail silently, but
+        // in cases of unexpected closure, it will make sure that nothing gets left hanging.
+        final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
+                stream.getProperty(this.responsePromisePropertyKey);
+
+        if (responsePromise != null) {
+            responsePromise.tryFailure(STREAM_CLOSED_BEFORE_REPLY_EXCEPTION);
+        }
+    }
+
+    @Override
+    public void onStreamRemoved(final Http2Stream stream) {
+        stream.removeProperty(this.pushNotificationPropertyKey);
+        stream.removeProperty(this.responseHeadersPropertyKey);
+        stream.removeProperty(this.responsePromisePropertyKey);
+    }
+
+    @Override
+    public void onGoAwaySent(final int lastStreamId, final long errorCode, final ByteBuf debugData) {
+    }
+
+    @Override
+    public void onGoAwayReceived(int lastStreamId, long errorCode, ByteBuf debugData) {
     }
 }
