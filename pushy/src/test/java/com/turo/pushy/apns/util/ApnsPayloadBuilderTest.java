@@ -110,7 +110,7 @@ public class ApnsPayloadBuilderTest {
         }
 
         // We're happy here as long as nothing explodes
-        this.builder.setLocalizedAlertMessage(alertKey, null);
+        this.builder.setLocalizedAlertMessage(alertKey, (String[]) null);
 
         final String[] alertArgs = new String[] { "Moose", "helicopter" };
         this.builder.setLocalizedAlertMessage(alertKey, alertArgs);
@@ -165,7 +165,7 @@ public class ApnsPayloadBuilderTest {
         }
 
         // We're happy here as long as nothing explodes
-        this.builder.setLocalizedAlertTitle(localizedAlertTitleKey, null);
+        this.builder.setLocalizedAlertTitle(localizedAlertTitleKey, (String[]) null);
 
         final String[] alertArgs = new String[] { "Moose", "helicopter" };
         this.builder.setLocalizedAlertTitle(localizedAlertTitleKey, alertArgs);
@@ -222,7 +222,7 @@ public class ApnsPayloadBuilderTest {
         }
 
         // We're happy here as long as nothing explodes
-        this.builder.setLocalizedAlertSubtitle(subtitleKey, null);
+        this.builder.setLocalizedAlertSubtitle(subtitleKey, (String[]) null);
 
         final String[] subtitleArgs = new String[] { "Moose", "helicopter" };
         this.builder.setLocalizedAlertSubtitle(subtitleKey, subtitleArgs);
@@ -429,7 +429,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.addCustomProperty(customKey, customValue);
 
         @SuppressWarnings("unchecked")
-        final Map<String, Object> payload = (Map<String, Object>) this.gson.fromJson(
+        final Map<String, Object> payload = this.gson.fromJson(
                 this.builder.buildWithDefaultMaximumLength(), MAP_OF_STRING_TO_OBJECT);
 
         assertEquals(customValue, payload.get(customKey));
