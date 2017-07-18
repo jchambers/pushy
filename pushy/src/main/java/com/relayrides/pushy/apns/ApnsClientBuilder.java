@@ -84,6 +84,8 @@ public class ApnsClientBuilder {
 
     private WriteBufferWaterMark channelWriteBufferWaterMark;
 
+    private SslProvider sslProvider = SslUtil.getSslProvider();
+
     private static final Logger log = LoggerFactory.getLogger(ApnsClientBuilder.class);
 
     /**
@@ -308,6 +310,11 @@ public class ApnsClientBuilder {
         return this;
     }
 
+    public ApnsClientBuilder setSSLProvider(SslProvider sslProvider) {
+        this.sslProvider = sslProvider;
+        return this;
+    }
+
     /**
      * Sets the proxy handler factory to be used to construct proxy handlers when establishing a new connection to the
      * APNs gateway. A client's proxy handler factory may be {@code null}, in which case the client will connect to the
@@ -450,8 +457,6 @@ public class ApnsClientBuilder {
 
         final SslContext sslContext;
         {
-            final SslProvider sslProvider = SslUtil.getSslProvider();
-
             final SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
                     .sslProvider(sslProvider)
                     .sessionCacheSize(this.sessionCacheSize)
