@@ -5,7 +5,7 @@
     <groupId>com.urbanairship</groupId>
     <artifactId>pushy-parent</artifactId>
     <packaging>pom</packaging>
-    <version>0.23-SNAPSHOT</version>
+    <version>0.23</version>
     <name>Pushy parent</name>
     <description>A Java library for sending push notifications</description>
 
