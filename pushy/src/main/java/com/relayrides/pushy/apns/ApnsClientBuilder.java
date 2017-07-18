@@ -84,7 +84,7 @@ public class ApnsClientBuilder {
 
     private WriteBufferWaterMark channelWriteBufferWaterMark;
 
-    private SslProvider sslProvider = SslUtil.getSslProvider();
+    private SslProvider sslProvider;
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientBuilder.class);
 
@@ -457,6 +457,10 @@ public class ApnsClientBuilder {
 
         final SslContext sslContext;
         {
+            if (sslProvider == null) {
+                sslProvider = SslUtil.getSslProvider();
+            }
+
             final SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
                     .sslProvider(sslProvider)
                     .sessionCacheSize(this.sessionCacheSize)
