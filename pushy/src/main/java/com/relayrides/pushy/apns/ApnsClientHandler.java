@@ -379,6 +379,9 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     public void onSettingsRead(final ChannelHandlerContext context, final Http2Settings settings) {
         log.trace("Received settings from APNs gateway: {}", settings);
         metrics.recordMaxConcurrentStreams(settings.maxConcurrentStreams());
+        if (settings.maxConcurrentStreams() < 1000) {
+            log.warn("Max concurrent streams is " + settings.maxConcurrentStreams() + " which is under 1000");
+        }
     }
 
     @Override
