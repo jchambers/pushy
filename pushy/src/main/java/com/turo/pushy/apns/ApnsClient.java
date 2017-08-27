@@ -98,7 +98,7 @@ public class ApnsClient {
     private final ApnsSigningKey signingKey;
 
     private Long gracefulShutdownTimeoutMillis;
-    long idlePingIntervalMillis = DEFAULT_PING_IDLE_TIME_MILLIS;
+    private long idlePingIntervalMillis = DEFAULT_PING_IDLE_TIME_MILLIS;
 
     private volatile ChannelPromise connectionReadyPromise;
     private volatile ChannelPromise reconnectionPromise;
@@ -211,7 +211,7 @@ public class ApnsClient {
                                 }
                             }
 
-                            context.pipeline().addLast(new IdleStateHandler(0, 0, ApnsClient.this.idlePingIntervalMillis, TimeUnit.MILLISECONDS));
+                            context.pipeline().addLast(new IdleStateHandler(ApnsClient.this.idlePingIntervalMillis, 0, 0, TimeUnit.MILLISECONDS));
                             context.pipeline().addLast(apnsClientHandler);
 
                             final ChannelPromise connectionReadyPromise = ApnsClient.this.connectionReadyPromise;
