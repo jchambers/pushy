@@ -131,6 +131,8 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         this.responseHeadersPropertyKey = this.connection().newKey();
         this.responsePromisePropertyKey = this.connection().newKey();
 
+        this.connection().addListener(this);
+
         this.pingTimeoutMillis = idlePingIntervalMillis / 2;
     }
 
@@ -152,7 +154,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         final Http2Stream stream = this.connection().stream(streamId);
 
         final ApnsPushNotification pushNotification = stream.getProperty(this.pushNotificationPropertyKey);
-        final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise = stream.getProperty(this.responsePromisePropertyKey);
+        final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise = stream.removeProperty(this.responsePromisePropertyKey);
 
         final ChannelPromise writePromise = context.channel().newPromise();
         this.writePushNotification(context, pushNotification, responsePromise, writePromise);
