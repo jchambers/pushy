@@ -22,9 +22,11 @@
 
 package com.turo.pushy.apns.util;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.lang.reflect.Type;
 import java.nio.charset.CharsetEncoder;
@@ -33,23 +35,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import org.junit.Before;
-import org.junit.Test;
-
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
+import static org.junit.Assert.*;
 
 public class ApnsPayloadBuilderTest {
 
     private ApnsPayloadBuilder builder;
-    private Gson gson;
 
-    private static Type MAP_OF_STRING_TO_OBJECT = new TypeToken<Map<String, Object>>(){}.getType();
+    private static final Gson GSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
+    private static final Type MAP_OF_STRING_TO_OBJECT = new TypeToken<Map<String, Object>>(){}.getType();
 
     @Before
     public void setUp() {
-        this.gson = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
         this.builder = new ApnsPayloadBuilder();
     }
 
@@ -429,7 +425,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.addCustomProperty(customKey, customValue);
 
         @SuppressWarnings("unchecked")
-        final Map<String, Object> payload = this.gson.fromJson(
+        final Map<String, Object> payload = GSON.fromJson(
                 this.builder.buildWithDefaultMaximumLength(), MAP_OF_STRING_TO_OBJECT);
 
         assertEquals(customValue, payload.get(customKey));
@@ -553,7 +549,7 @@ public class ApnsPayloadBuilderTest {
             if (encoder.canEncode((char) codePoint)) {
                 // We subtract 2 here for the quotes that will appear on either end of a JSON string
                 assertEquals("Escaped/encoded lengths should match for code point " + codePoint,
-                        this.gson.toJson(String.valueOf((char) codePoint)).getBytes(StandardCharsets.UTF_8).length - 2,
+                        GSON.toJson(String.valueOf((char) codePoint)).getBytes(StandardCharsets.UTF_8).length - 2,
                         ApnsPayloadBuilder.getSizeOfJsonEscapedUtf8Character((char) codePoint));
             }
         }
@@ -579,7 +575,7 @@ public class ApnsPayloadBuilderTest {
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> extractApsObjectFromPayloadString(final String payloadString) {
-        final Map<String, Object> payload = this.gson.fromJson(payloadString, MAP_OF_STRING_TO_OBJECT);
+        final Map<String, Object> payload = GSON.fromJson(payloadString, MAP_OF_STRING_TO_OBJECT);
         return (Map<String, Object>) payload.get("aps");
     }
 }

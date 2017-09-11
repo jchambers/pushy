@@ -22,15 +22,12 @@
 
 package com.turo.pushy.apns.util;
 
-import java.io.CharArrayWriter;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+
+import java.io.CharArrayWriter;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 /**
  * <p>A utility class for constructing JSON payloads suitable for inclusion in APNs push notifications. Payload builders
@@ -98,7 +95,7 @@ public class ApnsPayloadBuilder {
 
     private static final String ABBREVIATION_SUBSTRING = "…";
 
-    private static final Gson gson = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
+    private static final Gson GSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
 
     /**
      * The name of the iOS default push notification sound
@@ -661,7 +658,7 @@ public class ApnsPayloadBuilder {
         }
 
         this.buffer.reset();
-        gson.toJson(payload, this.buffer);
+        GSON.toJson(payload, this.buffer);
 
         final String payloadString = this.buffer.toString();
         final int initialPayloadSize = payloadString.getBytes(StandardCharsets.UTF_8).length;
@@ -675,7 +672,7 @@ public class ApnsPayloadBuilder {
                 this.replaceMessageBody(payload, "");
 
                 this.buffer.reset();
-                gson.toJson(payload, this.buffer);
+                GSON.toJson(payload, this.buffer);
 
                 final int payloadSizeWithEmptyMessage = this.buffer.toString().getBytes(StandardCharsets.UTF_8).length;
 
@@ -692,7 +689,7 @@ public class ApnsPayloadBuilder {
                 this.replaceMessageBody(payload, fittedMessageBody + ABBREVIATION_SUBSTRING);
 
                 this.buffer.reset();
-                gson.toJson(payload, this.buffer);
+                GSON.toJson(payload, this.buffer);
 
                 fittedPayloadString = this.buffer.toString();
             } else {
@@ -721,7 +718,7 @@ public class ApnsPayloadBuilder {
      * @since 0.12
      */
     public static String buildMdmPayload(final String pushMagicValue) {
-        return gson.toJson(java.util.Collections.singletonMap(MDM_KEY, pushMagicValue));
+        return GSON.toJson(java.util.Collections.singletonMap(MDM_KEY, pushMagicValue));
     }
 
     private void replaceMessageBody(final Map<String, Object> payload, final String messageBody) {
