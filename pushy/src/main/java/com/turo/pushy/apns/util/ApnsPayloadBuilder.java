@@ -19,9 +19,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
 package com.turo.pushy.apns.util;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonIOException;
 import java.io.CharArrayWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -96,11 +98,10 @@ public class ApnsPayloadBuilder {
 
     private static final String ABBREVIATION_SUBSTRING = "…";
 
-    private static final Gson gson = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
+    private static final Gson GSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
 
     /**
-     * The name of the iOS default push notification sound
-     * ({@value ApnsPayloadBuilder#DEFAULT_SOUND_FILENAME}).
+     * The name of the iOS default push notification sound ({@value ApnsPayloadBuilder#DEFAULT_SOUND_FILENAME}).
      *
      * @see ApnsPayloadBuilder#setSoundFileName(String)
      */
@@ -654,18 +655,36 @@ public class ApnsPayloadBuilder {
             payload.put(APS_KEY, aps);
         }
 
+        String fittedPayloadString = buildPayload(payload, maximumPayloadSize);
+        return fittedPayloadString;
+    }
+
+    /**
+     * <p>
+     * Returns a JSON representation of the push notification payload under construction. This builds the payload as MDM documentation requires. If the alert body cannot be shortened or is not
+     * present, an {@code IllegalArgumentException} is thrown.</p>
+     *
+     * @return @throws IllegalArgumentException
+     * @throws JsonIOException
+     */
+    public String buildPayloadMDM() throws IllegalArgumentException, JsonIOException {
+        final Map<String, Object> payload = new HashMap<>();
         for (final Map.Entry<String, Object> entry : this.customProperties.entrySet()) {
             payload.put(entry.getKey(), entry.getValue());
         }
 
-        this.buffer.reset();
-        gson.toJson(payload, this.buffer);
+        return buildPayload(payload, DEFAULT_MAXIMUM_PAYLOAD_SIZE);
+    }
 
+    private String buildPayload(final Map<String, Object> payload, final int maximumPayloadSize) throws IllegalArgumentException, JsonIOException {
+        for (final Map.Entry<String, Object> entry : this.customProperties.entrySet()) {
+            payload.put(entry.getKey(), entry.getValue());
+        }
+        this.buffer.reset();
+        GSON.toJson(payload, this.buffer);
         final String payloadString = this.buffer.toString();
         final int initialPayloadSize = payloadString.getBytes(StandardCharsets.UTF_8).length;
-
         final String fittedPayloadString;
-
         if (initialPayloadSize <= maximumPayloadSize) {
             fittedPayloadString = payloadString;
         } else {
@@ -673,7 +692,7 @@ public class ApnsPayloadBuilder {
                 this.replaceMessageBody(payload, "");
 
                 this.buffer.reset();
-                gson.toJson(payload, this.buffer);
+                GSON.toJson(payload, this.buffer);
 
                 final int payloadSizeWithEmptyMessage = this.buffer.toString().getBytes(StandardCharsets.UTF_8).length;
 
@@ -690,7 +709,7 @@ public class ApnsPayloadBuilder {
                 this.replaceMessageBody(payload, fittedMessageBody + ABBREVIATION_SUBSTRING);
 
                 this.buffer.reset();
-                gson.toJson(payload, this.buffer);
+                GSON.toJson(payload, this.buffer);
 
                 fittedPayloadString = this.buffer.toString();
             } else {
@@ -727,7 +746,7 @@ public class ApnsPayloadBuilder {
     }
 
     static int getLengthOfJsonEscapedUtf8StringFittingSize(final String string, final int maximumSize) {
-        int i = 0;
+        int i;
         int cumulativeSize = 0;
 
         for (i = 0; i < string.length(); i++) {
