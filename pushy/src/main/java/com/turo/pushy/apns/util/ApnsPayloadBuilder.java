@@ -92,6 +92,8 @@ public class ApnsPayloadBuilder {
     private static final String ACTION_LOC_KEY = "action-loc-key";
     private static final String LAUNCH_IMAGE_KEY = "launch-image";
 
+    private static final String MDM_KEY = "mdm";
+
     private final HashMap<String, Object> customProperties = new HashMap<>();
 
     private static final String ABBREVIATION_SUBSTRING = "…";
@@ -701,6 +703,25 @@ public class ApnsPayloadBuilder {
         }
 
         return fittedPayloadString;
+    }
+
+    /**
+     * Returns a JSON representation of a
+     * <a href="https://developer.apple.com/library/content/documentation/Miscellaneous/Reference/MobileDeviceManagementProtocolRef/1-Introduction/Introduction.html#//apple_ref/doc/uid/TP40017387-CH1-SW1">Mobile
+     * Device Management</a> "wake up" payload.
+     *
+     * @param pushMagicValue the "push magic" string that the device sends to the MDM server in a {@code TokenUpdate}
+     * message
+     *
+     * @return a JSON representation of an MDM "wake up" notification payload
+     *
+     * @see <a href="https://developer.apple.com/library/content/documentation/Miscellaneous/Reference/MobileDeviceManagementProtocolRef/3-MDM_Protocol/MDM_Protocol.html#//apple_ref/doc/uid/TP40017387-CH3-SW2">Mobile
+     * Device Management (MDM) Protocol</a>
+     *
+     * @since 0.12
+     */
+    public static String buildMdmPayload(final String pushMagicValue) {
+        return gson.toJson(java.util.Collections.singletonMap(MDM_KEY, pushMagicValue));
     }
 
     private void replaceMessageBody(final Map<String, Object> payload, final String messageBody) {

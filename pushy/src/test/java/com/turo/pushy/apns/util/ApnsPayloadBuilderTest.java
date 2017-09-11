@@ -572,6 +572,11 @@ public class ApnsPayloadBuilderTest {
         assertEquals(2, ApnsPayloadBuilder.getLengthOfJsonEscapedUtf8StringFittingSize("\n\tThis string has escaped characters.", 4));
     }
 
+    @Test
+    public void testBuildMdmPayload() {
+        assertEquals("{\"mdm\":\"Magic!\"}", ApnsPayloadBuilder.buildMdmPayload("Magic!"));
+    }
+
     @SuppressWarnings("unchecked")
     private Map<String, Object> extractApsObjectFromPayloadString(final String payloadString) {
         final Map<String, Object> payload = this.gson.fromJson(payloadString, MAP_OF_STRING_TO_OBJECT);
