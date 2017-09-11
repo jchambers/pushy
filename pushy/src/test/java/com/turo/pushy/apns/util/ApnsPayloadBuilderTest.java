@@ -39,17 +39,19 @@ import org.junit.Test;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
+import static org.junit.Assert.assertFalse;
 
 public class ApnsPayloadBuilderTest {
 
     private ApnsPayloadBuilder builder;
-    private Gson gson;
+    private Gson GSON;
 
-    private static Type MAP_OF_STRING_TO_OBJECT = new TypeToken<Map<String, Object>>(){}.getType();
+    private static final Type MAP_OF_STRING_TO_OBJECT = new TypeToken<Map<String, Object>>() {
+    }.getType();
 
     @Before
     public void setUp() {
-        this.gson = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
+        this.GSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
         this.builder = new ApnsPayloadBuilder();
     }
 
@@ -224,7 +226,7 @@ public class ApnsPayloadBuilderTest {
         // We're happy here as long as nothing explodes
         this.builder.setLocalizedAlertSubtitle(subtitleKey, (String[]) null);
 
-        final String[] subtitleArgs = new String[] { "Moose", "helicopter" };
+        final String[] subtitleArgs = new String[]{"Moose", "helicopter"};
         this.builder.setLocalizedAlertSubtitle(subtitleKey, subtitleArgs);
 
         {
@@ -429,7 +431,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.addCustomProperty(customKey, customValue);
 
         @SuppressWarnings("unchecked")
-        final Map<String, Object> payload = this.gson.fromJson(
+        final Map<String, Object> payload = this.GSON.fromJson(
                 this.builder.buildWithDefaultMaximumLength(), MAP_OF_STRING_TO_OBJECT);
 
         assertEquals(customValue, payload.get(customKey));
@@ -519,6 +521,21 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
+    public void testBuildMDMPayload() {
+        final String mdmKey = "mdn";
+        final String pushMagic = "MDMKEY";
+
+        this.builder.addCustomProperty(mdmKey, pushMagic);
+
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> payload = this.GSON.fromJson(
+                this.builder.buildPayloadMDM(), MAP_OF_STRING_TO_OBJECT);
+
+        assertFalse(payload.containsKey("aps"));
+        assertEquals(pushMagic, payload.get(mdmKey));
+    }
+
+    @Test
     public void testBuildWithMaximumLengthAndAlreadyFittingMessageBody() {
         final String shortAlertMessage = "This should just fit.";
 
@@ -553,7 +570,7 @@ public class ApnsPayloadBuilderTest {
             if (encoder.canEncode((char) codePoint)) {
                 // We subtract 2 here for the quotes that will appear on either end of a JSON string
                 assertEquals("Escaped/encoded lengths should match for code point " + codePoint,
-                        this.gson.toJson(String.valueOf((char) codePoint)).getBytes(StandardCharsets.UTF_8).length - 2,
+                        this.GSON.toJson(String.valueOf((char) codePoint)).getBytes(StandardCharsets.UTF_8).length - 2,
                         ApnsPayloadBuilder.getSizeOfJsonEscapedUtf8Character((char) codePoint));
             }
         }
@@ -574,7 +591,7 @@ public class ApnsPayloadBuilderTest {
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> extractApsObjectFromPayloadString(final String payloadString) {
-        final Map<String, Object> payload = this.gson.fromJson(payloadString, MAP_OF_STRING_TO_OBJECT);
+        final Map<String, Object> payload = this.GSON.fromJson(payloadString, MAP_OF_STRING_TO_OBJECT);
         return (Map<String, Object>) payload.get("aps");
     }
 }
