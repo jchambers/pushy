@@ -20,24 +20,17 @@
  * THE SOFTWARE.
  */
 
-package com.turo.pushy.apns;
-
-import java.util.Date;
-
-class ErrorResponse {
-    private final String reason;
-    private final Date timestamp;
-
-    public ErrorResponse(final String reason, final Date timestamp) {
-        this.reason = reason;
-        this.timestamp = timestamp;
-    }
-
-    String getReason() {
-        return this.reason;
-    }
-
-    Date getTimestamp() {
-        return this.timestamp;
-    }
-}
+/**
+ * <p>Contains classes and interfaces for working with mock APNs servers. Mock APNs servers are useful primarily for
+ * integration testing and benchmarking, and callers will not need to use anything in this package to send push
+ * notifications to a real APNs server.</p>
+ *
+ * <p>Callers construct mock APNs servers using a {@link com.turo.pushy.apns.server.MockApnsServerBuilder}. Mock servers
+ * require a {@link com.turo.pushy.apns.server.PushNotificationHandler} that controls whether the server accepts or
+ * rejects individual notifications.</p>
+ *
+ * @author <a href="https://github.com/jchambers">Jon Chambers</a>
+ *
+ * @since 0.12
+ */
+package com.turo.pushy.apns.server;

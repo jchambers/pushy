@@ -28,6 +28,7 @@ import static org.junit.Assert.assertNull;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
+import com.turo.pushy.apns.util.DateAsTimeSinceEpochTypeAdapter;
 import org.junit.Test;
 
 import com.google.gson.JsonNull;

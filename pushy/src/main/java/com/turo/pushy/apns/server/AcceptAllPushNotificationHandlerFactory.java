@@ -20,12 +20,39 @@
  * THE SOFTWARE.
  */
 
+package com.turo.pushy.apns.server;
+
+import io.netty.buffer.ByteBuf;
+import io.netty.handler.codec.http2.Http2Headers;
+
+import javax.net.ssl.SSLSession;
+
 /**
- * <p>Contains classes for working with APNs keys. Keys are used in token-based authentication. Callers will generally
- * use the {@link com.turo.pushy.apns.auth.ApnsSigningKey} class to provide signing credentials to clients. An
- * {@link com.turo.pushy.apns.auth.ApnsVerificationKey} class is also provided for callers that need to build
- * integration tests using the {@link com.turo.pushy.apns.server.MockApnsServer}.</p>
+ * A factory for push notification handlers that unconditionally accept all push notifications.
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
+ *
+ * @see MockApnsServerBuilder#setHandlerFactory(PushNotificationHandlerFactory)
+ *
+ * @since 0.12
  */
-package com.turo.pushy.apns.auth;
+public class AcceptAllPushNotificationHandlerFactory implements PushNotificationHandlerFactory {
+
+    /**
+     * Constructs a new push notification handler that unconditionally accepts all push notifications.
+     *
+     * @param sslSession the SSL session associated with the channel for which this handler will handle notifications
+     *
+     * @return a new "accept everything" push notification handler
+     */
+    @Override
+    public PushNotificationHandler buildHandler(final SSLSession sslSession) {
+        return new PushNotificationHandler() {
+
+            @Override
+            public void handlePushNotification(final Http2Headers headers, final ByteBuf payload) {
+                // Accept everything unconditionally!
+            }
+        };
+    }
+}

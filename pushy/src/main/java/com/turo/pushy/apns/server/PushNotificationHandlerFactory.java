@@ -20,24 +20,25 @@
  * THE SOFTWARE.
  */
 
-package com.turo.pushy.apns;
+package com.turo.pushy.apns.server;
 
-import java.util.Date;
+import javax.net.ssl.SSLSession;
 
-class ErrorResponse {
-    private final String reason;
-    private final Date timestamp;
-
-    public ErrorResponse(final String reason, final Date timestamp) {
-        this.reason = reason;
-        this.timestamp = timestamp;
-    }
-
-    String getReason() {
-        return this.reason;
-    }
-
-    Date getTimestamp() {
-        return this.timestamp;
-    }
+/**
+ * A push notification handler factory constructs {@link PushNotificationHandler} instances when a mock APNs server
+ * accepts a new connection. Handlers created by the factory control how the server responds to the push notifications
+ * it receives.
+ *
+ * @since 0.12
+ */
+public interface PushNotificationHandlerFactory {
+    /**
+     * Constructs a new push notification handler that will process notifications from a single connection to a mock
+     * server.
+     *
+     * @param sslSession the SSL session for the new connection to the mock server
+     *
+     * @return a new push notification handler for the new connection
+     */
+    PushNotificationHandler buildHandler(SSLSession sslSession);
 }

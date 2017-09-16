@@ -20,11 +20,8 @@
  * THE SOFTWARE.
  */
 
-package com.turo.pushy.apns;
+package com.turo.pushy.apns.auth;
 
-import com.turo.pushy.apns.auth.ApnsSigningKey;
-import com.turo.pushy.apns.auth.ApnsVerificationKey;
-import com.turo.pushy.apns.auth.KeyPairUtil;
 import org.junit.Before;
 import org.junit.Test;
 
