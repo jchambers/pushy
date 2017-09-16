@@ -271,7 +271,7 @@ public class ApnsClient {
 
         // Since we're (maybe) going to clobber the main event loop group, we should have this promise use the global
         // event executor to notify listeners.
-        final Promise<Void> disconnectPromise = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
+        final Promise<Void> closePromise = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
 
         this.channelPool.close().addListener(new GenericFutureListener<Future<Void>>() {
 
@@ -282,15 +282,15 @@ public class ApnsClient {
 
                         @Override
                         public void operationComplete(final Future future) throws Exception {
-                            disconnectPromise.trySuccess(null);
+                            closePromise.trySuccess(null);
                         }
                     });
                 } else {
-                    disconnectPromise.trySuccess(null);
+                    closePromise.trySuccess(null);
                 }
             }
         });
 
-        return disconnectPromise;
+        return closePromise;
     }
 }

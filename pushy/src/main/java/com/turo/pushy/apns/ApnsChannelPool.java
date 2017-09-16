@@ -29,6 +29,7 @@ import io.netty.util.concurrent.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Queue;
@@ -230,6 +231,13 @@ class ApnsChannelPool {
      * @return a {@code Future} that will be completed when all resources held by this pool have been released
      */
     public Future<Void> close() {
-        return this.allChannels.close();
+        return this.allChannels.close().addListener(new GenericFutureListener<Future<Void>>() {
+            @Override
+            public void operationComplete(final Future<Void> future) throws Exception {
+                if (ApnsChannelPool.this.channelFactory instanceof Closeable) {
+                    ((Closeable) ApnsChannelPool.this.channelFactory).close();
+                }
+            }
+        });
     }
 }
