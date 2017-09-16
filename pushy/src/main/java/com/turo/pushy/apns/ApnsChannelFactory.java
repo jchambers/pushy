@@ -33,11 +33,13 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.AttributeKey;
+import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
 import io.netty.util.concurrent.PromiseNotifier;
 
+import java.io.Closeable;
 import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -46,8 +48,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * An APNs channel factory creates new channels connected to an APNs server. Channels constructed by this factory are
  * intended for use in an {@link ApnsChannelPool}.
  */
-class ApnsChannelFactory implements PooledObjectFactory<Channel> {
+class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
+    private final SslContext sslContext;
     private final Bootstrap bootstrapTemplate;
 
     private final AtomicLong currentDelaySeconds = new AtomicLong(0);
@@ -62,6 +65,12 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel> {
                        final ProxyHandlerFactory proxyHandlerFactory, final int connectTimeoutMillis,
                        final long idlePingIntervalMillis, final long gracefulShutdownTimeoutMillis,
                        final InetSocketAddress apnsServerAddress, final EventLoopGroup eventLoopGroup) {
+
+        this.sslContext = sslContext;
+
+        if (this.sslContext instanceof ReferenceCounted) {
+            ((ReferenceCounted) this.sslContext).retain();
+        }
 
         this.bootstrapTemplate = new Bootstrap();
         this.bootstrapTemplate.group(eventLoopGroup);
@@ -206,5 +215,12 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel> {
     public Future<Void> destroy(final Channel channel, final Promise<Void> promise) {
         channel.close().addListener(new PromiseNotifier<>(promise));
         return promise;
+    }
+
+    @Override
+    public void close() {
+        if (this.sslContext instanceof ReferenceCounted) {
+            ((ReferenceCounted) this.sslContext).release();
+        }
     }
 }

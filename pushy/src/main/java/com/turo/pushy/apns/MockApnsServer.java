@@ -37,6 +37,7 @@ import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
+import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.*;
 
 import javax.net.ssl.SSLPeerUnverifiedException;
@@ -63,6 +64,8 @@ import java.util.regex.Pattern;
  */
 public class MockApnsServer {
 
+    private final SslContext sslContext;
+
     private final ServerBootstrap bootstrap;
     private final boolean shouldShutDownEventLoopGroup;
 
@@ -79,6 +82,12 @@ public class MockApnsServer {
     public static final long AUTHENTICATION_TOKEN_EXPIRATION_MILLIS = TimeUnit.HOURS.toMillis(1);
 
     protected MockApnsServer(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
+        this.sslContext = sslContext;
+
+        if (this.sslContext instanceof ReferenceCounted) {
+            ((ReferenceCounted) this.sslContext).retain();
+        }
+
         this.bootstrap = new ServerBootstrap();
 
         if (eventLoopGroup != null) {
@@ -279,14 +288,22 @@ public class MockApnsServer {
 
                 @Override
                 public void operationComplete(final Future future) throws Exception {
-                    assert disconnectFuture instanceof DefaultPromise;
-                    ((DefaultPromise<Void>) disconnectFuture).trySuccess(null);
+                    ((Promise<Void>) disconnectFuture).trySuccess(null);
                 }
             });
         } else {
             // We're done once we've closed all the channels, so we can return the closure future directly.
             disconnectFuture = channelCloseFuture;
         }
+
+        disconnectFuture.addListener(new GenericFutureListener<Future<Void>>() {
+            @Override
+            public void operationComplete(final Future<Void> future) throws Exception {
+                if (MockApnsServer.this.sslContext instanceof ReferenceCounted) {
+                    ((ReferenceCounted) MockApnsServer.this.sslContext).release();
+                }
+            }
+        });
 
         return disconnectFuture;
     }
