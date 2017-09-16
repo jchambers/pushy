@@ -182,7 +182,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
                 final Bootstrap bootstrap = ApnsChannelFactory.this.bootstrapTemplate.clone()
                         .channelFactory(new AugmentingReflectiveChannelFactory<>(
-                                SocketChannelClassUtil.getSocketChannelClass(ApnsChannelFactory.this.bootstrapTemplate.config().group()),
+                                ClientSocketChannelClassUtil.getSocketChannelClass(ApnsChannelFactory.this.bootstrapTemplate.config().group()),
                                 CHANNEL_READY_PROMISE_ATTRIBUTE_KEY, channelReadyPromise));
 
                 final ChannelFuture connectFuture = bootstrap.connect();

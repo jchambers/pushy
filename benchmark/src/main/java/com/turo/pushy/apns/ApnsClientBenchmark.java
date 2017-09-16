@@ -23,6 +23,9 @@
 package com.turo.pushy.apns;
 
 import com.turo.pushy.apns.auth.ApnsSigningKey;
+import com.turo.pushy.apns.server.AcceptAllPushNotificationHandlerFactory;
+import com.turo.pushy.apns.server.MockApnsServer;
+import com.turo.pushy.apns.server.MockApnsServerBuilder;
 import com.turo.pushy.apns.util.ApnsPayloadBuilder;
 import com.turo.pushy.apns.util.SimpleApnsPushNotification;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -45,7 +48,7 @@ public class ApnsClientBenchmark {
     private NioEventLoopGroup eventLoopGroup;
 
     private ApnsClient client;
-    private BenchmarkApnsServer server;
+    private MockApnsServer server;
 
     private List<SimpleApnsPushNotification> pushNotifications;
 
@@ -68,43 +71,45 @@ public class ApnsClientBenchmark {
     private static final String HOST = "localhost";
     private static final int PORT = 8443;
 
+    private static final int KEY_SIZE = 256;
+
     @Setup
     public void setUp() throws Exception {
-        this.eventLoopGroup = new NioEventLoopGroup(2);
+        this.eventLoopGroup = new NioEventLoopGroup(this.concurrentConnections * 2);
 
         final ApnsSigningKey signingKey;
         {
             final KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
-            final SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
-
-            keyPairGenerator.initialize(256, random);
+            keyPairGenerator.initialize(KEY_SIZE, new SecureRandom());
 
             signingKey = new ApnsSigningKey(KEY_ID, TEAM_ID, (ECPrivateKey) keyPairGenerator.generateKeyPair().getPrivate());
         }
 
-        final ApnsClientBuilder clientBuilder = new ApnsClientBuilder()
+        this.client = new ApnsClientBuilder()
                 .setApnsServer(HOST, PORT)
                 .setConcurrentConnections(this.concurrentConnections)
                 .setSigningKey(signingKey)
                 .setTrustedServerCertificateChain(ApnsClientBenchmark.class.getResourceAsStream(CA_CERTIFICATE_FILENAME))
-                .setEventLoopGroup(this.eventLoopGroup);
+                .setEventLoopGroup(this.eventLoopGroup)
+                .build();
 
-        this.client = clientBuilder.build();
-        this.server = new BenchmarkApnsServer(ApnsClientBenchmark.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME),
-                ApnsClientBenchmark.class.getResourceAsStream(SERVER_KEY_FILENAME),
-                this.eventLoopGroup);
-
-        final String token = generateRandomToken();
+        this.server = new MockApnsServerBuilder()
+                .setServerCredentials(getClass().getResourceAsStream(SERVER_CERTIFICATES_FILENAME), this.getClass().getResourceAsStream(SERVER_KEY_FILENAME), null)
+                .setTrustedClientCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
+                .setEventLoopGroup(this.eventLoopGroup)
+                .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
+                .build();
 
         this.pushNotifications = new ArrayList<>(this.notificationCount);
+        {
+            final ApnsPayloadBuilder payloadBuilder = new ApnsPayloadBuilder();
 
-        final ApnsPayloadBuilder payloadBuilder = new ApnsPayloadBuilder();
+            for (int i = 0; i < this.notificationCount; i++) {
+                final String payload = payloadBuilder.setAlertBody(RandomStringUtils.randomAlphanumeric(MESSAGE_BODY_LENGTH))
+                        .buildWithDefaultMaximumLength();
 
-        for (int i = 0; i < this.notificationCount; i++) {
-            final String payload = payloadBuilder.setAlertBody(RandomStringUtils.randomAlphanumeric(MESSAGE_BODY_LENGTH))
-                    .buildWithDefaultMaximumLength();
-
-            this.pushNotifications.add(new SimpleApnsPushNotification(token, TOPIC, payload));
+                this.pushNotifications.add(new SimpleApnsPushNotification(generateRandomDeviceToken(), TOPIC, payload));
+            }
         }
 
         this.server.start(PORT).await();
@@ -142,7 +147,7 @@ public class ApnsClientBenchmark {
         this.eventLoopGroup.shutdownGracefully().await();
     }
 
-    private static String generateRandomToken() {
+    private static String generateRandomDeviceToken() {
         final byte[] tokenBytes = new byte[TOKEN_LENGTH];
         new Random().nextBytes(tokenBytes);
 

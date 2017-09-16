@@ -20,24 +20,23 @@
  * THE SOFTWARE.
  */
 
-package com.turo.pushy.apns;
+package com.turo.pushy.apns.server;
+
+import io.netty.handler.codec.http2.Http2Headers;
 
 import java.util.Date;
+import java.util.Map;
+import java.util.Set;
 
-class ErrorResponse {
-    private final String reason;
-    private final Date timestamp;
+public class TlsAuthenticationValidatingPushNotificationHandlerTest extends ValidatingPushNotificationHandlerTest {
 
-    public ErrorResponse(final String reason, final Date timestamp) {
-        this.reason = reason;
-        this.timestamp = timestamp;
+    @Override
+    protected ValidatingPushNotificationHandler getHandler(final Map<String, Set<String>> deviceTokensByTopic, final Map<String, Date> expirationTimestampsByDeviceToken) {
+        return new TlsAuthenticationValidatingPushNotificationHandler(deviceTokensByTopic, expirationTimestampsByDeviceToken, TOPIC);
     }
 
-    String getReason() {
-        return this.reason;
-    }
-
-    Date getTimestamp() {
-        return this.timestamp;
+    @Override
+    protected void addAcceptableCredentialsToHeaders(final Http2Headers headers) {
+        // No additional credentials are required for TLS authentication
     }
 }
