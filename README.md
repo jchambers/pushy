@@ -25,6 +25,7 @@ If you don't use Maven (or something else that understands Maven dependencies, l
 
 - [netty 4.1.14](http://netty.io/)
 - [netty-tcnative-2.0.5.Final](http://netty.io/wiki/forked-tomcat-native.html)
+- [Apache Commons Codec 1.10](https://commons.apache.org/proper/commons-codec/)
 - [gson 2.6](https://github.com/google/gson)
 - [slf4j 1.7.6](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
 
