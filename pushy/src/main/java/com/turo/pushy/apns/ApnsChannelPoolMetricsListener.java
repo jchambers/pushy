@@ -23,37 +23,23 @@
 package com.turo.pushy.apns;
 
 /**
- * A do-nothing metrics listener.
- *
- * @author <a href="https://github.com/jchambers">Jon Chambers</a>
+ * A channel pool metrics listener receives events from an {@link ApnsChannelPool} that can be used to measure the
+ * performance and behavior of the pool.
  */
-class NoopMetricsListener implements ApnsClientMetricsListener {
+interface ApnsChannelPoolMetricsListener {
 
-    @Override
-    public void handleWriteFailure(final ApnsClient apnsClient, final long notificationId) {
-    }
+    /**
+     * Indicates that a new connection was added to the channel pool.
+     */
+    void handleConnectionAdded();
 
-    @Override
-    public void handleNotificationSent(final ApnsClient apnsClient, final long notificationId) {
-    }
+    /**
+     * Indicates that a connection was permanently removed from the channel pool.
+     */
+    void handleConnectionRemoved();
 
-    @Override
-    public void handleNotificationAccepted(final ApnsClient apnsClient, final long notificationId) {
-    }
-
-    @Override
-    public void handleNotificationRejected(final ApnsClient apnsClient, final long notificationId) {
-    }
-
-    @Override
-    public void handleConnectionAttemptStarted(final ApnsClient apnsClient) {
-    }
-
-    @Override
-    public void handleConnectionAttemptSucceeded(final ApnsClient apnsClient) {
-    }
-
-    @Override
-    public void handleConnectionAttemptFailed(final ApnsClient apnsClient) {
-    }
+    /**
+     * Indicates that an attempt to add a new channel to the channel pool failed.
+     */
+    void handleConnectionCreationFailed();
 }

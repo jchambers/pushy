@@ -45,32 +45,30 @@ public class ExampleApp {
 
     public static void main(final String[] args) throws Exception {
         // The first thing to do is to create an APNs client. Clients need a
-        // certificate and private key to authenticate with the APNs server. The
-        // most common way to store the certificate and key is in a
-        // password-protected PKCS#12 file.
+        // certificate and private key OR a signing key to authenticate with
+        // the APNs server.
         final ApnsClient apnsClient = new ApnsClientBuilder()
                 .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
                         "TEAMID1234", "KEYID67890"))
                 .build();
 
         // Optional: we can listen for metrics by setting a metrics listener.
-        apnsClient.setMetricsListener(new NoopMetricsListener());
+        final ApnsClient apnsClientWithMetricsListener = new ApnsClientBuilder()
+                .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
+                        "TEAMID1234", "KEYID67890"))
+                // .setMetricsListener(new NoopMetricsListener())
+                .build();
 
         // Optional: we can set a proxy handler factory if we must use a proxy.
-        apnsClient.setProxyHandlerFactory(
-                new Socks5ProxyHandlerFactory(
-                        new InetSocketAddress("my.proxy.com", 1080), "username", "password"));
+        final ApnsClient apnsClientWithProxyHandler = new ApnsClientBuilder()
+                .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
+                        "TEAMID1234", "KEYID67890"))
+                .setProxyHandlerFactory(new Socks5ProxyHandlerFactory(
+                        new InetSocketAddress("my.proxy.com", 1080), "username", "password"))
+                .build();
 
-        // Once we've created a client, we can connect it to the APNs gateway.
-        // Note that this process is asynchronous; we'll get a Future right
-        // away, but we'll need to wait for it to complete before we can send
-        // any notifications. Note that this is a Netty Future, which is an
-        // extension of the Java Future interface that allows callers to add
-        // listeners and adds methods for checking the status of the Future.
-        final Future<Void> connectFuture = apnsClient.connect(ApnsClient.DEVELOPMENT_APNS_HOST);
-        connectFuture.await();
-
-        // Once we're connected, we can start sending push notifications.
+        // Clients create new connections on demand. Once we've created a
+        // client, we can start sending push notifications.
         final SimpleApnsPushNotification pushNotification;
 
         {
@@ -83,10 +81,10 @@ public class ExampleApp {
             pushNotification = new SimpleApnsPushNotification(token, "com.example.myApp", payload);
         }
 
-        // Like connecting, sending notifications is an asynchronous process.
-        // We'll get a Future immediately, but will need to wait for the Future
-        // to complete before we'll know whether the notification was accepted
-        // or rejected by the APNs gateway.
+        // Sending notifications is an asynchronous process. We'll get a Future
+        // immediately, but will need to wait for the Future to complete before
+        // we'll know whether the notification was accepted or rejected by the
+        // APNs gateway.
         final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendNotificationFuture =
                 apnsClient.sendNotification(pushNotification);
 
@@ -115,19 +113,12 @@ public class ExampleApp {
             // so we shouldn't consider this a permanent failure.
             System.err.println("Failed to send push notification.");
             e.printStackTrace();
-
-            if (e.getCause() instanceof ClientNotConnectedException) {
-                // If we failed to send the notification because the client isn't
-                // connected, we can wait for an automatic reconnection attempt
-                // to succeed before sending more notifications.
-                apnsClient.getReconnectionFuture().await();
-            }
         }
 
         // Finally, when we're done sending notifications (i.e. when our
-        // application is shutting down), we should disconnect all APNs clients
+        // application is shutting down), we should close all APNs clients
         // that may be in play.
-        final Future<Void> disconnectFuture = apnsClient.disconnect();
-        disconnectFuture.await();
+        final Future<Void> closeFuture = apnsClient.close();
+        closeFuture.await();
     }
 }

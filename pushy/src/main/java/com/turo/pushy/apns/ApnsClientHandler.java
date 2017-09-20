@@ -37,13 +37,20 @@ import io.netty.util.concurrent.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.*;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameListener, Http2Connection.Listener {
+
+    private final Map<Integer, ApnsPushNotification> unattachedPushNotificationsByStreamId = new HashMap<>();
+    private final Map<Integer, Promise<PushNotificationResponse<ApnsPushNotification>>> unattachedResponsePromisesByStreamId = new HashMap<>();
 
     private final Http2Connection.PropertyKey pushNotificationPropertyKey;
     private final Http2Connection.PropertyKey responseHeadersPropertyKey;
@@ -62,11 +69,11 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     private static final int INITIAL_PAYLOAD_BUFFER_CAPACITY = 4096;
 
-    private static final ClientNotConnectedException STREAMS_EXHAUSTED_EXCEPTION =
-            new ClientNotConnectedException("HTTP/2 streams exhausted; closing connection.");
+    private static final IOException STREAMS_EXHAUSTED_EXCEPTION =
+            new IOException("HTTP/2 streams exhausted; closing connection.");
 
-    private static final ClientNotConnectedException STREAM_CLOSED_BEFORE_REPLY_EXCEPTION =
-            new ClientNotConnectedException("Stream closed before a reply was received");
+    private static final IOException STREAM_CLOSED_BEFORE_REPLY_EXCEPTION =
+            new IOException("Stream closed before a reply was received");
 
     private static final Gson GSON = new GsonBuilder()
             .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
@@ -173,6 +180,13 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         final int streamId = this.connection().local().incrementAndGetNextStreamId();
 
         if (streamId > 0) {
+            // We'll attach the push notification and response promise to the stream as soon as the stream is created.
+            // Because we're using a StreamBufferingEncoder under the hood, there's no guarantee as to when the stream
+            // will actually be created, and so we attach these in the onStreamAdded listener to make sure everything
+            // is happening in a predictable order.
+            this.unattachedPushNotificationsByStreamId.put(streamId, pushNotification);
+            this.unattachedResponsePromisesByStreamId.put(streamId, responsePromise);
+
             final Http2Headers headers = getHeadersForPushNotification(pushNotification, streamId);
 
             final ChannelPromise headersPromise = context.newPromise();
@@ -194,12 +208,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
                 @Override
                 public void operationComplete(final ChannelPromise future) throws Exception {
-                    if (future.isSuccess()) {
-                        final Http2Stream stream = ApnsClientHandler.this.connection().stream(streamId);
-
-                        stream.setProperty(ApnsClientHandler.this.pushNotificationPropertyKey, pushNotification);
-                        stream.setProperty(ApnsClientHandler.this.responsePromisePropertyKey, responsePromise);
-                    } else {
+                    if (!future.isSuccess()) {
                         log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
                         responsePromise.tryFailure(future.cause());
                     }
@@ -397,6 +406,8 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     @Override
     public void onStreamAdded(final Http2Stream stream) {
+        stream.setProperty(ApnsClientHandler.this.pushNotificationPropertyKey, this.unattachedPushNotificationsByStreamId.remove(stream.id()));
+        stream.setProperty(ApnsClientHandler.this.responsePromisePropertyKey, this.unattachedResponsePromisesByStreamId.remove(stream.id()));
     }
 
     @Override

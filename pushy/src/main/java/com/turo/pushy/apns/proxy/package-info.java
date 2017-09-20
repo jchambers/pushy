@@ -26,7 +26,7 @@
  * <p>While {@link com.turo.pushy.apns.ApnsClient}s will connect to an APNs server directly by default, they may
  * optionally be configured to connect through a proxy by setting a
  * {@link com.turo.pushy.apns.proxy.ProxyHandlerFactory} via the
- * {@link com.turo.pushy.apns.ApnsClient#setProxyHandlerFactory(ProxyHandlerFactory)} method. Proxy handler
+ * {@link com.turo.pushy.apns.ApnsClientBuilder#setProxyHandlerFactory(ProxyHandlerFactory)} method. Proxy handler
  * factory implementations are provided for HTTP, SOCKS4, and SOCKS5 proxies.</p>
  *
  * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>

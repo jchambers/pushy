@@ -30,7 +30,7 @@ package com.turo.pushy.apns;
  * <p>The information provided to metrics listeners is intended only to measure the performance and behavior of an
  * {@code ApnsClient}; metrics listeners should never be used to drive business logic.</p>
  *
- * @see ApnsClient#setMetricsListener(ApnsClientMetricsListener)
+ * @see ApnsClientBuilder#setMetricsListener(ApnsClientMetricsListener)
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
@@ -88,31 +88,30 @@ public interface ApnsClientMetricsListener {
     void handleNotificationRejected(ApnsClient apnsClient, long notificationId);
 
     /**
-     * Indicates that the client has started an attempt to connect to an APNs server. This event will always be followed
-     * by either a "connection attempt succeeded" or a "connection attempt failed" event; no other "connection attempt
-     * started" events will be fired until the current attempt has resolved.
+     * Indicates that the client has successfully created a new connection to the APNs server in its internal
+     * connection pool.
      *
-     * @param apnsClient the client that started the connection attempt
+     * @param apnsClient the client that created the new connection
      *
-     * @since 0.6
+     * @since 0.11
      */
-    void handleConnectionAttemptStarted(ApnsClient apnsClient);
+    void handleConnectionAdded(ApnsClient apnsClient);
 
     /**
-     * Indicates that a previously-started connection attempt completed successfully.
+     * Indicates that the client has removed a previously-added connection from its internal connection pool.
      *
-     * @param apnsClient the client that started the connection attempt
+     * @param apnsClient the client that removed the connection
      *
-     * @since 0.6
+     * @since 0.11
      */
-    void handleConnectionAttemptSucceeded(ApnsClient apnsClient);
+    void handleConnectionRemoved(ApnsClient apnsClient);
 
     /**
-     * Indicates that a previously-started connection attempt failed.
+     * Indicates that an attempt to create a new connection to the APNs server failed.
      *
-     * @param apnsClient the client that started the connection attempt
+     * @param apnsClient the client that attempted to create a new connection
      *
-     * @since 0.6
+     * @since 0.11
      */
-    void handleConnectionAttemptFailed(ApnsClient apnsClient);
+    void handleConnectionCreationFailed(ApnsClient apnsClient);
 }

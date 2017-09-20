@@ -22,17 +22,17 @@
 
 package com.turo.pushy.apns.metrics.dropwizard;
 
-import static org.junit.Assert.*;
-
-import java.util.Map;
-
-import org.junit.Before;
-import org.junit.Test;
-
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.Metric;
 import com.codahale.metrics.Timer;
+import org.junit.Before;
+import org.junit.Test;
+
+import java.util.Map;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class DropwizardApnsClientMetricsListenerTest {
 
@@ -80,48 +80,26 @@ public class DropwizardApnsClientMetricsListenerTest {
     }
 
     @Test
-    public void testHandleConnectionAttemptStarted() {
+    public void testHandleConnectionAddedAndRemoved() {
         @SuppressWarnings("unchecked")
-        final Gauge<Boolean> connectionGauge = (Gauge<Boolean>) this.listener.getMetrics().get(DropwizardApnsClientMetricsListener.CONNECTION_GAUGE_NAME);
+        final Gauge<Integer> openConnectionGauge = (Gauge<Integer>) this.listener.getMetrics().get(DropwizardApnsClientMetricsListener.OPEN_CONNECTIONS_GAUGE_NAME);
 
-        this.listener.handleConnectionAttemptStarted(null);
-        assertFalse(connectionGauge.getValue());
+        this.listener.handleConnectionAdded(null);
+
+        assertEquals(1, (long) openConnectionGauge.getValue());
+
+        this.listener.handleConnectionRemoved(null);
+
+        assertEquals(0, (long) openConnectionGauge.getValue());
     }
 
     @Test
-    public void testHandleConnectionAttemptSucceeded() {
-        @SuppressWarnings("unchecked")
-        final Gauge<Boolean> connectionGauge = (Gauge<Boolean>) this.listener.getMetrics().get(DropwizardApnsClientMetricsListener.CONNECTION_GAUGE_NAME);
-        final Timer connectionTimer = (Timer) this.listener.getMetrics().get(DropwizardApnsClientMetricsListener.CONNECTION_TIMER_NAME);
-        assertEquals(0, connectionTimer.getCount());
-
-        this.listener.handleConnectionAttemptStarted(null);
-        assertFalse(connectionGauge.getValue());
-        assertEquals(0, connectionTimer.getCount());
-
-        this.listener.handleConnectionAttemptSucceeded(null);
-        assertTrue(connectionGauge.getValue());
-        assertEquals(1, connectionTimer.getCount());
-    }
-
-    @Test
-    public void testHandleConnectionAttemptFailed() {
-        @SuppressWarnings("unchecked")
-        final Gauge<Boolean> connectionGauge = (Gauge<Boolean>) this.listener.getMetrics().get(DropwizardApnsClientMetricsListener.CONNECTION_GAUGE_NAME);
+    public void testHandleConnectionCreationFailed() {
         final Meter connectionFailures = (Meter) this.listener.getMetrics().get(DropwizardApnsClientMetricsListener.CONNECTION_FAILURES_METER_NAME);
-        final Timer connectionTimer = (Timer) this.listener.getMetrics().get(DropwizardApnsClientMetricsListener.CONNECTION_TIMER_NAME);
-        assertEquals(0, connectionFailures.getCount());
-        assertEquals(0, connectionTimer.getCount());
 
-        this.listener.handleConnectionAttemptStarted(null);
-        assertFalse(connectionGauge.getValue());
-        assertEquals(0, connectionFailures.getCount());
-        assertEquals(0, connectionTimer.getCount());
+        this.listener.handleConnectionCreationFailed(null);
 
-        this.listener.handleConnectionAttemptFailed(null);
-        assertFalse(connectionGauge.getValue());
         assertEquals(1, connectionFailures.getCount());
-        assertEquals(1, connectionTimer.getCount());
     }
 
     @Test
@@ -135,8 +113,7 @@ public class DropwizardApnsClientMetricsListenerTest {
         assertTrue(metrics.get(DropwizardApnsClientMetricsListener.ACCEPTED_NOTIFICATIONS_METER_NAME) instanceof Meter);
         assertTrue(metrics.get(DropwizardApnsClientMetricsListener.REJECTED_NOTIFICATIONS_METER_NAME) instanceof Meter);
 
-        assertTrue(metrics.get(DropwizardApnsClientMetricsListener.CONNECTION_GAUGE_NAME) instanceof Gauge);
-        assertTrue(metrics.get(DropwizardApnsClientMetricsListener.CONNECTION_TIMER_NAME) instanceof Timer);
+        assertTrue(metrics.get(DropwizardApnsClientMetricsListener.OPEN_CONNECTIONS_GAUGE_NAME) instanceof Gauge);
         assertTrue(metrics.get(DropwizardApnsClientMetricsListener.CONNECTION_FAILURES_METER_NAME) instanceof Meter);
     }
 }
