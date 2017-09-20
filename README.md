@@ -23,10 +23,10 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 
 If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.10/pushy-0.10.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
-- [netty 4.1.12](http://netty.io/)
+- [netty 4.1.12.Final](http://netty.io/)
 - [netty-tcnative-2.0.3.Final](http://netty.io/wiki/forked-tomcat-native.html)
-- [gson 2.6](https://github.com/google/gson)
-- [slf4j 1.7.6](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
+- [gson 2.8.0](https://github.com/google/gson)
+- [slf4j 1.7.21](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
 
 Pushy itself requires Java 7 or newer to build and run.
 
