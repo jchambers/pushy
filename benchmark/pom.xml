@@ -27,11 +27,11 @@
     <parent>
         <artifactId>pushy-parent</artifactId>
         <groupId>com.turo</groupId>
-        <version>0.11-SNAPSHOT</version>
+        <version>0.11.0</version>
     </parent>
 
     <artifactId>pushy-benchmark</artifactId>
-  <version>0.11-SNAPSHOT</version>
+  <version>0.11.0</version>
     <packaging>jar</packaging>
 
     <name>Pushy benchmarks</name>
