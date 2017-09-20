@@ -28,6 +28,7 @@ import io.netty.handler.ssl.*;
 import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
+import io.netty.util.ReferenceCounted;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -314,6 +315,10 @@ public class MockApnsServerBuilder {
         final MockApnsServer server = new MockApnsServer(sslContext, this.eventLoopGroup);
         server.setEmulateInternalErrors(this.emulateInternalErrors);
         server.setEmulateExpiredFirstToken(this.emulateExpiredFirstToken);
+
+        if (sslContext instanceof ReferenceCounted) {
+            ((ReferenceCounted) sslContext).release();
+        }
 
         return server;
     }

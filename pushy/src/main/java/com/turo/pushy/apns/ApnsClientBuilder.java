@@ -30,6 +30,7 @@ import io.netty.handler.ssl.*;
 import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
+import io.netty.util.ReferenceCounted;
 
 import javax.net.ssl.SSLException;
 import java.io.File;
@@ -512,8 +513,15 @@ public class ApnsClientBuilder {
             sslContext = sslContextBuilder.build();
         }
 
-        return new ApnsClient(this.apnsServerAddress, sslContext, this.signingKey, this.proxyHandlerFactory,
-                this.connectionTimeoutMillis, this.idlePingIntervalMillis, this.gracefulShutdownTimeoutMillis,
-                this.concurrentConnections, this.metricsListener, this.eventLoopGroup);
+        final ApnsClient client = new ApnsClient(this.apnsServerAddress, sslContext, this.signingKey,
+                this.proxyHandlerFactory, this.connectionTimeoutMillis, this.idlePingIntervalMillis,
+                this.gracefulShutdownTimeoutMillis, this.concurrentConnections, this.metricsListener,
+                this.eventLoopGroup);
+
+        if (sslContext instanceof ReferenceCounted) {
+            ((ReferenceCounted) sslContext).release();
+        }
+
+        return client;
     }
 }

@@ -57,22 +57,26 @@ public class ApnsClientBuilderTest {
     @Test
     public void testBuildClientWithPasswordProtectedP12File() throws Exception {
         // We're happy here as long as nothing throws an exception
-        new ApnsClientBuilder()
+        final ApnsClient client = new ApnsClientBuilder()
                 .setApnsServer(ApnsClientBuilder.PRODUCTION_APNS_HOST)
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .setClientCredentials(new File(this.getClass().getResource(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME).toURI()), KEYSTORE_PASSWORD)
                 .build();
+
+        client.close().await();
     }
 
     @Test
     public void testBuildClientWithPasswordProtectedP12InputStream() throws Exception {
         // We're happy here as long as nothing throws an exception
         try (final InputStream p12InputStream = this.getClass().getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            new ApnsClientBuilder()
+            final ApnsClient client = new ApnsClientBuilder()
                     .setApnsServer(ApnsClientBuilder.PRODUCTION_APNS_HOST)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .build();
+
+            client.close().await();
         }
     }
 
@@ -91,11 +95,13 @@ public class ApnsClientBuilderTest {
             final PrivateKeyEntry privateKeyEntry =
                     P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
 
-            new ApnsClientBuilder()
+            final ApnsClient client = new ApnsClientBuilder()
                     .setApnsServer(ApnsClientBuilder.PRODUCTION_APNS_HOST)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
                     .setClientCredentials((X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey(), KEYSTORE_PASSWORD)
                     .build();
+
+            client.close().await();
         }
     }
 
@@ -107,11 +113,13 @@ public class ApnsClientBuilderTest {
             final PrivateKeyEntry privateKeyEntry =
                     P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
 
-            new ApnsClientBuilder()
+            final ApnsClient client = new ApnsClientBuilder()
                     .setApnsServer(ApnsClientBuilder.PRODUCTION_APNS_HOST)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
                     .setClientCredentials((X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey(), null)
                     .build();
+
+            client.close().await();
         }
     }
 
@@ -121,11 +129,13 @@ public class ApnsClientBuilderTest {
             final ApnsSigningKey signingKey = ApnsSigningKey.loadFromInputStream(p8InputStream, "TEAM_ID", "KEY_ID");
 
             // We're happy here as long as nothing explodes
-            new ApnsClientBuilder()
+            final ApnsClient client = new ApnsClientBuilder()
                     .setApnsServer(ApnsClientBuilder.PRODUCTION_APNS_HOST)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
                     .setSigningKey(signingKey)
                     .build();
+
+            client.close().await();
         }
     }
 
