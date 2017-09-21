@@ -33,6 +33,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http2.*;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.AsciiString;
+import io.netty.util.collection.IntObjectHashMap;
 import io.netty.util.concurrent.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,15 +43,14 @@ import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameListener, Http2Connection.Listener {
 
-    private final Map<Integer, ApnsPushNotification> unattachedPushNotificationsByStreamId = new HashMap<>();
-    private final Map<Integer, Promise<PushNotificationResponse<ApnsPushNotification>>> unattachedResponsePromisesByStreamId = new HashMap<>();
+    private final Map<Integer, ApnsPushNotification> unattachedPushNotificationsByStreamId = new IntObjectHashMap<>();
+    private final Map<Integer, Promise<PushNotificationResponse<ApnsPushNotification>>> unattachedResponsePromisesByStreamId = new IntObjectHashMap<>();
 
     private final Http2Connection.PropertyKey pushNotificationPropertyKey;
     private final Http2Connection.PropertyKey responseHeadersPropertyKey;
