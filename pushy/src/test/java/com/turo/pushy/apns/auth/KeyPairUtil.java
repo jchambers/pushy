@@ -28,11 +28,14 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 
 public class KeyPairUtil {
+
+    private static final int KEY_SIZE = 256;
+
     public static KeyPair generateKeyPair() throws NoSuchAlgorithmException {
         final KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
-        final SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
+        final SecureRandom random = new SecureRandom();
 
-        keyPairGenerator.initialize(256, random);
+        keyPairGenerator.initialize(KEY_SIZE, random);
 
         return keyPairGenerator.generateKeyPair();
     }
