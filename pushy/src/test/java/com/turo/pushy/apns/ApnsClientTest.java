@@ -24,6 +24,7 @@ package com.turo.pushy.apns;
 
 import com.turo.pushy.apns.auth.ApnsSigningKey;
 import com.turo.pushy.apns.auth.ApnsVerificationKey;
+import com.turo.pushy.apns.auth.KeyPairUtil;
 import com.turo.pushy.apns.util.ApnsPayloadBuilder;
 import com.turo.pushy.apns.util.SimpleApnsPushNotification;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -44,9 +45,7 @@ import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 @RunWith(JUnitParamsRunner.class)
 public class ApnsClientTest {
