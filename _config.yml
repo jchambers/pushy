@@ -1,6 +1,6 @@
 title: Pushy
 description: >
-  A Java library for sending APNs (iOS/OS X/Safari) push notifications
+  A Java library for sending APNs (iOS/macOS/Safari) push notifications
 project_url: "https://github.com/relayrides/pushy"
 license_name: MIT License
 license_url: "https://github.com/relayrides/pushy/blob/master/LICENSE.md"
