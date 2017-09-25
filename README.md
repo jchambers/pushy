@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/relayrides/pushy.svg?branch=master)](https://travis-ci.org/relayrides/pushy)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.turo/pushy/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.turo/pushy)
 
-Pushy is a Java library for sending [APNs](https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html) (iOS, OS X, and Safari) push notifications. It is written and maintained by the engineers at [Turo](https://turo.com/).
+Pushy is a Java library for sending [APNs](https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html) (iOS, macOS, and Safari) push notifications. It is written and maintained by the engineers at [Turo](https://turo.com/).
 
 Pushy sends push notifications using Apple's HTTP/2-based APNs protocol and supports both TLS and token-based authentication. It distinguishes itself from other push notification libraries with a focus on [thorough documentation](http://relayrides.github.io/pushy/apidocs/0.11/), asynchronous operation, and design for industrial-scale operation; with Pushy, it's easy and efficient to maintain multiple parallel connections to the APNs gateway to send large numbers of notifications to many different applications ("topics").
 
@@ -33,7 +33,7 @@ Pushy itself requires Java 7 or newer to build and run.
 
 ## Authenticating with the APNs server
 
-Before you can get started with Pushy, you'll need to do some provisioning work with Apple to register your app and get the required certificates or signing keys (more on these shortly). For details on this process, please see the [Provisioning Procedures](https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html) section of Apple's official documentation. Please note that there are [some caveats](https://github.com/relayrides/pushy/wiki/Certificates), particularly under Mac OS X 10.11 (El Capitan).
+Before you can get started with Pushy, you'll need to do some provisioning work with Apple to register your app and get the required certificates or signing keys (more on these shortly). For details on this process, please see the [Provisioning Procedures](https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html) section of Apple's official documentation. Please note that there are [some caveats](https://github.com/relayrides/pushy/wiki/Certificates), particularly under macOS 10.11 (El Capitan).
 
 Generally speaking, APNs clients must authenticate with the APNs server by some means before they can send push notifications. Currently, APNs (and Pushy) supports two authentication methods: TLS-based authentication and token-based authentication. The two approaches are mutually-exclusive; you'll need to pick one or the other for each client.
 
