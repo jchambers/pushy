@@ -33,9 +33,7 @@ public class KeyPairUtil {
 
     public static KeyPair generateKeyPair() throws NoSuchAlgorithmException {
         final KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
-        final SecureRandom random = new SecureRandom();
-
-        keyPairGenerator.initialize(KEY_SIZE, random);
+        keyPairGenerator.initialize(KEY_SIZE, new SecureRandom());
 
         return keyPairGenerator.generateKeyPair();
     }
