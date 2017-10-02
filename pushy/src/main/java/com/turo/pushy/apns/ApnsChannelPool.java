@@ -89,7 +89,7 @@ class ApnsChannelPool {
      * @param executor the executor on which listeners for acquisition/release promises will be called
      * @param metricsListener an optional listener for metrics describing the performance and behavior of the pool
      */
-    public ApnsChannelPool(final PooledObjectFactory<Channel> channelFactory, final int capacity, final OrderedEventExecutor executor, final ApnsChannelPoolMetricsListener metricsListener) {
+    ApnsChannelPool(final PooledObjectFactory<Channel> channelFactory, final int capacity, final OrderedEventExecutor executor, final ApnsChannelPoolMetricsListener metricsListener) {
         this.channelFactory = channelFactory;
         this.capacity = capacity;
         this.executor = executor;
@@ -111,7 +111,7 @@ class ApnsChannelPool {
      *
      * @see ApnsChannelPool#release(Channel)
      */
-    public Future<Channel> acquire() {
+    Future<Channel> acquire() {
         final Promise<Channel> acquirePromise = new DefaultPromise<>(this.executor);
 
         if (this.executor.inEventLoop()) {
@@ -184,7 +184,7 @@ class ApnsChannelPool {
      *
      * @param channel the channel to return to the pool
      */
-    public void release(final Channel channel) {
+    void release(final Channel channel) {
         if (this.executor.inEventLoop()) {
             this.releaseWithinEventExecutor(channel);
         } else {

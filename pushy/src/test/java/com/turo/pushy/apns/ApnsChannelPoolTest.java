@@ -192,4 +192,23 @@ public class ApnsChannelPoolTest {
         assertEquals(1, this.metricsListener.getConnectionsRemoved());
         assertEquals(0, this.metricsListener.getConnectionsFailed());
     }
+
+    @Test
+    public void testAcquireFromClosedPool() throws Exception {
+        this.pool.close().await();
+
+        final Future<Channel> acquireFuture = this.pool.acquire().await();
+        assertFalse(acquireFuture.isSuccess());
+    }
+
+    @Test
+    public void testPendingAcquisitionsDuringPoolClosure() throws Exception {
+        final Future<Channel> firstFuture = this.pool.acquire().await();
+        final Future<Channel> secondFuture = this.pool.acquire();
+
+        this.pool.close().await();
+
+        assertTrue(secondFuture.await(1000));
+        assertFalse(secondFuture.isSuccess());
+    }
 }
