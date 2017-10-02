@@ -204,11 +204,14 @@ public class ApnsChannelPoolTest {
     @Test
     public void testPendingAcquisitionsDuringPoolClosure() throws Exception {
         final Future<Channel> firstFuture = this.pool.acquire().await();
-        final Future<Channel> secondFuture = this.pool.acquire();
+
+        assertTrue(firstFuture.isSuccess());
+
+        final Future<Channel> pendingFuture = this.pool.acquire();
 
         this.pool.close().await();
 
-        assertTrue(secondFuture.await(1000));
-        assertFalse(secondFuture.isSuccess());
+        assertTrue(pendingFuture.await(1000));
+        assertFalse(pendingFuture.isSuccess());
     }
 }
