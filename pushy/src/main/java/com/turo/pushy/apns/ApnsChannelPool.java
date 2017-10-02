@@ -63,6 +63,11 @@ class ApnsChannelPool {
     private final Set<Future<Channel>> pendingCreateChannelFutures = new HashSet<>();
     private final Queue<Promise<Channel>> pendingAcquisitionPromises = new ArrayDeque<>();
 
+    private boolean isClosed = false;
+
+    private static final Exception POOL_CLOSED_EXCEPTION =
+            new IllegalStateException("Channel pool has closed and no more channels may be acquired.");
+
     private static final Logger log = LoggerFactory.getLogger(ApnsChannelPool.class);
 
     private static class NoopChannelPoolMetricsListener implements ApnsChannelPoolMetricsListener {
@@ -138,44 +143,48 @@ class ApnsChannelPool {
     private void acquireWithinEventExecutor(final Promise<Channel> acquirePromise) {
         assert this.executor.inEventLoop();
 
-        final Channel channelFromIdlePool = ApnsChannelPool.this.idleChannels.poll();
+        if (!this.isClosed) {
+            final Channel channelFromIdlePool = ApnsChannelPool.this.idleChannels.poll();
 
-        if (channelFromIdlePool != null) {
-            if (channelFromIdlePool.isActive()) {
-                acquirePromise.trySuccess(channelFromIdlePool);
+            if (channelFromIdlePool != null) {
+                if (channelFromIdlePool.isActive()) {
+                    acquirePromise.trySuccess(channelFromIdlePool);
+                } else {
+                    this.discardChannel(channelFromIdlePool);
+                    this.acquireWithinEventExecutor(acquirePromise);
+                }
             } else {
-                this.discardChannel(channelFromIdlePool);
-                this.acquireWithinEventExecutor(acquirePromise);
+                // We don't have any connections ready to go; create a new one if possible.
+                if (this.allChannels.size() + this.pendingCreateChannelFutures.size() < this.capacity) {
+                    final Future<Channel> createChannelFuture = this.channelFactory.create(executor.<Channel>newPromise());
+                    this.pendingCreateChannelFutures.add(createChannelFuture);
+
+                    createChannelFuture.addListener(new GenericFutureListener<Future<Channel>>() {
+
+                        @Override
+                        public void operationComplete(final Future<Channel> future) throws Exception {
+                            ApnsChannelPool.this.pendingCreateChannelFutures.remove(createChannelFuture);
+
+                            if (future.isSuccess()) {
+                                final Channel channel = future.getNow();
+
+                                ApnsChannelPool.this.allChannels.add(channel);
+                                ApnsChannelPool.this.metricsListener.handleConnectionAdded();
+
+                                acquirePromise.trySuccess(channel);
+                            } else {
+                                ApnsChannelPool.this.metricsListener.handleConnectionCreationFailed();
+
+                                acquirePromise.tryFailure(future.cause());
+                            }
+                        }
+                    });
+                } else {
+                    pendingAcquisitionPromises.add(acquirePromise);
+                }
             }
         } else {
-            // We don't have any connections ready to go; create a new one if possible.
-            if (this.allChannels.size() + this.pendingCreateChannelFutures.size() < this.capacity) {
-                final Future<Channel> createChannelFuture = this.channelFactory.create(executor.<Channel>newPromise());
-                this.pendingCreateChannelFutures.add(createChannelFuture);
-
-                createChannelFuture.addListener(new GenericFutureListener<Future<Channel>>() {
-
-                    @Override
-                    public void operationComplete(final Future<Channel> future) throws Exception {
-                        ApnsChannelPool.this.pendingCreateChannelFutures.remove(createChannelFuture);
-
-                        if (future.isSuccess()) {
-                            final Channel channel = future.getNow();
-
-                            ApnsChannelPool.this.allChannels.add(channel);
-                            ApnsChannelPool.this.metricsListener.handleConnectionAdded();
-
-                            acquirePromise.trySuccess(channel);
-                        } else {
-                            ApnsChannelPool.this.metricsListener.handleConnectionCreationFailed();
-
-                            acquirePromise.tryFailure(future.cause());
-                        }
-                    }
-                });
-            } else {
-                pendingAcquisitionPromises.add(acquirePromise);
-            }
+            acquirePromise.tryFailure(POOL_CLOSED_EXCEPTION);
         }
     }
 
@@ -234,8 +243,14 @@ class ApnsChannelPool {
         return this.allChannels.close().addListener(new GenericFutureListener<Future<Void>>() {
             @Override
             public void operationComplete(final Future<Void> future) throws Exception {
+                ApnsChannelPool.this.isClosed = true;
+
                 if (ApnsChannelPool.this.channelFactory instanceof Closeable) {
                     ((Closeable) ApnsChannelPool.this.channelFactory).close();
+                }
+
+                for (final Promise<Channel> acquisitionPromise : ApnsChannelPool.this.pendingAcquisitionPromises) {
+                    acquisitionPromise.tryFailure(POOL_CLOSED_EXCEPTION);
                 }
             }
         });
