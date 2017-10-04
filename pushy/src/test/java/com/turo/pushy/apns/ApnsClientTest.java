@@ -511,11 +511,14 @@ public class ApnsClientTest {
         try {
             terribleTerribleServer.registerVerificationKey(this.verificationKey, DEFAULT_TOPIC);
 
+            final TestMetricsListener metricsListener = new TestMetricsListener();
+
             final ApnsClient unfortunateClient = new ApnsClientBuilder()
                     .setApnsServer(HOST, PORT)
                     .setSigningKey(this.signingKey)
                     .setTrustedServerCertificateChain(CA_CERTIFICATE)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
+                    .setMetricsListener(metricsListener)
                     .build();
 
             try {
@@ -530,6 +533,11 @@ public class ApnsClientTest {
                 assertTrue(future.isDone());
                 assertFalse(future.isSuccess());
                 assertTrue(future.cause() instanceof ApnsServerException);
+
+                unfortunateClient.sendNotification(pushNotification).await();
+
+                assertTrue("Connections should be replaced after receiving an InternalServerError.",
+                        metricsListener.getConnectionsRemoved().get() == 1);
             } finally {
                 unfortunateClient.close().await();
                 Thread.sleep(10);
