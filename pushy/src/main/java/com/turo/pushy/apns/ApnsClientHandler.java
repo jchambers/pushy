@@ -75,6 +75,8 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private static final IOException STREAM_CLOSED_BEFORE_REPLY_EXCEPTION =
             new IOException("Stream closed before a reply was received");
 
+    private static final ApnsServerException APNS_SERVER_EXCEPTION = new ApnsServerException();
+
     private static final Gson GSON = new GsonBuilder()
             .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
             .create();
@@ -287,18 +289,55 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
         if (endOfStream) {
             final Http2Stream stream = this.connection().stream(streamId);
-
-            final Http2Headers headers = stream.getProperty(this.responseHeadersPropertyKey);
-            final ApnsPushNotification pushNotification = stream.getProperty(this.pushNotificationPropertyKey);
-
-            final ErrorResponse errorResponse = GSON.fromJson(data.toString(StandardCharsets.UTF_8), ErrorResponse.class);
-
-            this.handleErrorResponse(context, streamId, headers, pushNotification, errorResponse);
+            this.handleEndOfStream(context, this.connection().stream(streamId), (Http2Headers) stream.getProperty(this.responseHeadersPropertyKey), data);
         } else {
             log.error("Gateway sent a DATA frame that was not the end of a stream.");
         }
 
         return bytesProcessed;
+    }
+
+    @Override
+    public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int streamDependency, final short weight, final boolean exclusive, final int padding, final boolean endOfStream) throws Http2Exception {
+        this.onHeadersRead(context, streamId, headers, padding, endOfStream);
+    }
+
+    @Override
+    public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
+        log.trace("Received headers from APNs gateway on stream {}: {}", streamId, headers);
+        final Http2Stream stream = this.connection().stream(streamId);
+
+        if (endOfStream) {
+            this.handleEndOfStream(context, stream, headers, null);
+        } else {
+            stream.setProperty(this.responseHeadersPropertyKey, headers);
+        }
+    }
+
+    private void handleEndOfStream(final ChannelHandlerContext context, final Http2Stream stream, final Http2Headers headers, final ByteBuf data) {
+
+        final ApnsPushNotification pushNotification = stream.getProperty(this.pushNotificationPropertyKey);
+        final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise = stream.getProperty(this.responsePromisePropertyKey);
+
+        final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
+
+        if (HttpResponseStatus.OK.equals(status)) {
+            responsePromise.trySuccess(
+                    new SimplePushNotificationResponse<>(pushNotification, true, null, null));
+        } else {
+            if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
+                log.warn("APNs server reported an internal error when sending {}.", pushNotification);
+                responsePromise.tryFailure(APNS_SERVER_EXCEPTION);
+                context.channel().close();
+            } else {
+                if (data != null) {
+                    final ErrorResponse errorResponse = GSON.fromJson(data.toString(StandardCharsets.UTF_8), ErrorResponse.class);
+                    this.handleErrorResponse(context, stream.id(), headers, pushNotification, errorResponse);
+                } else {
+                    log.warn("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
+                }
+            }
+        }
     }
 
     protected void handleErrorResponse(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final ApnsPushNotification pushNotification, final ErrorResponse errorResponse) {
@@ -313,39 +352,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         } else {
             responsePromise.trySuccess(new SimplePushNotificationResponse<>(pushNotification,
                     HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
-        }
-    }
-
-    @Override
-    public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int streamDependency, final short weight, final boolean exclusive, final int padding, final boolean endOfStream) throws Http2Exception {
-        this.onHeadersRead(context, streamId, headers, padding, endOfStream);
-    }
-
-    @Override
-    public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
-        log.trace("Received headers from APNs gateway on stream {}: {}", streamId, headers);
-        final Http2Stream stream = this.connection().stream(streamId);
-
-        if (endOfStream) {
-            final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
-            final boolean success = HttpResponseStatus.OK.equals(status);
-
-            if (!success) {
-                log.warn("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
-            }
-
-            final ApnsPushNotification pushNotification = stream.getProperty(this.pushNotificationPropertyKey);
-            final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise = stream.getProperty(this.responsePromisePropertyKey);
-
-            if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
-                log.warn("APNs server reported an internal error when sending {}.", pushNotification);
-                responsePromise.tryFailure(new ApnsServerException());
-            } else {
-                responsePromise.trySuccess(
-                        new SimplePushNotificationResponse<>(pushNotification, success, null, null));
-            }
-        } else {
-            stream.setProperty(this.responseHeadersPropertyKey, headers);
         }
     }
 
