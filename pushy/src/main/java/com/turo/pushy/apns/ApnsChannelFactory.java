@@ -77,7 +77,6 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
         this.bootstrapTemplate = new Bootstrap();
         this.bootstrapTemplate.group(eventLoopGroup);
-        this.bootstrapTemplate.channel(SocketChannelClassUtil.getSocketChannelClass(this.bootstrapTemplate.config().group()));
         this.bootstrapTemplate.option(ChannelOption.TCP_NODELAY, true);
         this.bootstrapTemplate.remoteAddress(apnsServerAddress);
 
@@ -169,12 +168,18 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
             }
         });
 
+
         this.bootstrapTemplate.config().group().schedule(new Runnable() {
 
             @Override
             public void run() {
-                final ChannelFuture connectFuture = ApnsChannelFactory.this.bootstrapTemplate.clone().connect();
-                connectFuture.channel().attr(CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).set(channelReadyPromise);
+
+                final Bootstrap bootstrap = ApnsChannelFactory.this.bootstrapTemplate.clone()
+                        .channelFactory(new AugmentingReflectiveChannelFactory<>(
+                                SocketChannelClassUtil.getSocketChannelClass(ApnsChannelFactory.this.bootstrapTemplate.config().group()),
+                                CHANNEL_READY_PROMISE_ATTRIBUTE_KEY, channelReadyPromise));
+
+                final ChannelFuture connectFuture = bootstrap.connect();
 
                 connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
 
