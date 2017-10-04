@@ -154,14 +154,11 @@ An example:
 
 ```java
 final ApnsClient apnsClient = new ApnsClientBuilder()
-        .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
-                "TEAMID1234", "KEYID67890"))
-        .setProxyHandlerFactory(new Socks5ProxyHandlerFactory(
-            new InetSocketAddress("my.proxy.com", 1080), "username", "password"))
-        .build();
-
-final Future<Void> connectFuture = apnsClient.connect(ApnsClient.DEVELOPMENT_APNS_HOST);
-connectFuture.await();
+    .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
+            "TEAMID1234", "KEYID67890"))
+    .setProxyHandlerFactory(new Socks5ProxyHandlerFactory(
+        new InetSocketAddress("my.proxy.com", 1080), "username", "password"))
+    .build();
 ```
 
 ## Logging
