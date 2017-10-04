@@ -133,6 +133,12 @@
                         <version>2.16</version>
                         <configuration>
                             <argLine>${argLine.alpnAgent} -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -ea</argLine>
+                            <properties>
+                                <property>
+                                    <name>listener</name>
+                                    <value>com.turo.pushy.apns.PrintTestNameRunListener</value>
+                                </property>
+                            </properties>
                         </configuration>
                     </plugin>
                 </plugins>
