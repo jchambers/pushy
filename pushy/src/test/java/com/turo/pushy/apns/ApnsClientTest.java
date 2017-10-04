@@ -313,7 +313,13 @@ public class ApnsClientTest {
     }
 
     @Test
-    public void testReconnectionAfterClose() throws Exception {
+    public void testRepeatedClose() throws Exception {
+        assertTrue(this.tokenAuthenticationClient.close().await().isSuccess());
+        assertTrue(this.tokenAuthenticationClient.close().await().isSuccess());
+    }
+
+    @Test
+    public void testSendNotificationAfterClose() throws Exception {
         this.tokenAuthenticationClient.close().await();
 
         final SimpleApnsPushNotification pushNotification =

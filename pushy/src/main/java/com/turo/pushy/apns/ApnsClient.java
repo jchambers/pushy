@@ -34,6 +34,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -69,9 +70,10 @@ import java.util.concurrent.atomic.AtomicLong;
  * {@link java.util.concurrent.Future java.util.concurrent.Future} interface that allows callers to attach listeners
  * that will be notified when the {@code Future} completes.</p>
  *
- * <p>APNs clients are intended to be long-lived, persistent resources. Callers must shut them down when they are no
- * longer needed (i.e. when shutting down the entire application). If an event loop group was specified at construction
- * time, callers should shut down that event loop group when all clients using that group have been disconnected.</p>
+ * <p>APNs clients are intended to be long-lived, persistent resources. Callers must shut them down via the
+ * {@link ApnsClient#close()}} method when they are no longer needed (i.e. when shutting down the entire application).
+ * If an event loop group was specified at construction time, callers should shut down that event loop group when all
+ * clients using that group have been disconnected.</p>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
@@ -86,7 +88,7 @@ public class ApnsClient {
     private final ApnsClientMetricsListener metricsListener;
     private final AtomicLong nextNotificationId = new AtomicLong(0);
 
-    private volatile boolean isClosed = false;
+    private final AtomicBoolean isClosed = new AtomicBoolean(false);
 
     private static final IllegalStateException CLIENT_CLOSED_EXCEPTION =
             new IllegalStateException("Client has been closed and can no longer send push notifications.");
@@ -188,7 +190,7 @@ public class ApnsClient {
     public <T extends ApnsPushNotification> Future<PushNotificationResponse<T>> sendNotification(final T notification) {
         final Future<PushNotificationResponse<T>> responseFuture;
 
-        if (!this.isClosed) {
+        if (!this.isClosed.get()) {
             final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise = new DefaultPromise<>(this.eventLoopGroup.next());
             final long notificationId = this.nextNotificationId.getAndIncrement();
 
@@ -245,52 +247,57 @@ public class ApnsClient {
     }
 
     /**
-     * <p>Gracefully disconnects from the APNs gateway. The disconnection process will wait until notifications that
-     * have been sent to the APNs server have been either accepted or rejected. Note that some notifications passed to
-     * {@link ApnsClient#sendNotification(ApnsPushNotification)} may still be enqueued and
-     * not yet sent by the time the shutdown process begins; the {@code Futures} associated with those notifications
-     * will fail.</p>
+     * <p>Gracefully shuts down the client, closing all connections and releasing all persistent resources. The
+     * disconnection process will wait until notifications that have been sent to the APNs server have been either
+     * accepted or rejected. Note that some notifications passed to
+     * {@link ApnsClient#sendNotification(ApnsPushNotification)} may still be enqueued and not yet sent by the time the
+     * shutdown process begins; the {@code Futures} associated with those notifications will fail.</p>
      *
-     * <p>The returned {@code Future} will be marked as complete when the connection has closed completely. If the
-     * connection is already closed when this method is called, the returned {@code Future} will be marked as complete
+     * <p>The returned {@code Future} will be marked as complete when all connections in this client's pool have closed
+     * completely and (if no {@code EventLoopGroup} was provided at construction time) the client's event loop group has
+     * shut down. If the client has already shut down, the returned {@code Future} will be marked as complete
      * immediately.</p>
      *
-     * <p>If a non-null {@code EventLoopGroup} was provided at construction time, clients may be reconnected and reused
-     * after they have been disconnected. If no event loop group was provided at construction time, clients may not be
-     * restarted after they have been disconnected via this method.</p>
+     * <p>Clients may not be reused once they have been closed.</p>
      *
-     * @return a {@code Future} that will be marked as complete when the connection has been closed
+     * @return a {@code Future} that will be marked as complete when the client has finished shutting down
      *
-     * @since 0.5
+     * @since 0.11
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public Future<Void> close() {
-        log.info("Disconnecting.");
+        log.info("Shutting down.");
 
-        this.isClosed = true;
+        final Future<Void> closeFuture;
 
-        // Since we're (maybe) going to clobber the main event loop group, we should have this promise use the global
-        // event executor to notify listeners.
-        final Promise<Void> closePromise = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
+        if (this.isClosed.compareAndSet(false, true)) {
+            // Since we're (maybe) going to clobber the main event loop group, we should have this promise use the global
+            // event executor to notify listeners.
+            final Promise<Void> closePromise = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
 
-        this.channelPool.close().addListener(new GenericFutureListener<Future<Void>>() {
+            this.channelPool.close().addListener(new GenericFutureListener<Future<Void>>() {
 
-            @Override
-            public void operationComplete(final Future<Void> closePoolFuture) throws Exception {
-                if (ApnsClient.this.shouldShutDownEventLoopGroup) {
-                    ApnsClient.this.eventLoopGroup.shutdownGracefully().addListener(new GenericFutureListener() {
+                @Override
+                public void operationComplete(final Future<Void> closePoolFuture) throws Exception {
+                    if (ApnsClient.this.shouldShutDownEventLoopGroup) {
+                        ApnsClient.this.eventLoopGroup.shutdownGracefully().addListener(new GenericFutureListener() {
 
-                        @Override
-                        public void operationComplete(final Future future) throws Exception {
-                            closePromise.trySuccess(null);
-                        }
-                    });
-                } else {
-                    closePromise.trySuccess(null);
+                            @Override
+                            public void operationComplete(final Future future) throws Exception {
+                                closePromise.trySuccess(null);
+                            }
+                        });
+                    } else {
+                        closePromise.trySuccess(null);
+                    }
                 }
-            }
-        });
+            });
 
-        return closePromise;
+            closeFuture = closePromise;
+        } else {
+            closeFuture = new SucceededFuture<>(GlobalEventExecutor.INSTANCE, null);
+        }
+
+        return closeFuture;
     }
 }
