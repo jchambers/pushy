@@ -16,7 +16,7 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 <dependency>
     <groupId>com.turo</groupId>
     <artifactId>pushy</artifactId>
-    <version>0.11.1</version>
+    <version>0.11.3</version>
 </dependency>
 ```
 
@@ -153,14 +153,11 @@ An example:
 
 ```java
 final ApnsClient apnsClient = new ApnsClientBuilder()
-        .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
-                "TEAMID1234", "KEYID67890"))
-        .setProxyHandlerFactory(new Socks5ProxyHandlerFactory(
-            new InetSocketAddress("my.proxy.com", 1080), "username", "password"))
-        .build();
-
-final Future<Void> connectFuture = apnsClient.connect(ApnsClient.DEVELOPMENT_APNS_HOST);
-connectFuture.await();
+    .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
+            "TEAMID1234", "KEYID67890"))
+    .setProxyHandlerFactory(new Socks5ProxyHandlerFactory(
+        new InetSocketAddress("my.proxy.com", 1080), "username", "password"))
+    .build();
 ```
 
 ## Logging
@@ -193,4 +190,4 @@ If you plan to use Pushy inside an application container (like Tomcat), you may 
 
 Pushy is available under the [MIT License](https://github.com/relayrides/pushy/blob/master/LICENSE.md).
 
-The current version of Pushy is 0.11.1. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
+The current version of Pushy is 0.11.3. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
