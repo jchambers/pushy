@@ -27,6 +27,8 @@ import com.turo.pushy.apns.proxy.Socks5ProxyHandlerFactory;
 import com.turo.pushy.apns.util.ApnsPayloadBuilder;
 import com.turo.pushy.apns.util.SimpleApnsPushNotification;
 import com.turo.pushy.apns.util.TokenUtil;
+import com.turo.pushy.apns.util.concurrent.PushNotificationFuture;
+import com.turo.pushy.apns.util.concurrent.PushNotificationResponseListener;
 import io.netty.util.concurrent.Future;
 
 import java.io.File;
@@ -85,7 +87,7 @@ public class ExampleApp {
         // immediately, but will need to wait for the Future to complete before
         // we'll know whether the notification was accepted or rejected by the
         // APNs gateway.
-        final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendNotificationFuture =
+        final PushNotificationFuture<SimpleApnsPushNotification, PushNotificationResponse<SimpleApnsPushNotification>> sendNotificationFuture =
                 apnsClient.sendNotification(pushNotification);
 
         try {
@@ -114,6 +116,29 @@ public class ExampleApp {
             System.err.println("Failed to send push notification.");
             e.printStackTrace();
         }
+
+        // To send push notifications efficiently, it's best to attach listeners
+        // to "send push notification" futures so we don't have to wait for the
+        // server to reply before we start sending the next notification.
+        sendNotificationFuture.addListener(new PushNotificationResponseListener<SimpleApnsPushNotification>() {
+            @Override
+            public void operationComplete(final PushNotificationFuture<SimpleApnsPushNotification, PushNotificationResponse<SimpleApnsPushNotification>> future) throws Exception {
+                // When using a listener, callers should check for a failure to send a
+                // notification by checking whether the future itself was successful
+                // since an exception will not be thrown.
+                if (future.isSuccess()) {
+                    final PushNotificationResponse<SimpleApnsPushNotification> pushNotificationResponse =
+                            sendNotificationFuture.getNow();
+
+                    // Handle the push notification response as before from here.
+                } else {
+                    // Something went wrong when trying to send the notification to the
+                    // APNs gateway. We can find the exception that caused the failure
+                    // by getting future.cause().
+                    future.cause().printStackTrace();
+                }
+            }
+        });
 
         // Finally, when we're done sending notifications (i.e. when our
         // application is shutting down), we should close all APNs clients

@@ -83,8 +83,8 @@ final SimpleApnsPushNotification pushNotification;
 The process of sending a push notification is asynchronous; although the process of sending a notification and getting a reply from the server may take some time, the client will return a [`io.netty.util.concurrent.Future`](http://netty.io/4.1/api/io/netty/util/concurrent/Future.html) right away. You can use that `Future` to track the progress and eventual outcome of the sending operation. Note that an `io.netty.util.concurrent.Future` is an extension of the Java [`Future`](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/Future.html) interface that allows callers to add listeners and adds methods for checking the status of the `Future`.
 
 ```java
-final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendNotificationFuture =
-        apnsClient.sendNotification(pushNotification);
+final PushNotificationFuture<SimpleApnsPushNotification, PushNotificationResponse<SimpleApnsPushNotification>>
+    sendNotificationFuture = apnsClient.sendNotification(pushNotification);
 ```
 
 The `Future` will complete in one of three circumstances:
@@ -117,7 +117,30 @@ try {
 }
 ```
 
-Again, it's important to note that the returned `Future` supports listeners; waiting for each individual push notification is inefficient in practice, and most users will be better serverd by adding a listener to the `Future` instead of blocking until it completes.
+Again, it's important to note that the returned `Future` supports listeners; waiting for each individual push notification is inefficient in practice, and most users will be better serverd by adding a listener to the `Future` instead of blocking until it completes. As an example:
+
+```java
+sendNotificationFuture.addListener(new PushNotificationResponseListener<SimpleApnsPushNotification>() {
+
+    @Override
+    public void operationComplete(final PushNotificationFuture<SimpleApnsPushNotification, PushNotificationResponse<SimpleApnsPushNotification>> future) throws Exception {
+        // When using a listener, callers should check for a failure to send a
+        // notification by checking whether the future itself was successful
+        // since an exception will not be thrown.
+        if (future.isSuccess()) {
+            final PushNotificationResponse<SimpleApnsPushNotification> pushNotificationResponse =
+                    sendNotificationFuture.getNow();
+
+            // Handle the push notification response as before from here.
+        } else {
+            // Something went wrong when trying to send the notification to the
+            // APNs gateway. We can find the exception that caused the failure
+            // by getting future.cause().
+            future.cause().printStackTrace();
+        }
+    }
+});
+```
 
 All APNs clients—even those that have never sent a message—may allocate and hold on to system resources, and it's important to release them. APNs clients are intended to be persistent, long-lived resources; you definitely don't need to shut down a client after sending a notification (or even batch of notifications), but you'll want to shut down your client (or clients) when your application is shutting down:
 
