@@ -25,6 +25,7 @@ package com.turo.pushy.apns;
 import com.turo.pushy.apns.auth.ApnsSigningKey;
 import com.turo.pushy.apns.proxy.ProxyHandlerFactory;
 import io.netty.channel.EventLoopGroup;
+import io.netty.handler.codec.http2.Http2FrameLogger;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.ssl.*;
 import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
@@ -75,6 +76,8 @@ public class ApnsClientBuilder {
     private int connectionTimeoutMillis;
     private long idlePingIntervalMillis = DEFAULT_PING_IDLE_TIME_MILLIS;
     private long gracefulShutdownTimeoutMillis;
+
+    private Http2FrameLogger frameLogger;
 
     /**
      * The default idle time in milliseconds after which the client will send a PING frame to the APNs server.
@@ -465,6 +468,25 @@ public class ApnsClientBuilder {
     }
 
     /**
+     * Sets the HTTP/2 frame logger for the client under construction. HTTP/2 frame loggers log all HTTP/2 frames sent
+     * to or from the client to the logging system of your choice via SLF4J. Frame logging is extremely verbose and is
+     * recommended only for debugging purposes.
+     *
+     * @param frameLogger the frame logger to be used by the client under construction or {@code null} if the client
+     * should not log individual HTTP/2 frames
+     *
+     * @return a reference to this builder
+     *
+     * @see <a href="https://www.slf4j.org/">SLF4J</a>
+     *
+     * @since 0.12
+     */
+    public ApnsClientBuilder setFrameLogger(final Http2FrameLogger frameLogger) {
+        this.frameLogger = frameLogger;
+        return this;
+    }
+
+    /**
      * Constructs a new {@link ApnsClient} with the previously-set configuration.
      *
      * @return a new ApnsClient instance with the previously-set configuration
@@ -516,7 +538,7 @@ public class ApnsClientBuilder {
         final ApnsClient client = new ApnsClient(this.apnsServerAddress, sslContext, this.signingKey,
                 this.proxyHandlerFactory, this.connectionTimeoutMillis, this.idlePingIntervalMillis,
                 this.gracefulShutdownTimeoutMillis, this.concurrentConnections, this.metricsListener,
-                this.eventLoopGroup);
+                this.frameLogger, this.eventLoopGroup);
 
         if (sslContext instanceof ReferenceCounted) {
             ((ReferenceCounted) sslContext).release();
