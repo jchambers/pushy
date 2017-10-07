@@ -28,6 +28,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.handler.codec.http2.Http2FrameLogger;
 import io.netty.handler.ssl.SslContext;
 import io.netty.util.concurrent.*;
 import org.slf4j.Logger;
@@ -127,10 +128,11 @@ public class ApnsClient {
     }
 
     protected ApnsClient(final InetSocketAddress apnsServerAddress, final SslContext sslContext,
-                         final ApnsSigningKey signingKey,  final ProxyHandlerFactory proxyHandlerFactory,
+                         final ApnsSigningKey signingKey, final ProxyHandlerFactory proxyHandlerFactory,
                          final int connectTimeoutMillis, final long idlePingIntervalMillis,
                          final long gracefulShutdownTimeoutMillis, final int concurrentConnections,
-                         final ApnsClientMetricsListener metricsListener, final EventLoopGroup eventLoopGroup) {
+                         final ApnsClientMetricsListener metricsListener, final Http2FrameLogger frameLogger,
+                         final EventLoopGroup eventLoopGroup) {
 
         if (eventLoopGroup != null) {
             this.eventLoopGroup = eventLoopGroup;
@@ -142,7 +144,9 @@ public class ApnsClient {
 
         this.metricsListener = metricsListener != null ? metricsListener : new NoopApnsClientMetricsListener();
 
-        final ApnsChannelFactory channelFactory = new ApnsChannelFactory(sslContext, signingKey, proxyHandlerFactory, connectTimeoutMillis, idlePingIntervalMillis, gracefulShutdownTimeoutMillis, apnsServerAddress, this.eventLoopGroup);
+        final ApnsChannelFactory channelFactory = new ApnsChannelFactory(sslContext, signingKey, proxyHandlerFactory,
+                connectTimeoutMillis, idlePingIntervalMillis, gracefulShutdownTimeoutMillis, frameLogger,
+                apnsServerAddress, this.eventLoopGroup);
 
         final ApnsChannelPoolMetricsListener channelPoolMetricsListener = new ApnsChannelPoolMetricsListener() {
 

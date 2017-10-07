@@ -107,6 +107,16 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         }
 
         @Override
+        public ApnsClientHandlerBuilder frameLogger(final Http2FrameLogger frameLogger) {
+            return super.frameLogger(frameLogger);
+        }
+
+        @Override
+        public Http2FrameLogger frameLogger() {
+            return super.frameLogger();
+        }
+
+        @Override
         protected final boolean isServer() {
             return false;
         }
