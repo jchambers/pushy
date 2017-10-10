@@ -68,6 +68,8 @@ public class MockApnsServerBuilder {
 
     private PushNotificationHandlerFactory handlerFactory;
 
+    private MockApnsServerListener listener;
+
     private EventLoopGroup eventLoopGroup;
 
     private int maxConcurrentStreams = DEFAULT_MAX_CONCURRENT_STREAMS;
@@ -273,6 +275,11 @@ public class MockApnsServerBuilder {
         }
 
         this.maxConcurrentStreams = maxConcurrentStreams;
+        return this;
+    }
+
+    public MockApnsServerBuilder setListener(final MockApnsServerListener listener) {
+        this.listener = listener;
         return this;
     }
 
