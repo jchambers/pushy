@@ -45,6 +45,9 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
     private AuthenticationToken authenticationToken;
     private int mostRecentStreamWithNewToken = 0;
 
+    private static final long AUTH_TOKEN_SAFETY_SECS = 30L;
+    private static final long AUTH_TOKEN_LIFETIME = (3600L - AUTH_TOKEN_SAFETY_SECS) * 1000L;
+
     private static final AsciiString APNS_AUTHORIZATION_HEADER = new AsciiString("authorization");
 
     private static final String EXPIRED_AUTH_TOKEN_REASON = "ExpiredProviderToken";
@@ -85,7 +88,8 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
     protected Http2Headers getHeadersForPushNotification(final ApnsPushNotification pushNotification, final int streamId) {
         final Http2Headers headers = super.getHeadersForPushNotification(pushNotification, streamId);
 
-        if (this.authenticationToken == null) {
+        if ((this.authenticationToken == null)||
+            (new Date().getTime() - this.authenticationToken.getIssuedAt().getTime()) > AUTH_TOKEN_LIFETIME)  {
             try {
                 this.authenticationToken = new AuthenticationToken(signingKey, new Date());
                 this.mostRecentStreamWithNewToken = streamId;
