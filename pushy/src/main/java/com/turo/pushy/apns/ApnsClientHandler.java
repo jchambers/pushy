@@ -73,7 +73,12 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private static final IOException STREAM_CLOSED_BEFORE_REPLY_EXCEPTION =
             new IOException("Stream closed before a reply was received");
 
-    private static final ApnsServerException APNS_SERVER_EXCEPTION = new ApnsServerException();
+    private static final ApnsServerException APNS_SERVER_EXCEPTION = new ApnsServerException() {
+        @Override
+        public Throwable fillInStackTrace() {
+            return this;
+        }
+    };
 
     private static final Gson GSON = new GsonBuilder()
             .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
