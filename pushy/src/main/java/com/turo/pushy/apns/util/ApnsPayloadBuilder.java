@@ -98,8 +98,7 @@ public class ApnsPayloadBuilder {
     private static final Gson GSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
 
     /**
-     * The name of the iOS default push notification sound
-     * ({@value ApnsPayloadBuilder#DEFAULT_SOUND_FILENAME}).
+     * The name of the iOS default push notification sound.
      *
      * @see ApnsPayloadBuilder#setSoundFileName(String)
      */
@@ -517,10 +516,18 @@ public class ApnsPayloadBuilder {
      * identifying when the provider sent the notification. Any action associated with an alert message should not be
      * destructive—for example, it should not delete data on the device.</blockquote>
      *
+     * <p>The value for the property is serialized to JSON by <a href="https://github.com/google/gson">Gson</a>. For
+     * a detailed explanation of how Gson serializes Java objects to JSON, please see the
+     * <a href="https://github.com/google/gson/blob/master/UserGuide.md#TOC-Using-Gson">Gson User Guide</a>.</p>
+     *
      * @param key the key of the custom property in the payload object
      * @param value the value of the custom property
      *
      * @return a reference to this payload builder
+     *
+     * @see Gson#toJson(Object)
+     * @see <a href="https://github.com/google/gson/blob/master/UserGuide.md#TOC-Using-Gson">Gson User Guide - Using
+     * Gson</a>
      */
     public ApnsPayloadBuilder addCustomProperty(final String key, final Object value) {
         this.customProperties.put(key, value);
