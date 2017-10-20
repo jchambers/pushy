@@ -85,6 +85,7 @@
                     <show>public</show>
                     <links>
                         <link>http://netty.io/4.1/api/</link>
+                        <link>https://google.github.io/gson/apidocs/</link>
                     </links>
                 </configuration>
             </plugin>
