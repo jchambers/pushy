@@ -20,46 +20,21 @@
  * THE SOFTWARE.
  */
 
-package com.turo.pushy.apns;
+package com.turo.pushy.apns.server;
 
-import io.netty.handler.codec.http2.Http2ConnectionDecoder;
-import io.netty.handler.codec.http2.Http2ConnectionEncoder;
 import io.netty.handler.codec.http2.Http2Headers;
-import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.util.AsciiString;
 
 import java.util.*;
 
-class TlsAuthenticationMockApnsServerHandler extends AbstractMockApnsServerHandler {
+class TlsAuthenticationValidatingPushNotificationHandler extends ValidatingPushNotificationHandler {
 
     private final Set<String> allowedTopics;
 
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
 
-    public static final class TlsAuthenticationMockApnsServerHandlerBuilder extends AbstractMockApnsServerHandlerBuilder {
-
-        private String baseTopic;
-
-        public AbstractMockApnsServerHandlerBuilder baseTopic(final String baseTopic) {
-            this.baseTopic = baseTopic;
-            return this;
-        }
-
-        @Override
-        public TlsAuthenticationMockApnsServerHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
-            final TlsAuthenticationMockApnsServerHandler handler = new TlsAuthenticationMockApnsServerHandler(decoder, encoder, initialSettings, super.emulateInternalErrors(), super.deviceTokenExpirationsByTopic(), baseTopic);
-            this.frameListener(handler);
-            return handler;
-        }
-
-        @Override
-        public AbstractMockApnsServerHandler build() {
-            return super.build();
-        }
-    }
-
-    protected TlsAuthenticationMockApnsServerHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final boolean emulateInternalErrors, final Map<String, Map<String, Date>> deviceTokenExpirationsByTopic, final String baseTopic) {
-        super(decoder, encoder, initialSettings, emulateInternalErrors, deviceTokenExpirationsByTopic);
+    TlsAuthenticationValidatingPushNotificationHandler(final Map<String, Set<String>> deviceTokensByTopic, final Map<String, Date> expirationTimestampsByDeviceToken, final String baseTopic) {
+        super(deviceTokensByTopic, expirationTimestampsByDeviceToken);
 
         Objects.requireNonNull(baseTopic, "Base topic must not be null for mock server handlers using TLS-based authentication.");
 
@@ -70,9 +45,7 @@ class TlsAuthenticationMockApnsServerHandler extends AbstractMockApnsServerHandl
     }
 
     @Override
-    protected void verifyHeaders(final Http2Headers headers) throws RejectedNotificationException {
-        super.verifyHeaders(headers);
-
+    protected void verifyAuthentication(final Http2Headers headers, final UUID apnsId) throws RejectedNotificationException {
         final String topic;
         {
             final CharSequence topicSequence = headers.get(APNS_TOPIC_HEADER);
@@ -80,7 +53,7 @@ class TlsAuthenticationMockApnsServerHandler extends AbstractMockApnsServerHandl
         }
 
         if (!this.allowedTopics.contains(topic)) {
-            throw new RejectedNotificationException(ErrorReason.BAD_TOPIC);
+            throw new RejectedNotificationException(RejectionReason.BAD_TOPIC, apnsId);
         }
     }
 }

@@ -20,28 +20,21 @@
  * THE SOFTWARE.
  */
 
-package com.turo.pushy.apns;
+package com.turo.pushy.apns.util;
+
+import com.google.gson.*;
 
 import java.lang.reflect.Type;
 import java.util.Date;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
-import com.google.gson.JsonDeserializationContext;
-import com.google.gson.JsonDeserializer;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonNull;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonPrimitive;
-import com.google.gson.JsonSerializationContext;
-import com.google.gson.JsonSerializer;
-
 /**
  * Converts {@link java.util.Date} instances in JSON objects to or from timestamps since the epoch.
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */
-class DateAsTimeSinceEpochTypeAdapter implements JsonSerializer<Date>, JsonDeserializer<Date> {
+public class DateAsTimeSinceEpochTypeAdapter implements JsonSerializer<Date>, JsonDeserializer<Date> {
 
     private final TimeUnit timeUnit;
 

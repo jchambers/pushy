@@ -54,15 +54,15 @@ public enum DeliveryPriority {
 
     private final int code;
 
-    private DeliveryPriority(final int code) {
+    DeliveryPriority(final int code) {
         this.code = code;
     }
 
-    protected int getCode() {
+    public int getCode() {
         return this.code;
     }
 
-    protected static DeliveryPriority getFromCode(final int code) {
+    public static DeliveryPriority getFromCode(final int code) {
         for (final DeliveryPriority priority : DeliveryPriority.values()) {
             if (priority.getCode() == code) {
                 return priority;
