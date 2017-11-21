@@ -31,6 +31,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpScheme;
 import io.netty.handler.codec.http2.*;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.AsciiString;
@@ -239,6 +240,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
                 .method(HttpMethod.POST.asciiName())
                 .authority(this.authority)
                 .path(APNS_PATH_PREFIX + pushNotification.getToken())
+                .scheme(HttpScheme.HTTPS.name())
                 .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
 
         if (pushNotification.getCollapseId() != null) {
