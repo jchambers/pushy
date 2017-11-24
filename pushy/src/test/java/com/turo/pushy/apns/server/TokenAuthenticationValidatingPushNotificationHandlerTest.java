@@ -75,7 +75,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
     protected void addAcceptableCredentialsToHeaders(final Http2Headers headers) throws Exception {
         final AuthenticationToken authenticationToken = new AuthenticationToken(this.signingKey, new Date());
 
-        headers.set(APNS_AUTHORIZATION_HEADER, "bearer " + authenticationToken.toString());
+        headers.set(APNS_AUTHORIZATION_HEADER, authenticationToken.getAuthorizationHeader());
     }
 
     @Test
@@ -141,7 +141,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
 
         final AuthenticationToken authenticationToken = new AuthenticationToken(signingKey, new Date());
 
-        this.headers.set(APNS_AUTHORIZATION_HEADER, "bearer " + authenticationToken.toString());
+        this.headers.set(APNS_AUTHORIZATION_HEADER, authenticationToken.getAuthorizationHeader());
 
         this.testWithExpectedRejection("Push notifications with authentication tokens with unknown keys should be rejected.",
                 handler,
@@ -157,7 +157,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
         final ApnsSigningKey unverifiedKey = new ApnsSigningKey(KEY_ID, TEAM_ID, (ECPrivateKey) keyPair.getPrivate());
         final AuthenticationToken unverifiedToken = new AuthenticationToken(unverifiedKey, new Date());
 
-        this.headers.set(APNS_AUTHORIZATION_HEADER, "bearer " + unverifiedToken.toString());
+        this.headers.set(APNS_AUTHORIZATION_HEADER, unverifiedToken.getAuthorizationHeader());
 
         this.testWithExpectedRejection("Push notifications with an authentication token that can't be verified by the registered public key should be rejected.",
                 this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.<String, Date>emptyMap()),
@@ -170,7 +170,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
     public void testHandleNotificationWithWithExpiredAuthenticationToken() throws Exception {
         final AuthenticationToken expiredToken = new AuthenticationToken(this.signingKey, new Date(0));
 
-        this.headers.set(APNS_AUTHORIZATION_HEADER, "bearer " + expiredToken.toString());
+        this.headers.set(APNS_AUTHORIZATION_HEADER, expiredToken.getAuthorizationHeader());
 
         this.testWithExpectedRejection("Push notifications with an expired authentication token should be rejected.",
                 this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.<String, Date>emptyMap()),
@@ -192,7 +192,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
 
         final AuthenticationToken authenticationToken = new AuthenticationToken(signingKey, new Date());
 
-        this.headers.set(APNS_AUTHORIZATION_HEADER, "bearer " + authenticationToken.toString());
+        this.headers.set(APNS_AUTHORIZATION_HEADER, authenticationToken.getAuthorizationHeader());
 
         this.testWithExpectedRejection("Push notifications for topics not associated with a valid verification key should be rejected.",
                 handler,
