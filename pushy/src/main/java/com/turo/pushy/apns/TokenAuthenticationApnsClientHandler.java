@@ -97,7 +97,7 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
             }
         }
 
-        headers.add(APNS_AUTHORIZATION_HEADER, "bearer " + this.authenticationToken.toString());
+        headers.add(APNS_AUTHORIZATION_HEADER, this.authenticationToken.getAuthorizationHeader());
 
         return headers;
     }

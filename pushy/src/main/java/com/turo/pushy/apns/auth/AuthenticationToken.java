@@ -26,6 +26,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.annotations.SerializedName;
 import com.turo.pushy.apns.util.DateAsTimeSinceEpochTypeAdapter;
+import io.netty.util.AsciiString;
 import org.apache.commons.codec.binary.Base64;
 
 import java.nio.charset.StandardCharsets;
@@ -111,7 +112,8 @@ public class AuthenticationToken {
     private final AuthenticationTokenClaims claims;
     private final byte[] signatureBytes;
 
-    private final String base64EncodedToken;
+    private transient final String base64EncodedToken;
+    private transient final AsciiString authorizationHeader;
 
     /**
      * Constructs a new authentication token using the given signing key (and associated metadata) issued at the given
@@ -149,6 +151,7 @@ public class AuthenticationToken {
         payloadBuilder.append(Base64.encodeBase64URLSafeString(this.signatureBytes));
 
         this.base64EncodedToken = payloadBuilder.toString();
+        this.authorizationHeader = new AsciiString("bearer " + payloadBuilder.toString());
     }
 
     /**
@@ -161,8 +164,9 @@ public class AuthenticationToken {
         Objects.requireNonNull(base64EncodedToken, "Encoded token must not be null.");
 
         this.base64EncodedToken = base64EncodedToken;
+        this.authorizationHeader = new AsciiString("bearer " + base64EncodedToken);
 
-        final String[] jwtSegments = this.base64EncodedToken.split("\\.");
+        final String[] jwtSegments = base64EncodedToken.split("\\.");
 
         if (jwtSegments.length != 3) {
             throw new IllegalArgumentException();
@@ -239,6 +243,15 @@ public class AuthenticationToken {
         signature.update(headerAndClaimsBytes);
 
         return signature.verify(this.signatureBytes);
+    }
+
+    /**
+     * Returns a complete APNs authorization header value (i.e. "bearer [token]") for this authentication token.
+     *
+     * @return a complete APNs authorization header value for this authentication token
+     */
+    public AsciiString getAuthorizationHeader() {
+        return authorizationHeader;
     }
 
     /**
