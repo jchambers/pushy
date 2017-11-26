@@ -339,7 +339,7 @@ public class ApnsClientTest {
                 this.topicsByVerificationKey);
 
         final MockApnsServer server = this.buildServer(handlerFactory);
-        final ApnsClient client = useTokenAuthentication ?
+        final ApnsClient<SimpleApnsPushNotification> client = useTokenAuthentication ?
                 this.buildTokenAuthenticationClient() : this.buildTlsAuthenticationClient();
 
         try {
