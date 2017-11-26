@@ -37,6 +37,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
+import java.util.ArrayDeque;
+import java.util.Queue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -49,22 +52,22 @@ import java.util.concurrent.atomic.AtomicLong;
  * <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html">Local
  * and Remote Notification Programming Guide</a> for a detailed discussion of the APNs protocol, topics, and
  * certificate/key provisioning.</p>
- *
+ * <p>
  * <p>Clients are constructed using an {@link ApnsClientBuilder}. Callers may
  * optionally specify an {@link EventLoopGroup} when constructing a new client. If no event loop group is specified,
  * clients will create and manage their own single-thread event loop group. If many clients are operating in parallel,
  * specifying a shared event loop group serves as a mechanism to keep the total number of threads in check. Callers may
  * also want to provide a specific event loop group to take advantage of platform-specific features (i.e.
  * {@code epoll} or {@code KQueue}).</p>
- *
+ * <p>
  * <p>Callers must either provide an SSL context with the client's certificate or a signing key at client construction
  * time. If a signing key is provided, the client will use token authentication when sending notifications; otherwise,
  * it will use TLS-based authentication. It is an error to provide both a client certificate and a signing key.</p>
- *
+ * <p>
  * <p>Clients maintain their own internal connection pools and open connections to the APNs server on demand. As a
  * result, clients do <em>not</em> need to be "started" explicitly, and are ready to begin sending notifications as soon
  * as they're constructed.</p>
- *
+ * <p>
  * <p>Notifications sent by a client to an APNs server are sent asynchronously. A
  * {@link io.netty.util.concurrent.Future io.netty.util.concurrent.Future} is returned immediately when a notification
  * is sent, but will not complete until the attempt to send the notification has failed, the notification has been
@@ -72,17 +75,16 @@ import java.util.concurrent.atomic.AtomicLong;
  * {@code Future} returned is a {@code io.netty.util.concurrent.Future}, which is an extension of the
  * {@link java.util.concurrent.Future java.util.concurrent.Future} interface that allows callers to attach listeners
  * that will be notified when the {@code Future} completes.</p>
- *
+ * <p>
  * <p>APNs clients are intended to be long-lived, persistent resources. Callers must shut them down via the
  * {@link ApnsClient#close()}} method when they are no longer needed (i.e. when shutting down the entire application).
  * If an event loop group was specified at construction time, callers should shut down that event loop group when all
  * clients using that group have been disconnected.</p>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
- *
  * @since 0.5
  */
-public class ApnsClient {
+public class ApnsClient<T extends ApnsPushNotification> {
     private final EventLoopGroup eventLoopGroup;
     private final boolean shouldShutDownEventLoopGroup;
 
@@ -95,6 +97,14 @@ public class ApnsClient {
 
     private static final IllegalStateException CLIENT_CLOSED_EXCEPTION =
             new IllegalStateException("Client has been closed and can no longer send push notifications.");
+
+    // can be a parameter of construct method
+    private final int maxRetryCount = 3;
+
+    private static final Exception CAN_NOT_ACQUIRE_CHANNEL_OR_WRITE_WITH_RETRY =
+            new ApnsServerException("can not acquire channel with retry.");
+
+    private final Queue<PushNotificationPromise<T, PushNotificationResponse<T>>> retryPromises = new ArrayDeque<>();
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
@@ -169,34 +179,48 @@ public class ApnsClient {
         };
 
         this.channelPool = new ApnsChannelPool(channelFactory, concurrentConnections, this.eventLoopGroup.next(), channelPoolMetricsListener);
+
+        eventLoopGroup.scheduleWithFixedDelay(new Runnable() {
+            @Override
+            public void run() {
+                PushNotificationPromise<T, PushNotificationResponse<T>> responsePromise = null;
+                log.debug("thread {} ,retryPromises size {}", Thread.currentThread().getName(), retryPromises.size());
+                while ((responsePromise = retryPromises.poll()) != null) {
+                    int retryCount = responsePromise.retryAndGet();
+                    long notificationId = nextNotificationId.getAndIncrement();
+                    if (retryCount < 3) {
+                        log.debug("send notification id {} with {} try", notificationId, retryCount);
+                        doSendNotification(responsePromise, notificationId);
+                    } else {
+                        responsePromise.tryFailure(CAN_NOT_ACQUIRE_CHANNEL_OR_WRITE_WITH_RETRY);
+                    }
+                }
+            }
+        }, maxRetryCount, 1, TimeUnit.SECONDS);
     }
 
     /**
      * <p>Sends a push notification to the APNs gateway.</p>
-     *
+     * <p>
      * <p>This method returns a {@code Future} that indicates whether the notification was accepted or rejected by the
      * gateway. If the notification was accepted, it may be delivered to its destination device at some time in the
      * future, but final delivery is not guaranteed. Rejections should be considered permanent failures, and callers
      * should <em>not</em> attempt to re-send the notification.</p>
-     *
+     * <p>
      * <p>The returned {@code Future} may fail with an exception if the notification could not be sent. Failures to
      * <em>send</em> a notification to the gateway—i.e. those that fail with exceptions—should generally be considered
      * non-permanent, and callers should attempt to re-send the notification when the underlying problem has been
      * resolved.</p>
      *
      * @param notification the notification to send to the APNs gateway
-     *
-     * @param <T> the type of notification to be sent
-     *
+     * @param <T>          the type of notification to be sent
      * @return a {@code Future} that will complete when the notification has been either accepted or rejected by the
      * APNs gateway
-     *
      * @see com.turo.pushy.apns.util.concurrent.PushNotificationResponseListener
-     *
      * @since 0.8
      */
     @SuppressWarnings("unchecked")
-    public <T extends ApnsPushNotification> PushNotificationFuture<T, PushNotificationResponse<T>> sendNotification(final T notification) {
+    public PushNotificationFuture<T, PushNotificationResponse<T>> sendNotification(final T notification) {
         final PushNotificationFuture<T, PushNotificationResponse<T>> responseFuture;
 
         if (!this.isClosed.get()) {
@@ -205,31 +229,7 @@ public class ApnsClient {
 
             final long notificationId = this.nextNotificationId.getAndIncrement();
 
-            this.channelPool.acquire().addListener(new GenericFutureListener<Future<Channel>>() {
-                @Override
-                public void operationComplete(final Future<Channel> acquireFuture) throws Exception {
-                    if (acquireFuture.isSuccess()) {
-                        final Channel channel = acquireFuture.getNow();
-
-                        channel.writeAndFlush(responsePromise).addListener(new GenericFutureListener<ChannelFuture>() {
-
-                            @Override
-                            public void operationComplete(final ChannelFuture future) throws Exception {
-                                if (future.isSuccess()) {
-                                    ApnsClient.this.metricsListener.handleNotificationSent(ApnsClient.this, notificationId);
-                                } else {
-                                    ApnsClient.this.metricsListener.handleWriteFailure(ApnsClient.this, notificationId);
-                                    responsePromise.tryFailure(future.cause());
-                                }
-                            }
-                        });
-
-                        ApnsClient.this.channelPool.release(channel);
-                    } else {
-                        responsePromise.tryFailure(acquireFuture.cause());
-                    }
-                }
-            });
+            doSendNotification(responsePromise, notificationId);
 
             responsePromise.addListener(new PushNotificationResponseListener<T>() {
                 @Override
@@ -261,25 +261,56 @@ public class ApnsClient {
         return responseFuture;
     }
 
+    private void doSendNotification(final PushNotificationPromise<T, PushNotificationResponse<T>> responsePromise, final long notificationId) {
+        this.channelPool.acquire().addListener(new GenericFutureListener<Future<Channel>>() {
+            @Override
+            public void operationComplete(final Future<Channel> acquireFuture) throws Exception {
+                if (acquireFuture.isSuccess()) {
+                    final Channel channel = acquireFuture.getNow();
+
+                    channel.writeAndFlush(responsePromise).addListener(new GenericFutureListener<ChannelFuture>() {
+
+                        @Override
+                        public void operationComplete(final ChannelFuture future) throws Exception {
+                            if (future.isSuccess()) {
+                                ApnsClient.this.metricsListener.handleNotificationSent(ApnsClient.this, notificationId);
+                            } else {
+                                ApnsClient.this.metricsListener.handleWriteFailure(ApnsClient.this, notificationId);
+//                                responsePromise.tryFailure(future.cause());
+                                retryPromises.add(responsePromise);
+                            }
+                        }
+                    });
+
+                    ApnsClient.this.channelPool.release(channel);
+                } else {
+                    Throwable t = acquireFuture.cause();
+                    log.warn(t.getMessage(), t);
+//                        responsePromise.tryFailure(acquireFuture.cause());
+                    retryPromises.add(responsePromise);
+                }
+            }
+        });
+    }
+
     /**
      * <p>Gracefully shuts down the client, closing all connections and releasing all persistent resources. The
      * disconnection process will wait until notifications that have been sent to the APNs server have been either
      * accepted or rejected. Note that some notifications passed to
      * {@link ApnsClient#sendNotification(ApnsPushNotification)} may still be enqueued and not yet sent by the time the
      * shutdown process begins; the {@code Futures} associated with those notifications will fail.</p>
-     *
+     * <p>
      * <p>The returned {@code Future} will be marked as complete when all connections in this client's pool have closed
      * completely and (if no {@code EventLoopGroup} was provided at construction time) the client's event loop group has
      * shut down. If the client has already shut down, the returned {@code Future} will be marked as complete
      * immediately.</p>
-     *
+     * <p>
      * <p>Clients may not be reused once they have been closed.</p>
      *
      * @return a {@code Future} that will be marked as complete when the client has finished shutting down
-     *
      * @since 0.11
      */
-    @SuppressWarnings({ "rawtypes", "unchecked" })
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public Future<Void> close() {
         log.info("Shutting down.");
 
