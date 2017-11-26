@@ -102,7 +102,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private final int maxRetryCount = 3;
 
     private static final Exception CAN_NOT_ACQUIRE_CHANNEL_OR_WRITE_WITH_RETRY =
-            new ApnsServerException("can not acquire channel with retry.");
+            new ApnsServerException("can not acquire channel or write with retry.");
 
     private final Queue<PushNotificationPromise<T, PushNotificationResponse<T>>> retryPromises = new ArrayDeque<>();
 
