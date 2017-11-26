@@ -98,7 +98,7 @@ public class ApnsClient<T extends ApnsPushNotification> {
     private static final IllegalStateException CLIENT_CLOSED_EXCEPTION =
             new IllegalStateException("Client has been closed and can no longer send push notifications.");
 
-    // can be a parameter of construct method
+    // can be a parameter of construct method;must set maxRetryCount to prevent from OOM
     private final int maxRetryCount = 3;
 
     private static final Exception CAN_NOT_ACQUIRE_CHANNEL_OR_WRITE_WITH_RETRY =
