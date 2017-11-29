@@ -370,7 +370,7 @@ public class ApnsClientTest {
         final MockApnsServer server = this.buildServer(expireFirstTokenHandlerFactory);
 
         final TestMetricsListener metricsListener = new TestMetricsListener();
-        final ApnsClient client = this.buildTokenAuthenticationClient(metricsListener);
+        final ApnsClient<SimpleApnsPushNotification> client = this.buildTokenAuthenticationClient(metricsListener);
 
         try {
             server.start(PORT).await();
@@ -545,7 +545,7 @@ public class ApnsClientTest {
                 new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
 
         final MockApnsServer server = this.buildServer(handlerFactory);
-        final ApnsClient client = useTokenAuthentication ?
+        final ApnsClient<SimpleApnsPushNotification> client = useTokenAuthentication ?
                 this.buildTokenAuthenticationClient() : this.buildTlsAuthenticationClient();
 
         try {
@@ -615,7 +615,7 @@ public class ApnsClientTest {
         final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory());
 
         final TestMetricsListener metricsListener = new TestMetricsListener();
-        final ApnsClient client = useTokenAuthentication ?
+        final ApnsClient<SimpleApnsPushNotification> client = useTokenAuthentication ?
                 this.buildTokenAuthenticationClient(metricsListener) : this.buildTlsAuthenticationClient(metricsListener);
 
         try {
