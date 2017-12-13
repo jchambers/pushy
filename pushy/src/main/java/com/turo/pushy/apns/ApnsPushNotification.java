@@ -101,4 +101,11 @@ public interface ApnsPushNotification {
      * @since 0.8.1
      */
     String getCollapseId();
+
+    /**
+     * Returns the unique push notification identifier, which is mainly used for APNs debugging purposes
+     *
+     * @return a unique identifier for this notification; may be {@code null}
+     */
+    String getApnsId();
 }
