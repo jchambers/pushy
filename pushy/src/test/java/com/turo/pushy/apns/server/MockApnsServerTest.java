@@ -22,10 +22,7 @@
 
 package com.turo.pushy.apns.server;
 
-import com.turo.pushy.apns.AbstractClientServerTest;
-import com.turo.pushy.apns.ApnsClient;
-import com.turo.pushy.apns.ApnsPushNotification;
-import com.turo.pushy.apns.PushNotificationResponse;
+import com.turo.pushy.apns.*;
 import com.turo.pushy.apns.util.SimpleApnsPushNotification;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -35,6 +32,7 @@ import org.junit.Test;
 
 import javax.net.ssl.SSLSession;
 import java.util.Date;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
@@ -306,13 +304,29 @@ public class MockApnsServerTest extends AbstractClientServerTest {
         try {
             server.start(PORT).await();
 
-            final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
+            {
+                final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
 
-            final PushNotificationResponse<SimpleApnsPushNotification> response =
-                    client.sendNotification(pushNotification).get();
+                final PushNotificationResponse<SimpleApnsPushNotification> response =
+                        client.sendNotification(pushNotification).get();
 
-            assertTrue(response.isAccepted());
-            assertNotNull(response.getApnsId());
+                assertTrue(response.isAccepted());
+                assertNotNull(response.getApnsId());
+            }
+
+            {
+                final UUID apnsId = UUID.randomUUID();
+
+                final SimpleApnsPushNotification pushNotificationWithApnsId =
+                        new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD, null, DeliveryPriority.IMMEDIATE, null, apnsId);
+
+                final PushNotificationResponse<SimpleApnsPushNotification> response =
+                        client.sendNotification(pushNotificationWithApnsId).get();
+
+                assertTrue(response.isAccepted());
+                assertNotNull(response.getApnsId());
+                assertEquals(pushNotificationWithApnsId.getApnsId(), response.getApnsId());
+            }
         } finally {
             client.close().await();
             server.shutdown().await();
@@ -340,13 +354,29 @@ public class MockApnsServerTest extends AbstractClientServerTest {
         try {
             server.start(PORT).await();
 
-            final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
+            {
+                final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
 
-            final PushNotificationResponse<SimpleApnsPushNotification> response =
-                    client.sendNotification(pushNotification).get();
+                final PushNotificationResponse<SimpleApnsPushNotification> response =
+                        client.sendNotification(pushNotification).get();
 
-            assertFalse(response.isAccepted());
-            assertNotNull(response.getApnsId());
+                assertFalse(response.isAccepted());
+                assertNotNull(response.getApnsId());
+            }
+
+            {
+                final UUID apnsId = UUID.randomUUID();
+
+                final SimpleApnsPushNotification pushNotificationWithApnsId =
+                        new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD, null, DeliveryPriority.IMMEDIATE, null, apnsId);
+
+                final PushNotificationResponse<SimpleApnsPushNotification> response =
+                        client.sendNotification(pushNotificationWithApnsId).get();
+
+                assertFalse(response.isAccepted());
+                assertNotNull(response.getApnsId());
+                assertEquals(pushNotificationWithApnsId.getApnsId(), response.getApnsId());
+            }
         } finally {
             client.close().await();
             server.shutdown().await();

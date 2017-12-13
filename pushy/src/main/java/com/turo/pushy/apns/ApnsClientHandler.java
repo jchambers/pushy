@@ -65,7 +65,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
     private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
     private static final AsciiString APNS_COLLAPSE_ID_HEADER = new AsciiString("apns-collapse-id");
-
     private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
 
     private static final int INITIAL_PAYLOAD_BUFFER_CAPACITY = 4096;
@@ -256,6 +255,10 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
             headers.add(APNS_TOPIC_HEADER, pushNotification.getTopic());
         }
 
+        if (pushNotification.getApnsId() != null) {
+            headers.add(APNS_ID_HEADER, pushNotification.getApnsId().toString());
+        }
+
         return headers;
     }
 
@@ -369,7 +372,13 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     private static UUID getApnsIdFromHeaders(final Http2Headers headers) {
         final CharSequence apnsIdSequence = headers.get(APNS_ID_HEADER);
-        return apnsIdSequence != null ? UUID.fromString(apnsIdSequence.toString()) : null;
+
+        try {
+            return apnsIdSequence != null ? UUID.fromString(apnsIdSequence.toString()) : null;
+        } catch (final IllegalArgumentException e) {
+            log.error("Failed to parse `apns-id` header: {}", apnsIdSequence, e);
+            return null;
+        }
     }
 
     @Override

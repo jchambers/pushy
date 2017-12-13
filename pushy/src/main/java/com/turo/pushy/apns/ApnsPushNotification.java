@@ -22,14 +22,18 @@
 
 package com.turo.pushy.apns;
 
-import java.util.Date;
-
 import com.turo.pushy.apns.util.ApnsPayloadBuilder;
+
+import java.util.Date;
+import java.util.UUID;
 
 /**
  * <p>A push notification that can be sent through the Apple Push Notification service (APNs). Push notifications have a
  * token that identifies the device to which it should be sent, a topic (generally the bundle ID of the receiving app),
  * a JSON payload, and (optionally) a time at which the notification is invalid and should no longer be delivered.</p>
+ *
+ * <p>Push notifications may also include a unique identifier that will be echoed in responses from the APNs server. If
+ * no identifier is provided, the server will assign an identifier automatically.</p>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
@@ -38,6 +42,7 @@ import com.turo.pushy.apns.util.ApnsPayloadBuilder;
  *      Local and Remote Notification Programming Guide - Apple Push Notification Service</a>
  *
  * @see ApnsPayloadBuilder
+ * @see PushNotificationResponse#getApnsId()
  *
  * @since 0.1
  */
@@ -101,4 +106,14 @@ public interface ApnsPushNotification {
      * @since 0.8.1
      */
     String getCollapseId();
+
+    /**
+     * Returns the canonical identifier for this push notification. The APNs server will include the given identifier in
+     * all responses related to this push notification. If no identifier is provided, the server will assign a unique
+     * identifier automatically.
+     *
+     * @return a unique identifier for this notification; may be {@code null}, in which case the APNs server will assign
+     * an identifier automatically
+     */
+    UUID getApnsId();
 }

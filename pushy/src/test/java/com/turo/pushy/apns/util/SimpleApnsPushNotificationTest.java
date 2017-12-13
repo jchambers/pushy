@@ -22,14 +22,15 @@
 
 package com.turo.pushy.apns.util;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-
-import java.util.Date;
-
 import com.turo.pushy.apns.DeliveryPriority;
 import org.junit.Assert;
 import org.junit.Test;
+
+import java.util.Date;
+import java.util.UUID;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 public class SimpleApnsPushNotificationTest {
 
@@ -81,6 +82,7 @@ public class SimpleApnsPushNotificationTest {
         assertEquals(expiration, pushNotification.getExpiration());
         assertEquals(DeliveryPriority.IMMEDIATE, pushNotification.getPriority());
         assertNull(pushNotification.getCollapseId());
+        assertNull(pushNotification.getApnsId());
     }
 
     @Test
@@ -100,6 +102,7 @@ public class SimpleApnsPushNotificationTest {
         assertEquals(expiration, pushNotification.getExpiration());
         assertEquals(priority, pushNotification.getPriority());
         assertNull(pushNotification.getCollapseId());
+        assertNull(pushNotification.getApnsId());
     }
 
     @Test
@@ -120,5 +123,28 @@ public class SimpleApnsPushNotificationTest {
         assertEquals(expiration, pushNotification.getExpiration());
         assertEquals(priority, pushNotification.getPriority());
         assertEquals(collapseId, pushNotification.getCollapseId());
+        assertNull(pushNotification.getApnsId());
+    }
+
+    @Test
+    public void testSimpleApnsPushNotificationTokenTopicPayloadExpirationPriorityCollapseIdApnsId() {
+        final String token = "test-token";
+        final String topic = "test-topic";
+        final String payload = "{\"test\": true}";
+        final Date expiration = new Date();
+        final DeliveryPriority priority = DeliveryPriority.CONSERVE_POWER;
+        final String collapseId = "test-collapse-id";
+        final UUID apnsId = UUID.randomUUID();
+
+        final SimpleApnsPushNotification pushNotification =
+                new SimpleApnsPushNotification(token, topic, payload, expiration, priority, collapseId, apnsId);
+
+        assertEquals(token, pushNotification.getToken());
+        assertEquals(topic, pushNotification.getTopic());
+        assertEquals(payload, pushNotification.getPayload());
+        assertEquals(expiration, pushNotification.getExpiration());
+        assertEquals(priority, pushNotification.getPriority());
+        assertEquals(collapseId, pushNotification.getCollapseId());
+        assertEquals(apnsId, pushNotification.getApnsId());
     }
 }

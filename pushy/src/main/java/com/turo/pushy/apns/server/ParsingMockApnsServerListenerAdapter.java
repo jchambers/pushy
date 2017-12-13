@@ -27,9 +27,12 @@ import com.turo.pushy.apns.DeliveryPriority;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.AsciiString;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.UUID;
 
 /**
  * <p>A parsing APNs server listener is an abstract base class that parses HTTP/2 headers and payload byte buffers from
@@ -53,14 +56,16 @@ public abstract class ParsingMockApnsServerListenerAdapter implements MockApnsSe
         private final DeliveryPriority priority;
         private final String topic;
         private final String collapseId;
+        private final UUID apnsId;
 
-        private LenientApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority, final String collapseId) {
+        private LenientApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority, final String collapseId, final UUID apnsId) {
             this.token = token;
             this.payload = payload;
             this.invalidationTime = invalidationTime;
             this.priority = priority;
             this.topic = topic;
             this.collapseId = collapseId;
+            this.apnsId = apnsId;
         }
 
         @Override
@@ -92,6 +97,11 @@ public abstract class ParsingMockApnsServerListenerAdapter implements MockApnsSe
         public String getCollapseId() {
             return this.collapseId;
         }
+
+        @Override
+        public UUID getApnsId() {
+            return apnsId;
+        }
     }
 
     private static final String APNS_PATH_PREFIX = "/3/device/";
@@ -99,6 +109,9 @@ public abstract class ParsingMockApnsServerListenerAdapter implements MockApnsSe
     private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
     private static final AsciiString APNS_COLLAPSE_ID_HEADER = new AsciiString("apns-collapse-id");
+    private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
+
+    private static final Logger log = LoggerFactory.getLogger(ParsingMockApnsServerListenerAdapter.class);
 
     /**
      * Parses a push notification accepted by a mock APNs server into an {@link ApnsPushNotification} instance for
@@ -145,6 +158,22 @@ public abstract class ParsingMockApnsServerListenerAdapter implements MockApnsSe
     public abstract void handlePushNotificationRejected(final ApnsPushNotification pushNotification, final RejectionReason rejectionReason, final Date deviceTokenExpirationTimestamp);
 
     private static ApnsPushNotification parsePushNotification(final Http2Headers headers, final ByteBuf payload) {
+        final UUID apnsId;
+        {
+            final CharSequence apnsIdSequence = headers.get(APNS_ID_HEADER);
+
+            UUID apnsIdFromHeaders;
+
+            try {
+                apnsIdFromHeaders = apnsIdSequence != null ? UUID.fromString(apnsIdSequence.toString()) : null;
+            } catch (final IllegalArgumentException e) {
+                log.error("Failed to parse `apns-id` header: {}", apnsIdSequence, e);
+                apnsIdFromHeaders = null;
+            }
+
+            apnsId = apnsIdFromHeaders;
+        }
+
         final String deviceToken;
         {
             final CharSequence pathSequence = headers.get(Http2Headers.PseudoHeaderName.PATH.value());
@@ -200,6 +229,7 @@ public abstract class ParsingMockApnsServerListenerAdapter implements MockApnsSe
                 payload != null ? payload.toString(StandardCharsets.UTF_8) : null,
                 expiration,
                 deliveryPriority,
-                collapseId);
+                collapseId,
+                apnsId);
     }
 }
