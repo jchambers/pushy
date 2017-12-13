@@ -110,9 +110,10 @@ public class SimpleApnsPushNotificationTest {
         final Date expiration = new Date();
         final DeliveryPriority priority = DeliveryPriority.CONSERVE_POWER;
         final String collapseId = "test-collapse-id";
+        final String apnsId = "test-apns-id";
 
         final SimpleApnsPushNotification pushNotification =
-                new SimpleApnsPushNotification(token, topic, payload, expiration, priority, collapseId);
+                new SimpleApnsPushNotification(token, topic, payload, expiration, priority, collapseId, apnsId);
 
         assertEquals(token, pushNotification.getToken());
         assertEquals(topic, pushNotification.getTopic());
@@ -120,5 +121,6 @@ public class SimpleApnsPushNotificationTest {
         assertEquals(expiration, pushNotification.getExpiration());
         assertEquals(priority, pushNotification.getPriority());
         assertEquals(collapseId, pushNotification.getCollapseId());
+        assertEquals(apnsId, pushNotification.getApnsId());
     }
 }

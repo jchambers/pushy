@@ -23,6 +23,7 @@
 package com.turo.pushy.apns;
 
 import com.turo.pushy.apns.auth.ApnsSigningKey;
+import com.turo.pushy.apns.auth.AuthenticationToken;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http2.Http2ConnectionDecoder;
 import io.netty.handler.codec.http2.Http2ConnectionEncoder;
@@ -96,7 +97,7 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
             }
         }
 
-        headers.add(APNS_AUTHORIZATION_HEADER, "bearer " + this.authenticationToken.toString());
+        headers.add(APNS_AUTHORIZATION_HEADER, this.authenticationToken.getAuthorizationHeader());
 
         return headers;
     }

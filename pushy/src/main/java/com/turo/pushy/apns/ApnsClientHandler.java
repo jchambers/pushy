@@ -24,12 +24,14 @@ package com.turo.pushy.apns;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.turo.pushy.apns.util.DateAsTimeSinceEpochTypeAdapter;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpScheme;
 import io.netty.handler.codec.http2.*;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.AsciiString;
@@ -49,10 +51,8 @@ import java.util.concurrent.TimeUnit;
 
 class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameListener, Http2Connection.Listener {
 
-    private final Map<Integer, ApnsPushNotification> unattachedPushNotificationsByStreamId = new IntObjectHashMap<>();
-    private final Map<Integer, Promise<PushNotificationResponse<ApnsPushNotification>>> unattachedResponsePromisesByStreamId = new IntObjectHashMap<>();
+    private final Map<Integer, PushNotificationPromise> unattachedResponsePromisesByStreamId = new IntObjectHashMap<>();
 
-    private final Http2Connection.PropertyKey pushNotificationPropertyKey;
     private final Http2Connection.PropertyKey responseHeadersPropertyKey;
     private final Http2Connection.PropertyKey responsePromisePropertyKey;
 
@@ -66,6 +66,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
     private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
     private static final AsciiString APNS_COLLAPSE_ID_HEADER = new AsciiString("apns-collapse-id");
+    private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
 
     private static final int INITIAL_PAYLOAD_BUFFER_CAPACITY = 4096;
 
@@ -75,7 +76,12 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private static final IOException STREAM_CLOSED_BEFORE_REPLY_EXCEPTION =
             new IOException("Stream closed before a reply was received");
 
-    private static final ApnsServerException APNS_SERVER_EXCEPTION = new ApnsServerException();
+    private static final ApnsServerException APNS_SERVER_EXCEPTION = new ApnsServerException() {
+        @Override
+        public Throwable fillInStackTrace() {
+            return this;
+        }
+    };
 
     private static final Gson GSON = new GsonBuilder()
             .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
@@ -88,22 +94,32 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         private String authority;
         private long idlePingIntervalMillis;
 
-        public ApnsClientHandlerBuilder authority(final String authority) {
+        ApnsClientHandlerBuilder authority(final String authority) {
             this.authority = authority;
             return this;
         }
 
-        public String authority() {
+        String authority() {
             return this.authority;
         }
 
-        public long idlePingIntervalMillis() {
+        long idlePingIntervalMillis() {
             return idlePingIntervalMillis;
         }
 
-        public ApnsClientHandlerBuilder idlePingIntervalMillis(long idlePingIntervalMillis) {
+        ApnsClientHandlerBuilder idlePingIntervalMillis(final long idlePingIntervalMillis) {
             this.idlePingIntervalMillis = idlePingIntervalMillis;
             return this;
+        }
+
+        @Override
+        public ApnsClientHandlerBuilder frameLogger(final Http2FrameLogger frameLogger) {
+            return super.frameLogger(frameLogger);
+        }
+
+        @Override
+        public Http2FrameLogger frameLogger() {
+            return super.frameLogger();
         }
 
         @Override
@@ -131,12 +147,11 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         }
     }
 
-    protected ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final String authority, final long idlePingIntervalMillis) {
+    ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final String authority, final long idlePingIntervalMillis) {
         super(decoder, encoder, initialSettings);
 
         this.authority = authority;
 
-        this.pushNotificationPropertyKey = this.connection().newKey();
         this.responseHeadersPropertyKey = this.connection().newKey();
         this.responsePromisePropertyKey = this.connection().newKey();
 
@@ -147,11 +162,8 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     @Override
     public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise writePromise) throws Http2Exception, InvalidKeyException, NoSuchAlgorithmException {
-        if (message instanceof PushNotificationAndResponsePromise) {
-            final PushNotificationAndResponsePromise pushNotificationAndResponsePromise =
-                    (PushNotificationAndResponsePromise) message;
-
-            this.writePushNotification(context, pushNotificationAndResponsePromise.getPushNotification(), pushNotificationAndResponsePromise.getResponsePromise(), writePromise);
+        if (message instanceof PushNotificationPromise) {
+            this.writePushNotification(context, (PushNotificationPromise) message, writePromise);
         } else {
             // This should never happen, but in case some foreign debris winds up in the pipeline, just pass it through.
             log.error("Unexpected object in pipeline: {}", message);
@@ -162,11 +174,10 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     protected void retryPushNotificationFromStream(final ChannelHandlerContext context, final int streamId) {
         final Http2Stream stream = this.connection().stream(streamId);
 
-        final ApnsPushNotification pushNotification = stream.getProperty(this.pushNotificationPropertyKey);
-        final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise = stream.removeProperty(this.responsePromisePropertyKey);
+        final PushNotificationPromise responsePromise = stream.removeProperty(this.responsePromisePropertyKey);
 
         final ChannelPromise writePromise = context.channel().newPromise();
-        this.writePushNotification(context, pushNotification, responsePromise, writePromise);
+        this.writePushNotification(context, responsePromise, writePromise);
 
         writePromise.addListener(new GenericFutureListener<Future<Void>>() {
             @Override
@@ -178,7 +189,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         });
     }
 
-    private void writePushNotification(final ChannelHandlerContext context, final ApnsPushNotification pushNotification, final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise, final ChannelPromise writePromise) {
+    private void writePushNotification(final ChannelHandlerContext context, final PushNotificationPromise responsePromise, final ChannelPromise writePromise) {
         final int streamId = this.connection().local().incrementAndGetNextStreamId();
 
         if (streamId > 0) {
@@ -186,8 +197,8 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
             // Because we're using a StreamBufferingEncoder under the hood, there's no guarantee as to when the stream
             // will actually be created, and so we attach these in the onStreamAdded listener to make sure everything
             // is happening in a predictable order.
-            this.unattachedPushNotificationsByStreamId.put(streamId, pushNotification);
             this.unattachedResponsePromisesByStreamId.put(streamId, responsePromise);
+            final ApnsPushNotification pushNotification = responsePromise.getPushNotification();
 
             final Http2Headers headers = getHeadersForPushNotification(pushNotification, streamId);
 
@@ -230,6 +241,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
                 .method(HttpMethod.POST.asciiName())
                 .authority(this.authority)
                 .path(APNS_PATH_PREFIX + pushNotification.getToken())
+                .scheme(HttpScheme.HTTPS.name())
                 .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
 
         if (pushNotification.getCollapseId() != null) {
@@ -242,6 +254,10 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
         if (pushNotification.getTopic() != null) {
             headers.add(APNS_TOPIC_HEADER, pushNotification.getTopic());
+        }
+
+        if (pushNotification.getApnsId() != null) {
+            headers.add(APNS_ID_HEADER, pushNotification.getApnsId());
         }
 
         return headers;
@@ -316,14 +332,16 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     private void handleEndOfStream(final ChannelHandlerContext context, final Http2Stream stream, final Http2Headers headers, final ByteBuf data) {
 
-        final ApnsPushNotification pushNotification = stream.getProperty(this.pushNotificationPropertyKey);
-        final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise = stream.getProperty(this.responsePromisePropertyKey);
+        final PushNotificationPromise<ApnsPushNotification, PushNotificationResponse<ApnsPushNotification>> responsePromise =
+                stream.getProperty(this.responsePromisePropertyKey);
+
+        final ApnsPushNotification pushNotification = responsePromise.getPushNotification();
 
         final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
 
         if (HttpResponseStatus.OK.equals(status)) {
-            responsePromise.trySuccess(
-                    new SimplePushNotificationResponse<>(pushNotification, true, null, null));
+            responsePromise.trySuccess(new SimplePushNotificationResponse<>(responsePromise.getPushNotification(),
+                    true, null, null));
         } else {
             if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
                 log.warn("APNs server reported an internal error when sending {}.", pushNotification);
@@ -341,7 +359,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     }
 
     protected void handleErrorResponse(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final ApnsPushNotification pushNotification, final ErrorResponse errorResponse) {
-        final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise =
+        final PushNotificationPromise<ApnsPushNotification, PushNotificationResponse<ApnsPushNotification>> responsePromise =
                 this.connection().stream(streamId).getProperty(this.responsePromisePropertyKey);
 
         final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
@@ -350,7 +368,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
             log.warn("APNs server reported an internal error when sending {}.", pushNotification);
             responsePromise.tryFailure(new ApnsServerException(GSON.toJson(errorResponse)));
         } else {
-            responsePromise.trySuccess(new SimplePushNotificationResponse<>(pushNotification,
+            responsePromise.trySuccess(new SimplePushNotificationResponse<>(responsePromise.getPushNotification(),
                     HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
         }
     }
@@ -412,7 +430,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     @Override
     public void onStreamAdded(final Http2Stream stream) {
-        stream.setProperty(ApnsClientHandler.this.pushNotificationPropertyKey, this.unattachedPushNotificationsByStreamId.remove(stream.id()));
         stream.setProperty(ApnsClientHandler.this.responsePromisePropertyKey, this.unattachedResponsePromisesByStreamId.remove(stream.id()));
     }
 
@@ -438,7 +455,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     @Override
     public void onStreamRemoved(final Http2Stream stream) {
-        stream.removeProperty(this.pushNotificationPropertyKey);
         stream.removeProperty(this.responseHeadersPropertyKey);
         stream.removeProperty(this.responsePromisePropertyKey);
     }

@@ -27,6 +27,7 @@ import com.turo.pushy.apns.proxy.ProxyHandlerFactory;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.codec.http2.Http2FrameLogger;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
@@ -67,7 +68,8 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
     ApnsChannelFactory(final SslContext sslContext, final ApnsSigningKey signingKey,
                        final ProxyHandlerFactory proxyHandlerFactory, final int connectTimeoutMillis,
                        final long idlePingIntervalMillis, final long gracefulShutdownTimeoutMillis,
-                       final InetSocketAddress apnsServerAddress, final EventLoopGroup eventLoopGroup) {
+                       final Http2FrameLogger frameLogger, final InetSocketAddress apnsServerAddress,
+                       final EventLoopGroup eventLoopGroup) {
 
         this.sslContext = sslContext;
 
@@ -77,7 +79,6 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
         this.bootstrapTemplate = new Bootstrap();
         this.bootstrapTemplate.group(eventLoopGroup);
-        this.bootstrapTemplate.channel(SocketChannelClassUtil.getSocketChannelClass(this.bootstrapTemplate.config().group()));
         this.bootstrapTemplate.option(ChannelOption.TCP_NODELAY, true);
         this.bootstrapTemplate.remoteAddress(apnsServerAddress);
 
@@ -111,22 +112,26 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
                     @Override
                     protected void configurePipeline(final ChannelHandlerContext context, final String protocol) {
                         if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                            final ApnsClientHandler apnsClientHandler;
-
                             final String authority = ((InetSocketAddress) context.channel().remoteAddress()).getHostName();
 
+                            final ApnsClientHandler.ApnsClientHandlerBuilder clientHandlerBuilder;
+
                             if (signingKey != null) {
-                                apnsClientHandler = new TokenAuthenticationApnsClientHandler.TokenAuthenticationApnsClientHandlerBuilder()
+                                clientHandlerBuilder = new TokenAuthenticationApnsClientHandler.TokenAuthenticationApnsClientHandlerBuilder()
                                         .signingKey(signingKey)
                                         .authority(authority)
-                                        .idlePingIntervalMillis(idlePingIntervalMillis)
-                                        .build();
+                                        .idlePingIntervalMillis(idlePingIntervalMillis);
                             } else {
-                                apnsClientHandler = new ApnsClientHandler.ApnsClientHandlerBuilder()
+                                clientHandlerBuilder = new ApnsClientHandler.ApnsClientHandlerBuilder()
                                         .authority(authority)
-                                        .idlePingIntervalMillis(idlePingIntervalMillis)
-                                        .build();
+                                        .idlePingIntervalMillis(idlePingIntervalMillis);
                             }
+
+                            if (frameLogger != null) {
+                                clientHandlerBuilder.frameLogger(frameLogger);
+                            }
+
+                            final ApnsClientHandler apnsClientHandler = clientHandlerBuilder.build();
 
                             if (gracefulShutdownTimeoutMillis > 0) {
                                 apnsClientHandler.gracefulShutdownTimeoutMillis(gracefulShutdownTimeoutMillis);
@@ -169,12 +174,18 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
             }
         });
 
+
         this.bootstrapTemplate.config().group().schedule(new Runnable() {
 
             @Override
             public void run() {
-                final ChannelFuture connectFuture = ApnsChannelFactory.this.bootstrapTemplate.clone().connect();
-                connectFuture.channel().attr(CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).set(channelReadyPromise);
+
+                final Bootstrap bootstrap = ApnsChannelFactory.this.bootstrapTemplate.clone()
+                        .channelFactory(new AugmentingReflectiveChannelFactory<>(
+                                ClientSocketChannelClassUtil.getSocketChannelClass(ApnsChannelFactory.this.bootstrapTemplate.config().group()),
+                                CHANNEL_READY_PROMISE_ATTRIBUTE_KEY, channelReadyPromise));
+
+                final ChannelFuture connectFuture = bootstrap.connect();
 
                 connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
 

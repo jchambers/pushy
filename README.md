@@ -17,17 +17,17 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 <dependency>
     <groupId>com.turo</groupId>
     <artifactId>pushy</artifactId>
-    <version>0.11.1</version>
+    <version>0.11.3</version>
 </dependency>
 ```
 
 If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.11/pushy-0.11.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
-- [netty 4.1.14](http://netty.io/)
-- [netty-tcnative-2.0.5.Final](http://netty.io/wiki/forked-tomcat-native.html)
+- [netty 4.1.17](http://netty.io/)
+- [netty-tcnative-2.0.7.Final](http://netty.io/wiki/forked-tomcat-native.html)
 - [Apache Commons Codec 1.10](https://commons.apache.org/proper/commons-codec/)
 - [gson 2.6](https://github.com/google/gson)
-- [slf4j 1.7.6](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
+- [slf4j 1.7](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
 
 Pushy itself requires Java 7 or newer to build and run.
 
@@ -83,8 +83,8 @@ final SimpleApnsPushNotification pushNotification;
 The process of sending a push notification is asynchronous; although the process of sending a notification and getting a reply from the server may take some time, the client will return a [`io.netty.util.concurrent.Future`](http://netty.io/4.1/api/io/netty/util/concurrent/Future.html) right away. You can use that `Future` to track the progress and eventual outcome of the sending operation. Note that an `io.netty.util.concurrent.Future` is an extension of the Java [`Future`](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/Future.html) interface that allows callers to add listeners and adds methods for checking the status of the `Future`.
 
 ```java
-final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendNotificationFuture =
-        apnsClient.sendNotification(pushNotification);
+final PushNotificationFuture<SimpleApnsPushNotification, PushNotificationResponse<SimpleApnsPushNotification>>
+    sendNotificationFuture = apnsClient.sendNotification(pushNotification);
 ```
 
 The `Future` will complete in one of three circumstances:
@@ -117,7 +117,30 @@ try {
 }
 ```
 
-Again, it's important to note that the returned `Future` supports listeners; waiting for each individual push notification is inefficient in practice, and most users will be better serverd by adding a listener to the `Future` instead of blocking until it completes.
+Again, it's important to note that the returned `Future` supports listeners; waiting for each individual push notification is inefficient in practice, and most users will be better serverd by adding a listener to the `Future` instead of blocking until it completes. As an example:
+
+```java
+sendNotificationFuture.addListener(new PushNotificationResponseListener<SimpleApnsPushNotification>() {
+
+    @Override
+    public void operationComplete(final PushNotificationFuture<SimpleApnsPushNotification, PushNotificationResponse<SimpleApnsPushNotification>> future) throws Exception {
+        // When using a listener, callers should check for a failure to send a
+        // notification by checking whether the future itself was successful
+        // since an exception will not be thrown.
+        if (future.isSuccess()) {
+            final PushNotificationResponse<SimpleApnsPushNotification> pushNotificationResponse =
+                    sendNotificationFuture.getNow();
+
+            // Handle the push notification response as before from here.
+        } else {
+            // Something went wrong when trying to send the notification to the
+            // APNs gateway. We can find the exception that caused the failure
+            // by getting future.cause().
+            future.cause().printStackTrace();
+        }
+    }
+});
+```
 
 All APNs clients—even those that have never sent a message—may allocate and hold on to system resources, and it's important to release them. APNs clients are intended to be persistent, long-lived resources; you definitely don't need to shut down a client after sending a notification (or even batch of notifications), but you'll want to shut down your client (or clients) when your application is shutting down:
 
@@ -187,8 +210,14 @@ Pushy uses logging levels as follows:
 
 If you plan to use Pushy inside an application container (like Tomcat), you may have to take some additional steps and should be aware of some limitations detailed on the ["Using Pushy in an application container" wiki page](https://github.com/relayrides/pushy/wiki/Using-Pushy-in-an-application-container).
 
+## Using a mock server
+
+Pushy includes a mock APNs server that callers may use in integration tests and benchmarks. It is not necessary to use a mock server (or any related classes) in normal operation.
+
+To build a mock server, callers should use a `MockApnsServerBuilder`. All servers require a `PushNotificationHandler` (built by a `PushNotificationHandlerFactory` provided to the builder) that decides whether the mock server will accept or reject each incoming push notification. Pushy includes an `AcceptAllPushNotificationHandlerFactory` that is helpful for benchmarking and a `ValidatingPushNotificationHandlerFactory` that may be helpful for integration testing.
+
 ## License and status
 
 Pushy is available under the [MIT License](https://github.com/relayrides/pushy/blob/master/LICENSE.md).
 
-The current version of Pushy is 0.11.1. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
+The current version of Pushy is 0.11.3. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.

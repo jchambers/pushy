@@ -20,32 +20,25 @@
  * THE SOFTWARE.
  */
 
-package com.turo.pushy.apns;
+package com.turo.pushy.apns.server;
 
-import io.netty.util.concurrent.Promise;
+import javax.net.ssl.SSLSession;
 
 /**
- * A for-internal-use-only ttuple of a push notification and a {@link Promise} to be notified with the outcome of the
- * attempt to send the notification.
+ * A push notification handler factory constructs {@link PushNotificationHandler} instances when a mock APNs server
+ * accepts a new connection. Handlers created by the factory control how the server responds to the push notifications
+ * it receives.
  *
- * @author <a href="https://github.com/jchambers">Jon Chambers</a>
- *
- * @since 0.10
+ * @since 0.12
  */
-class PushNotificationAndResponsePromise {
-    private final ApnsPushNotification pushNotification;
-    private final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise;
-
-    public PushNotificationAndResponsePromise(final ApnsPushNotification pushNotification, final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise) {
-        this.pushNotification = pushNotification;
-        this.responsePromise = responsePromise;
-    }
-
-    public ApnsPushNotification getPushNotification() {
-        return this.pushNotification;
-    }
-
-    public Promise<PushNotificationResponse<ApnsPushNotification>> getResponsePromise() {
-        return this.responsePromise;
-    }
+public interface PushNotificationHandlerFactory {
+    /**
+     * Constructs a new push notification handler that will process notifications from a single connection to a mock
+     * server.
+     *
+     * @param sslSession the SSL session for the new connection to the mock server
+     *
+     * @return a new push notification handler for the new connection
+     */
+    PushNotificationHandler buildHandler(SSLSession sslSession);
 }

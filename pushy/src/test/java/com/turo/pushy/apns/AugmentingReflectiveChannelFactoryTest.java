@@ -22,22 +22,29 @@
 
 package com.turo.pushy.apns;
 
-import java.util.Date;
+import io.netty.channel.local.LocalChannel;
+import io.netty.util.AttributeKey;
+import org.junit.Test;
 
-class ErrorResponse {
-    private final String reason;
-    private final Date timestamp;
+import static org.junit.Assert.assertTrue;
 
-    public ErrorResponse(final String reason, final Date timestamp) {
-        this.reason = reason;
-        this.timestamp = timestamp;
+public class AugmentingReflectiveChannelFactoryTest {
+
+    @Test(expected = NullPointerException.class)
+    public void testAugmentingReflectiveChannelFactoryNullAttributeKey() {
+        new AugmentingReflectiveChannelFactory<>(LocalChannel.class, null, null);
     }
 
-    String getReason() {
-        return this.reason;
-    }
+    @Test
+    public void testNewChannel() {
+        final AttributeKey<String> attributeKey = AttributeKey.valueOf(getClass(), "attributeKey");
 
-    Date getTimestamp() {
-        return this.timestamp;
+        final AugmentingReflectiveChannelFactory<LocalChannel, String> factory =
+                new AugmentingReflectiveChannelFactory<>(LocalChannel.class, attributeKey, "Test!");
+
+        final LocalChannel channel = factory.newChannel();
+
+        assertTrue("Newly-created channels should have attribute provided to factory.",
+                channel.hasAttr(attributeKey));
     }
 }

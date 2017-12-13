@@ -20,24 +20,19 @@
  * THE SOFTWARE.
  */
 
-package com.turo.pushy.apns;
+package com.turo.pushy.apns.util.concurrent;
 
-import java.util.Date;
+import com.turo.pushy.apns.ApnsPushNotification;
+import com.turo.pushy.apns.PushNotificationResponse;
+import io.netty.util.concurrent.GenericFutureListener;
 
-class ErrorResponse {
-    private final String reason;
-    private final Date timestamp;
-
-    public ErrorResponse(final String reason, final Date timestamp) {
-        this.reason = reason;
-        this.timestamp = timestamp;
-    }
-
-    String getReason() {
-        return this.reason;
-    }
-
-    Date getTimestamp() {
-        return this.timestamp;
-    }
+/**
+ * A type-specific convenience interface for listening for the result of an attempt to send a push notification.
+ *
+ * @param <T> the type of push notification sent
+ *
+ * @see com.turo.pushy.apns.ApnsClient#sendNotification(ApnsPushNotification)
+ */
+public interface PushNotificationResponseListener<T extends ApnsPushNotification>
+        extends GenericFutureListener<PushNotificationFuture<T, PushNotificationResponse<T>>> {
 }

@@ -25,13 +25,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>pushy</artifactId>
-    <version>0.11.3</version>
+    <version>0.12-SNAPSHOT</version>
     <name>Pushy</name>
 
     <parent>
         <groupId>com.turo</groupId>
         <artifactId>pushy-parent</artifactId>
-        <version>0.11.3</version>
+        <version>0.12-SNAPSHOT</version>
     </parent>
 
     <dependencies>
@@ -85,6 +85,7 @@
                     <show>public</show>
                     <links>
                         <link>http://netty.io/4.1/api/</link>
+                        <link>https://google.github.io/gson/apidocs/</link>
                     </links>
                 </configuration>
             </plugin>

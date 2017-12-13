@@ -24,10 +24,13 @@ package com.turo.pushy.apns;
 
 import com.turo.pushy.apns.auth.ApnsSigningKey;
 import com.turo.pushy.apns.proxy.ProxyHandlerFactory;
+import com.turo.pushy.apns.util.concurrent.PushNotificationFuture;
+import com.turo.pushy.apns.util.concurrent.PushNotificationResponseListener;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.handler.codec.http2.Http2FrameLogger;
 import io.netty.handler.ssl.SslContext;
 import io.netty.util.concurrent.*;
 import org.slf4j.Logger;
@@ -127,10 +130,11 @@ public class ApnsClient {
     }
 
     protected ApnsClient(final InetSocketAddress apnsServerAddress, final SslContext sslContext,
-                         final ApnsSigningKey signingKey,  final ProxyHandlerFactory proxyHandlerFactory,
+                         final ApnsSigningKey signingKey, final ProxyHandlerFactory proxyHandlerFactory,
                          final int connectTimeoutMillis, final long idlePingIntervalMillis,
                          final long gracefulShutdownTimeoutMillis, final int concurrentConnections,
-                         final ApnsClientMetricsListener metricsListener, final EventLoopGroup eventLoopGroup) {
+                         final ApnsClientMetricsListener metricsListener, final Http2FrameLogger frameLogger,
+                         final EventLoopGroup eventLoopGroup) {
 
         if (eventLoopGroup != null) {
             this.eventLoopGroup = eventLoopGroup;
@@ -142,7 +146,9 @@ public class ApnsClient {
 
         this.metricsListener = metricsListener != null ? metricsListener : new NoopApnsClientMetricsListener();
 
-        final ApnsChannelFactory channelFactory = new ApnsChannelFactory(sslContext, signingKey, proxyHandlerFactory, connectTimeoutMillis, idlePingIntervalMillis, gracefulShutdownTimeoutMillis, apnsServerAddress, this.eventLoopGroup);
+        final ApnsChannelFactory channelFactory = new ApnsChannelFactory(sslContext, signingKey, proxyHandlerFactory,
+                connectTimeoutMillis, idlePingIntervalMillis, gracefulShutdownTimeoutMillis, frameLogger,
+                apnsServerAddress, this.eventLoopGroup);
 
         final ApnsChannelPoolMetricsListener channelPoolMetricsListener = new ApnsChannelPoolMetricsListener() {
 
@@ -177,21 +183,26 @@ public class ApnsClient {
      * <em>send</em> a notification to the gateway—i.e. those that fail with exceptions—should generally be considered
      * non-permanent, and callers should attempt to re-send the notification when the underlying problem has been
      * resolved.</p>
-     ** @param notification the notification to send to the APNs gateway
+     *
+     * @param notification the notification to send to the APNs gateway
      *
      * @param <T> the type of notification to be sent
      *
      * @return a {@code Future} that will complete when the notification has been either accepted or rejected by the
      * APNs gateway
      *
+     * @see com.turo.pushy.apns.util.concurrent.PushNotificationResponseListener
+     *
      * @since 0.8
      */
     @SuppressWarnings("unchecked")
-    public <T extends ApnsPushNotification> Future<PushNotificationResponse<T>> sendNotification(final T notification) {
-        final Future<PushNotificationResponse<T>> responseFuture;
+    public <T extends ApnsPushNotification> PushNotificationFuture<T, PushNotificationResponse<T>> sendNotification(final T notification) {
+        final PushNotificationFuture<T, PushNotificationResponse<T>> responseFuture;
 
         if (!this.isClosed.get()) {
-            final Promise<PushNotificationResponse<ApnsPushNotification>> responsePromise = new DefaultPromise<>(this.eventLoopGroup.next());
+            final PushNotificationPromise<T, PushNotificationResponse<T>> responsePromise =
+                    new PushNotificationPromise<>(this.eventLoopGroup.next(), notification);
+
             final long notificationId = this.nextNotificationId.getAndIncrement();
 
             this.channelPool.acquire().addListener(new GenericFutureListener<Future<Channel>>() {
@@ -200,7 +211,7 @@ public class ApnsClient {
                     if (acquireFuture.isSuccess()) {
                         final Channel channel = acquireFuture.getNow();
 
-                        channel.writeAndFlush(new PushNotificationAndResponsePromise(notification, responsePromise)).addListener(new GenericFutureListener<ChannelFuture>() {
+                        channel.writeAndFlush(responsePromise).addListener(new GenericFutureListener<ChannelFuture>() {
 
                             @Override
                             public void operationComplete(final ChannelFuture future) throws Exception {
@@ -220,12 +231,11 @@ public class ApnsClient {
                 }
             });
 
-            responsePromise.addListener(new GenericFutureListener<Future<PushNotificationResponse<ApnsPushNotification>>>() {
-
+            responsePromise.addListener(new PushNotificationResponseListener<T>() {
                 @Override
-                public void operationComplete(final Future<PushNotificationResponse<ApnsPushNotification>> future) throws Exception {
+                public void operationComplete(final PushNotificationFuture<T, PushNotificationResponse<T>> future) throws Exception {
                     if (future.isSuccess()) {
-                        final PushNotificationResponse<ApnsPushNotification> response = future.getNow();
+                        final PushNotificationResponse response = future.getNow();
 
                         if (response.isAccepted()) {
                             ApnsClient.this.metricsListener.handleNotificationAccepted(ApnsClient.this, notificationId);
@@ -238,9 +248,14 @@ public class ApnsClient {
                 }
             });
 
-            responseFuture = (Future) responsePromise;
+            responseFuture = responsePromise;
         } else {
-            responseFuture = new FailedFuture<>(GlobalEventExecutor.INSTANCE, CLIENT_CLOSED_EXCEPTION);
+            final PushNotificationPromise<T, PushNotificationResponse<T>> failedPromise =
+                    new PushNotificationPromise<>(GlobalEventExecutor.INSTANCE, notification);
+
+            failedPromise.setFailure(CLIENT_CLOSED_EXCEPTION);
+
+            responseFuture = failedPromise;
         }
 
         return responseFuture;

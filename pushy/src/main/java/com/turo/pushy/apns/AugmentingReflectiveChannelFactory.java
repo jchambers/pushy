@@ -22,22 +22,40 @@
 
 package com.turo.pushy.apns;
 
-import java.util.Date;
+import io.netty.channel.Channel;
+import io.netty.channel.ReflectiveChannelFactory;
+import io.netty.util.AttributeKey;
 
-class ErrorResponse {
-    private final String reason;
-    private final Date timestamp;
+import java.util.Objects;
 
-    public ErrorResponse(final String reason, final Date timestamp) {
-        this.reason = reason;
-        this.timestamp = timestamp;
+/**
+ * A channel factory that attaches a single attribute to all newly-created channels.
+ *
+ * @param <T> the type of channel created by this factory
+ * @param <A> the type of the attribute attached to newly-constructed channels
+ *
+ * @author <a href="https://github.com/jchambers">Jon Chambers</a>
+ */
+class AugmentingReflectiveChannelFactory<T extends Channel, A> extends ReflectiveChannelFactory<T> {
+
+    private final AttributeKey<A> attributeKey;
+    private final A attributeValue;
+
+    AugmentingReflectiveChannelFactory(final Class<? extends T> channelClass, final AttributeKey<A> attributeKey, final A attributeValue) {
+        super(channelClass);
+
+        Objects.requireNonNull(attributeKey, "Attribute key must not be null.");
+
+        this.attributeKey = attributeKey;
+        this.attributeValue = attributeValue;
     }
 
-    String getReason() {
-        return this.reason;
-    }
+    @Override
+    public T newChannel() {
+        final T channel = super.newChannel();
 
-    Date getTimestamp() {
-        return this.timestamp;
+        channel.attr(this.attributeKey).set(this.attributeValue);
+
+        return channel;
     }
 }
