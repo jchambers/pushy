@@ -264,7 +264,17 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         final UUID apnsId;
         {
             final CharSequence apnsIdSequence = headers.get(APNS_ID_HEADER);
-            apnsId = apnsIdSequence != null ? UUID.fromString(apnsIdSequence.toString()) : UUID.randomUUID();
+
+            UUID apnsIdFromHeaders;
+
+            try {
+                apnsIdFromHeaders = apnsIdSequence != null ? UUID.fromString(apnsIdSequence.toString()) : UUID.randomUUID();
+            } catch (final IllegalArgumentException e) {
+                log.error("Failed to parse `apns-id` header: {}", apnsIdSequence, e);
+                apnsIdFromHeaders = UUID.randomUUID();
+            }
+
+            apnsId = apnsIdFromHeaders;
         }
 
         try {
