@@ -52,6 +52,7 @@ import java.util.concurrent.atomic.AtomicLong;
 class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
     private final SslContext sslContext;
+    private final ApnsInetProvider apnsInetProvider;
     private final AtomicBoolean hasReleasedSslContext = new AtomicBoolean(false);
 
     private final Bootstrap bootstrapTemplate;
@@ -67,9 +68,10 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
     ApnsChannelFactory(final SslContext sslContext, final ApnsSigningKey signingKey,
                        final ProxyHandlerFactory proxyHandlerFactory, final int connectTimeoutMillis,
                        final long idlePingIntervalMillis, final long gracefulShutdownTimeoutMillis,
-                       final InetSocketAddress apnsServerAddress, final EventLoopGroup eventLoopGroup) {
+                       final ApnsInetProvider apnsInetProvider, final EventLoopGroup eventLoopGroup) {
 
         this.sslContext = sslContext;
+        this.apnsInetProvider = apnsInetProvider;
 
         if (this.sslContext instanceof ReferenceCounted) {
             ((ReferenceCounted) this.sslContext).retain();
@@ -79,7 +81,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
         this.bootstrapTemplate.group(eventLoopGroup);
         this.bootstrapTemplate.channel(SocketChannelClassUtil.getSocketChannelClass(this.bootstrapTemplate.config().group()));
         this.bootstrapTemplate.option(ChannelOption.TCP_NODELAY, true);
-        this.bootstrapTemplate.remoteAddress(apnsServerAddress);
+        this.bootstrapTemplate.remoteAddress(apnsInetProvider.getInetAddress());
 
         if (connectTimeoutMillis > 0) {
             this.bootstrapTemplate.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMillis);
@@ -168,12 +170,12 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
                 ApnsChannelFactory.this.currentDelaySeconds.compareAndSet(delay, updatedDelay);
             }
         });
-
+        
         this.bootstrapTemplate.config().group().schedule(new Runnable() {
 
             @Override
             public void run() {
-                final ChannelFuture connectFuture = ApnsChannelFactory.this.bootstrapTemplate.clone().connect();
+                final ChannelFuture connectFuture = ApnsChannelFactory.this.bootstrapTemplate.clone().remoteAddress(apnsInetProvider.getInetAddress()).connect();
                 connectFuture.channel().attr(CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).set(channelReadyPromise);
 
                 connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {

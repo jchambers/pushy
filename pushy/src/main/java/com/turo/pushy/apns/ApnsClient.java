@@ -33,7 +33,6 @@ import io.netty.util.concurrent.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -126,7 +125,7 @@ public class ApnsClient {
         }
     }
 
-    protected ApnsClient(final InetSocketAddress apnsServerAddress, final SslContext sslContext,
+    protected ApnsClient(final ApnsInetProvider apnsInetProvider, final SslContext sslContext,
                          final ApnsSigningKey signingKey,  final ProxyHandlerFactory proxyHandlerFactory,
                          final int connectTimeoutMillis, final long idlePingIntervalMillis,
                          final long gracefulShutdownTimeoutMillis, final int concurrentConnections,
@@ -142,7 +141,7 @@ public class ApnsClient {
 
         this.metricsListener = metricsListener != null ? metricsListener : new NoopApnsClientMetricsListener();
 
-        final ApnsChannelFactory channelFactory = new ApnsChannelFactory(sslContext, signingKey, proxyHandlerFactory, connectTimeoutMillis, idlePingIntervalMillis, gracefulShutdownTimeoutMillis, apnsServerAddress, this.eventLoopGroup);
+        final ApnsChannelFactory channelFactory = new ApnsChannelFactory(sslContext, signingKey, proxyHandlerFactory, connectTimeoutMillis, idlePingIntervalMillis, gracefulShutdownTimeoutMillis, apnsInetProvider, this.eventLoopGroup);
 
         final ApnsChannelPoolMetricsListener channelPoolMetricsListener = new ApnsChannelPoolMetricsListener() {
 
