@@ -160,7 +160,7 @@ public class ApnsClientBuilder {
      * @since 0.11
      */
     public ApnsClientBuilder setApnsServer(final String hostname, final int port) {
-        this.apnsServerAddress = new InetSocketAddress(hostname, port);
+        this.apnsServerAddress = InetSocketAddress.createUnresolved(hostname, port);
         return this;
     }
 
