@@ -153,6 +153,15 @@ closeFuture.await();
 
 When shutting down, clients will wait for all sent-but-not-acknowledged notifications to receive a reply from the server. Notifications that have been passed to `sendNotification` but not yet sent to the server (i.e. notifications waiting in an internal queue) will fail immediately when disconnecting. Callers should generally make sure that all sent notifications have been acknowledged by the server before shutting down.
 
+## Performance and best practices
+
+Making the most of your system resources for high-throughput applications always takes some effort. To guide you through the process, we've put together a wiki page covering some [best practices for using Pushy](https://github.com/relayrides/pushy/wiki/Best-practices). All of these points are covered in much more detail on the wiki, but in general, our recommendations are:
+
+- Treat `ApnsClient` instances as long-lived resources
+- Use listeners if you want to track the status of your push notifications
+- Use a flow control strategy to avoid enqueueing push notifications faster than the server can respond
+- Choose a number of threads and concurrent connections that balances CPU time and network throughput
+
 ## System requirements
 
 Pushy works with Java 7 and newer. By default, it depends on `netty-tcnative` and should work "out of the box" for most users. Users who can't (or choose not to) use `netty-tcnative` will need to take extra steps to [configure a JDK SSL provider](https://github.com/relayrides/pushy/wiki/Using-a-JDK-SSL-provider).
