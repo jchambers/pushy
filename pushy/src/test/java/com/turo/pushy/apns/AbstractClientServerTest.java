@@ -27,6 +27,7 @@ import com.turo.pushy.apns.auth.ApnsVerificationKey;
 import com.turo.pushy.apns.auth.KeyPairUtil;
 import com.turo.pushy.apns.server.MockApnsServer;
 import com.turo.pushy.apns.server.MockApnsServerBuilder;
+import com.turo.pushy.apns.server.MockApnsServerListener;
 import com.turo.pushy.apns.server.PushNotificationHandlerFactory;
 import com.turo.pushy.apns.util.ApnsPayloadBuilder;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -130,11 +131,16 @@ public class AbstractClientServerTest {
     }
 
     protected MockApnsServer buildServer(final PushNotificationHandlerFactory handlerFactory) throws SSLException {
+        return this.buildServer(handlerFactory, null);
+    }
+
+    protected MockApnsServer buildServer(final PushNotificationHandlerFactory handlerFactory, final MockApnsServerListener listener) throws SSLException {
         return new MockApnsServerBuilder()
                 .setServerCredentials(getClass().getResourceAsStream(SERVER_CERTIFICATES_FILENAME), getClass().getResourceAsStream(SERVER_KEY_FILENAME), null)
                 .setTrustedClientCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
                 .setEventLoopGroup(EVENT_LOOP_GROUP)
                 .setHandlerFactory(handlerFactory)
+                .setListener(listener)
                 .build();
     }
 

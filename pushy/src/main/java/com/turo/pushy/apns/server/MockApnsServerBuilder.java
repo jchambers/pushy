@@ -259,6 +259,22 @@ public class MockApnsServerBuilder {
     }
 
     /**
+     * Sets the listener to be notified when notifications are accepted or rejected by the server under construction. If
+     * not set or if {@code null}, the server will not notify a listener when notifications are accepted or rejected.
+     *
+     * @param listener the listener to be used by the server under construction
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.12
+     */
+    public MockApnsServerBuilder setListener(final MockApnsServerListener listener) {
+        this.listener = listener;
+        return this;
+    }
+
+
+    /**
      * Sets the maximum number of concurrent HTTP/2 streams allowed by the server under construction. By default,
      * mock servers will have a concurrent stream limit of {@value DEFAULT_MAX_CONCURRENT_STREAMS}.
      *
@@ -275,11 +291,6 @@ public class MockApnsServerBuilder {
         }
 
         this.maxConcurrentStreams = maxConcurrentStreams;
-        return this;
-    }
-
-    public MockApnsServerBuilder setListener(final MockApnsServerListener listener) {
-        this.listener = listener;
         return this;
     }
 
@@ -346,7 +357,7 @@ public class MockApnsServerBuilder {
             sslContext = sslContextBuilder.build();
         }
 
-        final MockApnsServer server = new MockApnsServer(sslContext, this.handlerFactory, this.maxConcurrentStreams, this.eventLoopGroup);
+        final MockApnsServer server = new MockApnsServer(sslContext, this.handlerFactory, this.listener, this.maxConcurrentStreams, this.eventLoopGroup);
 
         if (sslContext instanceof ReferenceCounted) {
             ((ReferenceCounted) sslContext).release();

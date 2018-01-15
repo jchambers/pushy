@@ -218,7 +218,9 @@ If you plan to use Pushy inside an application container (like Tomcat), you may 
 
 Pushy includes a mock APNs server that callers may use in integration tests and benchmarks. It is not necessary to use a mock server (or any related classes) in normal operation.
 
-To build a mock server, callers should use a `MockApnsServerBuilder`. All servers require a `PushNotificationHandler` (built by a `PushNotificationHandlerFactory` provided to the builder) that decides whether the mock server will accept or reject each incoming push notification. Pushy includes an `AcceptAllPushNotificationHandlerFactory` that is helpful for benchmarking and a `ValidatingPushNotificationHandlerFactory` that may be helpful for integration testing.
+To build a mock server, callers should use a [`MockApnsServerBuilder`](http://relayrides.github.io/pushy/apidocs/0.12/com/turo/pushy/apns/server/MockApnsServerBuilder.html). All servers require a [`PushNotificationHandler`](http://relayrides.github.io/pushy/apidocs/0.12/com/turo/pushy/apns/server/PushNotificationHandler.html) (built by a [`PushNotificationHandlerFactory`](http://relayrides.github.io/pushy/apidocs/0.12/com/turo/pushy/apns/server/PushNotificationHandlerFactory.html) provided to the builder) that decides whether the mock server will accept or reject each incoming push notification. Pushy includes an `AcceptAllPushNotificationHandlerFactory` that is helpful for benchmarking and a `ValidatingPushNotificationHandlerFactory` that may be helpful for integration testing.
+
+Callers may also provide a [`MockApnsServerListener`](http://relayrides.github.io/pushy/apidocs/0.12/com/turo/pushy/apns/server/MockApnsServerListener.html) when building a mock server; listeners are notified whenever the mock server accepts or rejects a notification from a client.
 
 ## License and status
 
