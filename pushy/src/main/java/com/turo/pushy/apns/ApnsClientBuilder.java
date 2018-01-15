@@ -47,8 +47,10 @@ import java.security.cert.X509Certificate;
 import java.util.concurrent.TimeUnit;
 
 /**
- * An {@code ApnsClientBuilder} constructs new {@link ApnsClient} instances. All settings are optional. Client builders
- * may be reused to generate multiple clients, and their settings may be changed from one client to the next.
+ * An {@code ApnsClientBuilder} constructs new {@link ApnsClient} instances. Callers must specify the APNs server to
+ * which clients connect and must provide either TLS credentials or a signing key (but not both) before building a
+ * client. Client builders may be reused to generate multiple clients, and their settings may be changed from one client
+ * to the next.
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */
@@ -492,6 +494,9 @@ public class ApnsClientBuilder {
      * @return a new ApnsClient instance with the previously-set configuration
      *
      * @throws SSLException if an SSL context could not be created for the new client for any reason
+     * @throws IllegalStateException if this method is called without specifying an APNs server address, if this method
+     * is called without providing TLS credentials or a signing key, or if this method is called with both TLS
+     * credentials and a signing key
      *
      * @since 0.8
      */

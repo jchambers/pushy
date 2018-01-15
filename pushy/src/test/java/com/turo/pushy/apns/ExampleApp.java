@@ -50,12 +50,14 @@ public class ExampleApp {
         // certificate and private key OR a signing key to authenticate with
         // the APNs server.
         final ApnsClient apnsClient = new ApnsClientBuilder()
+                .setApnsServer(ApnsClientBuilder.DEVELOPMENT_APNS_HOST)
                 .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
                         "TEAMID1234", "KEYID67890"))
                 .build();
 
         // Optional: we can listen for metrics by setting a metrics listener.
         final ApnsClient apnsClientWithMetricsListener = new ApnsClientBuilder()
+                .setApnsServer(ApnsClientBuilder.DEVELOPMENT_APNS_HOST)
                 .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
                         "TEAMID1234", "KEYID67890"))
                 // .setMetricsListener(new NoopMetricsListener())
@@ -63,6 +65,7 @@ public class ExampleApp {
 
         // Optional: we can set a proxy handler factory if we must use a proxy.
         final ApnsClient apnsClientWithProxyHandler = new ApnsClientBuilder()
+                .setApnsServer(ApnsClientBuilder.DEVELOPMENT_APNS_HOST)
                 .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
                         "TEAMID1234", "KEYID67890"))
                 .setProxyHandlerFactory(new Socks5ProxyHandlerFactory(

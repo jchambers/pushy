@@ -45,6 +45,7 @@ Once you've registered your app and have the requisite certificates, the first t
 
 ```java
 final ApnsClient apnsClient = new ApnsClientBuilder()
+        .setApnsServer(ApnsClientBuilder.DEVELOPMENT_APNS_HOST)
         .setClientCredentials(new File("/path/to/certificate.p12"), "p12-file-password")
         .build();
 ```
@@ -57,6 +58,7 @@ To get started with a token-based client, you'll need to get a signing key (also
 
 ```java
 final ApnsClient apnsClient = new ApnsClientBuilder()
+        .setApnsServer(ApnsClientBuilder.DEVELOPMENT_APNS_HOST)
         .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
                 "TEAMID1234", "KEYID67890"))
         .build();
@@ -161,6 +163,7 @@ Pushy includes an interface for monitoring metrics that provide insight into cli
 
 ```java
 final ApnsClient apnsClient = new ApnsClientBuilder()
+        .setApnsServer(ApnsClientBuilder.DEVELOPMENT_APNS_HOST)
         .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
                 "TEAMID1234", "KEYID67890"))
         .setMetricsListener(new MyCustomMetricsListener())
@@ -177,6 +180,7 @@ An example:
 
 ```java
 final ApnsClient apnsClient = new ApnsClientBuilder()
+    .setApnsServer(ApnsClientBuilder.DEVELOPMENT_APNS_HOST)
     .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
             "TEAMID1234", "KEYID67890"))
     .setProxyHandlerFactory(new Socks5ProxyHandlerFactory(
