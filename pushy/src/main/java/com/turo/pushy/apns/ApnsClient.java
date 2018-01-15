@@ -73,10 +73,11 @@ import java.util.concurrent.atomic.AtomicLong;
  * {@link java.util.concurrent.Future java.util.concurrent.Future} interface that allows callers to attach listeners
  * that will be notified when the {@code Future} completes.</p>
  *
- * <p>APNs clients are intended to be long-lived, persistent resources. Callers must shut them down via the
- * {@link ApnsClient#close()}} method when they are no longer needed (i.e. when shutting down the entire application).
- * If an event loop group was specified at construction time, callers should shut down that event loop group when all
- * clients using that group have been disconnected.</p>
+ * <p>APNs clients are intended to be long-lived, persistent resources. They are also inherently thread-safe and can be
+ * shared across many threads in a complex application. Callers must shut them down via the {@link ApnsClient#close()}}
+ * method when they are no longer needed (i.e. when shutting down the entire application). If an event loop group was
+ * specified at construction time, callers should shut down that event loop group when all clients using that group have
+ * been disconnected.</p>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
