@@ -22,39 +22,28 @@
 
 package com.turo.pushy.apns.server;
 
+import com.turo.pushy.apns.AbstractClientServerTest;
 import io.netty.channel.nio.NioEventLoopGroup;
-import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class MockApnsServerTest {
-
-    private static final String SERVER_CERTIFICATES_FILENAME = "/server-certs.pem";
-    private static final String SERVER_KEY_FILENAME = "/server-key.pem";
-
-    private static final int PORT = 8443;
-
-    private MockApnsServer server;
-
-    @Before
-    public void setUp() throws Exception {
-        this.server = new MockApnsServerBuilder()
-                .setServerCredentials(MockApnsServerTest.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), MockApnsServerTest.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
-                .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
-                .build();
-    }
+public class MockApnsServerTest extends AbstractClientServerTest {
 
     @Test
     public void testStartAndShutdown() throws Exception {
-        assertTrue(this.server.start(PORT).await().isSuccess());
-        assertTrue(this.server.shutdown().await().isSuccess());
+        final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory());
+
+        assertTrue(server.start(PORT).await().isSuccess());
+        assertTrue(server.shutdown().await().isSuccess());
     }
 
     @Test
     public void testShutdownBeforeStart() throws Exception {
-        assertTrue(this.server.shutdown().await().isSuccess());
+        final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory());
+
+        assertTrue(server.shutdown().await().isSuccess());
     }
 
     @Test
@@ -64,7 +53,7 @@ public class MockApnsServerTest {
         try {
 
             final MockApnsServer providedGroupServer = new MockApnsServerBuilder()
-                    .setServerCredentials(MockApnsServerTest.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), MockApnsServerTest.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
+                    .setServerCredentials(getClass().getResourceAsStream(SERVER_CERTIFICATES_FILENAME), getClass().getResourceAsStream(SERVER_KEY_FILENAME), null)
                     .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
                     .setEventLoopGroup(eventLoopGroup)
                     .build();
@@ -74,7 +63,7 @@ public class MockApnsServerTest {
 
             assertFalse(eventLoopGroup.isShutdown());
         } finally {
-            eventLoopGroup.shutdownGracefully();
+            eventLoopGroup.shutdownGracefully().await();
         }
     }
 
@@ -85,7 +74,7 @@ public class MockApnsServerTest {
         try {
 
             final MockApnsServer providedGroupServer = new MockApnsServerBuilder()
-                    .setServerCredentials(MockApnsServerTest.class.getResourceAsStream(SERVER_CERTIFICATES_FILENAME), MockApnsServerTest.class.getResourceAsStream(SERVER_KEY_FILENAME), null)
+                    .setServerCredentials(getClass().getResourceAsStream(SERVER_CERTIFICATES_FILENAME), getClass().getResourceAsStream(SERVER_KEY_FILENAME), null)
                     .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
                     .setEventLoopGroup(eventLoopGroup)
                     .build();
@@ -95,7 +84,7 @@ public class MockApnsServerTest {
             assertTrue(providedGroupServer.start(PORT).await().isSuccess());
             assertTrue(providedGroupServer.shutdown().await().isSuccess());
         } finally {
-            eventLoopGroup.shutdownGracefully();
+            eventLoopGroup.shutdownGracefully().await();
         }
     }
 }

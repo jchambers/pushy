@@ -22,70 +22,30 @@
 
 package com.turo.pushy.apns;
 
-import com.turo.pushy.apns.auth.ApnsSigningKey;
-import com.turo.pushy.apns.auth.ApnsVerificationKey;
-import com.turo.pushy.apns.auth.KeyPairUtil;
 import com.turo.pushy.apns.server.*;
-import com.turo.pushy.apns.util.ApnsPayloadBuilder;
 import com.turo.pushy.apns.util.SimpleApnsPushNotification;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLSession;
-import java.io.IOException;
 import java.io.InputStream;
-import java.security.KeyPair;
-import java.security.interfaces.ECPrivateKey;
-import java.security.interfaces.ECPublicKey;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
 
 @RunWith(JUnitParamsRunner.class)
-public class ApnsClientTest {
-
-    private static NioEventLoopGroup EVENT_LOOP_GROUP;
-
-    private static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
-    private static final String SERVER_CERTIFICATES_FILENAME = "/server-certs.pem";
-    private static final String SERVER_KEY_FILENAME = "/server-key.pem";
-
-    private static final String MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME = "/multi-topic-client.p12";
-    private static final String KEYSTORE_PASSWORD = "pushy-test";
-
-    private static final String HOST = "localhost";
-    private static final int PORT = 8443;
-
-    private static final String TEAM_ID = "team-id";
-    private static final String KEY_ID = "key-id";
-    private static final String TOPIC = "com.relayrides.pushy";
-    private static final String DEVICE_TOKEN = generateRandomDeviceToken();
-    private static final String PAYLOAD = generateRandomPayload();
-
-    private static final Map<String, Set<String>> DEVICE_TOKENS_BY_TOPIC =
-            Collections.singletonMap(TOPIC, Collections.singleton(DEVICE_TOKEN));
-
-    private static final Map<String, Date> EXPIRATION_TIMESTAMPS_BY_DEVICE_TOKEN = Collections.emptyMap();
-
-    private static final int TOKEN_LENGTH = 32; // bytes
-
-    private ApnsSigningKey signingKey;
-    private Map<String, ApnsVerificationKey> verificationKeysByKeyId;
-    private Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey;
+public class ApnsClientTest extends AbstractClientServerTest {
 
     private static class TestMetricsListener implements ApnsClientMetricsListener {
 
@@ -210,32 +170,6 @@ public class ApnsClientTest {
         AtomicInteger getFailedConnectionAttempts() {
             return this.failedConnectionAttempts;
         }
-    }
-
-    @BeforeClass
-    public static void setUpBeforeClass() throws Exception {
-        // We want enough threads so we can be confident that the client and server are running on different threads and
-        // we can accurately simulate race conditions. Two threads seems like an obvious choice, but there are some
-        // tests where we have multiple clients and servers in play, and it's good to have some extra room in those
-        // cases.
-        ApnsClientTest.EVENT_LOOP_GROUP = new NioEventLoopGroup(4);
-    }
-
-    @Before
-    public void setUp() throws Exception {
-        final KeyPair keyPair = KeyPairUtil.generateKeyPair();
-
-        this.signingKey = new ApnsSigningKey(KEY_ID, TEAM_ID, (ECPrivateKey) keyPair.getPrivate());
-        final ApnsVerificationKey verificationKey =
-                new ApnsVerificationKey(KEY_ID, TEAM_ID, (ECPublicKey) keyPair.getPublic());
-
-        this.verificationKeysByKeyId = Collections.singletonMap(KEY_ID, verificationKey);
-        this.topicsByVerificationKey = Collections.singletonMap(verificationKey, Collections.singleton(TOPIC));
-    }
-
-    @AfterClass
-    public static void tearDownAfterClass() throws Exception {
-        ApnsClientTest.EVENT_LOOP_GROUP.shutdownGracefully().await();
     }
 
     @Test
@@ -469,7 +403,7 @@ public class ApnsClientTest {
                 future.addListener(new GenericFutureListener<Future<PushNotificationResponse<SimpleApnsPushNotification>>>() {
 
                     @Override
-                    public void operationComplete(final Future<PushNotificationResponse<SimpleApnsPushNotification>> future) throws Exception {
+                    public void operationComplete(final Future<PushNotificationResponse<SimpleApnsPushNotification>> future) {
                         if (future.isSuccess()) {
                             countDownLatch.countDown();
                         }
@@ -509,7 +443,7 @@ public class ApnsClientTest {
                 future.addListener(new GenericFutureListener<Future<PushNotificationResponse<SimpleApnsPushNotification>>>() {
 
                     @Override
-                    public void operationComplete(final Future<PushNotificationResponse<SimpleApnsPushNotification>> future) throws Exception {
+                    public void operationComplete(final Future<PushNotificationResponse<SimpleApnsPushNotification>> future) {
                         // All we're concerned with here is that the client told us SOMETHING about what happened to the
                         // notification
                         countDownLatch.countDown();
@@ -701,64 +635,5 @@ public class ApnsClientTest {
         assertEquals(1, metricsListener.getFailedConnectionAttempts().get());
 
         assertEquals(1, metricsListener.getWriteFailures().size());
-    }
-
-    private ApnsClient buildTlsAuthenticationClient() throws IOException {
-        return this.buildTlsAuthenticationClient(null);
-    }
-
-    private ApnsClient buildTlsAuthenticationClient(final TestMetricsListener metricsListener) throws IOException {
-        try (final InputStream p12InputStream = getClass().getResourceAsStream(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            return new ApnsClientBuilder()
-                    .setApnsServer(HOST, PORT)
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .setMetricsListener(metricsListener)
-                    .build();
-        }
-    }
-
-    private ApnsClient buildTokenAuthenticationClient() throws SSLException {
-        return this.buildTokenAuthenticationClient(null);
-    }
-
-    private ApnsClient buildTokenAuthenticationClient(final TestMetricsListener metricsListener) throws SSLException {
-        return new ApnsClientBuilder()
-                .setApnsServer(HOST, PORT)
-                .setTrustedServerCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
-                .setSigningKey(this.signingKey)
-                .setEventLoopGroup(EVENT_LOOP_GROUP)
-                .setMetricsListener(metricsListener)
-                .build();
-    }
-
-    private MockApnsServer buildServer(final PushNotificationHandlerFactory handlerFactory) throws SSLException {
-        return new MockApnsServerBuilder()
-                .setServerCredentials(getClass().getResourceAsStream(SERVER_CERTIFICATES_FILENAME), getClass().getResourceAsStream(SERVER_KEY_FILENAME), null)
-                .setTrustedClientCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
-                .setEventLoopGroup(EVENT_LOOP_GROUP)
-                .setHandlerFactory(handlerFactory)
-                .build();
-    }
-
-    private static String generateRandomDeviceToken() {
-        final byte[] tokenBytes = new byte[TOKEN_LENGTH];
-        new Random().nextBytes(tokenBytes);
-
-        final StringBuilder builder = new StringBuilder(TOKEN_LENGTH * 2);
-
-        for (final byte b : tokenBytes) {
-            builder.append(String.format("%02x", b));
-        }
-
-        return builder.toString();
-    }
-
-    private static String generateRandomPayload() {
-        final ApnsPayloadBuilder payloadBuilder = new ApnsPayloadBuilder();
-        payloadBuilder.setAlertBody(UUID.randomUUID().toString());
-
-        return payloadBuilder.buildWithDefaultMaximumLength();
     }
 }
