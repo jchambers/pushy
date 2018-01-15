@@ -1,6 +1,14 @@
 .DS_Store
+
+*.iml
+.idea/
 .classpath
 .project
 .settings
-target
+
+benchmark/
+dropwizard-metrics-listener/
+pushy/
+target/
+
 _site
