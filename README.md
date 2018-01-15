@@ -66,7 +66,9 @@ final ApnsClient apnsClient = new ApnsClientBuilder()
 
 ## Sending push notifications
 
-Pushy's APNs clients maintain an internal pool of connections to the APNs server and create new connections on demand. As a result, clients do not need to be started explicitly. Regardless of the authentication method you choose, once you've created a client, it's ready to start sending push notifications. At minimum, [push notifications](http://relayrides.github.io/pushy/apidocs/0.11/com/turo/pushy/apns/ApnsPushNotification.html) need a device token (which identifies the notification's destination device and is a distinct idea from an authentication token), a topic, and a payload.
+Pushy's APNs clients maintain an internal pool of connections to the APNs server and create new connections on demand. As a result, clients do not need to be started explicitly. Regardless of the authentication method you choose, once you've created a client, it's ready to start sending push notifications. Only one client per certificate/signing key is needed, and can be shared amongst multiple threads all sending notifications simultaneously. In high-concurrency use cases however, you may need to tune the connection pool size and/or event loop group size for the best overall throughput (see [`ApnsClientBuilder`](http://relayrides.github.io/pushy/apidocs/0.11/com/turo/pushy/apns/ApnsClientBuilder.html) for how to do that. An upcoming wiki article will address the trade offs involved.) 
+
+At minimum, [push notifications](http://relayrides.github.io/pushy/apidocs/0.11/com/turo/pushy/apns/ApnsPushNotification.html) need a device token (which identifies the notification's destination device and is a distinct idea from an authentication token), a topic, and a payload.
 
 ```java
 final SimpleApnsPushNotification pushNotification;
