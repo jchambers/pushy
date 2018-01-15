@@ -40,8 +40,9 @@ import java.security.cert.X509Certificate;
 
 /**
  * <p>A {@code MockApnsServerBuilder} constructs new {@link MockApnsServer} instances. Callers must supply server
- * credentials via one of the {@code setServerCredentials} methods prior to constructing a new server with the
- * {@link MockApnsServerBuilder#build()} method; all other settings are optional.</p>
+ * credentials via one of the {@code setServerCredentials} methods and supply a {@link PushNotificationHandlerFactory}
+ * prior to constructing a new server with the {@link MockApnsServerBuilder#build()} method; all other settings are
+ * optional.</p>
  *
  * <p>Server builders may be reused to generate multiple servers, and their settings may be changed from one server to
  * the next.</p>
