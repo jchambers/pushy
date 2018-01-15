@@ -33,6 +33,8 @@ import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.resolver.DefaultAddressResolverGroup;
+import io.netty.resolver.NoopAddressResolverGroup;
 import io.netty.util.AttributeKey;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
@@ -81,6 +83,8 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
         this.bootstrapTemplate.group(eventLoopGroup);
         this.bootstrapTemplate.option(ChannelOption.TCP_NODELAY, true);
         this.bootstrapTemplate.remoteAddress(apnsServerAddress);
+        this.bootstrapTemplate.resolver(proxyHandlerFactory == null ?
+                DefaultAddressResolverGroup.INSTANCE : NoopAddressResolverGroup.INSTANCE);
 
         if (connectTimeoutMillis > 0) {
             this.bootstrapTemplate.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMillis);
