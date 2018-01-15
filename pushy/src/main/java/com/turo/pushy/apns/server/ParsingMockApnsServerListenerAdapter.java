@@ -100,17 +100,49 @@ public abstract class ParsingMockApnsServerListenerAdapter implements MockApnsSe
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
     private static final AsciiString APNS_COLLAPSE_ID_HEADER = new AsciiString("apns-collapse-id");
 
+    /**
+     * Parses a push notification accepted by a mock APNs server into an {@link ApnsPushNotification} instance for
+     * further processing by
+     * {@link ParsingMockApnsServerListenerAdapter#handlePushNotificationAccepted(ApnsPushNotification)}.
+     *
+     * @param headers the notification's HTTP/2 headers
+     * @param payload the notification's payload
+     */
     public void handlePushNotificationAccepted(final Http2Headers headers, final ByteBuf payload) {
         this.handlePushNotificationAccepted(parsePushNotification(headers, payload));
     }
 
-    protected abstract void handlePushNotificationAccepted(final ApnsPushNotification pushNotification);
+    /**
+     * Handles a parsed push notification accepted by a mock server. Note that any field of the parsed push notification
+     * may be {@code null}.
+     *
+     * @param pushNotification the notification accepted by the server
+     */
+    public abstract void handlePushNotificationAccepted(final ApnsPushNotification pushNotification);
 
+    /**
+     * Parses a push notification rejected by a mock APNs server into an {@link ApnsPushNotification} instance for
+     * further processing by
+     * {@link ParsingMockApnsServerListenerAdapter#handlePushNotificationRejected(ApnsPushNotification, RejectionReason, Date)}.
+     *
+     * @param headers the notification's HTTP/2 headers
+     * @param payload the notification's payload
+     * @param rejectionReason the reason the push notification was rejected by the mock server
+     * @param deviceTokenExpirationTimestamp the time at which the push notification's destination device token expired;
+     */
     public void handlePushNotificationRejected(final Http2Headers headers, final ByteBuf payload, final RejectionReason rejectionReason, final Date deviceTokenExpirationTimestamp) {
         this.handlePushNotificationRejected(parsePushNotification(headers, payload), rejectionReason, deviceTokenExpirationTimestamp);
     }
 
-    protected abstract void handlePushNotificationRejected(final ApnsPushNotification pushNotification, final RejectionReason rejectionReason, final Date deviceTokenExpirationTimestamp);
+    /**
+     * Handles a parsed push notification accepted by a mock server. Note that any field of the parsed push notification
+     * may be {@code null}.
+     *
+     * @param pushNotification the push notification rejected by the server
+     * @param rejectionReason the reason the push notification was rejected by the mock server
+     * @param deviceTokenExpirationTimestamp the time at which the push notification's destination device token expired;
+     */
+    public abstract void handlePushNotificationRejected(final ApnsPushNotification pushNotification, final RejectionReason rejectionReason, final Date deviceTokenExpirationTimestamp);
 
     private static ApnsPushNotification parsePushNotification(final Http2Headers headers, final ByteBuf payload) {
         final String deviceToken;

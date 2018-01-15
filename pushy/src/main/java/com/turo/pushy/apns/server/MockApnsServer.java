@@ -52,7 +52,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * {@link ValidatingPushNotificationHandlerFactory} that constructs handlers that emulate the behavior of a real APNs
  * server (but do not actually deliver push notifications to destination devices) and an
  * {@link AcceptAllPushNotificationHandlerFactory} that constructs handlers that unconditionally accept push
- * notifications.</p>
+ * notifications. Additionally, callers may specify a {@link MockApnsServerListener} that will be notified when
+ * notifications are accepted or rejected by the server.</p>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
@@ -69,7 +70,9 @@ public class MockApnsServer {
     private ChannelGroup allChannels;
 
     MockApnsServer(final SslContext sslContext, final PushNotificationHandlerFactory handlerFactory,
-                   final int maxConcurrentStreams, final EventLoopGroup eventLoopGroup) {
+                   final MockApnsServerListener listener, final int maxConcurrentStreams,
+                   final EventLoopGroup eventLoopGroup) {
+
         this.sslContext = sslContext;
 
         if (this.sslContext instanceof ReferenceCounted) {
@@ -104,6 +107,7 @@ public class MockApnsServer {
                             final MockApnsServerHandler serverHandler = new MockApnsServerHandler.MockApnsServerHandlerBuilder()
                                     .pushNotificationHandler(pushNotificationHandler)
                                     .initialSettings(Http2Settings.defaultSettings().maxConcurrentStreams(maxConcurrentStreams))
+                                    .listener(listener)
                                     .build();
 
                             context.pipeline().addLast(serverHandler);
