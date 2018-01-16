@@ -43,6 +43,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
     private final DeliveryPriority priority;
     private final String topic;
     private final String collapseId;
+    private final String apnsId;
 
     /**
      * Constructs a new push notification with the given token, topic, and payload. No expiration time is set for the
@@ -57,7 +58,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * @see DeliveryPriority#IMMEDIATE
      */
     public SimpleApnsPushNotification(final String token, final String topic, final String payload) {
-        this(token, topic, payload, null, DeliveryPriority.IMMEDIATE, null);
+        this(token, topic, payload, null, DeliveryPriority.IMMEDIATE, null, null);
     }
     /**
      * Constructs a new push notification with the given token, topic, payload, and expiration time. An "immediate"
@@ -73,7 +74,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * @see DeliveryPriority#IMMEDIATE
      */
     public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime) {
-        this(token, topic, payload, invalidationTime, DeliveryPriority.IMMEDIATE, null);
+        this(token, topic, payload, invalidationTime, DeliveryPriority.IMMEDIATE, null, null);
     }
 
     /**
@@ -88,23 +89,22 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * @param priority the priority with which this notification should be delivered to the receiving device
      */
     public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority) {
-        this(token, topic, payload, invalidationTime, priority, null);
+        this(token, topic, payload, invalidationTime, priority, null, null);
     }
 
     /**
      * Constructs a new push notification with the given token, topic, payload, delivery expiration time, delivery
      * priority, and "collapse identifier."
-     *
-     * @param token the device token to which this push notification should be delivered; must not be {@code null}
+     *  @param token the device token to which this push notification should be delivered; must not be {@code null}
      * @param topic the topic to which this notification should be sent; must not be {@code null}
      * @param payload the payload to include in this push notification; must not be {@code null}
      * @param invalidationTime the time at which Apple's servers should stop trying to deliver this message; if
-     * {@code null}, no delivery attempts beyond the first will be made
+* {@code null}, no delivery attempts beyond the first will be made
      * @param priority the priority with which this notification should be delivered to the receiving device
      * @param collapseId the "collapse identifier" for this notification, which allows it to supersede or be superseded
-     * by other notifications with the same identifier
+     * @param apnsId
      */
-    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority, final String collapseId) {
+    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority, final String collapseId, final String apnsId) {
         Objects.requireNonNull(token, "Destination device token must not be null.");
         Objects.requireNonNull(topic, "Destination topic must not be null.");
         Objects.requireNonNull(payload, "Payload must not be null.");
@@ -115,6 +115,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
         this.priority = priority;
         this.topic = topic;
         this.collapseId = collapseId;
+        this.apnsId = apnsId;
     }
 
     /**
@@ -178,6 +179,16 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
         return this.collapseId;
     }
 
+    /**
+     * Returns the "APNs ID" value, a unique identifier for this notification.
+     *
+     * @return the "APNs ID" value for this notification
+     */
+    @Override
+    public String getApnsId() {
+        return this.apnsId;
+    }
+
     /* (non-Javadoc)
      * @see java.lang.Object#hashCode()
      */
@@ -191,6 +202,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
         result = prime * result + ((this.token == null) ? 0 : this.token.hashCode());
         result = prime * result + ((this.topic == null) ? 0 : this.topic.hashCode());
         result = prime * result + ((this.collapseId == null) ? 0 : this.collapseId.hashCode());
+        result = prime * result + ((this.apnsId == null) ? 0 : this.apnsId.hashCode());
         return result;
     }
 
@@ -247,6 +259,13 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
         } else if (!this.collapseId.equals(other.collapseId)) {
             return false;
         }
+        if (Objects.equals(this.apnsId, null)) {
+            if (!Objects.equals(other.apnsId , null)) {
+                return false;
+            }
+        } else if (!this.apnsId.equals(other.apnsId)) {
+            return false;
+        }
         return true;
     }
 
@@ -268,6 +287,8 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
         builder.append(this.topic);
         builder.append(", apns-collapse-id=");
         builder.append(this.collapseId);
+        builder.append(", apns-id=");
+        builder.append(this.apnsId);
         builder.append("]");
         return builder.toString();
     }
