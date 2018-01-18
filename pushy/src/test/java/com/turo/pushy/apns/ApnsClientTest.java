@@ -504,52 +504,6 @@ public class ApnsClientTest extends AbstractClientServerTest {
 
     @Test
     @Parameters({"true", "false"})
-    public void testSendNotificationWithInternalServerError(final boolean useTokenAuthentication) throws Exception {
-        final PushNotificationHandlerFactory handlerFactory = new PushNotificationHandlerFactory() {
-            @Override
-            public PushNotificationHandler buildHandler(final SSLSession sslSession) {
-                return new PushNotificationHandler() {
-                    @Override
-                    public void handlePushNotification(final Http2Headers headers, final ByteBuf payload) {
-                        throw new RuntimeException("I am a terrible server.");
-                    }
-                };
-            }
-        };
-
-        final MockApnsServer server = this.buildServer(handlerFactory);
-
-        final TestMetricsListener metricsListener = new TestMetricsListener();
-        final ApnsClient client = useTokenAuthentication ?
-                this.buildTokenAuthenticationClient(metricsListener) : this.buildTlsAuthenticationClient(metricsListener);
-
-        try {
-            server.start(PORT).await();
-
-            final SimpleApnsPushNotification pushNotification =
-                    new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
-
-            final Future<PushNotificationResponse<SimpleApnsPushNotification>> future =
-                    client.sendNotification(pushNotification).await();
-
-            assertFalse("Internal server errors should be treated as write failures rather than deliberate rejections.",
-                    future.isSuccess());
-
-            assertTrue("Internal server errors should be reported to callers as ApnsServerExceptions.",
-                    future.cause() instanceof ApnsServerException);
-
-            client.sendNotification(pushNotification).await();
-
-            assertEquals("Connections should be replaced after receiving an InternalServerError.",
-                    1, metricsListener.getConnectionsRemoved().get());
-        } finally {
-            client.close().await();
-            server.shutdown().await();
-        }
-    }
-
-    @Test
-    @Parameters({"true", "false"})
     public void testAcceptedNotificationAndAddedConnectionMetrics(final boolean useTokenAuthentication) throws Exception {
         final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory());
 

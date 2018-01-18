@@ -76,13 +76,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private static final IOException STREAM_CLOSED_BEFORE_REPLY_EXCEPTION =
             new IOException("Stream closed before a reply was received");
 
-    private static final ApnsServerException APNS_SERVER_EXCEPTION = new ApnsServerException() {
-        @Override
-        public Throwable fillInStackTrace() {
-            return this;
-        }
-    };
-
     private static final Gson GSON = new GsonBuilder()
             .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
             .create();
@@ -340,17 +333,11 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
             responsePromise.trySuccess(new SimplePushNotificationResponse<>(responsePromise.getPushNotification(),
                     true, getApnsIdFromHeaders(headers), null, null));
         } else {
-            if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
-                log.warn("APNs server reported an internal error when sending {}.", pushNotification);
-                responsePromise.tryFailure(APNS_SERVER_EXCEPTION);
-                context.channel().close();
+            if (data != null) {
+                final ErrorResponse errorResponse = GSON.fromJson(data.toString(StandardCharsets.UTF_8), ErrorResponse.class);
+                this.handleErrorResponse(context, stream.id(), headers, pushNotification, errorResponse);
             } else {
-                if (data != null) {
-                    final ErrorResponse errorResponse = GSON.fromJson(data.toString(StandardCharsets.UTF_8), ErrorResponse.class);
-                    this.handleErrorResponse(context, stream.id(), headers, pushNotification, errorResponse);
-                } else {
-                    log.warn("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
-                }
+                log.warn("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
             }
         }
     }
@@ -361,14 +348,9 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
         final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
 
-        if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
-            log.warn("APNs server reported an internal error when sending {}.", pushNotification);
-            responsePromise.tryFailure(new ApnsServerException(GSON.toJson(errorResponse)));
-        } else {
-            responsePromise.trySuccess(new SimplePushNotificationResponse<>(responsePromise.getPushNotification(),
-                    HttpResponseStatus.OK.equals(status), getApnsIdFromHeaders(headers), errorResponse.getReason(),
-                    errorResponse.getTimestamp()));
-        }
+        responsePromise.trySuccess(new SimplePushNotificationResponse<>(responsePromise.getPushNotification(),
+                HttpResponseStatus.OK.equals(status), getApnsIdFromHeaders(headers), errorResponse.getReason(),
+                errorResponse.getTimestamp()));
     }
 
     private static UUID getApnsIdFromHeaders(final Http2Headers headers) {

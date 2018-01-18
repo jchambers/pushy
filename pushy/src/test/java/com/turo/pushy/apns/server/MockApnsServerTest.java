@@ -285,7 +285,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
             final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
                     client.sendNotification(pushNotification).await();
 
-            assertFalse(sendFuture.isSuccess());
+            assertTrue(sendFuture.isSuccess());
 
             listener.waitForNonZeroRejectedNotifications();
 
