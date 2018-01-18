@@ -138,12 +138,6 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
     }
 
-    private static class InternalServerErrorResponse extends ApnsResponse {
-        private InternalServerErrorResponse(final int streamId, final UUID apnsId) {
-            super(streamId, apnsId);
-        }
-    }
-
     @SuppressWarnings("unused")
     private static class ErrorPayload {
         private final String reason;
@@ -290,7 +284,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             this.write(context, new RejectNotificationResponse(stream.id(), apnsId, e.getRejectionReason(), deviceTokenExpirationTimestamp), writePromise);
             this.listener.handlePushNotificationRejected(headers, payload, e.getRejectionReason(), deviceTokenExpirationTimestamp);
         } catch (final Exception e) {
-            this.write(context, new InternalServerErrorResponse(stream.id(), apnsId), writePromise);
+            this.write(context, new RejectNotificationResponse(stream.id(), apnsId, RejectionReason.INTERNAL_SERVER_ERROR, null), writePromise);
             this.listener.handlePushNotificationRejected(headers, payload, RejectionReason.INTERNAL_SERVER_ERROR, null);
         } finally {
             if (stream.getProperty(this.payloadPropertyKey) != null) {
@@ -341,16 +335,6 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             promiseCombiner.finish(writePromise);
 
             log.trace("Rejected push notification on stream {}: {}", rejectNotificationResponse.getStreamId(), rejectNotificationResponse.getErrorReason());
-        } else if (message instanceof InternalServerErrorResponse) {
-            final InternalServerErrorResponse internalServerErrorResponse = (InternalServerErrorResponse) message;
-
-            final Http2Headers headers = new DefaultHttp2Headers()
-                    .status(HttpResponseStatus.INTERNAL_SERVER_ERROR.codeAsText())
-                    .add(APNS_ID_HEADER, FastUUID.toString(internalServerErrorResponse.getApnsId()));
-
-            this.encoder().writeHeaders(context, internalServerErrorResponse.getStreamId(), headers, 0, true, writePromise);
-
-            log.trace("Encountered an internal error on stream {}", internalServerErrorResponse.getStreamId());
         } else {
             context.write(message, writePromise);
         }
