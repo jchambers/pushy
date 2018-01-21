@@ -241,18 +241,18 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
                 .authority(this.authority)
                 .path(APNS_PATH_PREFIX + pushNotification.getToken())
                 .scheme(HttpScheme.HTTPS.name())
-                .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
+                .setInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
 
         if (pushNotification.getCollapseId() != null) {
-            headers.add(APNS_COLLAPSE_ID_HEADER, pushNotification.getCollapseId());
+            headers.set(APNS_COLLAPSE_ID_HEADER, pushNotification.getCollapseId());
         }
 
         if (pushNotification.getPriority() != null) {
-            headers.addInt(APNS_PRIORITY_HEADER, pushNotification.getPriority().getCode());
+            headers.setInt(APNS_PRIORITY_HEADER, pushNotification.getPriority().getCode());
         }
 
         if (pushNotification.getTopic() != null) {
-            headers.add(APNS_TOPIC_HEADER, pushNotification.getTopic());
+            headers.set(APNS_TOPIC_HEADER, pushNotification.getTopic());
         }
 
         return headers;

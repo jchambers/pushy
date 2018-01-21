@@ -88,7 +88,7 @@ public class ParsingMockApnsServerListenerAdapterTest {
         {
             final String topic = "test-topic";
 
-            final Http2Headers headers = new DefaultHttp2Headers().add(APNS_TOPIC_HEADER, topic);
+            final Http2Headers headers = new DefaultHttp2Headers().set(APNS_TOPIC_HEADER, topic);
 
             listener.handlePushNotificationAccepted(headers, null);
 
@@ -133,7 +133,7 @@ public class ParsingMockApnsServerListenerAdapterTest {
         {
             final String collapseId = "collapse-id";
 
-            final Http2Headers headers = new DefaultHttp2Headers().add(APNS_COLLAPSE_ID_HEADER, collapseId);
+            final Http2Headers headers = new DefaultHttp2Headers().set(APNS_COLLAPSE_ID_HEADER, collapseId);
 
             listener.handlePushNotificationAccepted(headers, null);
 

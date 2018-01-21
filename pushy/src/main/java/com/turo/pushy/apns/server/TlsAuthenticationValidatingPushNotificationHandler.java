@@ -53,7 +53,7 @@ class TlsAuthenticationValidatingPushNotificationHandler extends ValidatingPushN
         }
 
         if (!this.allowedTopics.contains(topic)) {
-            throw new RejectedNotificationException(RejectionReason.BAD_TOPIC, apnsId);
+            throw new RejectedNotificationException(RejectionReason.BAD_TOPIC);
         }
     }
 }

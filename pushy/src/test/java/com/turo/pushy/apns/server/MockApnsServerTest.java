@@ -190,7 +190,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
 
                     @Override
                     public void handlePushNotification(final Http2Headers headers, final ByteBuf payload) throws RejectedNotificationException {
-                        throw new RejectedNotificationException(RejectionReason.BAD_DEVICE_TOKEN, null);
+                        throw new RejectedNotificationException(RejectionReason.BAD_DEVICE_TOKEN);
                     }
                 };
             }
@@ -231,7 +231,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
 
                     @Override
                     public void handlePushNotification(final Http2Headers headers, final ByteBuf payload) throws RejectedNotificationException {
-                        throw new UnregisteredDeviceTokenException(expiration, null);
+                        throw new UnregisteredDeviceTokenException(expiration);
                     }
                 };
             }

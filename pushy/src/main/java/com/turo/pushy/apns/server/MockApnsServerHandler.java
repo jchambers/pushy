@@ -50,9 +50,11 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     private final Http2Connection.PropertyKey headersPropertyKey;
     private final Http2Connection.PropertyKey payloadPropertyKey;
 
-    private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
+    private final Http2Headers successHeaders = new DefaultHttp2Headers().status(HttpResponseStatus.OK.codeAsText());
+    private final Http2Headers rejectionHeaders = new DefaultHttp2Headers()
+            .set(HttpHeaderNames.CONTENT_TYPE, "application/json");
 
-    private static final Http2Headers SUCCESS_HEADERS = new DefaultHttp2Headers().status(HttpResponseStatus.OK.codeAsText());
+    private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
 
     private static final int MAX_CONTENT_LENGTH = 4096;
 
@@ -95,37 +97,39 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
     }
 
-    private static class AcceptNotificationResponse {
+    private static abstract class ApnsServerResponse {
         private final int streamId;
+        private final UUID apnsId;
 
-        AcceptNotificationResponse(final int streamId) {
+        ApnsServerResponse(final int streamId, final UUID apnsId) {
             this.streamId = streamId;
+            this.apnsId = apnsId;
         }
 
         int getStreamId() {
-            return this.streamId;
+            return streamId;
+        }
+
+        UUID getApnsId() {
+            return apnsId;
         }
     }
 
-    private static class RejectNotificationResponse {
-        private final int streamId;
-        private final UUID apnsId;
+    private static class AcceptNotificationResponse extends ApnsServerResponse {
+        AcceptNotificationResponse(final int streamId, final UUID apnsId) {
+            super(streamId, apnsId);
+        }
+    }
+
+    private static class RejectNotificationResponse extends ApnsServerResponse {
         private final RejectionReason errorReason;
         private final Date timestamp;
 
         RejectNotificationResponse(final int streamId, final UUID apnsId, final RejectionReason errorReason, final Date timestamp) {
-            this.streamId = streamId;
-            this.apnsId = apnsId;
+            super(streamId, apnsId);
+
             this.errorReason = errorReason;
             this.timestamp = timestamp;
-        }
-
-        int getStreamId() {
-            return this.streamId;
-        }
-
-        UUID getApnsId() {
-            return this.apnsId;
         }
 
         RejectionReason getErrorReason() {
@@ -137,15 +141,9 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
     }
 
-    private static class InternalServerErrorResponse {
-        private final int streamId;
-
-        InternalServerErrorResponse(final int streamId) {
-            this.streamId = streamId;
-        }
-
-        int getStreamId() {
-            return this.streamId;
+    private static class InternalServerErrorResponse extends ApnsServerResponse {
+        InternalServerErrorResponse(final int streamId, final UUID apnsId) {
+            super(streamId, apnsId);
         }
     }
 
@@ -267,19 +265,33 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         final ByteBuf payload = stream.getProperty(this.payloadPropertyKey);
         final ChannelPromise writePromise = context.newPromise();
 
+        UUID apnsId;
+        {
+            final CharSequence apnsIdSequence = headers.get(APNS_ID_HEADER);
+
+            try {
+                apnsId = apnsIdSequence != null ? UUID.fromString(apnsIdSequence.toString()) : UUID.randomUUID();
+            } catch (final IllegalArgumentException e) {
+                // This is a case where the real APNs server would report a "BadMessageId" error, but we'll leave that
+                // to the server's PushNotificationHandler.
+                log.warn("Could not parse {} as a UUID; using a random apns-id instead.", apnsIdSequence);
+                apnsId = UUID.randomUUID();
+            }
+        }
+
         try {
             this.pushNotificationHandler.handlePushNotification(headers, payload);
 
-            this.write(context, new AcceptNotificationResponse(stream.id()), writePromise);
+            this.write(context, new AcceptNotificationResponse(stream.id(), apnsId), writePromise);
             this.listener.handlePushNotificationAccepted(headers, payload);
         } catch (final RejectedNotificationException e) {
             final Date deviceTokenExpirationTimestamp = e instanceof UnregisteredDeviceTokenException ?
                     ((UnregisteredDeviceTokenException) e).getDeviceTokenExpirationTimestamp() : null;
 
-            this.write(context, new RejectNotificationResponse(stream.id(), e.getApnsId(), e.getRejectionReason(), deviceTokenExpirationTimestamp), writePromise);
+            this.write(context, new RejectNotificationResponse(stream.id(), apnsId, e.getRejectionReason(), deviceTokenExpirationTimestamp), writePromise);
             this.listener.handlePushNotificationRejected(headers, payload, e.getRejectionReason(), deviceTokenExpirationTimestamp);
         } catch (final Exception e) {
-            this.write(context, new InternalServerErrorResponse(stream.id()), writePromise);
+            this.write(context, new InternalServerErrorResponse(stream.id(), apnsId), writePromise);
             this.listener.handlePushNotificationRejected(headers, payload, RejectionReason.INTERNAL_SERVER_ERROR, null);
         } finally {
             if (stream.getProperty(this.payloadPropertyKey) != null) {
@@ -294,18 +306,22 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise writePromise) {
         if (message instanceof AcceptNotificationResponse) {
             final AcceptNotificationResponse acceptNotificationResponse = (AcceptNotificationResponse) message;
-            this.encoder().writeHeaders(context, acceptNotificationResponse.getStreamId(), SUCCESS_HEADERS, 0, true, writePromise);
+
+            final Http2Headers headers = this.successHeaders
+                    .set(APNS_ID_HEADER, acceptNotificationResponse.getApnsId().toString());
+
+            this.encoder().writeHeaders(context, acceptNotificationResponse.getStreamId(), headers, 0, true, writePromise);
 
             log.trace("Accepted push notification on stream {}", acceptNotificationResponse.getStreamId());
         } else if (message instanceof RejectNotificationResponse) {
             final RejectNotificationResponse rejectNotificationResponse = (RejectNotificationResponse) message;
 
-            final Http2Headers headers = new DefaultHttp2Headers();
-            headers.status(rejectNotificationResponse.getErrorReason().getHttpResponseStatus().codeAsText());
-            headers.add(HttpHeaderNames.CONTENT_TYPE, "application/json");
+            final Http2Headers headers = this.rejectionHeaders
+                    .status(rejectNotificationResponse.getErrorReason().getHttpResponseStatus().codeAsText())
+                    .set(APNS_ID_HEADER, rejectNotificationResponse.getApnsId().toString());
 
             if (rejectNotificationResponse.getApnsId() != null) {
-                headers.add(APNS_ID_HEADER, rejectNotificationResponse.getApnsId().toString());
+                headers.set(APNS_ID_HEADER, rejectNotificationResponse.getApnsId().toString());
             }
 
             final byte[] payloadBytes;
@@ -331,8 +347,9 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         } else if (message instanceof InternalServerErrorResponse) {
             final InternalServerErrorResponse internalServerErrorResponse = (InternalServerErrorResponse) message;
 
-            final Http2Headers headers = new DefaultHttp2Headers();
-            headers.status(HttpResponseStatus.INTERNAL_SERVER_ERROR.codeAsText());
+            final Http2Headers headers = this.rejectionHeaders
+                    .status(HttpResponseStatus.INTERNAL_SERVER_ERROR.codeAsText())
+                    .set(APNS_ID_HEADER, internalServerErrorResponse.getApnsId().toString());
 
             this.encoder().writeHeaders(context, internalServerErrorResponse.getStreamId(), headers, 0, true, writePromise);
 
