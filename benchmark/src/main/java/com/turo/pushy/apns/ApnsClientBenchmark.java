@@ -45,7 +45,8 @@ import java.util.concurrent.CountDownLatch;
 @State(Scope.Thread)
 public class ApnsClientBenchmark {
 
-    private NioEventLoopGroup eventLoopGroup;
+    private NioEventLoopGroup clientEventLoopGroup;
+    private NioEventLoopGroup serverEventLoopGroup;
 
     private ApnsClient client;
     private MockApnsServer server;
@@ -75,7 +76,8 @@ public class ApnsClientBenchmark {
 
     @Setup
     public void setUp() throws Exception {
-        this.eventLoopGroup = new NioEventLoopGroup(this.concurrentConnections * 2);
+        this.clientEventLoopGroup = new NioEventLoopGroup(this.concurrentConnections);
+        this.serverEventLoopGroup = new NioEventLoopGroup(this.concurrentConnections);
 
         final ApnsSigningKey signingKey;
         {
@@ -90,13 +92,13 @@ public class ApnsClientBenchmark {
                 .setConcurrentConnections(this.concurrentConnections)
                 .setSigningKey(signingKey)
                 .setTrustedServerCertificateChain(ApnsClientBenchmark.class.getResourceAsStream(CA_CERTIFICATE_FILENAME))
-                .setEventLoopGroup(this.eventLoopGroup)
+                .setEventLoopGroup(this.clientEventLoopGroup)
                 .build();
 
         this.server = new MockApnsServerBuilder()
                 .setServerCredentials(getClass().getResourceAsStream(SERVER_CERTIFICATES_FILENAME), this.getClass().getResourceAsStream(SERVER_KEY_FILENAME), null)
                 .setTrustedClientCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
-                .setEventLoopGroup(this.eventLoopGroup)
+                .setEventLoopGroup(this.serverEventLoopGroup)
                 .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
                 .build();
 
@@ -144,7 +146,11 @@ public class ApnsClientBenchmark {
         this.client.close().await();
         this.server.shutdown().await();
 
-        this.eventLoopGroup.shutdownGracefully().await();
+        final Future<?> clientShutdownFuture = this.clientEventLoopGroup.shutdownGracefully();
+        final Future<?> serverShutdownFuture = this.serverEventLoopGroup.shutdownGracefully();
+
+        clientShutdownFuture.await();
+        serverShutdownFuture.await();
     }
 
     private static String generateRandomDeviceToken() {
