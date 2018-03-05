@@ -106,7 +106,7 @@
     </licenses>
 
     <properties>
-        <netty.version>4.1.19.Final</netty.version>
+        <netty.version>4.1.22.Final</netty.version>
         <slf4j.version>1.7.21</slf4j.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
