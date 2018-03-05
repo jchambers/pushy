@@ -263,10 +263,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         if (event instanceof IdleStateEvent) {
             log.trace("Sending ping due to inactivity.");
 
-            final ByteBuf pingDataBuffer = context.alloc().ioBuffer(Long.SIZE, Long.SIZE);
-            pingDataBuffer.writeLong(System.currentTimeMillis());
-
-            this.encoder().writePing(context, false, pingDataBuffer, context.newPromise()).addListener(new GenericFutureListener<ChannelFuture>() {
+            this.encoder().writePing(context, false, System.currentTimeMillis(), context.newPromise()).addListener(new GenericFutureListener<ChannelFuture>() {
 
                 @Override
                 public void operationComplete(final ChannelFuture future) throws Exception {
@@ -393,11 +390,11 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     }
 
     @Override
-    public void onPingRead(final ChannelHandlerContext ctx, final ByteBuf data) throws Http2Exception {
+    public void onPingRead(final ChannelHandlerContext ctx, final long l) throws Http2Exception {
     }
 
     @Override
-    public void onPingAckRead(final ChannelHandlerContext context, final ByteBuf data) {
+    public void onPingAckRead(final ChannelHandlerContext context, final long l) throws Http2Exception {
         if (this.pingTimeoutFuture != null) {
             log.trace("Received reply to ping.");
             this.pingTimeoutFuture.cancel(false);
