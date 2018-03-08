@@ -56,6 +56,7 @@ public class AbstractClientServerTest {
 
     protected static final String HOST = "localhost";
     protected static final int PORT = 8443;
+    protected static final int INVALID_PORT = 19231;
 
     protected static final String TEAM_ID = "team-id";
     protected static final String KEY_ID = "key-id";
@@ -108,6 +109,18 @@ public class AbstractClientServerTest {
         try (final InputStream p12InputStream = getClass().getResourceAsStream(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
             return new ApnsClientBuilder()
                     .setApnsServer(HOST, PORT)
+                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
+                    .setTrustedServerCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
+                    .setEventLoopGroup(EVENT_LOOP_GROUP)
+                    .setMetricsListener(metricsListener)
+                    .build();
+        }
+    }
+
+    protected ApnsClient buildInvalidAddressTlsAuthenticationClient(final ApnsClientMetricsListener metricsListener) throws IOException {
+        try (final InputStream p12InputStream = getClass().getResourceAsStream(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
+            return new ApnsClientBuilder()
+                    .setApnsServer(HOST, INVALID_PORT)
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .setTrustedServerCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
