@@ -195,20 +195,20 @@
                             </execution>
                         </executions>
                     </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-gpg-plugin</artifactId>
-                        <version>1.1</version>
-                        <executions>
-                            <execution>
-                                <id>sign-artifacts</id>
-                                <phase>verify</phase>
-                                <goals>
-                                    <goal>sign</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
+                    <!--<plugin>-->
+                        <!--<groupId>org.apache.maven.plugins</groupId>-->
+                        <!--<artifactId>maven-gpg-plugin</artifactId>-->
+                        <!--<version>1.1</version>-->
+                        <!--<executions>-->
+                            <!--<execution>-->
+                                <!--<id>sign-artifacts</id>-->
+                                <!--<phase>verify</phase>-->
+                                <!--<goals>-->
+                                    <!--<goal>sign</goal>-->
+                                <!--</goals>-->
+                            <!--</execution>-->
+                        <!--</executions>-->
+                    <!--</plugin>-->
                 </plugins>
             </build>
         </profile>
@@ -232,10 +232,24 @@
         </developer>
     </developers>
     <inceptionYear>2013</inceptionYear>
-    <url>http://relayrides.github.com/pushy/</url>
+    <url>http://anwerup.github.com/pushy/</url>
     <scm>
-        <connection>scm:git:https://github.com/relayrides/pushy.git</connection>
-        <developerConnection>scm:git:git@github.com:relayrides/pushy.git</developerConnection>
-        <url>https://github.com/relayrides/pushy</url>
+        <connection>scm:git:https://github.com/anwerup/pushy.git</connection>
+        <developerConnection>scm:git:git@github.com:anwerup/pushy.git</developerConnection>
+        <url>https://github.com/anwerup/pushy</url>
     </scm>
+
+    <!-- Encap internal distribution and deployment repos -->
+    <distributionManagement>
+        <repository>
+            <id>encap-release-repo</id>
+            <url>https://test.encap.no/repository/content/repositories/releases</url>
+            <uniqueVersion>true</uniqueVersion>
+        </repository>
+        <snapshotRepository>
+            <id>encap-snapshot-repo</id>
+            <url>https://test.encap.no/repository/content/repositories/snapshots</url>
+            <uniqueVersion>true</uniqueVersion>
+        </snapshotRepository>
+    </distributionManagement>
 </project>
