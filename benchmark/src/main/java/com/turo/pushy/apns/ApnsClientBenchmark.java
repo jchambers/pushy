@@ -23,9 +23,8 @@
 package com.turo.pushy.apns;
 
 import com.turo.pushy.apns.auth.ApnsSigningKey;
-import com.turo.pushy.apns.server.AcceptAllPushNotificationHandlerFactory;
-import com.turo.pushy.apns.server.MockApnsServer;
-import com.turo.pushy.apns.server.MockApnsServerBuilder;
+import com.turo.pushy.apns.server.BenchmarkApnsServer;
+import com.turo.pushy.apns.server.BenchmarkApnsServerBuilder;
 import com.turo.pushy.apns.util.ApnsPayloadBuilder;
 import com.turo.pushy.apns.util.SimpleApnsPushNotification;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -49,7 +48,7 @@ public class ApnsClientBenchmark {
     private NioEventLoopGroup serverEventLoopGroup;
 
     private ApnsClient client;
-    private MockApnsServer server;
+    private BenchmarkApnsServer server;
 
     private List<SimpleApnsPushNotification> pushNotifications;
 
@@ -95,11 +94,10 @@ public class ApnsClientBenchmark {
                 .setEventLoopGroup(this.clientEventLoopGroup)
                 .build();
 
-        this.server = new MockApnsServerBuilder()
+        this.server = new BenchmarkApnsServerBuilder()
                 .setServerCredentials(getClass().getResourceAsStream(SERVER_CERTIFICATES_FILENAME), this.getClass().getResourceAsStream(SERVER_KEY_FILENAME), null)
                 .setTrustedClientCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
                 .setEventLoopGroup(this.serverEventLoopGroup)
-                .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
                 .build();
 
         this.pushNotifications = new ArrayList<>(this.notificationCount);
