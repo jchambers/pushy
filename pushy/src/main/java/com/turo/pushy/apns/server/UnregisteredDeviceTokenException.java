@@ -24,7 +24,6 @@ package com.turo.pushy.apns.server;
 
 import java.util.Date;
 import java.util.Objects;
-import java.util.UUID;
 
 /**
  * An exception thrown by {@link PushNotificationHandler} instances to indicate that a push notification should be
@@ -40,12 +39,9 @@ public class UnregisteredDeviceTokenException extends RejectedNotificationExcept
      * Constructs a new unregistered device token exception indicating that the device token expired at the given time.
      *
      * @param deviceTokenExpirationTimestamp the time at which the destination device token expired
-     * @param apnsId the notification identifier provided by the client that sent the notification; may be {@code null}
-     * if the client did not provide an identifier or the identifier was invalid, in which case a server-generated
-     * identifier will be used instead
      */
-    public UnregisteredDeviceTokenException(final Date deviceTokenExpirationTimestamp, final UUID apnsId) {
-        super(RejectionReason.UNREGISTERED, apnsId);
+    public UnregisteredDeviceTokenException(final Date deviceTokenExpirationTimestamp) {
+        super(RejectionReason.UNREGISTERED);
 
         Objects.requireNonNull(deviceTokenExpirationTimestamp, "Device token expiration timestamp must not be null.");
 

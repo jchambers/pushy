@@ -190,7 +190,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
 
                     @Override
                     public void handlePushNotification(final Http2Headers headers, final ByteBuf payload) throws RejectedNotificationException {
-                        throw new RejectedNotificationException(RejectionReason.BAD_DEVICE_TOKEN, null);
+                        throw new RejectedNotificationException(RejectionReason.BAD_DEVICE_TOKEN);
                     }
                 };
             }
@@ -231,7 +231,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
 
                     @Override
                     public void handlePushNotification(final Http2Headers headers, final ByteBuf payload) throws RejectedNotificationException {
-                        throw new UnregisteredDeviceTokenException(expiration, null);
+                        throw new UnregisteredDeviceTokenException(expiration);
                     }
                 };
             }
@@ -292,6 +292,61 @@ public class MockApnsServerTest extends AbstractClientServerTest {
             listener.waitForNonZeroRejectedNotifications();
 
             assertEquals(RejectionReason.INTERNAL_SERVER_ERROR, listener.mostRecentRejectionReason);
+        } finally {
+            client.close().await();
+            server.shutdown().await();
+        }
+    }
+
+    @Test
+    public void testApnsIdForAcceptedNotification() throws Exception {
+        final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory());
+        final ApnsClient client = this.buildTokenAuthenticationClient();
+
+        try {
+            server.start(PORT).await();
+
+            final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
+
+            final PushNotificationResponse<SimpleApnsPushNotification> response =
+                    client.sendNotification(pushNotification).get();
+
+            assertTrue(response.isAccepted());
+            assertNotNull(response.getApnsId());
+        } finally {
+            client.close().await();
+            server.shutdown().await();
+        }
+    }
+
+    @Test
+    public void testApnsIdForRejectedNotification() throws Exception {
+        final MockApnsServer server = this.buildServer(new PushNotificationHandlerFactory() {
+
+            @Override
+            public PushNotificationHandler buildHandler(final SSLSession sslSession) {
+                return new PushNotificationHandler() {
+
+                    @Override
+                    public void handlePushNotification(final Http2Headers headers, final ByteBuf payload) throws RejectedNotificationException {
+                        throw new RejectedNotificationException(RejectionReason.MISSING_TOPIC);
+                    }
+                };
+            }
+        });
+
+        final ApnsClient client = this.buildTokenAuthenticationClient();
+
+        try {
+            server.start(PORT).await();
+
+            final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
+
+            final PushNotificationResponse<SimpleApnsPushNotification> response =
+                    client.sendNotification(pushNotification).get();
+
+            assertFalse(response.isAccepted());
+            assertNotNull(response.getApnsId());
         } finally {
             client.close().await();
             server.shutdown().await();

@@ -23,6 +23,7 @@
 package com.turo.pushy.apns;
 
 import java.util.Date;
+import java.util.UUID;
 
 /**
  * A response from the APNs gateway indicating whether a notification was accepted or rejected.
@@ -52,6 +53,13 @@ public interface PushNotificationResponse<T extends ApnsPushNotification> {
      * @since 0.5
      */
     boolean isAccepted();
+
+    /**
+     * Returns the ID assigned to this push notification by the APNs server.
+     *
+     * @return the ID assigned to this push notification by the APNs server
+     */
+    UUID getApnsId();
 
     /**
      * Returns the reason for rejection reported by the APNs gateway. If the notification was accepted, the rejection

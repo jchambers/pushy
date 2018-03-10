@@ -35,7 +35,6 @@ import java.security.SignatureException;
 import java.util.Date;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 class TokenAuthenticationValidatingPushNotificationHandler extends ValidatingPushNotificationHandler {
@@ -60,7 +59,7 @@ class TokenAuthenticationValidatingPushNotificationHandler extends ValidatingPus
     }
 
     @Override
-    protected void verifyAuthentication(final Http2Headers headers, final UUID apnsId) throws RejectedNotificationException {
+    protected void verifyAuthentication(final Http2Headers headers) throws RejectedNotificationException {
         final String base64EncodedAuthenticationToken;
         {
             final CharSequence authorizationSequence = headers.get(APNS_AUTHORIZATION_HEADER);
@@ -71,15 +70,15 @@ class TokenAuthenticationValidatingPushNotificationHandler extends ValidatingPus
                 if (authorizationString.startsWith("bearer")) {
                     base64EncodedAuthenticationToken = authorizationString.substring("bearer".length()).trim();
                 } else {
-                    throw new RejectedNotificationException(RejectionReason.MISSING_PROVIDER_TOKEN, apnsId);
+                    throw new RejectedNotificationException(RejectionReason.MISSING_PROVIDER_TOKEN);
                 }
             } else {
-                throw new RejectedNotificationException(RejectionReason.MISSING_PROVIDER_TOKEN, apnsId);
+                throw new RejectedNotificationException(RejectionReason.MISSING_PROVIDER_TOKEN);
             }
         }
 
         if (base64EncodedAuthenticationToken.trim().length() == 0) {
-            throw new RejectedNotificationException(RejectionReason.MISSING_PROVIDER_TOKEN, apnsId);
+            throw new RejectedNotificationException(RejectionReason.MISSING_PROVIDER_TOKEN);
         }
 
         final AuthenticationToken authenticationToken;
@@ -87,19 +86,19 @@ class TokenAuthenticationValidatingPushNotificationHandler extends ValidatingPus
         try {
             authenticationToken = new AuthenticationToken(base64EncodedAuthenticationToken);
         } catch (final IllegalArgumentException e) {
-            throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN, apnsId);
+            throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN);
         }
 
         final ApnsVerificationKey verificationKey = this.verificationKeysByKeyId.get(authenticationToken.getKeyId());
 
         // Have we ever heard of the key in question?
         if (verificationKey == null) {
-            throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN, apnsId);
+            throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN);
         }
 
         try {
             if (!authenticationToken.verifySignature(verificationKey)) {
-                throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN, apnsId);
+                throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN);
             }
         } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
             // This should never happen (here, at least) because we check keys at construction time. If something's
@@ -117,11 +116,11 @@ class TokenAuthenticationValidatingPushNotificationHandler extends ValidatingPus
         }
 
         if (!this.expectedTeamId.equals(authenticationToken.getTeamId())) {
-            throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN, apnsId);
+            throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN);
         }
 
         if (authenticationToken.getIssuedAt().getTime() + AUTHENTICATION_TOKEN_EXPIRATION_MILLIS < System.currentTimeMillis()) {
-            throw new RejectedNotificationException(RejectionReason.EXPIRED_PROVIDER_TOKEN, apnsId);
+            throw new RejectedNotificationException(RejectionReason.EXPIRED_PROVIDER_TOKEN);
         }
 
         final String topic;
@@ -130,7 +129,7 @@ class TokenAuthenticationValidatingPushNotificationHandler extends ValidatingPus
 
             if (topicSequence == null) {
                 // A topic is always required when using token authentication
-                throw new RejectedNotificationException(RejectionReason.MISSING_TOPIC, apnsId);
+                throw new RejectedNotificationException(RejectionReason.MISSING_TOPIC);
             }
 
             topic = topicSequence.toString();
@@ -139,7 +138,7 @@ class TokenAuthenticationValidatingPushNotificationHandler extends ValidatingPus
         final Set<String> topicsAllowedForVerificationKey = this.topicsByVerificationKey.get(verificationKey);
 
         if (topicsAllowedForVerificationKey == null || !topicsAllowedForVerificationKey.contains(topic)) {
-            throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN, apnsId);
+            throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN);
         }
     }
 }

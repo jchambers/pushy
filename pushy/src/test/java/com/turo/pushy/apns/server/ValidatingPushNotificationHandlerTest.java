@@ -37,7 +37,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
 public abstract class ValidatingPushNotificationHandlerTest {
@@ -87,46 +86,6 @@ public abstract class ValidatingPushNotificationHandlerTest {
     public void testHandleNotificationWithValidNotification() throws Exception {
         this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.<String, Date>emptyMap())
                 .handlePushNotification(this.headers, this.payload);
-    }
-
-    @Test
-    public void testHandleNotificationWithSpecifiedUUID() throws Exception {
-        final UUID apnsId = UUID.randomUUID();
-
-        this.headers.set(APNS_ID_HEADER, apnsId.toString());
-
-        this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.<String, Date>emptyMap())
-                .handlePushNotification(this.headers, this.payload);
-
-        this.headers.remove(APNS_TOPIC_HEADER);
-
-        try {
-            this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.<String, Date>emptyMap())
-                    .handlePushNotification(this.headers, this.payload);
-
-            fail("Push notifications without a topic should be rejected.");
-        } catch (final RejectedNotificationException e) {
-            assertEquals(apnsId, e.getApnsId());
-        }
-    }
-
-    @Test
-    public void testHandleNotificationWithNullUUID() throws Exception {
-        this.headers.remove(APNS_ID_HEADER);
-
-        this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.<String, Date>emptyMap())
-                .handlePushNotification(this.headers, this.payload);
-
-        this.headers.remove(APNS_TOPIC_HEADER);
-
-        try {
-            this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.<String, Date>emptyMap())
-                    .handlePushNotification(this.headers, this.payload);
-
-            fail("Push notifications without a topic should be rejected.");
-        } catch (final RejectedNotificationException e) {
-            assertNotNull(e.getApnsId());
-        }
     }
 
     @Test

@@ -60,17 +60,18 @@ abstract class ValidatingPushNotificationHandler implements PushNotificationHand
     @Override
     public void handlePushNotification(final Http2Headers headers, final ByteBuf payload) throws RejectedNotificationException {
 
-        final UUID apnsId;
-
         try {
             final CharSequence apnsIdSequence = headers.get(APNS_ID_HEADER);
-            apnsId = apnsIdSequence != null ? UUID.fromString(apnsIdSequence.toString()) : UUID.randomUUID();
+
+            if (apnsIdSequence != null) {
+                UUID.fromString(apnsIdSequence.toString());
+            }
         } catch (final IllegalArgumentException e) {
-            throw new RejectedNotificationException(RejectionReason.BAD_MESSAGE_ID, null);
+            throw new RejectedNotificationException(RejectionReason.BAD_MESSAGE_ID);
         }
 
         if (!HttpMethod.POST.asciiName().contentEquals(headers.get(Http2Headers.PseudoHeaderName.METHOD.value()))) {
-            throw new RejectedNotificationException(RejectionReason.METHOD_NOT_ALLOWED, apnsId);
+            throw new RejectedNotificationException(RejectionReason.METHOD_NOT_ALLOWED);
         }
 
         final String topic;
@@ -78,7 +79,7 @@ abstract class ValidatingPushNotificationHandler implements PushNotificationHand
             final CharSequence topicSequence = headers.get(APNS_TOPIC_HEADER);
 
             if (topicSequence == null) {
-                throw new RejectedNotificationException(RejectionReason.MISSING_TOPIC, apnsId);
+                throw new RejectedNotificationException(RejectionReason.MISSING_TOPIC);
             }
 
             topic = topicSequence.toString();
@@ -88,7 +89,7 @@ abstract class ValidatingPushNotificationHandler implements PushNotificationHand
             final CharSequence collapseIdSequence = headers.get(APNS_COLLAPSE_ID_HEADER);
 
             if (collapseIdSequence != null && collapseIdSequence.toString().getBytes(StandardCharsets.UTF_8).length > MAX_COLLAPSE_ID_SIZE) {
-                throw new RejectedNotificationException(RejectionReason.BAD_COLLAPSE_ID, apnsId);
+                throw new RejectedNotificationException(RejectionReason.BAD_COLLAPSE_ID);
             }
         }
 
@@ -99,7 +100,7 @@ abstract class ValidatingPushNotificationHandler implements PushNotificationHand
                 try {
                     DeliveryPriority.getFromCode(priorityCode);
                 } catch (final IllegalArgumentException e) {
-                    throw new RejectedNotificationException(RejectionReason.BAD_PRIORITY, apnsId);
+                    throw new RejectedNotificationException(RejectionReason.BAD_PRIORITY);
                 }
             }
         }
@@ -111,45 +112,45 @@ abstract class ValidatingPushNotificationHandler implements PushNotificationHand
                 final String pathString = pathSequence.toString();
 
                 if (pathSequence.toString().equals(APNS_PATH_PREFIX)) {
-                    throw new RejectedNotificationException(RejectionReason.MISSING_DEVICE_TOKEN, apnsId);
+                    throw new RejectedNotificationException(RejectionReason.MISSING_DEVICE_TOKEN);
                 } else if (pathString.startsWith(APNS_PATH_PREFIX)) {
                     final String deviceToken = pathString.substring(APNS_PATH_PREFIX.length());
 
                     final Matcher tokenMatcher = DEVICE_TOKEN_PATTERN.matcher(deviceToken);
 
                     if (!tokenMatcher.matches()) {
-                        throw new RejectedNotificationException(RejectionReason.BAD_DEVICE_TOKEN, apnsId);
+                        throw new RejectedNotificationException(RejectionReason.BAD_DEVICE_TOKEN);
                     }
 
                     final Date expirationTimestamp = this.expirationTimestampsByDeviceToken.get(deviceToken);
 
                     if (expirationTimestamp != null) {
-                        throw new UnregisteredDeviceTokenException(expirationTimestamp, apnsId);
+                        throw new UnregisteredDeviceTokenException(expirationTimestamp);
                     }
 
                     final Set<String> allowedDeviceTokensForTopic = this.deviceTokensByTopic.get(topic);
 
                     if (allowedDeviceTokensForTopic == null || !allowedDeviceTokensForTopic.contains(deviceToken)) {
-                        throw new RejectedNotificationException(RejectionReason.DEVICE_TOKEN_NOT_FOR_TOPIC, apnsId);
+                        throw new RejectedNotificationException(RejectionReason.DEVICE_TOKEN_NOT_FOR_TOPIC);
                     }
                 } else {
-                    throw new RejectedNotificationException(RejectionReason.BAD_PATH, apnsId);
+                    throw new RejectedNotificationException(RejectionReason.BAD_PATH);
                 }
             } else {
-                throw new RejectedNotificationException(RejectionReason.BAD_PATH, apnsId);
+                throw new RejectedNotificationException(RejectionReason.BAD_PATH);
             }
         }
 
-        this.verifyAuthentication(headers, apnsId);
+        this.verifyAuthentication(headers);
 
         if (payload == null || payload.readableBytes() == 0) {
-            throw new RejectedNotificationException(RejectionReason.PAYLOAD_EMPTY, apnsId);
+            throw new RejectedNotificationException(RejectionReason.PAYLOAD_EMPTY);
         }
 
         if (payload.readableBytes() > MAX_PAYLOAD_SIZE) {
-            throw new RejectedNotificationException(RejectionReason.PAYLOAD_TOO_LARGE, apnsId);
+            throw new RejectedNotificationException(RejectionReason.PAYLOAD_TOO_LARGE);
         }
     }
 
-    protected abstract void verifyAuthentication(final Http2Headers headers, final UUID apnsId) throws RejectedNotificationException;
+    protected abstract void verifyAuthentication(final Http2Headers headers) throws RejectedNotificationException;
 }
