@@ -23,6 +23,7 @@
 package com.turo.pushy.apns;
 
 import java.util.Date;
+import java.util.UUID;
 
 /**
  * A trivial and immutable implementation of the {@link PushNotificationResponse} interface.
@@ -32,12 +33,14 @@ import java.util.Date;
 class SimplePushNotificationResponse<T extends ApnsPushNotification> implements PushNotificationResponse<T> {
     private final T pushNotification;
     private final boolean success;
+    private final UUID apnsId;
     private final String rejectionReason;
     private final Date tokenExpirationTimestamp;
 
-    public SimplePushNotificationResponse(final T pushNotification, final boolean success, final String rejectionReason, final Date tokenExpirationTimestamp) {
+    SimplePushNotificationResponse(final T pushNotification, final boolean success, final UUID apnsId, final String rejectionReason, final Date tokenExpirationTimestamp) {
         this.pushNotification = pushNotification;
         this.success = success;
+        this.apnsId = apnsId;
         this.rejectionReason = rejectionReason;
         this.tokenExpirationTimestamp = tokenExpirationTimestamp;
     }
@@ -53,6 +56,11 @@ class SimplePushNotificationResponse<T extends ApnsPushNotification> implements 
     }
 
     @Override
+    public UUID getApnsId() {
+        return this.apnsId;
+    }
+
+    @Override
     public String getRejectionReason() {
         return this.rejectionReason;
     }
@@ -62,21 +70,14 @@ class SimplePushNotificationResponse<T extends ApnsPushNotification> implements 
         return this.tokenExpirationTimestamp;
     }
 
-    /* (non-Javadoc)
-     * @see java.lang.Object#toString()
-     */
     @Override
     public String toString() {
-        final StringBuilder builder = new StringBuilder();
-        builder.append("SimplePushNotificationResponse [pushNotification=");
-        builder.append(this.pushNotification);
-        builder.append(", success=");
-        builder.append(this.success);
-        builder.append(", rejectionReason=");
-        builder.append(this.rejectionReason);
-        builder.append(", tokenExpirationTimestamp=");
-        builder.append(this.tokenExpirationTimestamp);
-        builder.append("]");
-        return builder.toString();
+        return "SimplePushNotificationResponse{" +
+                "pushNotification=" + pushNotification +
+                ", success=" + success +
+                ", apnsId=" + apnsId +
+                ", rejectionReason='" + rejectionReason + '\'' +
+                ", tokenExpirationTimestamp=" + tokenExpirationTimestamp +
+                '}';
     }
 }

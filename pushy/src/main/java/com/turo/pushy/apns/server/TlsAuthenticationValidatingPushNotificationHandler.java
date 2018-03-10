@@ -45,7 +45,7 @@ class TlsAuthenticationValidatingPushNotificationHandler extends ValidatingPushN
     }
 
     @Override
-    protected void verifyAuthentication(final Http2Headers headers, final UUID apnsId) throws RejectedNotificationException {
+    protected void verifyAuthentication(final Http2Headers headers) throws RejectedNotificationException {
         final String topic;
         {
             final CharSequence topicSequence = headers.get(APNS_TOPIC_HEADER);
@@ -53,7 +53,7 @@ class TlsAuthenticationValidatingPushNotificationHandler extends ValidatingPushN
         }
 
         if (!this.allowedTopics.contains(topic)) {
-            throw new RejectedNotificationException(RejectionReason.BAD_TOPIC, apnsId);
+            throw new RejectedNotificationException(RejectionReason.BAD_TOPIC);
         }
     }
 }

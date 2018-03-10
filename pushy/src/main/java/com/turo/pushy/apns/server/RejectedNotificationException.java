@@ -23,7 +23,6 @@
 package com.turo.pushy.apns.server;
 
 import java.util.Objects;
-import java.util.UUID;
 
 /**
  * An exception thrown by {@link PushNotificationHandler} instances to indicate that a push notification should be
@@ -34,28 +33,19 @@ import java.util.UUID;
  */
 public class RejectedNotificationException extends Exception {
     private final RejectionReason errorReason;
-    private final UUID apnsId;
 
     /**
      * Constructs a new rejected notification exception with the given rejection reason and notification identifier.
      *
      * @param rejectionReason the reason for the rejection
-     * @param apnsId the notification identifier provided by the client that sent the notification; may be {@code null}
-     * if the client did not provide an identifier or the identifier was invalid, in which case a server-generated
-     * identifier will be used instead
      */
-    public RejectedNotificationException(final RejectionReason rejectionReason, final UUID apnsId) {
+    public RejectedNotificationException(final RejectionReason rejectionReason) {
         Objects.requireNonNull(rejectionReason, "Error reason must not be null.");
 
         this.errorReason = rejectionReason;
-        this.apnsId = apnsId != null ? apnsId : UUID.randomUUID();
     }
 
     RejectionReason getRejectionReason() {
         return errorReason;
-    }
-
-    UUID getApnsId() {
-        return apnsId;
     }
 }

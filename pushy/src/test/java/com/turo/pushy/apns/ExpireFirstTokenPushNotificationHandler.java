@@ -47,7 +47,7 @@ class ExpireFirstTokenPushNotificationHandler implements PushNotificationHandler
             }
 
             if (this.rejectedAuthorizationHeader.equals(authorizationHeader)) {
-                throw new RejectedNotificationException(RejectionReason.EXPIRED_PROVIDER_TOKEN, null);
+                throw new RejectedNotificationException(RejectionReason.EXPIRED_PROVIDER_TOKEN);
             }
         }
     }

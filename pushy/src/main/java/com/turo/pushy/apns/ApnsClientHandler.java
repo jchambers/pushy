@@ -42,11 +42,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameListener, Http2Connection.Listener {
@@ -66,6 +65,8 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
     private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
     private static final AsciiString APNS_COLLAPSE_ID_HEADER = new AsciiString("apns-collapse-id");
+
+    private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
 
     private static final int INITIAL_PAYLOAD_BUFFER_CAPACITY = 4096;
 
@@ -160,7 +161,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     }
 
     @Override
-    public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise writePromise) throws Http2Exception, InvalidKeyException, NoSuchAlgorithmException {
+    public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise writePromise) {
         if (message instanceof PushNotificationPromise) {
             this.writePushNotification(context, (PushNotificationPromise) message, writePromise);
         } else {
@@ -180,7 +181,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
         writePromise.addListener(new GenericFutureListener<Future<Void>>() {
             @Override
-            public void operationComplete(final Future<Void> writeFuture) throws Exception {
+            public void operationComplete(final Future<Void> writeFuture) {
                 if (!writeFuture.isSuccess()) {
                     responsePromise.tryFailure(writeFuture.cause());
                 }
@@ -219,7 +220,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
             writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
 
                 @Override
-                public void operationComplete(final ChannelPromise future) throws Exception {
+                public void operationComplete(final ChannelPromise future) {
                     if (!future.isSuccess()) {
                         log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
                         responsePromise.tryFailure(future.cause());
@@ -266,7 +267,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
             this.encoder().writePing(context, false, System.currentTimeMillis(), context.newPromise()).addListener(new GenericFutureListener<ChannelFuture>() {
 
                 @Override
-                public void operationComplete(final ChannelFuture future) throws Exception {
+                public void operationComplete(final ChannelFuture future) {
                     if (!future.isSuccess()) {
                         log.debug("Failed to write PING frame.", future.cause());
                         future.channel().close();
@@ -290,7 +291,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     }
 
     @Override
-    public int onDataRead(final ChannelHandlerContext context, final int streamId, final ByteBuf data, final int padding, final boolean endOfStream) throws Http2Exception {
+    public int onDataRead(final ChannelHandlerContext context, final int streamId, final ByteBuf data, final int padding, final boolean endOfStream) {
         log.trace("Received data from APNs gateway on stream {}: {}", streamId, data.toString(StandardCharsets.UTF_8));
 
         final int bytesProcessed = data.readableBytes() + padding;
@@ -306,12 +307,12 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     }
 
     @Override
-    public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int streamDependency, final short weight, final boolean exclusive, final int padding, final boolean endOfStream) throws Http2Exception {
+    public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int streamDependency, final short weight, final boolean exclusive, final int padding, final boolean endOfStream) {
         this.onHeadersRead(context, streamId, headers, padding, endOfStream);
     }
 
     @Override
-    public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) throws Http2Exception {
+    public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) {
         log.trace("Received headers from APNs gateway on stream {}: {}", streamId, headers);
         final Http2Stream stream = this.connection().stream(streamId);
 
@@ -333,7 +334,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
         if (HttpResponseStatus.OK.equals(status)) {
             responsePromise.trySuccess(new SimplePushNotificationResponse<>(responsePromise.getPushNotification(),
-                    true, null, null));
+                    true, getApnsIdFromHeaders(headers), null, null));
         } else {
             if (HttpResponseStatus.INTERNAL_SERVER_ERROR.equals(status)) {
                 log.warn("APNs server reported an internal error when sending {}.", pushNotification);
@@ -361,16 +362,22 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
             responsePromise.tryFailure(new ApnsServerException(GSON.toJson(errorResponse)));
         } else {
             responsePromise.trySuccess(new SimplePushNotificationResponse<>(responsePromise.getPushNotification(),
-                    HttpResponseStatus.OK.equals(status), errorResponse.getReason(), errorResponse.getTimestamp()));
+                    HttpResponseStatus.OK.equals(status), getApnsIdFromHeaders(headers), errorResponse.getReason(),
+                    errorResponse.getTimestamp()));
         }
     }
 
-    @Override
-    public void onPriorityRead(final ChannelHandlerContext ctx, final int streamId, final int streamDependency, final short weight, final boolean exclusive) throws Http2Exception {
+    private static UUID getApnsIdFromHeaders(final Http2Headers headers) {
+        final CharSequence apnsIdSequence = headers.get(APNS_ID_HEADER);
+        return apnsIdSequence != null ? UUID.fromString(apnsIdSequence.toString()) : null;
     }
 
     @Override
-    public void onRstStreamRead(final ChannelHandlerContext context, final int streamId, final long errorCode) throws Http2Exception {
+    public void onPriorityRead(final ChannelHandlerContext ctx, final int streamId, final int streamDependency, final short weight, final boolean exclusive) {
+    }
+
+    @Override
+    public void onRstStreamRead(final ChannelHandlerContext context, final int streamId, final long errorCode) {
         if (errorCode == Http2Error.REFUSED_STREAM.code()) {
             // This can happen if the server reduces MAX_CONCURRENT_STREAMS while we already have notifications in
             // flight. We may get multiple RST_STREAM frames per stream since we send multiple frames (HEADERS and
@@ -381,7 +388,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     }
 
     @Override
-    public void onSettingsAckRead(final ChannelHandlerContext ctx) throws Http2Exception {
+    public void onSettingsAckRead(final ChannelHandlerContext ctx) {
     }
 
     @Override
@@ -404,20 +411,20 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     }
 
     @Override
-    public void onPushPromiseRead(final ChannelHandlerContext ctx, final int streamId, final int promisedStreamId, final Http2Headers headers, final int padding) throws Http2Exception {
+    public void onPushPromiseRead(final ChannelHandlerContext ctx, final int streamId, final int promisedStreamId, final Http2Headers headers, final int padding) {
     }
 
     @Override
-    public void onGoAwayRead(final ChannelHandlerContext context, final int lastStreamId, final long errorCode, final ByteBuf debugData) throws Http2Exception {
+    public void onGoAwayRead(final ChannelHandlerContext context, final int lastStreamId, final long errorCode, final ByteBuf debugData) {
         log.info("Received GOAWAY from APNs server: {}", debugData.toString(StandardCharsets.UTF_8));
     }
 
     @Override
-    public void onWindowUpdateRead(final ChannelHandlerContext ctx, final int streamId, final int windowSizeIncrement) throws Http2Exception {
+    public void onWindowUpdateRead(final ChannelHandlerContext ctx, final int streamId, final int windowSizeIncrement) {
     }
 
     @Override
-    public void onUnknownFrame(final ChannelHandlerContext ctx, final byte frameType, final int streamId, final Http2Flags flags, final ByteBuf payload) throws Http2Exception {
+    public void onUnknownFrame(final ChannelHandlerContext ctx, final byte frameType, final int streamId, final Http2Flags flags, final ByteBuf payload) {
     }
 
     @Override
