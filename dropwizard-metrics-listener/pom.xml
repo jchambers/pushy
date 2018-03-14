@@ -40,6 +40,7 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>pushy</artifactId>
             <version>${project.version}</version>
+            <classifier>shaded</classifier>
         </dependency>
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
