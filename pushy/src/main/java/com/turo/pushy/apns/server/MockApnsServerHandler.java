@@ -239,11 +239,11 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     }
 
     @Override
-    public void onPingRead(final ChannelHandlerContext ctx, final ByteBuf data) {
+    public void onPingRead(final ChannelHandlerContext ctx, final long data) {
     }
 
     @Override
-    public void onPingAckRead(final ChannelHandlerContext ctx, final ByteBuf data) {
+    public void onPingAckRead(final ChannelHandlerContext ctx, final long data) {
     }
 
     @Override
