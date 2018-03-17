@@ -27,7 +27,7 @@
     <groupId>com.turo</groupId>
     <artifactId>pushy-parent</artifactId>
     <packaging>pom</packaging>
-    <version>0.12.1-SNAPSHOT</version>
+    <version>0.12.0-2-SNAPSHOT</version>
     <name>Pushy parent</name>
     <description>A Java library for sending push notifications</description>
 
@@ -146,6 +146,13 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 
@@ -208,6 +215,9 @@
                                 </goals>
                             </execution>
                         </executions>
+                        <configuration>
+                            <skip>true</skip>
+                        </configuration>
                     </plugin>
                 </plugins>
             </build>
@@ -232,10 +242,24 @@
         </developer>
     </developers>
     <inceptionYear>2013</inceptionYear>
-    <url>http://relayrides.github.com/pushy/</url>
+    <url>http://anwerup.github.com/pushy/</url>
     <scm>
-        <connection>scm:git:https://github.com/relayrides/pushy.git</connection>
-        <developerConnection>scm:git:git@github.com:relayrides/pushy.git</developerConnection>
-        <url>https://github.com/relayrides/pushy</url>
+        <connection>scm:git:https://github.com/anwerup/pushy.git</connection>
+        <developerConnection>scm:git:git@github.com:anwerup/pushy.git</developerConnection>
+        <url>https://github.com/anwerup/pushy</url>
     </scm>
+
+    <!-- Encap internal distribution and deployment repos -->
+    <distributionManagement>
+        <repository>
+            <id>encap-release-repo</id>
+            <url>https://test.encap.no/repository/content/repositories/releases</url>
+            <uniqueVersion>true</uniqueVersion>
+        </repository>
+        <snapshotRepository>
+            <id>encap-snapshot-repo</id>
+            <url>https://test.encap.no/repository/content/repositories/snapshots</url>
+            <uniqueVersion>true</uniqueVersion>
+        </snapshotRepository>
+    </distributionManagement>
 </project>

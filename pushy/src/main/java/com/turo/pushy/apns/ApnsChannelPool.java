@@ -206,6 +206,30 @@ class ApnsChannelPool {
         }
     }
 
+    /**
+     * Continue processing other messages on the queue
+     */
+    void proceede() {
+        if (this.executor.inEventLoop()) {
+            this.procedeWithinEventExecutor();
+        } else {
+            this.executor.submit(new Runnable() {
+                @Override
+                public void run() {
+                    ApnsChannelPool.this.procedeWithinEventExecutor();
+                }
+            });
+        }
+    }
+
+    private void procedeWithinEventExecutor() {
+        assert this.executor.inEventLoop();
+
+        if (!this.pendingAcquisitionPromises.isEmpty()) {
+            this.acquireWithinEventExecutor(this.pendingAcquisitionPromises.poll());
+        }
+    }
+
     private void releaseWithinEventExecutor(final Channel channel) {
         assert this.executor.inEventLoop();
 

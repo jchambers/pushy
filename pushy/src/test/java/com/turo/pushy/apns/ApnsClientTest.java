@@ -24,6 +24,8 @@ package com.turo.pushy.apns;
 
 import com.turo.pushy.apns.server.*;
 import com.turo.pushy.apns.util.SimpleApnsPushNotification;
+import com.turo.pushy.apns.util.concurrent.PushNotificationFuture;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.concurrent.Future;
@@ -35,7 +37,10 @@ import org.junit.runner.RunWith;
 
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLSession;
+
+import java.io.IOException;
 import java.io.InputStream;
+import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -119,6 +124,14 @@ public class ApnsClientTest extends AbstractClientServerTest {
             }
         }
 
+        void waitForWriteFailures(int fails) throws InterruptedException {
+            synchronized (this.writeFailures) {
+                while (this.writeFailures.size() < fails) {
+                    this.writeFailures.wait();
+                }
+            }
+        }
+
         void waitForNonZeroAcceptedNotifications() throws InterruptedException {
             synchronized (this.acceptedNotifications) {
                 while (this.acceptedNotifications.isEmpty()) {
@@ -136,8 +149,12 @@ public class ApnsClientTest extends AbstractClientServerTest {
         }
 
         void waitForNonZeroFailedConnections() throws InterruptedException {
+            waitForFailedConnections(1);
+        }
+
+        void waitForFailedConnections(int fails) throws InterruptedException {
             synchronized (this.failedConnectionAttempts) {
-                while (this.failedConnectionAttempts.get() == 0) {
+                while (this.failedConnectionAttempts.get() < fails) {
                     this.failedConnectionAttempts.wait();
                 }
             }
@@ -635,5 +652,36 @@ public class ApnsClientTest extends AbstractClientServerTest {
         assertEquals(1, metricsListener.getFailedConnectionAttempts().get());
 
         assertEquals(1, metricsListener.getWriteFailures().size());
+    }
+
+    @Test
+    public void testConsistentConnectionFailures() throws IOException, InterruptedException {
+        final TestMetricsListener metricsListener = new TestMetricsListener();
+        final ApnsClient client = this.buildInvalidAddressTlsAuthenticationClient(metricsListener);
+
+        final SimpleApnsPushNotification pushNotification =
+                new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
+
+        final Future<PushNotificationResponse<SimpleApnsPushNotification>> firstFuture =
+                client.sendNotification(pushNotification);
+
+        final Future<PushNotificationResponse<SimpleApnsPushNotification>> secondFuture =
+                client.sendNotification(pushNotification);
+
+        assertTrue("Message processing should not take more then  15 sec", firstFuture.await(15000));
+        assertTrue("Message processing should not take more then  15 sec", secondFuture.await(15000));
+
+        metricsListener.waitForFailedConnections(2);
+        metricsListener.waitForWriteFailures(2);
+
+        assertFalse("Expected to fail with ConnectionException", firstFuture.isSuccess());
+        assertFalse("Expected to fail with ConnectionException", secondFuture.isSuccess());
+        assertTrue( "Unexpected failure cause " + firstFuture.cause() + " should have been ConnectException",
+                firstFuture.cause() instanceof ConnectException);
+        assertTrue( "Unexpected failure cause " + firstFuture.cause() + " should have been ConnectException",
+                secondFuture.cause() instanceof ConnectException);
+      
+        assertEquals(2, metricsListener.getFailedConnectionAttempts().get());
+        assertEquals(2, metricsListener.getWriteFailures().size());
     }
 }

@@ -228,6 +228,7 @@ public class ApnsClient {
                         ApnsClient.this.channelPool.release(channel);
                     } else {
                         responsePromise.tryFailure(acquireFuture.cause());
+                        ApnsClient.this.channelPool.proceede();
                     }
                 }
             });
