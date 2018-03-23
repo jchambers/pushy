@@ -150,6 +150,7 @@ class ApnsChannelPool {
                 if (channelFromIdlePool.isActive()) {
                     acquirePromise.trySuccess(channelFromIdlePool);
                 } else {
+                    // The channel from the idle pool isn't usable; discard it and create a new one instead
                     this.discardChannel(channelFromIdlePool);
                     this.acquireWithinEventExecutor(acquirePromise);
                 }
@@ -176,6 +177,11 @@ class ApnsChannelPool {
                                 ApnsChannelPool.this.metricsListener.handleConnectionCreationFailed();
 
                                 acquirePromise.tryFailure(future.cause());
+
+                                // If we failed to open a connection, this is the end of the line for this acquisition
+                                // attempt, and callers won't be able to release the channel (since they didn't get one
+                                // in the first place). Move on to the next acquisition attempt if one is present.
+                                ApnsChannelPool.this.handleNextAcquisition();
                             }
                         }
                     });
@@ -210,6 +216,11 @@ class ApnsChannelPool {
         assert this.executor.inEventLoop();
 
         this.idleChannels.add(channel);
+        this.handleNextAcquisition();
+    }
+
+    private void handleNextAcquisition() {
+        assert this.executor.inEventLoop();
 
         if (!this.pendingAcquisitionPromises.isEmpty()) {
             this.acquireWithinEventExecutor(this.pendingAcquisitionPromises.poll());
