@@ -24,6 +24,8 @@ package com.turo.pushy.apns;
 
 import com.turo.pushy.apns.server.*;
 import com.turo.pushy.apns.util.SimpleApnsPushNotification;
+import com.turo.pushy.apns.util.concurrent.PushNotificationFuture;
+import com.turo.pushy.apns.util.concurrent.PushNotificationResponseListener;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.concurrent.Future;
@@ -40,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
@@ -635,5 +638,53 @@ public class ApnsClientTest extends AbstractClientServerTest {
         assertEquals(1, metricsListener.getFailedConnectionAttempts().get());
 
         assertEquals(1, metricsListener.getWriteFailures().size());
+    }
+
+    @Test
+    @Parameters({"true", "false"})
+    public void testRepeatedlySendNotificationAfterConnectionFailure(final boolean useTokenAuthentication) throws Exception {
+        final ApnsClient client = useTokenAuthentication ?
+                this.buildTokenAuthenticationClient() : this.buildTlsAuthenticationClient();
+
+        final SimpleApnsPushNotification pushNotification =
+                new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
+
+        for (int i = 0; i < 3; i++) {
+            // We should see delays of roughly 0, 1, and 2 seconds; 4 seconds per notification is excessive, but better
+            // to play it safe with a timed assertion.
+            final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
+                    client.sendNotification(pushNotification);
+
+            assertTrue(sendFuture.await(4, TimeUnit.SECONDS));
+            assertFalse(sendFuture.isSuccess());
+        }
+    }
+
+    @Test
+    @Parameters({"true", "false"})
+    public void testRepeatedlySendNotificationAfterConnectionFailureWithListeners(final boolean useTokenAuthentication) throws Exception {
+        final ApnsClient client = useTokenAuthentication ?
+                this.buildTokenAuthenticationClient() : this.buildTlsAuthenticationClient();
+
+        final SimpleApnsPushNotification pushNotification =
+                new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
+
+        final int notificationCount = 3;
+
+        final CountDownLatch countDownLatch = new CountDownLatch(notificationCount);
+
+        for (int i = 0; i < notificationCount; i++) {
+            client.sendNotification(pushNotification).addListener(new PushNotificationResponseListener<SimpleApnsPushNotification>() {
+
+                @Override
+                public void operationComplete(final PushNotificationFuture<SimpleApnsPushNotification, PushNotificationResponse<SimpleApnsPushNotification>> simpleApnsPushNotificationPushNotificationResponsePushNotificationFuture) throws Exception {
+                    countDownLatch.countDown();
+                }
+            });
+        }
+
+        // We should see delays of roughly 0, 1, and 2 seconds (for a total of 3 seconds); waiting 6 seconds in total
+        // is overkill, but it's best to leave significant margin on timed assertions.
+        assertTrue(countDownLatch.await(6, TimeUnit.SECONDS));
     }
 }
