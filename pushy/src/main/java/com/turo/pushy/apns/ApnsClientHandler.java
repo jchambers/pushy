@@ -22,6 +22,7 @@
 
 package com.turo.pushy.apns;
 
+import com.eatthepath.uuid.FastUUID;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.turo.pushy.apns.util.DateAsTimeSinceEpochTypeAdapter;
@@ -256,7 +257,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         }
 
         if (pushNotification.getApnsId() != null) {
-            headers.add(APNS_ID_HEADER, pushNotification.getApnsId().toString());
+            headers.add(APNS_ID_HEADER, FastUUID.toString(pushNotification.getApnsId()));
         }
 
         return headers;
@@ -374,7 +375,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         final CharSequence apnsIdSequence = headers.get(APNS_ID_HEADER);
 
         try {
-            return apnsIdSequence != null ? UUID.fromString(apnsIdSequence.toString()) : null;
+            return apnsIdSequence != null ? FastUUID.parseUUID(apnsIdSequence) : null;
         } catch (final IllegalArgumentException e) {
             log.error("Failed to parse `apns-id` header: {}", apnsIdSequence, e);
             return null;

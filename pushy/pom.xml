@@ -48,6 +48,10 @@
             <artifactId>netty-tcnative-boringssl-static</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.eatthepath</groupId>
+            <artifactId>fast-uuid</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
         </dependency>

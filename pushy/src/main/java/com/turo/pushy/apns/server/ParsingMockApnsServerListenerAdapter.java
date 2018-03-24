@@ -22,6 +22,7 @@
 
 package com.turo.pushy.apns.server;
 
+import com.eatthepath.uuid.FastUUID;
 import com.turo.pushy.apns.ApnsPushNotification;
 import com.turo.pushy.apns.DeliveryPriority;
 import io.netty.buffer.ByteBuf;
@@ -165,7 +166,7 @@ public abstract class ParsingMockApnsServerListenerAdapter implements MockApnsSe
             UUID apnsIdFromHeaders;
 
             try {
-                apnsIdFromHeaders = apnsIdSequence != null ? UUID.fromString(apnsIdSequence.toString()) : null;
+                apnsIdFromHeaders = apnsIdSequence != null ? FastUUID.parseUUID(apnsIdSequence) : null;
             } catch (final IllegalArgumentException e) {
                 log.error("Failed to parse `apns-id` header: {}", apnsIdSequence, e);
                 apnsIdFromHeaders = null;

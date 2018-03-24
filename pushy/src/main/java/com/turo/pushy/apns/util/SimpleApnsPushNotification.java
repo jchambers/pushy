@@ -22,6 +22,7 @@
 
 package com.turo.pushy.apns.util;
 
+import com.eatthepath.uuid.FastUUID;
 import com.turo.pushy.apns.ApnsPushNotification;
 import com.turo.pushy.apns.DeliveryPriority;
 
@@ -303,7 +304,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
                 ", priority=" + priority +
                 ", topic='" + topic + '\'' +
                 ", collapseId='" + collapseId + '\'' +
-                ", apnsId=" + apnsId +
+                ", apnsId=" + (apnsId != null ? FastUUID.toString(apnsId) : null) +
                 '}';
     }
 }
