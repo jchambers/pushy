@@ -22,6 +22,8 @@
 
 package com.turo.pushy.apns;
 
+import com.eatthepath.uuid.FastUUID;
+
 import java.util.Date;
 import java.util.UUID;
 
@@ -75,7 +77,7 @@ class SimplePushNotificationResponse<T extends ApnsPushNotification> implements 
         return "SimplePushNotificationResponse{" +
                 "pushNotification=" + pushNotification +
                 ", success=" + success +
-                ", apnsId=" + apnsId +
+                ", apnsId=" + (apnsId != null ? FastUUID.toString(apnsId) : null) +
                 ", rejectionReason='" + rejectionReason + '\'' +
                 ", tokenExpirationTimestamp=" + tokenExpirationTimestamp +
                 '}';

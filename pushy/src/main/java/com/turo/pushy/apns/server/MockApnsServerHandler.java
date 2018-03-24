@@ -22,6 +22,7 @@
 
 package com.turo.pushy.apns.server;
 
+import com.eatthepath.uuid.FastUUID;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.turo.pushy.apns.util.DateAsTimeSinceEpochTypeAdapter;
@@ -268,7 +269,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             UUID apnsIdFromHeaders;
 
             try {
-                apnsIdFromHeaders = apnsIdSequence != null ? UUID.fromString(apnsIdSequence.toString()) : UUID.randomUUID();
+                apnsIdFromHeaders = apnsIdSequence != null ? FastUUID.parseUUID(apnsIdSequence) : UUID.randomUUID();
             } catch (final IllegalArgumentException e) {
                 log.error("Failed to parse `apns-id` header: {}", apnsIdSequence, e);
                 apnsIdFromHeaders = UUID.randomUUID();
@@ -307,7 +308,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
             final Http2Headers headers = new DefaultHttp2Headers()
                     .status(HttpResponseStatus.OK.codeAsText())
-                    .add(APNS_ID_HEADER, acceptNotificationResponse.getApnsId().toString());
+                    .add(APNS_ID_HEADER, FastUUID.toString(acceptNotificationResponse.getApnsId()));
 
             this.encoder().writeHeaders(context, acceptNotificationResponse.getStreamId(), headers, 0, true, writePromise);
 
@@ -318,7 +319,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             final Http2Headers headers = new DefaultHttp2Headers()
                     .status(rejectNotificationResponse.getErrorReason().getHttpResponseStatus().codeAsText())
                     .add(HttpHeaderNames.CONTENT_TYPE, "application/json")
-                    .add(APNS_ID_HEADER, rejectNotificationResponse.getApnsId().toString());
+                    .add(APNS_ID_HEADER, FastUUID.toString(rejectNotificationResponse.getApnsId()));
 
             final byte[] payloadBytes;
             {
@@ -345,7 +346,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
             final Http2Headers headers = new DefaultHttp2Headers()
                     .status(HttpResponseStatus.INTERNAL_SERVER_ERROR.codeAsText())
-                    .add(APNS_ID_HEADER, internalServerErrorResponse.getApnsId().toString());
+                    .add(APNS_ID_HEADER, FastUUID.toString(internalServerErrorResponse.getApnsId()));
 
             this.encoder().writeHeaders(context, internalServerErrorResponse.getStreamId(), headers, 0, true, writePromise);
 
