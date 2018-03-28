@@ -21,7 +21,7 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 </dependency>
 ```
 
-If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.12/pushy-0.12.1.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
+If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.12.1/pushy-0.12.1.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
 - [netty 4.1.22](http://netty.io/)
 - [netty-tcnative-2.0.7.Final](http://netty.io/wiki/forked-tomcat-native.html)
