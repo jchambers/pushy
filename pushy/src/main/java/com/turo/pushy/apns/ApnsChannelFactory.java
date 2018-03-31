@@ -33,8 +33,9 @@ import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
-import io.netty.resolver.DefaultAddressResolverGroup;
 import io.netty.resolver.NoopAddressResolverGroup;
+import io.netty.resolver.dns.DefaultDnsServerAddressStreamProvider;
+import io.netty.resolver.dns.RoundRobinDnsAddressResolverGroup;
 import io.netty.util.AttributeKey;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
@@ -84,7 +85,8 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
         this.bootstrapTemplate.option(ChannelOption.TCP_NODELAY, true);
         this.bootstrapTemplate.remoteAddress(apnsServerAddress);
         this.bootstrapTemplate.resolver(proxyHandlerFactory == null ?
-                DefaultAddressResolverGroup.INSTANCE : NoopAddressResolverGroup.INSTANCE);
+                new RoundRobinDnsAddressResolverGroup(ClientChannelClassUtil.getDatagramChannelClass(eventLoopGroup),
+                        DefaultDnsServerAddressStreamProvider.INSTANCE) : NoopAddressResolverGroup.INSTANCE);
 
         if (connectTimeoutMillis > 0) {
             this.bootstrapTemplate.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMillis);
@@ -186,7 +188,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
                 final Bootstrap bootstrap = ApnsChannelFactory.this.bootstrapTemplate.clone()
                         .channelFactory(new AugmentingReflectiveChannelFactory<>(
-                                ClientSocketChannelClassUtil.getSocketChannelClass(ApnsChannelFactory.this.bootstrapTemplate.config().group()),
+                                ClientChannelClassUtil.getSocketChannelClass(ApnsChannelFactory.this.bootstrapTemplate.config().group()),
                                 CHANNEL_READY_PROMISE_ATTRIBUTE_KEY, channelReadyPromise));
 
                 final ChannelFuture connectFuture = bootstrap.connect();
