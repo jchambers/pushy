@@ -29,8 +29,7 @@ import org.junit.Test;
 import java.util.Date;
 import java.util.UUID;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.*;
 
 public class SimpleApnsPushNotificationTest {
 
@@ -40,13 +39,15 @@ public class SimpleApnsPushNotificationTest {
         final String topic = "test-topic";
         final String payload = "{\"test\": true}";
 
+        final Date now = new Date();
+
         final SimpleApnsPushNotification pushNotification =
                 new SimpleApnsPushNotification(token, topic, payload);
 
         assertEquals(token, pushNotification.getToken());
         assertEquals(topic, pushNotification.getTopic());
         assertEquals(payload, pushNotification.getPayload());
-        assertNull(pushNotification.getExpiration());
+        assertTrue(pushNotification.getExpiration().after(now));
         Assert.assertEquals(DeliveryPriority.IMMEDIATE, pushNotification.getPriority());
         assertNull(pushNotification.getCollapseId());
     }
