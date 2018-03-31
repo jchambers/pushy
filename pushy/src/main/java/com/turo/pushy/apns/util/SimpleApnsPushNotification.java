@@ -29,6 +29,8 @@ import com.turo.pushy.apns.DeliveryPriority;
 import java.util.Date;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
 
 /**
  * A simple and immutable implementation of the {@link ApnsPushNotification} interface.
@@ -48,20 +50,27 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
     private final UUID apnsId;
 
     /**
-     * Constructs a new push notification with the given token, topic, and payload. No expiration time is set for the
-     * notification, so APNs will not attempt to store the notification for later delivery if the initial attempt fails.
-     * An "immediate" delivery priority is used for the notification, and as such the payload should contain an alert,
-     * sound, or badge component.
+     * The default expiration period for push notifications (one day).
+     */
+    public static final long DEFAULT_EXPIRATION_PERIOD_MILLIS = TimeUnit.DAYS.toMillis(1);
+
+    /**
+     * Constructs a new push notification with the given token, topic, and payload. A default expiration time is set for
+     * the notification; callers that require immediate expiration or a non-default expiration period should use a
+     * constructor that accepts an expiration time as an argument. An "immediate" delivery priority is used for the
+     * notification, and as such the payload should contain an alert, sound, or badge component.
      *
      * @param token the device token to which this push notification should be delivered
      * @param topic the topic to which this notification should be sent
      * @param payload the payload to include in this push notification
      *
      * @see DeliveryPriority#IMMEDIATE
+     * @see #DEFAULT_EXPIRATION_PERIOD_MILLIS
      */
     public SimpleApnsPushNotification(final String token, final String topic, final String payload) {
-        this(token, topic, payload, null, DeliveryPriority.IMMEDIATE, null, null);
+        this(token, topic, payload, new Date(System.currentTimeMillis() + DEFAULT_EXPIRATION_PERIOD_MILLIS), DeliveryPriority.IMMEDIATE, null, null);
     }
+
     /**
      * Constructs a new push notification with the given token, topic, payload, and expiration time. An "immediate"
      * delivery priority is used for the notification, and as such the payload should contain an alert, sound, or badge
