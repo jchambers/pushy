@@ -22,23 +22,23 @@
 
 package com.turo.pushy.apns.server;
 
-import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.oio.OioEventLoopGroup;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.channel.socket.oio.OioServerSocketChannel;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 class ServerSocketChannelClassUtil {
 
-    private static final String EPOLL_EVENT_LOOP_GROUP_CLASS = "io.netty.channel.epoll.EpollEventLoopGroup";
-    private static final String EPOLL_SERVER_SOCKET_CHANNEL_CLASS = "io.netty.channel.epoll.EpollServerSocketChannel";
+    private static final Map<String, String> SERVER_SOCKET_CHANNEL_CLASSES = new HashMap<>();
 
-    private static final String KQUEUE_EVENT_LOOP_GROUP_CLASS = "io.netty.channel.kqueue.KQueueEventLoopGroup";
-    private static final String KQUEUE_SERVER_SOCKET_CHANNEL_CLASS = "io.netty.channel.kqueue.KQueueServerSocketChannel";
+    static {
+        SERVER_SOCKET_CHANNEL_CLASSES.put("io.netty.channel.nio.NioEventLoopGroup", "io.netty.channel.socket.nio.NioServerSocketChannel");
+        SERVER_SOCKET_CHANNEL_CLASSES.put("io.netty.channel.oio.OioEventLoopGroup", "io.netty.channel.socket.oio.OioServerSocketChannel");
+        SERVER_SOCKET_CHANNEL_CLASSES.put("io.netty.channel.epoll.EpollEventLoopGroup", "io.netty.channel.epoll.EpollServerSocketChannel");
+        SERVER_SOCKET_CHANNEL_CLASSES.put("io.netty.channel.kqueue.KQueueEventLoopGroup", "io.netty.channel.kqueue.KQueueServerSocketChannel");
+    }
 
     /**
      * Returns a server socket channel class suitable for specified event loop group.
@@ -54,26 +54,14 @@ class ServerSocketChannelClassUtil {
     static Class<? extends ServerChannel> getServerSocketChannelClass(final EventLoopGroup eventLoopGroup) {
         Objects.requireNonNull(eventLoopGroup);
 
-        final Class<? extends ServerChannel> serverSocketChannelClass;
+        final String serverSocketChannelClassName = SERVER_SOCKET_CHANNEL_CLASSES.get(eventLoopGroup.getClass().getName());
 
-        if (eventLoopGroup instanceof NioEventLoopGroup) {
-            serverSocketChannelClass = NioServerSocketChannel.class;
-        } else if (eventLoopGroup instanceof OioEventLoopGroup) {
-            serverSocketChannelClass = OioServerSocketChannel.class;
-        } else if (EPOLL_EVENT_LOOP_GROUP_CLASS.equals(eventLoopGroup.getClass().getName())) {
-            serverSocketChannelClass = (Class<? extends ServerChannel>) loadSocketChannelClass(EPOLL_SERVER_SOCKET_CHANNEL_CLASS);
-        } else if (KQUEUE_EVENT_LOOP_GROUP_CLASS.equals(eventLoopGroup.getClass().getName())) {
-            serverSocketChannelClass = (Class<? extends ServerChannel>) loadSocketChannelClass(KQUEUE_SERVER_SOCKET_CHANNEL_CLASS);
-        } else {
-            throw new IllegalArgumentException("Could not find server socket class for event loop group class: " + eventLoopGroup.getClass().getName());
+        if (serverSocketChannelClassName == null) {
+            throw new IllegalArgumentException("No server socket channel class found for event loop group type: " + eventLoopGroup.getClass().getName());
         }
 
-        return serverSocketChannelClass;
-    }
-
-    private static Class<? extends Channel> loadSocketChannelClass(final String className) {
         try {
-            return Class.forName(className).asSubclass(Channel.class);
+            return Class.forName(serverSocketChannelClassName).asSubclass(ServerChannel.class);
         } catch (final ClassNotFoundException e) {
             throw new IllegalArgumentException(e);
         }
