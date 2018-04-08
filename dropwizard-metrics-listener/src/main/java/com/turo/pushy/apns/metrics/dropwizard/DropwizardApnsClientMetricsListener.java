@@ -26,8 +26,9 @@ import com.codahale.metrics.*;
 import com.turo.pushy.apns.ApnsClient;
 import com.turo.pushy.apns.ApnsClientMetricsListener;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -77,7 +78,7 @@ public class DropwizardApnsClientMetricsListener implements ApnsClientMetricsLis
     private final MetricRegistry metrics;
 
     private final Timer notificationTimer;
-    private final Map<Long, Timer.Context> notificationTimerContexts;
+    private final ConcurrentMap<Long, Timer.Context> notificationTimerContexts;
 
     private final Meter writeFailures;
     private final Meter sentNotifications;
@@ -144,7 +145,7 @@ public class DropwizardApnsClientMetricsListener implements ApnsClientMetricsLis
         this.metrics = new MetricRegistry();
 
         this.notificationTimer = this.metrics.timer(NOTIFICATION_TIMER_NAME);
-        this.notificationTimerContexts = new HashMap<>();
+        this.notificationTimerContexts = new ConcurrentHashMap<>();
 
         this.writeFailures = this.metrics.meter(WRITE_FAILURES_METER_NAME);
         this.sentNotifications = this.metrics.meter(SENT_NOTIFICATIONS_METER_NAME);
