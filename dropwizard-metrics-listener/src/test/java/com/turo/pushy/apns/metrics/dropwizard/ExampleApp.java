@@ -25,6 +25,9 @@ package com.turo.pushy.apns.metrics.dropwizard;
 import com.codahale.metrics.MetricRegistry;
 import com.turo.pushy.apns.ApnsClient;
 import com.turo.pushy.apns.ApnsClientBuilder;
+import com.turo.pushy.apns.auth.ApnsSigningKey;
+
+import java.io.File;
 
 public class ExampleApp {
 
@@ -38,6 +41,9 @@ public class ExampleApp {
                 new DropwizardApnsClientMetricsListener();
 
         final ApnsClient apnsClient = new ApnsClientBuilder()
+                .setApnsServer(ApnsClientBuilder.DEVELOPMENT_APNS_HOST)
+                .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
+                        "TEAMID1234", "KEYID67890"))
                 .setMetricsListener(listener)
                 .build();
 

@@ -39,7 +39,7 @@ public class DropwizardApnsClientMetricsListenerTest {
     private DropwizardApnsClientMetricsListener listener;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         this.listener = new DropwizardApnsClientMetricsListener();
     }
 
@@ -96,9 +96,9 @@ public class DropwizardApnsClientMetricsListenerTest {
     @Test
     public void testHandleConnectionCreationFailed() {
         final Meter connectionFailures = (Meter) this.listener.getMetrics().get(DropwizardApnsClientMetricsListener.CONNECTION_FAILURES_METER_NAME);
+        assertEquals(0, connectionFailures.getCount());
 
         this.listener.handleConnectionCreationFailed(null);
-
         assertEquals(1, connectionFailures.getCount());
     }
 
