@@ -1,11 +1,12 @@
 language: java
 jdk:
     - oraclejdk8
-    - openjdk7
 env:
     - PUSHY_SSL_PROVIDER=jdk
     - PUSHY_SSL_PROVIDER=native
 matrix:
-    exclude:
+    include:
         - jdk: openjdk7
-          env: PUSHY_SSL_PROVIDER=jdk
+          env: PUSHY_SSL_PROVIDER=native
+          install: mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V -pl '!micrometer-metrics-listener'
+          script: mvn test -B -pl '!micrometer-metrics-listener'

@@ -1,6 +1,6 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Copyright (c) 2013-2017 Turo
+  Copyright (c) 2013-2018 Turo
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -24,14 +24,13 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>pushy-dropwizard-metrics-listener</artifactId>
-  <version>0.13.0-SNAPSHOT</version>
-    <name>Dropwizard Metrics listener for Pushy</name>
-    <description>A metrics listener for Pushy that uses the Dropwizard Metrics library for gathering and reporting metrics.</description>
+    <artifactId>pushy-micrometer-metrics-listener</artifactId>
+    <name>Micrometer metrics listener for Pushy</name>
+    <description>A metrics listener for Pushy that uses the Micrometer application monitoring library for gathering and reporting metrics.</description>
 
     <parent>
-        <groupId>com.turo</groupId>
         <artifactId>pushy-parent</artifactId>
+        <groupId>com.turo</groupId>
         <version>0.13.0-SNAPSHOT</version>
     </parent>
 
@@ -42,9 +41,9 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>io.dropwizard.metrics</groupId>
-            <artifactId>metrics-core</artifactId>
-            <version>3.1.0</version>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+            <version>1.0.3</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
@@ -63,7 +62,6 @@
                     <show>public</show>
                     <links>
                         <link>http://relayrides.github.io/pushy/apidocs/0.12/</link>
-                        <link>http://metrics.dropwizard.io/3.1.0/apidocs/</link>
                     </links>
                 </configuration>
             </plugin>
