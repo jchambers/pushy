@@ -260,13 +260,8 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
             final SslProvider sslProvider;
 
             if (OpenSsl.isAvailable()) {
-                if (OpenSsl.isAlpnSupported()) {
-                    log.info("Native SSL provider is available and supports ALPN; will use native provider.");
-                    sslProvider = SslProvider.OPENSSL;
-                } else {
-                    log.info("Native SSL provider is available, but does not support ALPN; will use JDK SSL provider.");
-                    sslProvider = SslProvider.JDK;
-                }
+                log.info("Native SSL provider is available; will use native provider.");
+                sslProvider = SslProvider.OPENSSL;
             } else {
                 log.info("Native SSL provider not available; will use JDK SSL provider.");
                 sslProvider = SslProvider.JDK;
@@ -286,12 +281,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
 
             sslContextBuilder.sslProvider(sslProvider)
                     .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-                    .clientAuth(ClientAuth.OPTIONAL)
-                    .applicationProtocolConfig(new ApplicationProtocolConfig(
-                            ApplicationProtocolConfig.Protocol.ALPN,
-                            ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
-                            ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
-                            ApplicationProtocolNames.HTTP_2));
+                    .clientAuth(ClientAuth.OPTIONAL);
 
             if (this.trustedClientCertificatePemFile != null) {
                 sslContextBuilder.trustManager(this.trustedClientCertificatePemFile);

@@ -28,8 +28,6 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.http2.Http2FrameLogger;
-import io.netty.handler.ssl.ApplicationProtocolNames;
-import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
@@ -106,19 +104,9 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
                 sslHandler.handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
                     @Override
-                    public void operationComplete(final Future<Channel> future) throws Exception {
-                        if (!future.isSuccess()) {
-                            channel.attr(CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).get().tryFailure(future.cause());
-                        }
-                    }
-                });
-
-                pipeline.addLast(sslHandler);
-                pipeline.addLast(new ApplicationProtocolNegotiationHandler("") {
-                    @Override
-                    protected void configurePipeline(final ChannelHandlerContext context, final String protocol) {
-                        if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                            final String authority = ((InetSocketAddress) context.channel().remoteAddress()).getHostName();
+                    public void operationComplete(final Future<Channel> handshakeFuture) {
+                        if (handshakeFuture.isSuccess()) {
+                            final String authority = channel.remoteAddress().getHostName();
 
                             final ApnsClientHandler.ApnsClientHandlerBuilder clientHandlerBuilder;
 
@@ -143,15 +131,17 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
                                 apnsClientHandler.gracefulShutdownTimeoutMillis(gracefulShutdownTimeoutMillis);
                             }
 
-                            context.pipeline().addLast(new IdleStateHandler(idlePingIntervalMillis, 0, 0, TimeUnit.MILLISECONDS));
-                            context.pipeline().addLast(apnsClientHandler);
+                            pipeline.addLast(new IdleStateHandler(idlePingIntervalMillis, 0, 0, TimeUnit.MILLISECONDS));
+                            pipeline.addLast(apnsClientHandler);
 
                             channel.attr(CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).get().trySuccess(channel);
                         } else {
-                            throw new IllegalArgumentException("Unexpected protocol: " + protocol);
+                            channel.attr(CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).get().tryFailure(handshakeFuture.cause());
                         }
                     }
                 });
+
+                pipeline.addLast(sslHandler);
             }
         });
     }

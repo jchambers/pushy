@@ -28,8 +28,6 @@ import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.ssl.ApplicationProtocolNames;
-import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.util.ReferenceCounted;
@@ -72,16 +70,12 @@ abstract class BaseHttp2Server {
             protected void initChannel(final SocketChannel channel) {
                 final SslHandler sslHandler = sslContext.newHandler(channel.alloc());
                 channel.pipeline().addLast(sslHandler);
-                channel.pipeline().addLast(new ApplicationProtocolNegotiationHandler(ApplicationProtocolNames.HTTP_1_1) {
 
+                sslHandler.handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
                     @Override
-                    protected void configurePipeline(final ChannelHandlerContext context, final String protocol) throws Exception {
-                        if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                            BaseHttp2Server.this.addHandlersToPipeline(sslHandler.engine().getSession(), context.pipeline());
-                            BaseHttp2Server.this.allChannels.add(context.channel());
-                        } else {
-                            throw new IllegalStateException("Unexpected protocol: " + protocol);
-                        }
+                    public void operationComplete(final Future<Channel> handshakeFuture) throws Exception {
+                        BaseHttp2Server.this.addHandlersToPipeline(sslHandler.engine().getSession(), channel.pipeline());
+                        BaseHttp2Server.this.allChannels.add(channel);
                     }
                 });
             }
