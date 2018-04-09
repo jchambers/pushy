@@ -28,10 +28,9 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http2.Http2FrameLogger;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.ssl.*;
-import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
-import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
 import io.netty.util.ReferenceCounted;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLException;
 import java.io.File;
@@ -121,6 +120,8 @@ public class ApnsClientBuilder {
      * @since 0.5
      */
     public static final int ALTERNATE_APNS_PORT = 2197;
+
+    private static final Logger log = LoggerFactory.getLogger(ApnsClientBuilder.class);
 
     /**
      * Sets the hostname of the server to which the client under construction will connect. Apple provides a production
@@ -514,16 +515,24 @@ public class ApnsClientBuilder {
 
         final SslContext sslContext;
         {
-            final SslProvider sslProvider = SslUtil.getSslProvider();
+            final SslProvider sslProvider;
+
+            if ("jdk".equalsIgnoreCase(System.getenv("PUSHY_SSL_PROVIDER"))) {
+                log.info("JDK provider specified in PUSHY_SSL_PROVIDER environment variable; will use JDK SSL provider.");
+                sslProvider = SslProvider.JDK;
+            } else {
+                if (OpenSsl.isAvailable()) {
+                    log.info("Native SSL provider is available; will use native provider.");
+                    sslProvider = SslProvider.OPENSSL_REFCNT;
+                } else {
+                    log.info("Native SSL provider not available; will use JDK SSL provider.");
+                    sslProvider = SslProvider.JDK;
+                }
+            }
 
             final SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
                     .sslProvider(sslProvider)
-                    .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-                    .applicationProtocolConfig(
-                            new ApplicationProtocolConfig(Protocol.ALPN,
-                                    SelectorFailureBehavior.NO_ADVERTISE,
-                                    SelectedListenerFailureBehavior.ACCEPT,
-                                    ApplicationProtocolNames.HTTP_2));
+                    .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE);
 
             if (this.clientCertificate != null && this.privateKey != null) {
                 sslContextBuilder.keyManager(this.privateKey, this.privateKeyPassword, this.clientCertificate);
