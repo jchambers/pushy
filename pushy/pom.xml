@@ -120,6 +120,37 @@
                 <plugins>
                     <!-- Download the alpn-boot.jar in advance to add it to the boot classpath. -->
                     <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-shade-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>shade</goal>
+                                </goals>
+                                <configuration>
+                                    <relocations>
+                                        <relocation>
+                                            <pattern>io.netty</pattern>
+                                            <shadedPattern>com.turo.pushy.external.io.netty</shadedPattern>
+                                        </relocation>
+                                        <relocation>
+                                            <pattern>com.google.code.gson</pattern>
+                                            <shadedPattern>com.turo.pushy.external.com.google.code.gson</shadedPattern>
+                                        </relocation>
+                                        <relocation>
+                                            <pattern>org.apache.commons</pattern>
+                                            <shadedPattern>com.turo.pushy.external.org.apache.commons</shadedPattern>
+                                        </relocation>
+                                    </relocations>
+                                    <shadedArtifactAttached>true</shadedArtifactAttached>
+                                    <shadedClassifierName>shaded</shadedClassifierName>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
                         <artifactId>maven-dependency-plugin</artifactId>
                         <executions>
                             <execution>
