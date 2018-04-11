@@ -22,8 +22,6 @@
 
 package com.turo.pushy.apns.auth;
 
-import org.apache.commons.codec.binary.Base64;
-
 import java.io.*;
 import java.math.BigInteger;
 import java.security.InvalidKeyException;
@@ -155,7 +153,7 @@ public class ApnsSigningKey extends ApnsKey implements ECPrivateKey {
                 base64EncodedPrivateKey = privateKeyBuilder.toString();
             }
 
-            final byte[] keyBytes = Base64.decodeBase64(base64EncodedPrivateKey);
+            final byte[] keyBytes = decodeBase64EncodedString(base64EncodedPrivateKey);
 
             final PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
             final KeyFactory keyFactory = KeyFactory.getInstance("EC");

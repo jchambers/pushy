@@ -26,8 +26,11 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.annotations.SerializedName;
 import com.turo.pushy.apns.util.DateAsTimeSinceEpochTypeAdapter;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.handler.codec.base64.Base64;
+import io.netty.handler.codec.base64.Base64Dialect;
 import io.netty.util.AsciiString;
-import org.apache.commons.codec.binary.Base64;
 
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
@@ -135,9 +138,9 @@ public class AuthenticationToken {
         final String claimsJson = GSON.toJson(this.claims);
 
         final StringBuilder payloadBuilder = new StringBuilder();
-        payloadBuilder.append(Base64.encodeBase64URLSafeString(headerJson.getBytes(StandardCharsets.US_ASCII)));
+        payloadBuilder.append(encodeUnpaddedBase64UrlString(headerJson.getBytes(StandardCharsets.US_ASCII)));
         payloadBuilder.append('.');
-        payloadBuilder.append(Base64.encodeBase64URLSafeString(claimsJson.getBytes(StandardCharsets.US_ASCII)));
+        payloadBuilder.append(encodeUnpaddedBase64UrlString(claimsJson.getBytes(StandardCharsets.US_ASCII)));
 
         {
             final Signature signature = Signature.getInstance(ApnsKey.APNS_SIGNATURE_ALGORITHM);
@@ -148,7 +151,7 @@ public class AuthenticationToken {
         }
 
         payloadBuilder.append('.');
-        payloadBuilder.append(Base64.encodeBase64URLSafeString(this.signatureBytes));
+        payloadBuilder.append(encodeUnpaddedBase64UrlString(this.signatureBytes));
 
         this.base64EncodedToken = payloadBuilder.toString();
         this.authorizationHeader = new AsciiString("bearer " + payloadBuilder.toString());
@@ -172,9 +175,9 @@ public class AuthenticationToken {
             throw new IllegalArgumentException();
         }
 
-        this.header = GSON.fromJson(new String(Base64.decodeBase64(jwtSegments[0]), StandardCharsets.US_ASCII), AuthenticationTokenHeader.class);
-        this.claims = GSON.fromJson(new String(Base64.decodeBase64(jwtSegments[1]), StandardCharsets.US_ASCII), AuthenticationTokenClaims.class);
-        this.signatureBytes = Base64.decodeBase64(jwtSegments[2]);
+        this.header = GSON.fromJson(new String(decodeBase64UrlEncodedString(jwtSegments[0]), StandardCharsets.US_ASCII), AuthenticationTokenHeader.class);
+        this.claims = GSON.fromJson(new String(decodeBase64UrlEncodedString(jwtSegments[1]), StandardCharsets.US_ASCII), AuthenticationTokenClaims.class);
+        this.signatureBytes = decodeBase64UrlEncodedString(jwtSegments[2]);
     }
 
     /**
@@ -230,13 +233,11 @@ public class AuthenticationToken {
         final String headerJson = GSON.toJson(this.header);
         final String claimsJson = GSON.toJson(this.claims);
 
-        final StringBuilder headerAndClaimsBuilder = new StringBuilder();
+        final String encodedHeaderAndClaims =
+                encodeUnpaddedBase64UrlString(headerJson.getBytes(StandardCharsets.US_ASCII)) + '.' +
+                encodeUnpaddedBase64UrlString(claimsJson.getBytes(StandardCharsets.US_ASCII));
 
-        headerAndClaimsBuilder.append(Base64.encodeBase64URLSafeString(headerJson.getBytes(StandardCharsets.US_ASCII)));
-        headerAndClaimsBuilder.append('.');
-        headerAndClaimsBuilder.append(Base64.encodeBase64URLSafeString(claimsJson.getBytes(StandardCharsets.US_ASCII)));
-
-        headerAndClaimsBytes = headerAndClaimsBuilder.toString().getBytes(StandardCharsets.US_ASCII);
+        headerAndClaimsBytes = encodedHeaderAndClaims.getBytes(StandardCharsets.US_ASCII);
 
         final Signature signature = Signature.getInstance(ApnsKey.APNS_SIGNATURE_ALGORITHM);
         signature.initVerify(verificationKey);
@@ -282,12 +283,54 @@ public class AuthenticationToken {
         }
         final AuthenticationToken other = (AuthenticationToken) obj;
         if (this.base64EncodedToken == null) {
-            if (other.base64EncodedToken != null) {
-                return false;
-            }
-        } else if (!this.base64EncodedToken.equals(other.base64EncodedToken)) {
-            return false;
+            return other.base64EncodedToken == null;
+        } else {
+            return this.base64EncodedToken.equals(other.base64EncodedToken);
         }
-        return true;
+    }
+
+    static String encodeUnpaddedBase64UrlString(final byte[] data) {
+        final ByteBuf wrappedString = Unpooled.wrappedBuffer(data);
+        final ByteBuf encodedString = Base64.encode(wrappedString, Base64Dialect.URL_SAFE);
+
+        final String encodedUnpaddedString = encodedString.toString(StandardCharsets.US_ASCII).replace("=", "");
+
+        wrappedString.release();
+        encodedString.release();
+
+        return encodedUnpaddedString;
+    }
+
+    static byte[] decodeBase64UrlEncodedString(final String base64UrlEncodedString) {
+        final String paddedBase64UrlEncodedString;
+
+        switch (base64UrlEncodedString.length() % 4) {
+            case 2: {
+                paddedBase64UrlEncodedString = base64UrlEncodedString + "==";
+                break;
+            }
+
+            case 3: {
+                paddedBase64UrlEncodedString = base64UrlEncodedString + "=";
+                break;
+            }
+
+            default: {
+                paddedBase64UrlEncodedString = base64UrlEncodedString;
+            }
+        }
+
+        final ByteBuf base64EncodedByteBuf =
+                Unpooled.wrappedBuffer(paddedBase64UrlEncodedString.getBytes(StandardCharsets.US_ASCII));
+
+        final ByteBuf decodedByteBuf = Base64.decode(base64EncodedByteBuf, Base64Dialect.URL_SAFE);
+        final byte[] decodedBytes = new byte[decodedByteBuf.readableBytes()];
+
+        decodedByteBuf.readBytes(decodedBytes);
+
+        base64EncodedByteBuf.release();
+        decodedByteBuf.release();
+
+        return decodedBytes;
     }
 }

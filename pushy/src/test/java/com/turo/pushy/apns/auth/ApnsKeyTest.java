@@ -22,14 +22,20 @@
 
 package com.turo.pushy.apns.auth;
 
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+@RunWith(JUnitParamsRunner.class)
 public abstract class ApnsKeyTest {
 
     protected abstract ApnsKey getApnsKey() throws NoSuchAlgorithmException, InvalidKeyException, IOException;
@@ -52,5 +58,18 @@ public abstract class ApnsKeyTest {
     @Test
     public void testGetParams() throws Exception {
         assertNotNull(this.getApnsKey().getParams());
+    }
+
+    @Test
+    // Test vectors from https://tools.ietf.org/html/rfc4648#section-10
+    @Parameters({
+            "Zg==,     f",
+            "Zm8=,     fo",
+            "Zm9v,     foo",
+            "Zm9vYg==, foob",
+            "Zm9vYmE=, fooba",
+            "Zm9vYmFy, foobar"  })
+    public void testDecodeBase64EncodedString(final String base64EncodedString, final String decodedAsciiString) {
+        assertEquals(decodedAsciiString, new String(ApnsKey.decodeBase64EncodedString(base64EncodedString), StandardCharsets.US_ASCII));
     }
 }
