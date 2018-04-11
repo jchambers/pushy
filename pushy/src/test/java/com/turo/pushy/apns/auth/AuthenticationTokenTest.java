@@ -109,4 +109,14 @@ public class AuthenticationTokenTest {
 
         assertTrue(Pattern.matches("^[a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9_\\-]+$", token.toString()));
     }
+
+    @Test
+    public void testEncodeDecodeBase64() {
+        final byte[] originalBytes =
+                "We expect to get these bytes back after encoding, then decoding as Base64.".getBytes();
+
+        final String encodedString = AuthenticationToken.encodeUnpaddedBase64UrlString(originalBytes);
+
+        assertArrayEquals(originalBytes, AuthenticationToken.decodeBase64UrlEncodedString(encodedString));
+    }
 }

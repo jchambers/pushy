@@ -23,7 +23,6 @@
 package com.turo.pushy.apns.auth;
 
 import com.turo.pushy.apns.ApnsClient;
-import org.apache.commons.codec.binary.Base64;
 
 import java.io.*;
 import java.security.InvalidKeyException;
@@ -160,7 +159,7 @@ public class ApnsVerificationKey extends ApnsKey implements ECPublicKey {
                 base64EncodedPublicKey = publicKeyBuilder.toString();
             }
 
-            final byte[] keyBytes = Base64.decodeBase64(base64EncodedPublicKey);
+            final byte[] keyBytes = decodeBase64EncodedString(base64EncodedPublicKey);
 
             final X509EncodedKeySpec keySpec = new X509EncodedKeySpec(keyBytes);
             final KeyFactory keyFactory = KeyFactory.getInstance("EC");
