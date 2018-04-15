@@ -66,6 +66,17 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
     private static final AttributeKey<Promise<Channel>> CHANNEL_READY_PROMISE_ATTRIBUTE_KEY =
             AttributeKey.valueOf(ApnsChannelFactory.class, "channelReadyPromise");
 
+    @ChannelHandler.Sharable
+    private static class ConnectionNegotiationErrorHandler extends ChannelHandlerAdapter {
+
+        static final ConnectionNegotiationErrorHandler INSTANCE = new ConnectionNegotiationErrorHandler();
+
+        @Override
+        public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
+            context.channel().attr(CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).get().tryFailure(cause);
+        }
+    }
+
     ApnsChannelFactory(final SslContext sslContext, final ApnsSigningKey signingKey,
                        final ProxyHandlerFactory proxyHandlerFactory, final int connectTimeoutMillis,
                        final long idlePingIntervalMillis, final long gracefulShutdownTimeoutMillis,
@@ -133,6 +144,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
                             pipeline.addLast(new IdleStateHandler(idlePingIntervalMillis, 0, 0, TimeUnit.MILLISECONDS));
                             pipeline.addLast(apnsClientHandler);
+                            pipeline.remove(ConnectionNegotiationErrorHandler.INSTANCE);
 
                             channel.attr(CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).get().trySuccess(channel);
                         } else {
@@ -142,6 +154,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
                 });
 
                 pipeline.addLast(sslHandler);
+                pipeline.addLast(ConnectionNegotiationErrorHandler.INSTANCE);
             }
         });
     }

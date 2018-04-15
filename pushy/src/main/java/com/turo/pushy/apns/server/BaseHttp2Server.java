@@ -32,6 +32,8 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLSession;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -44,6 +46,19 @@ abstract class BaseHttp2Server {
     private final boolean shouldShutDownEventLoopGroup;
 
     private ChannelGroup allChannels;
+
+    private static final Logger log = LoggerFactory.getLogger(BaseHttp2Server.class);
+
+    @ChannelHandler.Sharable
+    private static class ConnectionNegotiationErrorHandler extends ChannelHandlerAdapter {
+
+        static final ConnectionNegotiationErrorHandler INSTANCE = new ConnectionNegotiationErrorHandler();
+
+        @Override
+        public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
+            log.debug("Server caught an exception before establishing an HTTP/2 connection.", cause);
+        }
+    }
 
     BaseHttp2Server(final SslContext sslContext, final EventLoopGroup eventLoopGroup) {
 
@@ -70,12 +85,19 @@ abstract class BaseHttp2Server {
             protected void initChannel(final SocketChannel channel) {
                 final SslHandler sslHandler = sslContext.newHandler(channel.alloc());
                 channel.pipeline().addLast(sslHandler);
+                channel.pipeline().addLast(ConnectionNegotiationErrorHandler.INSTANCE);
 
                 sslHandler.handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
                     @Override
                     public void operationComplete(final Future<Channel> handshakeFuture) throws Exception {
-                        BaseHttp2Server.this.addHandlersToPipeline(sslHandler.engine().getSession(), channel.pipeline());
-                        BaseHttp2Server.this.allChannels.add(channel);
+                        if (handshakeFuture.isSuccess()) {
+                            BaseHttp2Server.this.addHandlersToPipeline(sslHandler.engine().getSession(), channel.pipeline());
+                            channel.pipeline().remove(ConnectionNegotiationErrorHandler.INSTANCE);
+
+                            BaseHttp2Server.this.allChannels.add(channel);
+                        } else {
+                            log.debug("TLS handshake failed.", handshakeFuture.cause());
+                        }
                     }
                 });
             }
