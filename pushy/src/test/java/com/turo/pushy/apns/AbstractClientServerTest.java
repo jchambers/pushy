@@ -31,6 +31,10 @@ import com.turo.pushy.apns.server.MockApnsServerListener;
 import com.turo.pushy.apns.server.PushNotificationHandlerFactory;
 import com.turo.pushy.apns.util.ApnsPayloadBuilder;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.util.concurrent.DefaultPromise;
+import io.netty.util.concurrent.GlobalEventExecutor;
+import io.netty.util.concurrent.Promise;
+import io.netty.util.concurrent.PromiseCombiner;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -45,7 +49,8 @@ import java.util.*;
 
 public class AbstractClientServerTest {
 
-    protected static NioEventLoopGroup EVENT_LOOP_GROUP;
+    protected static NioEventLoopGroup CLIENT_EVENT_LOOP_GROUP;
+    protected static NioEventLoopGroup SERVER_EVENT_LOOP_GROUP;
 
     protected static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
     protected static final String SERVER_CERTIFICATES_FILENAME = "/server-certs.pem";
@@ -76,11 +81,8 @@ public class AbstractClientServerTest {
 
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {
-        // We want enough threads so we can be confident that the client and server are running on different threads and
-        // we can accurately simulate race conditions. Two threads seems like an obvious choice, but there are some
-        // tests where we have multiple clients and servers in play, and it's good to have some extra room in those
-        // cases.
-        EVENT_LOOP_GROUP = new NioEventLoopGroup(4);
+        CLIENT_EVENT_LOOP_GROUP = new NioEventLoopGroup(2);
+        SERVER_EVENT_LOOP_GROUP = new NioEventLoopGroup(2);
     }
 
     @Before
@@ -97,7 +99,12 @@ public class AbstractClientServerTest {
 
     @AfterClass
     public static void tearDownAfterClass() throws Exception {
-        EVENT_LOOP_GROUP.shutdownGracefully().await();
+        final PromiseCombiner combiner = new PromiseCombiner();
+        combiner.addAll(CLIENT_EVENT_LOOP_GROUP.shutdownGracefully(), SERVER_EVENT_LOOP_GROUP.shutdownGracefully());
+
+        final Promise<Void> shutdownPromise = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
+        combiner.finish(shutdownPromise);
+        shutdownPromise.await();
     }
 
     protected ApnsClient buildTlsAuthenticationClient() throws IOException {
@@ -110,7 +117,7 @@ public class AbstractClientServerTest {
                     .setApnsServer(HOST, PORT)
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .setTrustedServerCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
+                    .setEventLoopGroup(CLIENT_EVENT_LOOP_GROUP)
                     .setMetricsListener(metricsListener)
                     .build();
         }
@@ -125,7 +132,7 @@ public class AbstractClientServerTest {
                 .setApnsServer(HOST, PORT)
                 .setTrustedServerCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
                 .setSigningKey(this.signingKey)
-                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .setEventLoopGroup(CLIENT_EVENT_LOOP_GROUP)
                 .setMetricsListener(metricsListener)
                 .build();
     }
@@ -138,7 +145,7 @@ public class AbstractClientServerTest {
         return new MockApnsServerBuilder()
                 .setServerCredentials(getClass().getResourceAsStream(SERVER_CERTIFICATES_FILENAME), getClass().getResourceAsStream(SERVER_KEY_FILENAME), null)
                 .setTrustedClientCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
-                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .setEventLoopGroup(SERVER_EVENT_LOOP_GROUP)
                 .setHandlerFactory(handlerFactory)
                 .setListener(listener)
                 .build();
