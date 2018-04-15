@@ -529,6 +529,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
             assertEquals(0, metricsListener.getConnectionsRemoved().get());
             assertEquals(0, metricsListener.getFailedConnectionAttempts().get());
         } finally {
+            client.close().await();
             server.shutdown().await();
         }
     }
