@@ -78,7 +78,7 @@ abstract class BaseHttp2Server {
             this.shouldShutDownEventLoopGroup = true;
         }
 
-        this.bootstrap.channel(ServerSocketChannelClassUtil.getServerSocketChannelClass(this.bootstrap.config().group()));
+        this.bootstrap.channel(ServerChannelClassUtil.getServerSocketChannelClass(this.bootstrap.config().group()));
         this.bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
 
             @Override
