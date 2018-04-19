@@ -29,7 +29,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-class ServerSocketChannelClassUtil {
+class ServerChannelClassUtil {
 
     private static final Map<String, String> SERVER_SOCKET_CHANNEL_CLASSES = new HashMap<>();
 

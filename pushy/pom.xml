@@ -75,6 +75,16 @@
             <artifactId>slf4j-simple</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-transport-native-kqueue</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-transport-native-epoll</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -124,6 +134,7 @@
                 </dependency>
             </dependencies>
         </profile>
+
         <profile>
             <id>test-with-netty-tcnative</id>
             <activation>
@@ -136,6 +147,42 @@
                 <dependency>
                     <groupId>io.netty</groupId>
                     <artifactId>netty-tcnative-boringssl-static</artifactId>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <profile>
+            <id>test-with-native-kqueue</id>
+            <activation>
+                <property>
+                    <name>env.TRAVIS_OS_NAME</name>
+                    <value>osx</value>
+                </property>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-transport-native-kqueue</artifactId>
+                    <classifier>osx-x86_64</classifier>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <profile>
+            <id>test-with-native-epoll</id>
+            <activation>
+                <property>
+                    <name>env.TRAVIS_OS_NAME</name>
+                    <value>linux</value>
+                </property>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-transport-native-epoll</artifactId>
+                    <classifier>linux-x86_64</classifier>
                     <scope>test</scope>
                 </dependency>
             </dependencies>

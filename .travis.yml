@@ -1,12 +1,24 @@
 language: java
-jdk:
-    - oraclejdk8
-env:
-    - PUSHY_SSL_PROVIDER=jdk
-    - PUSHY_SSL_PROVIDER=netty-tcnative
+
 matrix:
     include:
-        - jdk: openjdk7
-          env: PUSHY_SSL_PROVIDER=
+        - os: linux
+          jdk: oraclejdk8
+          env: PUSHY_SSL_PROVIDER=jdk
+
+        - os: linux
+          jdk: oraclejdk8
+          env: PUSHY_SSL_PROVIDER=netty-tcnative
+
+        - os: linux
+          jdk: openjdk7
           install: mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V -pl '!micrometer-metrics-listener'
           script: mvn test -B -pl '!micrometer-metrics-listener'
+
+        - os: osx
+          osx_image: xcode8.3
+          env: PUSHY_SSL_PROVIDER=jdk
+
+        - os: osx
+          osx_image: xcode8.3
+          env: PUSHY_SSL_PROVIDER=netty-tcnative
