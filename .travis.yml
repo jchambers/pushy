@@ -3,10 +3,10 @@ jdk:
     - oraclejdk8
 env:
     - PUSHY_SSL_PROVIDER=jdk
-    - PUSHY_SSL_PROVIDER=native
+    - PUSHY_SSL_PROVIDER=netty-tcnative
 matrix:
     include:
         - jdk: openjdk7
-          env: PUSHY_SSL_PROVIDER=native
+          env: PUSHY_SSL_PROVIDER=
           install: mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V -pl '!micrometer-metrics-listener'
           script: mvn test -B -pl '!micrometer-metrics-listener'
