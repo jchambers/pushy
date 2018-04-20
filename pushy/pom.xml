@@ -48,10 +48,6 @@
             <artifactId>netty-resolver-dns</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-tcnative-boringssl-static</artifactId>
-        </dependency>
-        <dependency>
             <groupId>com.eatthepath</groupId>
             <artifactId>fast-uuid</artifactId>
         </dependency>
@@ -93,6 +89,7 @@
                     </links>
                 </configuration>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -112,14 +109,31 @@
 
     <profiles>
         <profile>
-            <id>test-with-alpn-boot</id>
+            <id>jdk-7</id>
             <activation>
-                <activeByDefault>true</activeByDefault>
+                <jdk>1.7</jdk>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-tcnative-boringssl-static</artifactId>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>test-with-netty-tcnative</id>
+            <activation>
                 <property>
                     <name>env.PUSHY_SSL_PROVIDER</name>
-                    <value>jdk</value>
+                    <value>netty-tcnative</value>
                 </property>
             </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-tcnative-boringssl-static</artifactId>
+                </dependency>
+            </dependencies>
         </profile>
     </profiles>
 </project>
