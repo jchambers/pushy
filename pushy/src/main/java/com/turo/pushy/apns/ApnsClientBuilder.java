@@ -517,17 +517,12 @@ public class ApnsClientBuilder {
         {
             final SslProvider sslProvider;
 
-            if ("jdk".equalsIgnoreCase(System.getenv("PUSHY_SSL_PROVIDER"))) {
-                log.info("JDK provider specified in PUSHY_SSL_PROVIDER environment variable; will use JDK SSL provider.");
-                sslProvider = SslProvider.JDK;
+            if (OpenSsl.isAvailable()) {
+                log.info("Native SSL provider is available; will use native provider.");
+                sslProvider = SslProvider.OPENSSL_REFCNT;
             } else {
-                if (OpenSsl.isAvailable()) {
-                    log.info("Native SSL provider is available; will use native provider.");
-                    sslProvider = SslProvider.OPENSSL_REFCNT;
-                } else {
-                    log.info("Native SSL provider not available; will use JDK SSL provider.");
-                    sslProvider = SslProvider.JDK;
-                }
+                log.info("Native SSL provider not available; will use JDK SSL provider.");
+                sslProvider = SslProvider.JDK;
             }
 
             final SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
