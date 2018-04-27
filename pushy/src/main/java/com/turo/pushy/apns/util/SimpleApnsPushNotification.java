@@ -114,6 +114,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * {@code null}, no delivery attempts beyond the first will be made
      * @param priority the priority with which this notification should be delivered to the receiving device
      * @param collapseId the "collapse identifier" for this notification, which allows it to supersede or be superseded
+     * by other notifications with the same collapse identifier
      */
     public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority, final String collapseId) {
         this(token, topic, payload, invalidationTime, priority, collapseId, null);
@@ -130,6 +131,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * {@code null}, no delivery attempts beyond the first will be made
      * @param priority the priority with which this notification should be delivered to the receiving device
      * @param collapseId the "collapse identifier" for this notification, which allows it to supersede or be superseded
+     * by other notifications with the same collapse identifier
      * @param apnsId the unique identifier for this notification; may be {@code null}, in which case the APNs server
      * will assign a unique identifier automatically
      */
