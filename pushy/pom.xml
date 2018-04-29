@@ -63,14 +63,17 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>pl.pragmatists</groupId>
             <artifactId>JUnitParams</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -117,6 +120,7 @@
                 <dependency>
                     <groupId>io.netty</groupId>
                     <artifactId>netty-tcnative-boringssl-static</artifactId>
+                    <scope>provided</scope>
                 </dependency>
             </dependencies>
         </profile>
@@ -132,6 +136,7 @@
                 <dependency>
                     <groupId>io.netty</groupId>
                     <artifactId>netty-tcnative-boringssl-static</artifactId>
+                    <scope>provided</scope>
                 </dependency>
             </dependencies>
         </profile>
