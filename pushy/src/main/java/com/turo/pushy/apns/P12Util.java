@@ -30,8 +30,13 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableEntryException;
 import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Utility class for extracting private keys from P12 files.
@@ -40,9 +45,17 @@ import java.util.Objects;
  */
 class P12Util {
 
+    private static final Pattern COMMON_NAME_PATTERN = Pattern.compile("CN=(.*?):");
+
+    private static final List<String> APNS_SUBJECTS = Arrays.asList(
+                    "Apple Push Services",
+                    "Apple Production IOS Push Services",
+                    "Apple Development IOS Push Services");
+
     /**
-     * Returns the first private key entry found in the given keystore. If more than one private key is present, the
-     * key that is returned is undefined.
+     * Returns the first private key entry found in the given keystore that appears to be a valid certificate/key pair
+     * for use as APNs client credentials. If more than one eligible private key entry is present, which key will be
+     * returned is undefined.
      *
      * @param p12InputStream an input stream for a PKCS#12 keystore
      * @param password the password to be used to load the keystore and its entries; may be blank, but must not be
@@ -53,14 +66,14 @@ class P12Util {
      * @throws KeyStoreException if a private key entry could not be extracted from the given keystore for any reason
      * @throws IOException if the given input stream could not be read for any reason
      */
-    public static PrivateKeyEntry getFirstPrivateKeyEntryFromP12InputStream(final InputStream p12InputStream, final String password) throws KeyStoreException, IOException {
+    static PrivateKeyEntry getFirstApnsPrivateKeyEntry(final InputStream p12InputStream, final String password) throws KeyStoreException, IOException {
         Objects.requireNonNull(password, "Password may be blank, but must not be null.");
 
         final KeyStore keyStore = KeyStore.getInstance("PKCS12");
 
         try {
             keyStore.load(p12InputStream, password.toCharArray());
-        } catch (NoSuchAlgorithmException | CertificateException e) {
+        } catch (final NoSuchAlgorithmException | CertificateException e) {
             throw new KeyStoreException(e);
         }
 
@@ -83,10 +96,19 @@ class P12Util {
             }
 
             if (entry instanceof KeyStore.PrivateKeyEntry) {
-                return (PrivateKeyEntry) entry;
+                final PrivateKeyEntry privateKeyEntry = (PrivateKeyEntry) entry;
+                final X509Certificate certificate = (X509Certificate) privateKeyEntry.getCertificate();
+
+                final Matcher matcher = COMMON_NAME_PATTERN.matcher(certificate.getSubjectX500Principal().getName());
+
+                while (matcher.find()) {
+                    if (APNS_SUBJECTS.contains(matcher.group(1))) {
+                        return privateKeyEntry;
+                    }
+                }
             }
         }
 
-        throw new KeyStoreException("Key store did not contain any private key entries.");
+        throw new KeyStoreException("Key store did not contain any private key entries usable as APNs client credentials.");
     }
 }

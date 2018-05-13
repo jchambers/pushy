@@ -93,7 +93,7 @@ public class ApnsClientBuilderTest {
         // We're happy here as long as nothing throws an exception
         try (final InputStream p12InputStream = this.getClass().getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
             final PrivateKeyEntry privateKeyEntry =
-                    P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
+                    P12Util.getFirstApnsPrivateKeyEntry(p12InputStream, KEYSTORE_PASSWORD);
 
             final ApnsClient client = new ApnsClientBuilder()
                     .setApnsServer(ApnsClientBuilder.PRODUCTION_APNS_HOST)
@@ -111,7 +111,7 @@ public class ApnsClientBuilderTest {
         try (final InputStream p12InputStream = this.getClass().getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_UNPROTECTED_FILENAME)) {
 
             final PrivateKeyEntry privateKeyEntry =
-                    P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
+                    P12Util.getFirstApnsPrivateKeyEntry(p12InputStream, KEYSTORE_PASSWORD);
 
             final ApnsClient client = new ApnsClientBuilder()
                     .setApnsServer(ApnsClientBuilder.PRODUCTION_APNS_HOST)
@@ -151,7 +151,7 @@ public class ApnsClientBuilderTest {
         try (final InputStream p12InputStream = this.getClass().getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_UNPROTECTED_FILENAME)) {
 
             final PrivateKeyEntry privateKeyEntry =
-                    P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
+                    P12Util.getFirstApnsPrivateKeyEntry(p12InputStream, KEYSTORE_PASSWORD);
 
             try (final InputStream p8InputStream = this.getClass().getResourceAsStream(SIGNING_KEY_FILENAME)) {
 

@@ -219,7 +219,7 @@ public class ApnsClientBuilder {
         final PrivateKey privateKey;
 
         try {
-            final KeyStore.PrivateKeyEntry privateKeyEntry = P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, p12Password);
+            final KeyStore.PrivateKeyEntry privateKeyEntry = P12Util.getFirstApnsPrivateKeyEntry(p12InputStream, p12Password);
 
             final Certificate certificate = privateKeyEntry.getCertificate();
 

@@ -22,19 +22,20 @@
 
 package com.turo.pushy.apns;
 
-import static org.junit.Assert.*;
+import org.junit.Test;
 
 import java.io.InputStream;
-import java.security.KeyStoreException;
 import java.security.KeyStore.PrivateKeyEntry;
+import java.security.KeyStoreException;
 
-import org.junit.Test;
+import static org.junit.Assert.assertNotNull;
 
 public class P12UtilTest {
 
     private static final String SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME = "/single-topic-client.p12";
     private static final String MULTIPLE_KEY_KEYSTORE_FILENAME = "/multiple-keys.p12";
     private static final String NO_KEY_KEYSTORE_FILENAME = "/no-keys.p12";
+    private static final String NOT_APNS_KEYSTORE_FILENAME = "/not-apns.p12";
 
     private static final String KEYSTORE_PASSWORD = "pushy-test";
 
@@ -42,7 +43,7 @@ public class P12UtilTest {
     public void testGetPrivateKeyEntryFromP12InputStream() throws Exception {
         try (final InputStream p12InputStream = P12UtilTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
             final PrivateKeyEntry privateKeyEntry =
-                    P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
+                    P12Util.getFirstApnsPrivateKeyEntry(p12InputStream, KEYSTORE_PASSWORD);
 
             assertNotNull(privateKeyEntry);
         }
@@ -52,7 +53,7 @@ public class P12UtilTest {
     public void testGetPrivateKeyEntryFromP12InputStreamWithMultipleKeys() throws Exception {
         try (final InputStream p12InputStream = P12UtilTest.class.getResourceAsStream(MULTIPLE_KEY_KEYSTORE_FILENAME)) {
             final PrivateKeyEntry privateKeyEntry =
-                    P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
+                    P12Util.getFirstApnsPrivateKeyEntry(p12InputStream, KEYSTORE_PASSWORD);
 
             assertNotNull(privateKeyEntry);
         }
@@ -61,7 +62,14 @@ public class P12UtilTest {
     @Test(expected = KeyStoreException.class)
     public void testGetPrivateKeyEntryFromP12InputStreamWithNoKeys() throws Exception {
         try (final InputStream p12InputStream = P12UtilTest.class.getResourceAsStream(NO_KEY_KEYSTORE_FILENAME)) {
-            P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
+            P12Util.getFirstApnsPrivateKeyEntry(p12InputStream, KEYSTORE_PASSWORD);
+        }
+    }
+
+    @Test(expected = KeyStoreException.class)
+    public void testGetPrivateKeyEntryFromP12InputStreamWithNoApnsCertificate() throws Exception {
+        try (final InputStream p12InputStream = P12UtilTest.class.getResourceAsStream(NOT_APNS_KEYSTORE_FILENAME)) {
+            P12Util.getFirstApnsPrivateKeyEntry(p12InputStream, KEYSTORE_PASSWORD);
         }
     }
 }
