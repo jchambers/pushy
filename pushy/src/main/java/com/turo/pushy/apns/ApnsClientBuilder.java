@@ -42,6 +42,8 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateExpiredException;
+import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.util.concurrent.TimeUnit;
 
@@ -495,13 +497,17 @@ public class ApnsClientBuilder {
      * @return a new ApnsClient instance with the previously-set configuration
      *
      * @throws SSLException if an SSL context could not be created for the new client for any reason
+     * @throws CertificateNotYetValidException if a client certificate has been provided and the certificate is not yet
+     * valid (i.e. its "not before" date is in the future)
+     * @throws CertificateExpiredException if a client certificate has been provided and the certificate has expired
+     * (i.e. its "not after" date is in the past)
      * @throws IllegalStateException if this method is called without specifying an APNs server address, if this method
      * is called without providing TLS credentials or a signing key, or if this method is called with both TLS
      * credentials and a signing key
      *
      * @since 0.8
      */
-    public ApnsClient build() throws SSLException {
+    public ApnsClient build() throws SSLException, CertificateNotYetValidException, CertificateExpiredException {
         if (this.apnsServerAddress == null) {
             throw new IllegalStateException("No APNs server address specified.");
         }
@@ -535,6 +541,7 @@ public class ApnsClientBuilder {
                     .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE);
 
             if (this.clientCertificate != null && this.privateKey != null) {
+                this.clientCertificate.checkValidity();
                 sslContextBuilder.keyManager(this.privateKey, this.privateKeyPassword, this.clientCertificate);
             }
 

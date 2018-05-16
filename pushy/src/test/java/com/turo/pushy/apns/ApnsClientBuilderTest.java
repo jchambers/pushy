@@ -31,12 +31,14 @@ import org.junit.Test;
 import java.io.File;
 import java.io.InputStream;
 import java.security.KeyStore.PrivateKeyEntry;
+import java.security.cert.CertificateExpiredException;
 import java.security.cert.X509Certificate;
 
 public class ApnsClientBuilderTest {
 
     private static final String SIGNING_KEY_FILENAME = "/token-auth-private-key.p8";
 
+    private static final String EXPIRED_CLIENT_KEYSTORE_FILENAME = "/expired.p12";
     private static final String SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME = "/single-topic-client.p12";
     private static final String SINGLE_TOPIC_CLIENT_KEYSTORE_UNPROTECTED_FILENAME = "/single-topic-client-unprotected.p12";
 
@@ -45,7 +47,7 @@ public class ApnsClientBuilderTest {
     private static NioEventLoopGroup EVENT_LOOP_GROUP;
 
     @BeforeClass
-    public static void setUpBeforeClass() throws Exception {
+    public static void setUpBeforeClass() {
         EVENT_LOOP_GROUP = new NioEventLoopGroup(1);
     }
 
@@ -158,11 +160,27 @@ public class ApnsClientBuilderTest {
                 final ApnsSigningKey signingKey = ApnsSigningKey.loadFromInputStream(p8InputStream, "TEAM_ID", "KEY_ID");
 
                 new ApnsClientBuilder()
+                        .setApnsServer(ApnsClientBuilder.DEVELOPMENT_APNS_HOST)
                         .setEventLoopGroup(EVENT_LOOP_GROUP)
                         .setClientCredentials((X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey(), null)
                         .setSigningKey(signingKey)
                         .build();
             }
+        }
+    }
+
+    @Test(expected = CertificateExpiredException.class)
+    public void testBuildWithExpiredCertificate() throws Exception {
+        try (final InputStream p12InputStream = this.getClass().getResourceAsStream(EXPIRED_CLIENT_KEYSTORE_FILENAME)) {
+
+            final PrivateKeyEntry privateKeyEntry =
+                    P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
+
+            new ApnsClientBuilder()
+                    .setApnsServer(ApnsClientBuilder.DEVELOPMENT_APNS_HOST)
+                    .setEventLoopGroup(EVENT_LOOP_GROUP)
+                    .setClientCredentials((X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey(), KEYSTORE_PASSWORD)
+                    .build();
         }
     }
 

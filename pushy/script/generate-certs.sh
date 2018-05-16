@@ -14,10 +14,14 @@ openssl req -new -keyout single-topic-client.key -nodes -newkey rsa:2048 -subj "
 openssl req -new -keyout multi-topic-client.key -nodes -newkey rsa:2048 -subj "/CN=Apple Push Services: com.relayrides.pushy/UID=com.relayrides.pushy" | \
     openssl x509 -extfile ./apns-extensions.cnf -extensions apns_multi_topic_client_extensions -req -CAkey ca.key -CA ca.pem -days 36500 -set_serial $RANDOM -sha512 -out multi-topic-client.pem
 
+openssl req -new -keyout expired.key -nodes -newkey rsa:2048 -subj "/CN=Apple Push Services: com.relayrides.pushy/UID=com.relayrides.pushy" | \
+    openssl x509 -extfile ./apns-extensions.cnf -extensions apns_multi_topic_client_extensions -req -CAkey ca.key -CA ca.pem -days 1 -set_serial $RANDOM -sha512 -out expired.pem
+
 # For simplicity, squish everything down into PKCS#12 keystores
 openssl pkcs12 -export -in server-certs.pem -inkey server-key.pem -out server.p12 -password pass:pushy-test
 openssl pkcs12 -export -in single-topic-client.pem -inkey single-topic-client.key -out single-topic-client.p12 -password pass:pushy-test
 openssl pkcs12 -export -in multi-topic-client.pem -inkey multi-topic-client.key -out multi-topic-client.p12 -password pass:pushy-test
+openssl pkcs12 -export -in expired.pem -inkey expired.key -out expired.p12 -password pass:pushy-test
 
 # We'll also want one keystore with an unprotected key to make sure no-password constructors behave correctly
 openssl pkcs12 -export -in single-topic-client.pem -inkey single-topic-client.key -out single-topic-client-unprotected.p12 -nodes -password pass:pushy-test
@@ -39,8 +43,7 @@ openssl pkcs12 -export -in ca.pem -nokeys -out no-keys.p12 -password pass:pushy-
 openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt -out token-auth-private-key.p8
 
 # Clean up intermediate files
-rm ca.key server.key multi-topic-client.key single-topic-client.key
-rm multiple-keys.jks
+rm *.key *.jks
 
 # Generate an elliptic key pair for token authentication testing
 openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt -out token-auth-private-key.p8
