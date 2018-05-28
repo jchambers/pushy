@@ -42,6 +42,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-tcnative-boringssl-static</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-core</artifactId>
             <version>${jmh.version}</version>
@@ -117,23 +122,4 @@
             </plugin>
         </plugins>
     </build>
-
-    <profiles>
-        <profile>
-            <id>benchmark-with-netty-tcnative</id>
-            <activation>
-                <property>
-                    <name>env.PUSHY_SSL_PROVIDER</name>
-                    <value>netty-tcnative</value>
-                </property>
-            </activation>
-            <dependencies>
-                <dependency>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-tcnative-boringssl-static</artifactId>
-                    <scope>runtime</scope>
-                </dependency>
-            </dependencies>
-        </profile>
-    </profiles>
 </project>
