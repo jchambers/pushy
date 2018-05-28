@@ -77,12 +77,19 @@
         </dependency>
         <dependency>
             <groupId>io.netty</groupId>
-            <artifactId>netty-transport-native-kqueue</artifactId>
+            <artifactId>netty-tcnative-boringssl-static</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-transport-native-epoll</artifactId>
+            <classifier>linux-x86_64</classifier>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-transport-native-kqueue</artifactId>
+            <classifier>osx-x86_64</classifier>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -136,56 +143,31 @@
         </profile>
 
         <profile>
-            <id>test-with-netty-tcnative</id>
+            <id>test-with-jdk-ssl-provider</id>
             <activation>
                 <property>
                     <name>env.PUSHY_SSL_PROVIDER</name>
-                    <value>netty-tcnative</value>
+                    <value>jdk</value>
                 </property>
             </activation>
-            <dependencies>
-                <dependency>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-tcnative-boringssl-static</artifactId>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
-        </profile>
-
-        <profile>
-            <id>test-with-native-kqueue</id>
-            <activation>
-                <property>
-                    <name>env.TRAVIS_OS_NAME</name>
-                    <value>osx</value>
-                </property>
-            </activation>
-            <dependencies>
-                <dependency>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-transport-native-kqueue</artifactId>
-                    <classifier>osx-x86_64</classifier>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
-        </profile>
-
-        <profile>
-            <id>test-with-native-epoll</id>
-            <activation>
-                <property>
-                    <name>env.TRAVIS_OS_NAME</name>
-                    <value>linux</value>
-                </property>
-            </activation>
-            <dependencies>
-                <dependency>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-transport-native-epoll</artifactId>
-                    <classifier>linux-x86_64</classifier>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>2.16</version>
+                        <configuration>
+                            <argLine>-Dio.netty.transport.noNative=true -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -Dio.netty.leakDetection.level=paranoid -ea</argLine>
+                            <properties>
+                                <property>
+                                    <name>listener</name>
+                                    <value>com.turo.pushy.apns.PrintTestNameRunListener</value>
+                                </property>
+                            </properties>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 </project>
