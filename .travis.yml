@@ -8,7 +8,6 @@ matrix:
 
         - os: linux
           jdk: oraclejdk8
-          env: PUSHY_SSL_PROVIDER=netty-tcnative
 
         - os: linux
           jdk: openjdk7
@@ -21,4 +20,3 @@ matrix:
 
         - os: osx
           osx_image: xcode8.3
-          env: PUSHY_SSL_PROVIDER=netty-tcnative
