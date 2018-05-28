@@ -16,19 +16,29 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 <dependency>
     <groupId>com.turo</groupId>
     <artifactId>pushy</artifactId>
-    <version>0.13.1</version>
+    <version>0.13.2</version>
 </dependency>
 ```
 
-If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.13.1/pushy-0.13.1.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
+If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.13.2/pushy-0.13.2.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
-- [netty 4.1.23](http://netty.io/)
-- [netty-tcnative-2.0.8.Final](http://netty.io/wiki/forked-tomcat-native.html)
+- [netty 4.1.25](http://netty.io/)
 - [gson 2.6](https://github.com/google/gson)
 - [slf4j 1.7](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
 - [fast-uuid 0.1](https://github.com/jchambers/fast-uuid)
 
-Pushy itself requires Java 7 or newer to build and run.
+Pushy itself requires Java 7 or newer to build and run. Under Java 7, Pushy has an additional dependency (included automatically by dependency management systems) on [netty-tcnative 2.0.8.Final](http://netty.io/wiki/forked-tomcat-native.html), a native SSL provider that (among other benefits) includes ciphers required by APNs that are not included with Java 7 by default.
+
+Under Java 8 and newer, Pushy does not require a native SSL provider, but users may choose to use it regardless for enhanced performance. To use a native provider, make sure netty-tcnative is on your classpath. Maven users may add a dependency to their project as follows:
+
+```xml
+<dependency>
+    <groupId>io.netty</groupId>
+    <artifactId>netty-tcnative-boringssl-static</artifactId>
+    <version>2.0.8.Final</version>
+    <scope>runtime</scope>
+</dependency>
+```
 
 ## Authenticating with the APNs server
 
@@ -163,11 +173,11 @@ Making the most of your system resources for high-throughput applications always
 
 ## System requirements
 
-Pushy works with Java 7 and newer. By default, it depends on `netty-tcnative` and should work "out of the box" for most users. Users who can't (or choose not to) use `netty-tcnative` may need to take extra steps to [configure a JDK SSL provider](https://github.com/relayrides/pushy/wiki/Using-a-JDK-SSL-provider).
+Pushy requires Java 7 or newer. Under Java 7, Pushy depends on netty-tcnative as an SSL provider (it is included automatically by dependency management systems, but Java 7 users managing dependcies manually will need to make sure it's on their classpath). A native SSL provider is not required under Java 8 and newer, but users may still choose to include one for enhanced performance.
 
 ## Metrics
 
-Pushy includes an interface for monitoring metrics that provide insight into clients' behavior and performance. You can write your own implementation of the `ApnsClientMetricsListener` interface to record and report metrics. We also provide a [metrics listener that uses the Dropwizard Metrics library](https://github.com/relayrides/pushy/tree/master/dropwizard-metrics-listener) as a separate module. To begin receiving metrics, set a listener when building a new client:
+Pushy includes an interface for monitoring metrics that provide insight into clients' behavior and performance. You can write your own implementation of the `ApnsClientMetricsListener` interface to record and report metrics. We also provide metrics listeners that gather and report metrics [using the Dropwizard Metrics library](https://github.com/relayrides/pushy/tree/master/dropwizard-metrics-listener) and [using the Micrometer application monitoring facade](https://github.com/relayrides/pushy/tree/master/micrometer-metrics-listener) as separate modules. To begin receiving metrics, set a listener when building a new client:
 
 ```java
 final ApnsClient apnsClient = new ApnsClientBuilder()
@@ -234,4 +244,4 @@ Callers may also provide a [`MockApnsServerListener`](http://relayrides.github.i
 
 Pushy is available under the [MIT License](https://github.com/relayrides/pushy/blob/master/LICENSE.md).
 
-The current version of Pushy is 0.13.1. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
+The current version of Pushy is 0.13.2. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
