@@ -114,8 +114,7 @@ public class ApnsClientBuilder {
      * <blockquote>You can alternatively use port 2197 when communicating with APNs. You might do this, for example, to
      * allow APNs traffic through your firewall but to block other HTTPS traffic.</blockquote>
      *
-     * @see <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html#//apple_ref/doc/uid/TP40008194-CH11-SW1">Communicating
-     * with APNs</a>
+     * @see <a href="https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/sending_notification_requests_to_apns">Sending Notification Requests to APNs</a>
      *
      * @since 0.5
      */
@@ -134,7 +133,7 @@ public class ApnsClientBuilder {
      * @see ApnsClientBuilder#DEVELOPMENT_APNS_HOST
      * @see ApnsClientBuilder#PRODUCTION_APNS_HOST
      *
-     * @see <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html#//apple_ref/doc/uid/TP40008194-CH11-SW1">Communicating with APNs</a>
+     * @see <a href="https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/sending_notification_requests_to_apns">Sending Notification Requests to APNs</a>
      *
      * @since 0.11
      */
@@ -158,7 +157,7 @@ public class ApnsClientBuilder {
      * @see ApnsClientBuilder#DEFAULT_APNS_PORT
      * @see ApnsClientBuilder#ALTERNATE_APNS_PORT
      *
-     * @see <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html#//apple_ref/doc/uid/TP40008194-CH11-SW1">Communicating with APNs</a>
+     * @see <a href="https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/sending_notification_requests_to_apns">Sending Notification Requests to APNs</a>
      *
      * @since 0.11
      */

@@ -37,9 +37,7 @@ import java.util.UUID;
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
- * @see <a href=
- *      "https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html">
- *      Local and Remote Notification Programming Guide - Apple Push Notification Service</a>
+ * @see <a href="https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/sending_notification_requests_to_apns">Sending Notification Requests to APNs</a>
  *
  * @see ApnsPayloadBuilder
  * @see PushNotificationResponse#getApnsId()

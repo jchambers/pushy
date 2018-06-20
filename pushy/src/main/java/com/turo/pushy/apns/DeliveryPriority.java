@@ -27,9 +27,7 @@ package com.turo.pushy.apns;
  * notification may be delivered to the receiving device by the APNs gateway and does <em>not</em> affect when the
  * notification will be sent to the gateway itself.
  *
- * @see <a href=
- *      "https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html">
- *      Local and Remote Notification Programming Guide - Communicating with APNs</a>
+ * @see <a href="https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/sending_notification_requests_to_apns">Sending Notification Requests to APNs</a>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *

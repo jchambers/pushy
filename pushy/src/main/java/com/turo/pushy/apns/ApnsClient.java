@@ -46,9 +46,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * authentication tokens for each notification they send. Clients that opt to use TLS-based authentication may send
  * notifications to any topic named in the client certificate. Clients that opt to use token-based authentication may
  * send notifications to any topic associated with the team to which the client's signing key belongs. Please see the
- * <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/APNSOverview.html">Local
- * and Remote Notification Programming Guide</a> for a detailed discussion of the APNs protocol, topics, and
- * certificate/key provisioning.</p>
+ * <a href="https://developer.apple.com/documentation/usernotifications">UserNotifications Framework documentation</a>
+ * for a detailed discussion of the APNs protocol, topics, and certificate/key provisioning.</p>
  *
  * <p>Clients are constructed using an {@link ApnsClientBuilder}. Callers may
  * optionally specify an {@link EventLoopGroup} when constructing a new client. If no event loop group is specified,
