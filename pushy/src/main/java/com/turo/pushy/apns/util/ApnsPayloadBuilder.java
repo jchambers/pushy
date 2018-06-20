@@ -42,6 +42,7 @@ import java.util.*;
 public class ApnsPayloadBuilder {
 
     private String alertBody = null;
+
     private String localizedAlertKey = null;
     private String[] localizedAlertArguments = null;
     private String alertTitle = null;
@@ -50,16 +51,25 @@ public class ApnsPayloadBuilder {
     private String alertSubtitle = null;
     private String localizedAlertSubtitleKey = null;
     private String[] localizedAlertSubtitleArguments = null;
+
     private String launchImageFileName = null;
+
     private boolean showActionButton = true;
     private String actionButtonLabel = null;
     private String localizedActionButtonKey = null;
+
     private Integer badgeNumber = null;
+
     private String soundFileName = null;
+    private SoundForCriticalAlert soundForCriticalAlert = null;
+
     private String categoryName = null;
+
     private boolean contentAvailable = false;
     private boolean mutableContent = false;
+
     private String threadId = null;
+
     private String[] urlArguments = null;
 
     private boolean preferStringRepresentationForAlerts = false;
@@ -96,6 +106,18 @@ public class ApnsPayloadBuilder {
     private static final String ABBREVIATION_SUBSTRING = "…";
 
     private static final Gson GSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
+
+    private static class SoundForCriticalAlert {
+        private final String name;
+        private final boolean critical;
+        private final double volume;
+
+        private SoundForCriticalAlert(final String name, final boolean critical, final double volume) {
+            this.name = name;
+            this.critical = critical;
+            this.volume = volume;
+        }
+    }
 
     /**
      * The name of the iOS default push notification sound.
@@ -375,23 +397,83 @@ public class ApnsPayloadBuilder {
 
     /**
      * <p>Sets the name of the sound file to play when the push notification is received. According to Apple's
-     * documentation, the value here should be:</p>
+     * documentation, the sound filename should be:</p>
      *
-     * <blockquote>...the name of a sound file in the application bundle. The sound in this file is played as an alert.
-     * If the sound file doesn't exist or {@code default} is specified as the value, the default alert sound is
-     * played.</blockquote>
+     * <blockquote>The name of a sound file in your app’s main bundle or in the {@code Library/Sounds} folder of your
+     * app’s container directory.</blockquote>
      *
      * <p>By default, no sound is included in the push notification.</p>
      *
-     * @param soundFileName
-     *            the name of the sound file to play, or {@code null} to send no sound
+     * @param soundFileName the name of the sound file to play, or {@code null} to send no sound
      *
      * @return a reference to this payload builder
      *
      * @see ApnsPayloadBuilder#DEFAULT_SOUND_FILENAME
+     *
+     * @deprecated As of v0.13.3, please use {@link #setSound(String)} instead.
      */
+    @Deprecated
     public ApnsPayloadBuilder setSoundFileName(final String soundFileName) {
+        return this.setSound(soundFileName);
+    }
+
+    /**
+     * <p>Sets the name of the sound file to play when the push notification is received. According to Apple's
+     * documentation, the sound filename should be:</p>
+     *
+     * <blockquote>The name of a sound file in your app’s main bundle or in the {@code Library/Sounds} folder of your
+     * app’s container directory.</blockquote>
+     *
+     * <p>By default, no sound is included in the push notification.</p>
+     *
+     * @param soundFileName the name of the sound file to play, or {@code null} to send no sound
+     *
+     * @return a reference to this payload builder
+     *
+     * @see ApnsPayloadBuilder#DEFAULT_SOUND_FILENAME
+     *
+     * @since 0.13.3
+     */
+    public ApnsPayloadBuilder setSound(final String soundFileName) {
         this.soundFileName = soundFileName;
+        this.soundForCriticalAlert = null;
+
+        return this;
+    }
+
+    /**
+     * <p>Sets the name of the sound file to play when the push notification is received along with its volume and
+     * whether it should be presented as a critical alert. According to Apple's documentation, the sound filename
+     * should be:</p>
+     *
+     * <blockquote>The name of a sound file in your app’s main bundle or in the {@code Library/Sounds} folder of your
+     * app’s container directory.</blockquote>
+     *
+     * <p>By default, no sound is included in the push notification.</p>
+     *
+     * <p>To explicitly specify that no sound should be played as part of this notification, use
+     * {@link #setSound(String)} with a {@code null} sound filename.</p>
+     *
+     * @param soundFileName the name of the sound file to play; must not be {@code null}
+     * @param isCriticalAlert specifies whether this sound should be played as a "critical alert"
+     * @param soundVolume the volume at which to play the sound; must be between 0.0 (silent) and 1.0 (loudest)
+     *
+     * @return a reference to this payload builder
+     *
+     * @see ApnsPayloadBuilder#DEFAULT_SOUND_FILENAME
+     *
+     * @since 0.13.3
+     */
+    public ApnsPayloadBuilder setSound(final String soundFileName, final boolean isCriticalAlert, final double soundVolume) {
+        Objects.requireNonNull(soundFileName, "Sound file name must not be null.");
+
+        if (soundVolume < 0 || soundVolume > 1) {
+            throw new IllegalArgumentException("Sound volume must be between 0.0 and 1.0 (inclusive).");
+        }
+
+        this.soundFileName = null;
+        this.soundForCriticalAlert = new SoundForCriticalAlert(soundFileName, isCriticalAlert, soundVolume);
+
         return this;
     }
 
@@ -573,6 +655,8 @@ public class ApnsPayloadBuilder {
 
             if (this.soundFileName != null) {
                 aps.put(SOUND_KEY, this.soundFileName);
+            } else if (this.soundForCriticalAlert != null) {
+                aps.put(SOUND_KEY, this.soundForCriticalAlert);
             }
 
             if (this.categoryName != null) {
