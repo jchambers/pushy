@@ -56,9 +56,7 @@ import java.util.concurrent.TimeUnit;
  * <p>Tokens may be constructed from an {@link ApnsSigningKey} (for clients sending notifications) or from a
  * Base64-encoded JWT string (for servers verifying a token from a client).</p>
  *
- * @see <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html#//apple_ref/doc/uid/TP40008194-CH11-SW1">Local
- * and Remote Notification Programming Guide - Communicating with APNs</a>
- *
+ * @see <a href="https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/establishing_a_token_based_connection_to_apns">Establishing a Token-Based Connection to APNs</a>
  * @see <a href="https://tools.ietf.org/html/rfc7519">RFC 7519 - JSON Web Token (JWT)</a>
  *
  * @see com.turo.pushy.apns.ApnsClientBuilder#setSigningKey(ApnsSigningKey)

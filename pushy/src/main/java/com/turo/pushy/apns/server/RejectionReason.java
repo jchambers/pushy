@@ -26,8 +26,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 
 /**
  * An enumeration of reasons a push notification may be rejected by an APNs server. The most up-to-date descriptions of
- * each rejection reason are available in Table 8-6 of Apple's <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingwithAPNs.html#//apple_ref/doc/uid/TP40008194-CH11-SW1">Local
- * and Remote Notification Programming Guide - Communicating with APNs</a>.
+ * each rejection reason are available in Table 5 of <a href="https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/sending_notification_requests_to_apns#2947619">Sending Notification Requests to APNs</a>.
  */
 public enum RejectionReason {
     BAD_COLLAPSE_ID("BadCollapseId", HttpResponseStatus.BAD_REQUEST),

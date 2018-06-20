@@ -30,7 +30,7 @@
  *
  * <p>Device tokens identify the device to which a push notification is being sent. Ultimately, tokens need to be
  * expressed as a string of hexadecimal characters, but a common practice is to transmit tokens as the output of
- * <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/Foundation/Classes/NSData_Class/Reference/Reference.html#//apple_ref/occ/instm/NSData/description">
+ * <a href="https://developer.apple.com/documentation/foundation/nsdata/1412579-description">
  * {@code [NSData describe]}</a>. The {@link com.turo.pushy.apns.util.TokenUtil} class provides methods for
  * sanitizing token strings so they can be sent safely to the APNs gateway.</p>
  *

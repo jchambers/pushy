@@ -35,9 +35,7 @@ import java.util.*;
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
- * @see <a href=
- *      "https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/PayloadKeyReference.html">
- *      Local and Push Notification Programming Guide - Apple Push Notification Service - Payload Key Reference</a>
+ * @see <a href="https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification">Generating a Remote Notification</a>
  */
 public class ApnsPayloadBuilder {
 
@@ -387,8 +385,7 @@ public class ApnsPayloadBuilder {
      *
      * @return a reference to this payload builder
      *
-     * @see <a href="https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/SupportingNotificationsinYourApp.html#//apple_ref/doc/uid/TP40008194-CH4-SW26">Configuring
-     * Categories and Actionable Notifications</a>
+     * @see <a href="https://developer.apple.com/documentation/usernotifications/declaring_your_actionable_notification_types">Declaring Your Actionable Notification Types</a>
      */
     public ApnsPayloadBuilder setCategoryName(final String categoryName) {
         this.categoryName = categoryName;
@@ -488,8 +485,7 @@ public class ApnsPayloadBuilder {
      * @return a reference to this payload builder
      *
      * @see <a href=
-     *      "https://developer.apple.com/library/content/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CreatingtheNotificationPayload.html#//apple_ref/doc/uid/TP40008194-CH10-SW8">Configuring
-     *      a Silent Notification</a>
+     *      "https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/pushing_updates_to_your_app_silently">Pushing Updates to Your App Silently</a>
      */
     public ApnsPayloadBuilder setContentAvailable(final boolean contentAvailable) {
         this.contentAvailable = contentAvailable;
