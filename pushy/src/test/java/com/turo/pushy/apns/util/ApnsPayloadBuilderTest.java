@@ -358,13 +358,46 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testSetSoundFileName() {
+    public void testSetSound() {
         final String soundFileName = "dying-giraffe.aiff";
-        this.builder.setSoundFileName(soundFileName);
+        this.builder.setSound(soundFileName);
 
         final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
 
         assertEquals(soundFileName, aps.get("sound"));
+    }
+
+    @Test
+    public void testSetSoundForCriticalAlert() {
+        final String soundFileName = "dying-giraffe.aiff";
+        final boolean isCriticalAlert = true;
+        final double soundVolume = 0.781;
+
+        this.builder.setSound(soundFileName, isCriticalAlert, soundVolume);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> soundDictionary = (Map<String, Object>) aps.get("sound");
+
+        assertEquals(soundFileName, soundDictionary.get("name"));
+        assertEquals(isCriticalAlert, soundDictionary.get("critical"));
+        assertEquals(soundVolume, soundDictionary.get("volume"));
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testSetSoundForCriticalAlertNullFilename() {
+        this.builder.setSound(null, true, 0.5);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetSoundForCriticalAlertLowVolume() {
+        this.builder.setSound("test", true, -4);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetSoundForCriticalAlertHighVolume() {
+        this.builder.setSound("test", true, 4);
     }
 
     @Test
@@ -511,7 +544,7 @@ public class ApnsPayloadBuilderTest {
         final String payloadString = this.builder.buildWithMaximumLength(maxLength);
 
         assertTrue(reallyLongAlertMessage.getBytes(StandardCharsets.UTF_8).length > maxLength);
-        assertTrue(payloadString.getBytes(StandardCharsets.UTF_8).length == maxLength);
+        assertEquals(payloadString.getBytes(StandardCharsets.UTF_8).length, maxLength);
     }
 
     @Test
