@@ -55,11 +55,14 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     private final Http2Connection.PropertyKey responseHeadersPropertyKey;
     private final Http2Connection.PropertyKey responsePromisePropertyKey;
+    private final Http2Connection.PropertyKey streamErrorCausePropertyKey;
 
     private final String authority;
 
     private final long pingTimeoutMillis;
     private ScheduledFuture<?> pingTimeoutFuture;
+
+    private Throwable connectionErrorCause;
 
     private static final String APNS_PATH_PREFIX = "/3/device/";
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
@@ -147,6 +150,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
         this.responseHeadersPropertyKey = this.connection().newKey();
         this.responsePromisePropertyKey = this.connection().newKey();
+        this.streamErrorCausePropertyKey = this.connection().newKey();
 
         this.connection().addListener(this);
 
@@ -164,7 +168,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         }
     }
 
-    protected void retryPushNotificationFromStream(final ChannelHandlerContext context, final int streamId) {
+    void retryPushNotificationFromStream(final ChannelHandlerContext context, final int streamId) {
         final Http2Stream stream = this.connection().stream(streamId);
 
         final PushNotificationPromise responsePromise = stream.removeProperty(this.responsePromisePropertyKey);
@@ -389,11 +393,11 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     }
 
     @Override
-    public void onPingRead(final ChannelHandlerContext ctx, final long l) throws Http2Exception {
+    public void onPingRead(final ChannelHandlerContext ctx, final long pingData) {
     }
 
     @Override
-    public void onPingAckRead(final ChannelHandlerContext context, final long l) throws Http2Exception {
+    public void onPingAckRead(final ChannelHandlerContext context, final long pingData) {
         if (this.pingTimeoutFuture != null) {
             log.trace("Received reply to ping.");
             this.pingTimeoutFuture.cancel(false);
@@ -440,7 +444,17 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
                 stream.getProperty(this.responsePromisePropertyKey);
 
         if (responsePromise != null) {
-            responsePromise.tryFailure(STREAM_CLOSED_BEFORE_REPLY_EXCEPTION);
+            final Throwable cause;
+
+            if (stream.getProperty(this.streamErrorCausePropertyKey) != null) {
+                cause = stream.getProperty(this.streamErrorCausePropertyKey);
+            } else if (this.connectionErrorCause != null) {
+                cause = this.connectionErrorCause;
+            } else {
+                cause = STREAM_CLOSED_BEFORE_REPLY_EXCEPTION;
+            }
+
+            responsePromise.tryFailure(cause);
         }
     }
 
@@ -456,5 +470,20 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     @Override
     public void onGoAwayReceived(final int lastStreamId, final long errorCode, final ByteBuf debugData) {
+    }
+
+    @Override
+    protected void onStreamError(final ChannelHandlerContext context, final boolean isOutbound, final Throwable cause, final Http2Exception.StreamException streamException) {
+        final Http2Stream stream = this.connection().stream(streamException.streamId());
+        stream.setProperty(this.streamErrorCausePropertyKey, streamException);
+
+        super.onStreamError(context, isOutbound, cause, streamException);
+    }
+
+    @Override
+    protected void onConnectionError(final ChannelHandlerContext context, final boolean isOutbound, final Throwable cause, final Http2Exception http2Exception) {
+        this.connectionErrorCause = http2Exception != null ? http2Exception : cause;
+
+        super.onConnectionError(context, isOutbound, cause, http2Exception);
     }
 }
