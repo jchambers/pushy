@@ -34,7 +34,8 @@ import java.security.spec.PKCS8EncodedKeySpec;
 
 /**
  * A private key used to sign authentication tokens. Signing keys are associated with a developer team (in Apple's
- * parlance), and can be used to sign authentication tokens for any topic associated with that team.
+ * parlance), and can be used to sign authentication tokens for any topic associated with that team. Signing key
+ * instances are immutable and thread-safe.
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *

@@ -42,6 +42,8 @@ import java.security.spec.X509EncodedKeySpec;
  * callers will want to use an {@link ApnsSigningKey} to provide signing credentials to an
  * {@link ApnsClient}.</p>
  *
+ * <p>Verification keys are immutable and thread-safe.</p>
+ *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
  * @since 0.10

@@ -29,6 +29,10 @@ package com.turo.pushy.apns.util;
  */
 public class TokenUtil {
 
+    private TokenUtil() {
+        // A private constructor prevents callers from accidentally constucting a TokenUtil instance
+    }
+
     /**
      * Returns a "sanitized" version of the given token string suitable for sending to an APNs server. This method
      * returns a version of the original string with all non-hexadecimal digits removed. This can be especially useful
