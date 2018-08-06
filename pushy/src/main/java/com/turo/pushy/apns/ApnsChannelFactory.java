@@ -60,8 +60,8 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
     private final AtomicLong currentDelaySeconds = new AtomicLong(0);
 
-    private static final long MIN_CONNECT_DELAY_MILLIS = 1; // second
-    private static final long MAX_CONNECT_DELAY_MILLIS = 60; // seconds
+    private static final long MIN_CONNECT_DELAY_SECONDS = 1;
+    private static final long MAX_CONNECT_DELAY_SECONDS = 60;
 
     private static final AttributeKey<Promise<Channel>> CHANNEL_READY_PROMISE_ATTRIBUTE_KEY =
             AttributeKey.valueOf(ApnsChannelFactory.class, "channelReadyPromise");
@@ -177,7 +177,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
             @Override
             public void operationComplete(final Future<Channel> future) throws Exception {
                 final long updatedDelay = future.isSuccess() ? 0 :
-                        Math.max(Math.min(delay * 2, MAX_CONNECT_DELAY_MILLIS), MIN_CONNECT_DELAY_MILLIS);
+                        Math.max(Math.min(delay * 2, MAX_CONNECT_DELAY_SECONDS), MIN_CONNECT_DELAY_SECONDS);
 
                 ApnsChannelFactory.this.currentDelaySeconds.compareAndSet(delay, updatedDelay);
             }
