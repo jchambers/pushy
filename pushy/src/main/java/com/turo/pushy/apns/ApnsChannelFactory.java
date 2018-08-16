@@ -109,7 +109,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
         this.bootstrapTemplate.handler(new ChannelInitializer<SocketChannel>() {
 
             @Override
-            protected void initChannel(final SocketChannel channel) throws Exception {
+            protected void initChannel(final SocketChannel channel) {
                 final ChannelPipeline pipeline = channel.pipeline();
 
                 if (proxyHandlerFactory != null) {
@@ -180,7 +180,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
         channelReadyPromise.addListener(new GenericFutureListener<Future<Channel>>() {
 
             @Override
-            public void operationComplete(final Future<Channel> future) throws Exception {
+            public void operationComplete(final Future<Channel> future) {
                 final long updatedDelay = future.isSuccess() ? 0 :
                         Math.max(Math.min(delay * 2, MAX_CONNECT_DELAY_SECONDS), MIN_CONNECT_DELAY_SECONDS);
 
@@ -204,7 +204,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
                 connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
 
                     @Override
-                    public void operationComplete(final ChannelFuture future) throws Exception {
+                    public void operationComplete(final ChannelFuture future) {
                         if (!future.isSuccess()) {
                             // This may seem spurious, but our goal here is to accurately report the cause of
                             // connection failure; if we just wait for connection closure, we won't be able to
@@ -217,7 +217,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
                 connectFuture.channel().closeFuture().addListener(new GenericFutureListener<ChannelFuture> () {
 
                     @Override
-                    public void operationComplete(final ChannelFuture future) throws Exception {
+                    public void operationComplete(final ChannelFuture future) {
                         // We always want to try to fail the "channel ready" promise if the connection closes; if it has
                         // already succeeded, this will have no effect.
                         channelReadyPromise.tryFailure(
