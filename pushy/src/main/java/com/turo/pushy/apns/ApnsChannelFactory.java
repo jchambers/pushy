@@ -31,6 +31,7 @@ import io.netty.handler.codec.http2.Http2FrameLogger;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.resolver.AddressResolverGroup;
 import io.netty.resolver.NoopAddressResolverGroup;
 import io.netty.resolver.dns.DefaultDnsServerAddressStreamProvider;
 import io.netty.resolver.dns.RoundRobinDnsAddressResolverGroup;
@@ -55,6 +56,8 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
     private final SslContext sslContext;
     private final AtomicBoolean hasReleasedSslContext = new AtomicBoolean(false);
+
+    private final AddressResolverGroup addressResolverGroup;
 
     private final Bootstrap bootstrapTemplate;
 
@@ -89,13 +92,15 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
             ((ReferenceCounted) this.sslContext).retain();
         }
 
+        this.addressResolverGroup = proxyHandlerFactory == null ?
+                new RoundRobinDnsAddressResolverGroup(ClientChannelClassUtil.getDatagramChannelClass(eventLoopGroup),
+                        DefaultDnsServerAddressStreamProvider.INSTANCE) : NoopAddressResolverGroup.INSTANCE;
+
         this.bootstrapTemplate = new Bootstrap();
         this.bootstrapTemplate.group(eventLoopGroup);
         this.bootstrapTemplate.option(ChannelOption.TCP_NODELAY, true);
         this.bootstrapTemplate.remoteAddress(apnsServerAddress);
-        this.bootstrapTemplate.resolver(proxyHandlerFactory == null ?
-                new RoundRobinDnsAddressResolverGroup(ClientChannelClassUtil.getDatagramChannelClass(eventLoopGroup),
-                        DefaultDnsServerAddressStreamProvider.INSTANCE) : NoopAddressResolverGroup.INSTANCE);
+        this.bootstrapTemplate.resolver(this.addressResolverGroup);
 
         if (connectTimeoutMillis > 0) {
             this.bootstrapTemplate.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMillis);
@@ -242,6 +247,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
     @Override
     public void close() {
+        this.addressResolverGroup.close();
 
         if (this.sslContext instanceof ReferenceCounted) {
             if (this.hasReleasedSslContext.compareAndSet(false, true)) {
