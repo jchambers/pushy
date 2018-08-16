@@ -41,6 +41,8 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
 import io.netty.util.concurrent.PromiseNotifier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.net.InetSocketAddress;
@@ -69,6 +71,8 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
     private static final AttributeKey<Promise<Channel>> CHANNEL_READY_PROMISE_ATTRIBUTE_KEY =
             AttributeKey.valueOf(ApnsChannelFactory.class, "channelReadyPromise");
 
+    private static final Logger log = LoggerFactory.getLogger(ApnsChannelFactory.class);
+
     @ChannelHandler.Sharable
     private static class ConnectionNegotiationErrorHandler extends ChannelHandlerAdapter {
 
@@ -76,7 +80,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
         @Override
         public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
-            context.channel().attr(CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).get().tryFailure(cause);
+            tryFailureAndLogRejectedCause(context.channel().attr(CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).get(), cause);
         }
     }
 
@@ -153,7 +157,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
                             channel.attr(CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).get().trySuccess(channel);
                         } else {
-                            channel.attr(CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).get().tryFailure(handshakeFuture.cause());
+                            tryFailureAndLogRejectedCause(channel.attr(CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).get(), handshakeFuture.cause());
                         }
                     }
                 });
@@ -209,7 +213,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
                             // This may seem spurious, but our goal here is to accurately report the cause of
                             // connection failure; if we just wait for connection closure, we won't be able to
                             // tell callers anything more specific about what went wrong.
-                            channelReadyPromise.tryFailure(future.cause());
+                            tryFailureAndLogRejectedCause(channelReadyPromise, future.cause());
                         }
                     }
                 });
@@ -253,6 +257,12 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
             if (this.hasReleasedSslContext.compareAndSet(false, true)) {
                 ((ReferenceCounted) this.sslContext).release();
             }
+        }
+    }
+
+    private static void tryFailureAndLogRejectedCause(final Promise<?> promise, final Throwable cause) {
+        if (!promise.tryFailure(cause)) {
+            log.debug("Tried to mark promise as \"failed,\" but it was already done.", cause);
         }
     }
 }
