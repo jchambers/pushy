@@ -262,7 +262,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
     private static void tryFailureAndLogRejectedCause(final Promise<?> promise, final Throwable cause) {
         if (!promise.tryFailure(cause)) {
-            log.debug("Tried to mark promise as \"failed,\" but it was already done.", cause);
+            log.warn("Tried to mark promise as \"failed,\" but it was already done.", cause);
         }
     }
 }
