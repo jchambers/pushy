@@ -9,6 +9,8 @@ Pushy sends push notifications using Apple's HTTP/2-based APNs protocol and supp
 
 We believe that Pushy is already the best tool for sending APNs push notifications from Java applications, and we hope you'll help us make it even better via bug reports and pull requests. If you have questions about using Pushy, please join us on [the Pushy mailing list](https://groups.google.com/d/forum/pushy-apns) or take a look at [the wiki](https://github.com/relayrides/pushy/wiki). Thanks!
 
+If you need a simple GUI application for sending push notifications for development or testing purposes, you might also be interested in Pushy's sister project, [Pushy Console](https://github.com/turo/pushy-console).
+
 ## Getting Pushy
 
 If you use [Maven](http://maven.apache.org/), you can add Pushy to your project by adding the following dependency declaration to your POM:
