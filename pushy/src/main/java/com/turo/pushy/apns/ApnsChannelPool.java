@@ -144,48 +144,51 @@ class ApnsChannelPool {
         assert this.executor.inEventLoop();
 
         if (!this.isClosed) {
-            final Channel channelFromIdlePool = ApnsChannelPool.this.idleChannels.poll();
+            // We always want to open new channels if we have spare capacity. Once the pool is full, we'll start looking
+            // for idle, pre-existing channels.
+            if (this.allChannels.size() + this.pendingCreateChannelFutures.size() < this.capacity) {
+                final Future<Channel> createChannelFuture = this.channelFactory.create(executor.<Channel>newPromise());
+                this.pendingCreateChannelFutures.add(createChannelFuture);
 
-            if (channelFromIdlePool != null) {
-                if (channelFromIdlePool.isActive()) {
-                    acquirePromise.trySuccess(channelFromIdlePool);
-                } else {
-                    // The channel from the idle pool isn't usable; discard it and create a new one instead
-                    this.discardChannel(channelFromIdlePool);
-                    this.acquireWithinEventExecutor(acquirePromise);
-                }
-            } else {
-                // We don't have any connections ready to go; create a new one if possible.
-                if (this.allChannels.size() + this.pendingCreateChannelFutures.size() < this.capacity) {
-                    final Future<Channel> createChannelFuture = this.channelFactory.create(executor.<Channel>newPromise());
-                    this.pendingCreateChannelFutures.add(createChannelFuture);
+                createChannelFuture.addListener(new GenericFutureListener<Future<Channel>>() {
 
-                    createChannelFuture.addListener(new GenericFutureListener<Future<Channel>>() {
+                    @Override
+                    public void operationComplete(final Future<Channel> future) {
+                        ApnsChannelPool.this.pendingCreateChannelFutures.remove(createChannelFuture);
 
-                        @Override
-                        public void operationComplete(final Future<Channel> future) throws Exception {
-                            ApnsChannelPool.this.pendingCreateChannelFutures.remove(createChannelFuture);
+                        if (future.isSuccess()) {
+                            final Channel channel = future.getNow();
 
-                            if (future.isSuccess()) {
-                                final Channel channel = future.getNow();
+                            ApnsChannelPool.this.allChannels.add(channel);
+                            ApnsChannelPool.this.metricsListener.handleConnectionAdded();
 
-                                ApnsChannelPool.this.allChannels.add(channel);
-                                ApnsChannelPool.this.metricsListener.handleConnectionAdded();
+                            acquirePromise.trySuccess(channel);
+                        } else {
+                            ApnsChannelPool.this.metricsListener.handleConnectionCreationFailed();
 
-                                acquirePromise.trySuccess(channel);
-                            } else {
-                                ApnsChannelPool.this.metricsListener.handleConnectionCreationFailed();
+                            acquirePromise.tryFailure(future.cause());
 
-                                acquirePromise.tryFailure(future.cause());
-
-                                // If we failed to open a connection, this is the end of the line for this acquisition
-                                // attempt, and callers won't be able to release the channel (since they didn't get one
-                                // in the first place). Move on to the next acquisition attempt if one is present.
-                                ApnsChannelPool.this.handleNextAcquisition();
-                            }
+                            // If we failed to open a connection, this is the end of the line for this acquisition
+                            // attempt, and callers won't be able to release the channel (since they didn't get one
+                            // in the first place). Move on to the next acquisition attempt if one is present.
+                            ApnsChannelPool.this.handleNextAcquisition();
                         }
-                    });
+                    }
+                });
+            } else {
+                final Channel channelFromIdlePool = ApnsChannelPool.this.idleChannels.poll();
+
+                if (channelFromIdlePool != null) {
+                    if (channelFromIdlePool.isActive()) {
+                        acquirePromise.trySuccess(channelFromIdlePool);
+                    } else {
+                        // The channel from the idle pool isn't usable; discard it and create a new one instead
+                        this.discardChannel(channelFromIdlePool);
+                        this.acquireWithinEventExecutor(acquirePromise);
+                    }
                 } else {
+                    // We don't have any connections ready to go, and don't have any more capacity to create new
+                    // channels. Add this acquisition to the queue waiting for channels to become available.
                     pendingAcquisitionPromises.add(acquirePromise);
                 }
             }
