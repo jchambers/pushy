@@ -32,7 +32,7 @@
     <name>Pushy parent</name>
     <description>A Java library for sending push notifications</description>
     <inceptionYear>2013</inceptionYear>
-    <url>http://relayrides.github.com/pushy/</url>
+    <url>https://relayrides.github.io/pushy/</url>
 
     <licenses>
         <license>
