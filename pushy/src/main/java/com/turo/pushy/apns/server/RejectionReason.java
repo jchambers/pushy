@@ -74,11 +74,11 @@ public enum RejectionReason {
         this.httpResponseStatus = httpResponseStatus;
     }
 
-    String getReasonText() {
+    public String getReasonText() {
         return this.reasonText;
     }
 
-    HttpResponseStatus getHttpResponseStatus() {
+    public HttpResponseStatus getHttpResponseStatus() {
         return this.httpResponseStatus;
     }
 }
