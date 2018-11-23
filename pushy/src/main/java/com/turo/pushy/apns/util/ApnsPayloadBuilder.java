@@ -68,6 +68,9 @@ public class ApnsPayloadBuilder {
 
     private String threadId = null;
 
+    private String summaryArgument = null;
+    private Integer summaryArgumentCount = null;
+
     private String[] urlArguments = null;
 
     private boolean preferStringRepresentationForAlerts = false;
@@ -82,6 +85,8 @@ public class ApnsPayloadBuilder {
     private static final String CONTENT_AVAILABLE_KEY = "content-available";
     private static final String MUTABLE_CONTENT_KEY = "mutable-content";
     private static final String THREAD_ID_KEY = "thread-id";
+    private static final String SUMMARY_ARGUMENT = "summary-arg";
+    private static final String SUMMARY_ARGUMENT_COUNT = "summary-arg-count";
     private static final String URL_ARGS_KEY = "url-args";
 
     private static final String ALERT_TITLE_KEY = "title";
@@ -531,6 +536,47 @@ public class ApnsPayloadBuilder {
     }
 
     /**
+     * <p>Sets the summary argument for this notification. The summary argument is:</p>
+     *
+     * <blockquote>The argument to be inserted in the summary for this notification when the system groups the
+     * category’s notifications. For example when defining an UNNotificationCategory, passing a format string like
+     * "%u more messages from %@" to the categorySummaryFormat argument, will produce
+     * "x more messages from {summaryArgument}</blockquote>
+     *
+     * <p>By default, it says “x more notifications”, no summary argument is included.</p>
+     *
+     * @param summaryArgument the summary argument for this notification
+     *
+     * @return a reference to this payload builder
+     *
+     * @since 0.13.6
+     */
+    public ApnsPayloadBuilder setSummaryArgument(final String summaryArgument) {
+        this.summaryArgument = summaryArgument;
+        return this;
+    }
+
+    /**
+     * <p>Sets the summary argument count for this notification. The summary argument count is:</p>
+     *
+     * <blockquote>A number that indicates how many items in the summary are represented in the summary.
+     * For example if a podcast app sends one notification for 3 new episodes in a show,
+     * the argument should be the name of the show and the count should be 3.</blockquote>
+     *
+     * <p>By default, summary argument count is 1 and it can not be 0.</p>
+     *
+     * @param summaryArgumentCount the summary argument count for this notification
+     *
+     * @return a reference to this payload builder
+     *
+     * @since 0.13.6
+     */
+    public ApnsPayloadBuilder setSummaryArgumentCount(final Integer summaryArgumentCount) {
+        this.summaryArgumentCount = summaryArgumentCount;
+        return this;
+    }
+
+    /**
      * <p>Sets the list of arguments to populate placeholders in the {@code urlFormatString} associated with a Safari
      * push notification. Has no effect for non-Safari notifications. According to the Notification Programming Guide
      * for Websites:</p>
@@ -669,6 +715,14 @@ public class ApnsPayloadBuilder {
 
             if (this.threadId != null) {
                 aps.put(THREAD_ID_KEY, this.threadId);
+            }
+
+            if (this.summaryArgument != null) {
+                aps.put(SUMMARY_ARGUMENT, this.summaryArgument);
+            }
+
+            if (this.summaryArgumentCount != null) {
+                aps.put(SUMMARY_ARGUMENT_COUNT, this.summaryArgumentCount);
             }
 
             if (this.urlArguments != null) {
