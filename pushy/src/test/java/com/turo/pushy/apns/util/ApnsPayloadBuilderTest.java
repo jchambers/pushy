@@ -451,6 +451,34 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
+    public void testSetSummaryArgument() {
+        final String summaryArgument = "This is a summary argument";
+
+        this.builder.setSummaryArgument(summaryArgument);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+        assertEquals(summaryArgument, alert.get("summary-arg"));
+    }
+
+    @Test
+    public void testSetSummaryArgumentCount() {
+        final int argumentSummaryCount = 3;
+
+        this.builder.setSummaryArgumentCount(argumentSummaryCount);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+        assertEquals(argumentSummaryCount, ((Number) alert.get("summary-arg-count")).intValue());
+    }
+
+    @Test
     public void testAddCustomProperty() {
         final String customKey = "string";
         final String customValue = "Hello";

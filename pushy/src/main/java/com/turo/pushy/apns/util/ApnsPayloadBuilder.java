@@ -68,6 +68,9 @@ public class ApnsPayloadBuilder {
 
     private String threadId = null;
 
+    private String summaryArgument = null;
+    private Integer summaryArgumentCount = null;
+
     private String[] urlArguments = null;
 
     private boolean preferStringRepresentationForAlerts = false;
@@ -82,6 +85,8 @@ public class ApnsPayloadBuilder {
     private static final String CONTENT_AVAILABLE_KEY = "content-available";
     private static final String MUTABLE_CONTENT_KEY = "mutable-content";
     private static final String THREAD_ID_KEY = "thread-id";
+    private static final String SUMMARY_ARGUMENT_KEY = "summary-arg";
+    private static final String SUMMARY_ARGUMENT_COUNT_KEY = "summary-arg-count";
     private static final String URL_ARGS_KEY = "url-args";
 
     private static final String ALERT_TITLE_KEY = "title";
@@ -531,6 +536,69 @@ public class ApnsPayloadBuilder {
     }
 
     /**
+     * <p>Sets the summary argument for this notification. The summary argument is:</p>
+     *
+     * <blockquote>The string the notification adds to the category’s summary format string.</blockquote>
+     *
+     * <p>For example in iOS 12, when defining an {@code UNNotificationCategory}, passing a format string like
+     * "%u more messages from %@" to the {@code categorySummaryFormat} argument, will produce
+     * "x more messages from {summaryArgument}.</p>
+     *
+     * <p>In iOS 12, the default summary format string in English is "%u more notifications" and does not have a
+     * placeholder for a summary argument. By default, no summary argument is included in push notification payloads.</p>
+     *
+     * @param summaryArgument the summary argument for this notification; if
+     * {@code null}, the {@code summary-arg} key is omitted from the payload entirely
+     *
+     * @return a reference to this payload builder
+     *
+     * @see <a href=
+     *      "https://developer.apple.com/documentation/usernotifications/unnotificationcontent">
+     *      UNNotificationContent</a>
+     *
+     * @since 0.13.6
+     */
+    public ApnsPayloadBuilder setSummaryArgument(final String summaryArgument) {
+        this.summaryArgument = summaryArgument;
+        return this;
+    }
+
+    /**
+     * <p>Sets the summary argument count for this notification. The summary argument count is:</p>
+     *
+     * <blockquote>The number of items the notification adds to the category’s summary format string.</blockquote>
+     *
+     * <p>By default, all notifications count as a single "item" in a group of notifications. The summary argument count
+     * controls how many "items" in a "stack" of notifications are represented by a specific notification.
+     * If, for example, a notification informed a user that seven new podcasts are available, it might be helpful to set
+     * the summary argument count to 7. When "stacked," the notification would contribute an item count of 7
+     * to the total number of notifications reported in the summary string (for example, "7 more podcasts").
+     * </p>
+     *
+     * <p>By default, notifications count as a single "item" in a group of notifications, and so the default
+     * summary argument count is 1 (even if no summary argument count is specified in the notification payload).
+     * If specified, summary argument count must be positive.</p>
+     *
+     * @param summaryArgumentCount the summary argument count for this notification
+     * {@code null}, the {@code summary-arg-count} key is omitted from the payload entirely
+     *
+     * @return a reference to this payload builder
+     *
+     * @see <a href=
+     *      "https://developer.apple.com/documentation/usernotifications/unnotificationcontent">
+     *      UNNotificationContent</a>
+     *
+     * @since 0.13.6
+     */
+    public ApnsPayloadBuilder setSummaryArgumentCount(final Integer summaryArgumentCount) {
+        if (summaryArgumentCount != null && summaryArgumentCount < 1) {
+            throw new IllegalArgumentException("Summary argument count must be positive.");
+        }
+        this.summaryArgumentCount = summaryArgumentCount;
+        return this;
+    }
+
+    /**
      * <p>Sets the list of arguments to populate placeholders in the {@code urlFormatString} associated with a Safari
      * push notification. Has no effect for non-Safari notifications. According to the Notification Programming Guide
      * for Websites:</p>
@@ -687,6 +755,14 @@ public class ApnsPayloadBuilder {
 
                 if (this.alertSubtitle != null) {
                     alert.put(ALERT_SUBTITLE_KEY, this.alertSubtitle);
+                }
+
+                if (this.summaryArgument != null) {
+                    alert.put(SUMMARY_ARGUMENT_KEY, this.summaryArgument);
+                }
+
+                if (this.summaryArgumentCount != null) {
+                    alert.put(SUMMARY_ARGUMENT_COUNT_KEY, this.summaryArgumentCount);
                 }
 
                 if (this.showActionButton) {
