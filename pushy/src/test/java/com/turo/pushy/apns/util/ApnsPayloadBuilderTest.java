@@ -478,6 +478,11 @@ public class ApnsPayloadBuilderTest {
         assertEquals(argumentSummaryCount, ((Number) alert.get("summary-arg-count")).intValue());
     }
 
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetSummaryArgumentCountNonPositive() {
+        this.builder.setSummaryArgumentCount(0);
+    }
+
     @Test
     public void testAddCustomProperty() {
         final String customKey = "string";
@@ -486,8 +491,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.addCustomProperty(customKey, customValue);
 
         @SuppressWarnings("unchecked")
-        final Map<String, Object> payload = GSON.fromJson(
-                this.builder.buildWithDefaultMaximumLength(), MAP_OF_STRING_TO_OBJECT);
+        final Map<String, Object> payload = GSON.fromJson(this.builder.buildWithDefaultMaximumLength(), MAP_OF_STRING_TO_OBJECT);
 
         assertEquals(customValue, payload.get(customKey));
     }

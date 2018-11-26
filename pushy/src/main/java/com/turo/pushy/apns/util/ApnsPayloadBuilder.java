@@ -547,8 +547,8 @@ public class ApnsPayloadBuilder {
      * <p>In iOS 12, the default summary format string in English is "%u more notifications" and does not have a
      * placeholder for a summary argument. By default, no summary argument is included in push notification payloads.</p>
      *
-     * @param summaryArgument the summary argument for this notification; if
-     * {@code null}, the {@code summary-arg} key is omitted from the payload entirely
+     * @param summaryArgument the summary argument for this notification; if {@code null}, the {@code summary-arg} key
+     * is omitted from the payload entirely
      *
      * @return a reference to this payload builder
      *
@@ -579,8 +579,8 @@ public class ApnsPayloadBuilder {
      * summary argument count is 1 (even if no summary argument count is specified in the notification payload).
      * If specified, summary argument count must be positive.</p>
      *
-     * @param summaryArgumentCount the summary argument count for this notification
-     * {@code null}, the {@code summary-arg-count} key is omitted from the payload entirely
+     * @param summaryArgumentCount the summary argument count for this notification; if {@code null}, the
+     * {@code summary-arg-count} key is omitted from the payload entirely
      *
      * @return a reference to this payload builder
      *
@@ -594,7 +594,9 @@ public class ApnsPayloadBuilder {
         if (summaryArgumentCount != null && summaryArgumentCount < 1) {
             throw new IllegalArgumentException("Summary argument count must be positive.");
         }
+
         this.summaryArgumentCount = summaryArgumentCount;
+
         return this;
     }
 
@@ -611,7 +613,7 @@ public class ApnsPayloadBuilder {
      * received.</blockquote>
      *
      * @param arguments the arguments with which to populate URL placeholders, which may be an empty list; if
-     * {@code null}, the {@code url-args} key is ommitted from the payload entirely
+     * {@code null}, the {@code url-args} key is omitted from the payload entirely
      *
      * @return a reference to this payload builder
      *
@@ -637,7 +639,7 @@ public class ApnsPayloadBuilder {
      * received.</blockquote>
      *
      * @param arguments the arguments with which to populate URL placeholders, which may be an empty array; if
-     * {@code null}, the {@code url-args} key is ommitted from the payload entirely
+     * {@code null}, the {@code url-args} key is omitted from the payload entirely
      *
      * @return a reference to this payload builder
      *
