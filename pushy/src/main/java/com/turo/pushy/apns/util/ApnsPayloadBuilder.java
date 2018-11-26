@@ -85,8 +85,8 @@ public class ApnsPayloadBuilder {
     private static final String CONTENT_AVAILABLE_KEY = "content-available";
     private static final String MUTABLE_CONTENT_KEY = "mutable-content";
     private static final String THREAD_ID_KEY = "thread-id";
-    private static final String SUMMARY_ARGUMENT = "summary-arg";
-    private static final String SUMMARY_ARGUMENT_COUNT = "summary-arg-count";
+    private static final String SUMMARY_ARGUMENT_KEY = "summary-arg";
+    private static final String SUMMARY_ARGUMENT_COUNT_KEY = "summary-arg-count";
     private static final String URL_ARGS_KEY = "url-args";
 
     private static final String ALERT_TITLE_KEY = "title";
@@ -538,16 +538,21 @@ public class ApnsPayloadBuilder {
     /**
      * <p>Sets the summary argument for this notification. The summary argument is:</p>
      *
-     * <blockquote>The argument to be inserted in the summary for this notification when the system groups the
-     * category’s notifications. For example when defining an UNNotificationCategory, passing a format string like
+     * <blockquote>The string the notification adds to the category’s summary format string.</blockquote>
+     *
+     * <p>For example when defining an UNNotificationCategory, passing a format string like
      * "%u more messages from %@" to the categorySummaryFormat argument, will produce
-     * "x more messages from {summaryArgument}</blockquote>
+     * "x more messages from {summaryArgument}.</p>
      *
      * <p>By default, it says “x more notifications”, no summary argument is included.</p>
      *
      * @param summaryArgument the summary argument for this notification
      *
      * @return a reference to this payload builder
+     *
+     * @see <a href=
+     *      "https://developer.apple.com/documentation/usernotifications/unnotificationcontent">
+     *      UNNotificationContent</a>
      *
      * @since 0.13.6
      */
@@ -559,15 +564,21 @@ public class ApnsPayloadBuilder {
     /**
      * <p>Sets the summary argument count for this notification. The summary argument count is:</p>
      *
-     * <blockquote>A number that indicates how many items in the summary are represented in the summary.
-     * For example if a podcast app sends one notification for 3 new episodes in a show,
-     * the argument should be the name of the show and the count should be 3.</blockquote>
+     * <blockquote>The number of items the notification adds to the category’s summary format string.</blockquote>
+     *
+     * <p>For example when defining an UNNotificationCategory, passing a format string like
+     * like "%u more podcasts" to the categorySummaryFormat argument, will produce "{argumentSummaryCount} more podcasts"
+     * </p>
      *
      * <p>By default, summary argument count is 1 and it can not be 0.</p>
      *
      * @param summaryArgumentCount the summary argument count for this notification
      *
      * @return a reference to this payload builder
+     *
+     * @see <a href=
+     *      "https://developer.apple.com/documentation/usernotifications/unnotificationcontent">
+     *      UNNotificationContent</a>
      *
      * @since 0.13.6
      */
@@ -717,14 +728,6 @@ public class ApnsPayloadBuilder {
                 aps.put(THREAD_ID_KEY, this.threadId);
             }
 
-            if (this.summaryArgument != null) {
-                aps.put(SUMMARY_ARGUMENT, this.summaryArgument);
-            }
-
-            if (this.summaryArgumentCount != null) {
-                aps.put(SUMMARY_ARGUMENT_COUNT, this.summaryArgumentCount);
-            }
-
             if (this.urlArguments != null) {
                 aps.put(URL_ARGS_KEY, this.urlArguments);
             }
@@ -741,6 +744,14 @@ public class ApnsPayloadBuilder {
 
                 if (this.alertSubtitle != null) {
                     alert.put(ALERT_SUBTITLE_KEY, this.alertSubtitle);
+                }
+
+                if (this.summaryArgument != null) {
+                    alert.put(SUMMARY_ARGUMENT_KEY, this.summaryArgument);
+                }
+
+                if (this.summaryArgumentCount != null) {
+                    alert.put(SUMMARY_ARGUMENT_COUNT_KEY, this.summaryArgumentCount);
                 }
 
                 if (this.showActionButton) {

@@ -457,7 +457,11 @@ public class ApnsPayloadBuilderTest {
         this.builder.setSummaryArgument(summaryArgument);
 
         final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
-        assertEquals(summaryArgument, aps.get("summary-arg"));
+
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+        assertEquals(summaryArgument, alert.get("summary-arg"));
     }
 
     @Test
@@ -467,7 +471,11 @@ public class ApnsPayloadBuilderTest {
         this.builder.setSummaryArgumentCount(argumentSummaryCount);
 
         final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
-        assertEquals(argumentSummaryCount, ((Number) aps.get("summary-arg-count")).intValue());
+
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+        assertEquals(argumentSummaryCount, ((Number) alert.get("summary-arg-count")).intValue());
     }
 
     @Test
