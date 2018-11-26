@@ -540,13 +540,15 @@ public class ApnsPayloadBuilder {
      *
      * <blockquote>The string the notification adds to the category’s summary format string.</blockquote>
      *
-     * <p>For example when defining an UNNotificationCategory, passing a format string like
-     * "%u more messages from %@" to the categorySummaryFormat argument, will produce
+     * <p>For example in iOS 12, when defining an {@code UNNotificationCategory}, passing a format string like
+     * "%u more messages from %@" to the {@code categorySummaryFormat} argument, will produce
      * "x more messages from {summaryArgument}.</p>
      *
-     * <p>By default, it says “x more notifications”, no summary argument is included.</p>
+     * <p>In iOS 12, the default summary format string in English is "%u more notifications" and does not have a
+     * placeholder for a summary argument. By default, no summary argument is included in push notification payloads.</p>
      *
-     * @param summaryArgument the summary argument for this notification
+     * @param summaryArgument the summary argument for this notification; if
+     * {@code null}, the {@code summary-arg} key is omitted from the payload entirely
      *
      * @return a reference to this payload builder
      *
@@ -566,13 +568,19 @@ public class ApnsPayloadBuilder {
      *
      * <blockquote>The number of items the notification adds to the category’s summary format string.</blockquote>
      *
-     * <p>For example when defining an UNNotificationCategory, passing a format string like
-     * like "%u more podcasts" to the categorySummaryFormat argument, will produce "{argumentSummaryCount} more podcasts"
+     * <p>By default, all notifications count as a single "item" in a group of notifications. The summary argument count
+     * controls how many "items" in a "stack" of notifications are represented by a specific notification.
+     * If, for example, a notification informed a user that seven new podcasts are available, it might be helpful to set
+     * the summary argument count to 7. When "stacked," the notification would contribute an item count of 7
+     * to the total number of notifications reported in the summary string (for example, "7 more podcasts").
      * </p>
      *
-     * <p>By default, summary argument count is 1 and it can not be 0.</p>
+     * <p>By default, notifications count as a single "item" in a group of notifications, and so the default
+     * summary argument count is 1 (even if no summary argument count is specified in the notification payload).
+     * If specified, summary argument count must be positive.</p>
      *
      * @param summaryArgumentCount the summary argument count for this notification
+     * {@code null}, the {@code summary-arg-count} key is omitted from the payload entirely
      *
      * @return a reference to this payload builder
      *
@@ -583,6 +591,9 @@ public class ApnsPayloadBuilder {
      * @since 0.13.6
      */
     public ApnsPayloadBuilder setSummaryArgumentCount(final Integer summaryArgumentCount) {
+        if (summaryArgumentCount != null && summaryArgumentCount < 1) {
+            throw new IllegalArgumentException("Summary argument count must be positive.");
+        }
         this.summaryArgumentCount = summaryArgumentCount;
         return this;
     }
