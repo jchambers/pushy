@@ -7,4 +7,6 @@ doc
 _site
 #ignore intellij files
 *.iml
+*.ipr
+*.iws
 .idea/
