@@ -291,6 +291,15 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
                 sslContextBuilder.trustManager(this.trustedClientCertificates);
             }
 
+            // Mock server needs to be able to inform to ALPN-enabled HTTP clients
+            // which protocols are supported during the protocol negotiation phase.
+            // In this case, mock server should only support HTTP/2 in order to mock real APNS servers.
+            sslContextBuilder.applicationProtocolConfig(new ApplicationProtocolConfig(
+                    ApplicationProtocolConfig.Protocol.ALPN,
+                    ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
+                    ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+                    ApplicationProtocolNames.HTTP_2));
+
             sslContext = sslContextBuilder.build();
         }
 
