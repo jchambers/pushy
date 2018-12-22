@@ -28,6 +28,7 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.http2.Http2FrameLogger;
+import io.netty.handler.flush.FlushConsolidationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
@@ -151,6 +152,8 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
                                 apnsClientHandler.gracefulShutdownTimeoutMillis(gracefulShutdownTimeoutMillis);
                             }
 
+                            // TODO Use a named constant when https://github.com/netty/netty/pull/8683 is available
+                            pipeline.addLast(new FlushConsolidationHandler(256, true));
                             pipeline.addLast(new IdleStateHandler(idlePingIntervalMillis, 0, 0, TimeUnit.MILLISECONDS));
                             pipeline.addLast(apnsClientHandler);
                             pipeline.remove(ConnectionNegotiationErrorHandler.INSTANCE);
