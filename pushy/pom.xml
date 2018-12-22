@@ -104,7 +104,7 @@
                     <show>public</show>
                     <links>
                         <link>https://docs.oracle.com/javase/8/docs/api/</link>
-                        <link>http://netty.io/4.1/api/</link>
+                        <link>https://netty.io/4.1/api/</link>
                         <link>https://google.github.io/gson/apidocs/</link>
                     </links>
                 </configuration>
