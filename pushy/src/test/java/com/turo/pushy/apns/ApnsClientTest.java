@@ -582,19 +582,23 @@ public class ApnsClientTest extends AbstractClientServerTest {
         final ApnsClient client = useTokenAuthentication ?
                 this.buildTokenAuthenticationClient(metricsListener) : this.buildTlsAuthenticationClient(metricsListener);
 
-        final SimpleApnsPushNotification pushNotification =
-                new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
+        try {
+            final SimpleApnsPushNotification pushNotification =
+                    new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
 
-        client.sendNotification(pushNotification).await();
+            client.sendNotification(pushNotification).await();
 
-        metricsListener.waitForNonZeroFailedConnections();
-        metricsListener.waitForNonZeroWriteFailures();
+            metricsListener.waitForNonZeroFailedConnections();
+            metricsListener.waitForNonZeroWriteFailures();
 
-        assertEquals(0, metricsListener.getConnectionsAdded().get());
-        assertEquals(0, metricsListener.getConnectionsRemoved().get());
-        assertEquals(1, metricsListener.getFailedConnectionAttempts().get());
+            assertEquals(0, metricsListener.getConnectionsAdded().get());
+            assertEquals(0, metricsListener.getConnectionsRemoved().get());
+            assertEquals(1, metricsListener.getFailedConnectionAttempts().get());
 
-        assertEquals(1, metricsListener.getWriteFailures().size());
+            assertEquals(1, metricsListener.getWriteFailures().size());
+        } finally {
+            client.close().await();
+        }
     }
 
     @Test
