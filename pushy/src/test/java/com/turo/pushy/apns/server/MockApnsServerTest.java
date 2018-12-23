@@ -141,6 +141,11 @@ public class MockApnsServerTest extends AbstractClientServerTest {
 
             assertTrue(providedGroupServer.start(PORT).await().isSuccess());
             assertTrue(providedGroupServer.shutdown().await().isSuccess());
+
+            // This test fails mysteriously under OpenJDK 11 (the port is already in use) if we don't yield here. I
+            // have no idea why.
+            Thread.yield();
+
             assertTrue(providedGroupServer.start(PORT).await().isSuccess());
             assertTrue(providedGroupServer.shutdown().await().isSuccess());
         } finally {
