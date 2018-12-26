@@ -45,7 +45,7 @@ abstract class BaseHttp2Server {
     private final ServerBootstrap bootstrap;
     private final boolean shouldShutDownEventLoopGroup;
 
-    private ChannelGroup allChannels;
+    private final ChannelGroup allChannels;
 
     private static final Logger log = LoggerFactory.getLogger(BaseHttp2Server.class);
 
@@ -77,6 +77,8 @@ abstract class BaseHttp2Server {
             this.bootstrap.group(new NioEventLoopGroup(1));
             this.shouldShutDownEventLoopGroup = true;
         }
+
+        this.allChannels = new DefaultChannelGroup(this.bootstrap.config().group().next());
 
         this.bootstrap.channel(ServerChannelClassUtil.getServerSocketChannelClass(this.bootstrap.config().group()));
         this.bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
@@ -116,8 +118,6 @@ abstract class BaseHttp2Server {
      */
     public Future<Void> start(final int port) {
         final ChannelFuture channelFuture = this.bootstrap.bind(port);
-
-        this.allChannels = new DefaultChannelGroup(channelFuture.channel().eventLoop(), true);
         this.allChannels.add(channelFuture.channel());
 
         return channelFuture;
@@ -137,8 +137,7 @@ abstract class BaseHttp2Server {
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public Future<Void> shutdown() {
-        final Future<Void> channelCloseFuture = (this.allChannels != null) ?
-                this.allChannels.close() : new SucceededFuture<Void>(GlobalEventExecutor.INSTANCE, null);
+        final Future<Void> channelCloseFuture = this.allChannels.close();
 
         final Future<Void> disconnectFuture;
 

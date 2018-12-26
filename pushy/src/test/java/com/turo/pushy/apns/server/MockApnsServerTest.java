@@ -132,7 +132,6 @@ public class MockApnsServerTest extends AbstractClientServerTest {
         final NioEventLoopGroup eventLoopGroup = new NioEventLoopGroup(1);
 
         try {
-
             final MockApnsServer providedGroupServer = new MockApnsServerBuilder()
                     .setServerCredentials(getClass().getResourceAsStream(SERVER_CERTIFICATES_FILENAME), getClass().getResourceAsStream(SERVER_KEY_FILENAME), null)
                     .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
@@ -141,10 +140,6 @@ public class MockApnsServerTest extends AbstractClientServerTest {
 
             assertTrue(providedGroupServer.start(PORT).await().isSuccess());
             assertTrue(providedGroupServer.shutdown().await().isSuccess());
-
-            // This test fails mysteriously under OpenJDK 11 (the port is already in use) if we don't yield here. I
-            // have no idea why.
-            Thread.yield();
 
             assertTrue(providedGroupServer.start(PORT).await().isSuccess());
             assertTrue(providedGroupServer.shutdown().await().isSuccess());
