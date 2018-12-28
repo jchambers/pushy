@@ -56,6 +56,8 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
 
     protected int maxConcurrentStreams = DEFAULT_MAX_CONCURRENT_STREAMS;
 
+    protected boolean useAlpn;
+
     /**
      * The default maximum number of concurrent streams for an APNs server, which matches the default limit set by the
      * real APNs server at the time of this writing.
@@ -246,6 +248,32 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
     }
 
     /**
+     * <p>Sets whether the server under construction should use ALPN. By default, mock servers do not use ALPN and
+     * instead require clients to use direct negotiation.</p>
+     *
+     * <p>Note that Pushy itself does <em>not</em> require (or even use) ALPN and always uses direct protocol
+     * negotiation. ALPN is <em>only</em> useful in cases where Pushy's mock server is being used with a non-Pushy APNs
+     * client.</p>
+     *
+     * <p>Note also that turning on ALPN support may introduce new system requirements for the mock server. Prior to
+     * version 9, Java does not include support for ALPN, and so it will need to be provided by thid-party software such
+     * as the Jetty ALPN agent or Netty's netty-tcnative package.</p>
+     *
+     * @param useAlpn {@code true} to enable ALPN support, or {@code false} to require direct protocol negotiation
+     *
+     * @return a reference to this builder
+     *
+     * @see <a href="https://github.com/jetty-project/jetty-alpn-agent">Jetty ALPN Agent</a>
+     * @see <a href="https://netty.io/wiki/forked-tomcat-native.html">netty-tcnative</a>
+     *
+     * @since 0.13.7
+     */
+    public BaseHttp2ServerBuilder setUseAlpn(final boolean useAlpn) {
+        this.useAlpn = useAlpn;
+        return this;
+    }
+
+    /**
      * Constructs a new server with the previously-set configuration.
      *
      * @return a new server instance with the previously-set configuration
@@ -291,14 +319,13 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
                 sslContextBuilder.trustManager(this.trustedClientCertificates);
             }
 
-            // Mock server needs to be able to inform to ALPN-enabled HTTP clients
-            // which protocols are supported during the protocol negotiation phase.
-            // In this case, mock server should only support HTTP/2 in order to mock real APNS servers.
-            sslContextBuilder.applicationProtocolConfig(new ApplicationProtocolConfig(
-                    ApplicationProtocolConfig.Protocol.ALPN,
-                    ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
-                    ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
-                    ApplicationProtocolNames.HTTP_2));
+            if (this.useAlpn) {
+                sslContextBuilder.applicationProtocolConfig(new ApplicationProtocolConfig(
+                        ApplicationProtocolConfig.Protocol.ALPN,
+                        ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
+                        ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+                        ApplicationProtocolNames.HTTP_2));
+            }
 
             sslContext = sslContextBuilder.build();
         }

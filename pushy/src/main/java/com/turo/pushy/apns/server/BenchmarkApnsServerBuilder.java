@@ -94,6 +94,12 @@ public class BenchmarkApnsServerBuilder extends BaseHttp2ServerBuilder<Benchmark
     }
 
     @Override
+    public BenchmarkApnsServerBuilder setUseAlpn(final boolean useAlpn) {
+        super.setUseAlpn(useAlpn);
+        return this;
+    }
+
+    @Override
     public BenchmarkApnsServer build() throws SSLException {
         return super.build();
     }
