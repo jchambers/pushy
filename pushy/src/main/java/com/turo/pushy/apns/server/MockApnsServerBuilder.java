@@ -97,6 +97,12 @@ public class MockApnsServerBuilder extends BaseHttp2ServerBuilder<MockApnsServer
         return this;
     }
 
+    @Override
+    public MockApnsServerBuilder setUseAlpn(final boolean useAlpn) {
+        super.setUseAlpn(useAlpn);
+        return this;
+    }
+
     /**
      * Sets the handler factory to be used to construct push notification handlers for the server under construction.
      * Servers require a handler factory.
