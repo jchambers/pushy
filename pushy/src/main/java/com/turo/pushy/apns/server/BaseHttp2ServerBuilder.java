@@ -35,7 +35,7 @@ import java.io.InputStream;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 
-abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
+abstract class BaseHttp2ServerBuilder<T extends BaseHttp2ServerBuilder<T, S>, S extends BaseHttp2Server> {
 
     protected X509Certificate[] certificateChain;
     protected PrivateKey privateKey;
@@ -77,7 +77,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @since 0.8
      */
-    public BaseHttp2ServerBuilder setServerCredentials(final File certificatePemFile, final File privateKeyPkcs8File, final String privateKeyPassword) {
+    public T setServerCredentials(final File certificatePemFile, final File privateKeyPkcs8File, final String privateKeyPassword) {
         this.certificateChain = null;
         this.privateKey = null;
 
@@ -89,7 +89,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
 
         this.privateKeyPassword = privateKeyPassword;
 
-        return this;
+        return (T) this;
     }
 
     /**
@@ -107,7 +107,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @since 0.8
      */
-    public BaseHttp2ServerBuilder setServerCredentials(final InputStream certificatePemInputStream, final InputStream privateKeyPkcs8InputStream, final String privateKeyPassword) {
+    public T setServerCredentials(final InputStream certificatePemInputStream, final InputStream privateKeyPkcs8InputStream, final String privateKeyPassword) {
         this.certificateChain = null;
         this.privateKey = null;
 
@@ -119,7 +119,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
 
         this.privateKeyPassword = privateKeyPassword;
 
-        return this;
+        return (T) this;
     }
 
     /**
@@ -134,7 +134,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @since 0.8
      */
-    public BaseHttp2ServerBuilder setServerCredentials(final X509Certificate[] certificates, final PrivateKey privateKey, final String privateKeyPassword) {
+    public T setServerCredentials(final X509Certificate[] certificates, final PrivateKey privateKey, final String privateKeyPassword) {
         this.certificateChain = certificates;
         this.privateKey = privateKey;
 
@@ -146,7 +146,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
 
         this.privateKeyPassword = privateKeyPassword;
 
-        return this;
+        return (T) this;
     }
 
     /**
@@ -161,12 +161,12 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @return a reference to this builder
      */
-    public BaseHttp2ServerBuilder setTrustedClientCertificateChain(final File certificatePemFile) {
+    public T setTrustedClientCertificateChain(final File certificatePemFile) {
         this.trustedClientCertificatePemFile = certificatePemFile;
         this.trustedClientCertificateInputStream = null;
         this.trustedClientCertificates = null;
 
-        return this;
+        return (T) this;
     }
 
     /**
@@ -181,12 +181,12 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @return a reference to this builder
      */
-    public BaseHttp2ServerBuilder setTrustedClientCertificateChain(final InputStream certificateInputStream) {
+    public T setTrustedClientCertificateChain(final InputStream certificateInputStream) {
         this.trustedClientCertificatePemFile = null;
         this.trustedClientCertificateInputStream = certificateInputStream;
         this.trustedClientCertificates = null;
 
-        return this;
+        return (T) this;
     }
 
     /**
@@ -201,12 +201,12 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @return a reference to this builder
      */
-    public BaseHttp2ServerBuilder setTrustedServerCertificateChain(final X509Certificate... certificates) {
+    public T setTrustedServerCertificateChain(final X509Certificate... certificates) {
         this.trustedClientCertificatePemFile = null;
         this.trustedClientCertificateInputStream = null;
         this.trustedClientCertificates = certificates;
 
-        return this;
+        return (T) this;
     }
 
     /**
@@ -220,9 +220,9 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @since 0.8
      */
-    public BaseHttp2ServerBuilder setEventLoopGroup(final EventLoopGroup eventLoopGroup) {
+    public T setEventLoopGroup(final EventLoopGroup eventLoopGroup) {
         this.eventLoopGroup = eventLoopGroup;
-        return this;
+        return (T) this;
     }
 
     /**
@@ -236,13 +236,13 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @since 0.12
      */
-    public BaseHttp2ServerBuilder setMaxConcurrentStreams(final int maxConcurrentStreams) {
+    public T setMaxConcurrentStreams(final int maxConcurrentStreams) {
         if (maxConcurrentStreams <= 0) {
             throw new IllegalArgumentException("Maximum number of concurrent streams must be positive.");
         }
 
         this.maxConcurrentStreams = maxConcurrentStreams;
-        return this;
+        return (T) this;
     }
 
     /**
@@ -254,7 +254,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @since 0.8
      */
-    public T build() throws SSLException {
+    public S build() throws SSLException {
         final SslContext sslContext;
         {
             final SslProvider sslProvider;
@@ -303,7 +303,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
             sslContext = sslContextBuilder.build();
         }
 
-        final T server = this.constructServer(sslContext);
+        final S server = this.constructServer(sslContext);
 
         if (sslContext instanceof ReferenceCounted) {
             ((ReferenceCounted) sslContext).release();
@@ -312,5 +312,5 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
         return server;
     }
 
-    protected abstract T constructServer(final SslContext sslContext);
+    protected abstract S constructServer(final SslContext sslContext);
 }

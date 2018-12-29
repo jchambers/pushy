@@ -22,14 +22,7 @@
 
 package com.turo.pushy.apns.server;
 
-import io.netty.channel.EventLoopGroup;
 import io.netty.handler.ssl.SslContext;
-
-import javax.net.ssl.SSLException;
-import java.io.File;
-import java.io.InputStream;
-import java.security.PrivateKey;
-import java.security.cert.X509Certificate;
 
 /**
  * <p>A {@code MockApnsServerBuilder} constructs new {@link MockApnsServer} instances. Callers must supply server
@@ -44,58 +37,10 @@ import java.security.cert.X509Certificate;
  *
  * @since 0.8
  */
-public class MockApnsServerBuilder extends BaseHttp2ServerBuilder<MockApnsServer> {
+public class MockApnsServerBuilder extends BaseHttp2ServerBuilder<MockApnsServerBuilder, MockApnsServer> {
 
     private PushNotificationHandlerFactory handlerFactory;
     private MockApnsServerListener listener;
-
-    @Override
-    public MockApnsServerBuilder setServerCredentials(final File certificatePemFile, final File privateKeyPkcs8File, final String privateKeyPassword) {
-        super.setServerCredentials(certificatePemFile, privateKeyPkcs8File, privateKeyPassword);
-        return this;
-    }
-
-    @Override
-    public MockApnsServerBuilder setServerCredentials(final InputStream certificatePemInputStream, final InputStream privateKeyPkcs8InputStream, final String privateKeyPassword) {
-        super.setServerCredentials(certificatePemInputStream, privateKeyPkcs8InputStream, privateKeyPassword);
-        return this;
-    }
-
-    @Override
-    public MockApnsServerBuilder setServerCredentials(final X509Certificate[] certificates, final PrivateKey privateKey, final String privateKeyPassword) {
-        super.setServerCredentials(certificates, privateKey, privateKeyPassword);
-        return this;
-    }
-
-    @Override
-    public MockApnsServerBuilder setTrustedClientCertificateChain(final File certificatePemFile) {
-        super.setTrustedClientCertificateChain(certificatePemFile);
-        return this;
-    }
-
-    @Override
-    public MockApnsServerBuilder setTrustedClientCertificateChain(final InputStream certificateInputStream) {
-        super.setTrustedClientCertificateChain(certificateInputStream);
-        return this;
-    }
-
-    @Override
-    public MockApnsServerBuilder setTrustedServerCertificateChain(final X509Certificate... certificates) {
-        super.setTrustedServerCertificateChain(certificates);
-        return this;
-    }
-
-    @Override
-    public MockApnsServerBuilder setEventLoopGroup(final EventLoopGroup eventLoopGroup) {
-        super.setEventLoopGroup(eventLoopGroup);
-        return this;
-    }
-
-    @Override
-    public MockApnsServerBuilder setMaxConcurrentStreams(final int maxConcurrentStreams) {
-        super.setMaxConcurrentStreams(maxConcurrentStreams);
-        return this;
-    }
 
     /**
      * Sets the handler factory to be used to construct push notification handlers for the server under construction.
@@ -125,11 +70,6 @@ public class MockApnsServerBuilder extends BaseHttp2ServerBuilder<MockApnsServer
     public MockApnsServerBuilder setListener(final MockApnsServerListener listener) {
         this.listener = listener;
         return this;
-    }
-
-    @Override
-    public MockApnsServer build() throws SSLException {
-        return super.build();
     }
 
     @Override
