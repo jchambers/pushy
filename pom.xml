@@ -283,5 +283,25 @@
                 </plugins>
             </build>
         </profile>
+
+        <profile>
+            <id>generate-javadoc-with-frames</id>
+            <activation>
+                <jdk>11</jdk>
+            </activation>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-javadoc-plugin</artifactId>
+                            <configuration>
+                                <additionalOptions>--frames</additionalOptions>
+                            </configuration>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
+            </build>
+        </profile>
     </profiles>
 </project>
