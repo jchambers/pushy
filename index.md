@@ -16,13 +16,13 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 <dependency>
     <groupId>com.turo</groupId>
     <artifactId>pushy</artifactId>
-    <version>0.13.6</version>
+    <version>0.13.7</version>
 </dependency>
 ```
 
-If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.13.6/pushy-0.13.6.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
+If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.13.7/pushy-0.13.7.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
-- [netty 4.1.25](http://netty.io/)
+- [netty 4.1.32](http://netty.io/)
 - [gson 2.6](https://github.com/google/gson)
 - [slf4j 1.7](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
 - [fast-uuid 0.1](https://github.com/jchambers/fast-uuid)
@@ -35,7 +35,7 @@ Under Java 8 and newer, Pushy does not require a native SSL provider, but users 
 <dependency>
     <groupId>io.netty</groupId>
     <artifactId>netty-tcnative-boringssl-static</artifactId>
-    <version>2.0.8.Final</version>
+    <version>2.0.20.Final</version>
     <scope>runtime</scope>
 </dependency>
 ```
@@ -240,4 +240,4 @@ Callers may also provide a [`MockApnsServerListener`](http://relayrides.github.i
 
 Pushy is available under the [MIT License](https://github.com/relayrides/pushy/blob/master/LICENSE.md).
 
-The current version of Pushy is 0.13.6. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
+The current version of Pushy is 0.13.7. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
