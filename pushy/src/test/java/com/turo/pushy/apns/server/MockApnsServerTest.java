@@ -36,6 +36,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
+import static org.junit.Assume.assumeTrue;
 
 public class MockApnsServerTest extends AbstractClientServerTest {
 
@@ -129,6 +130,16 @@ public class MockApnsServerTest extends AbstractClientServerTest {
 
     @Test
     public void testRestartWithProvidedEventLoopGroup() throws Exception {
+        int javaVersion = 0;
+
+        try {
+            javaVersion = Integer.parseInt(System.getProperty("java.specification.version"));
+        } catch (final NumberFormatException ignored) {
+        }
+
+        // TODO Remove this assumption when https://github.com/netty/netty/issues/8697 gets resolved
+        assumeTrue(javaVersion < 11);
+
         final NioEventLoopGroup eventLoopGroup = new NioEventLoopGroup(1);
 
         try {
