@@ -312,6 +312,7 @@
                             <artifactId>maven-javadoc-plugin</artifactId>
                             <configuration>
                                 <additionalOptions>--frames</additionalOptions>
+                                <additionalJOption>--no-module-directories</additionalJOption>
                             </configuration>
                         </plugin>
                     </plugins>
