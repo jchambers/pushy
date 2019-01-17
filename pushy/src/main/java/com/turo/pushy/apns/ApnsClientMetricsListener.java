@@ -45,7 +45,7 @@ public interface ApnsClientMetricsListener {
      * Indicates that an attempt to send a push notification failed before the notification was processed by the APNs
      * server. Write failures may be the first event in a sequence for a given notification ID (indicating that the
      * notification was never written to the wire), but may also occur after a notification was sent if the connection
-     * closed before the notification was acknowledged by the serer.
+     * closed before the notification was acknowledged by the server.
      *
      * @param apnsClient the client that sent the notification
      * @param notificationId an opaque identifier for the push notification that can be used to correlate this event
