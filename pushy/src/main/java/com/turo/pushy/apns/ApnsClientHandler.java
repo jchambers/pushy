@@ -175,15 +175,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
         final ChannelPromise writePromise = context.channel().newPromise();
         this.writePushNotification(context, responsePromise, writePromise);
-
-        writePromise.addListener(new GenericFutureListener<Future<Void>>() {
-            @Override
-            public void operationComplete(final Future<Void> writeFuture) {
-                if (!writeFuture.isSuccess()) {
-                    responsePromise.tryFailure(writeFuture.cause());
-                }
-            }
-        });
     }
 
     private void writePushNotification(final ChannelHandlerContext context, final PushNotificationPromise responsePromise, final ChannelPromise writePromise) {
