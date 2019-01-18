@@ -178,49 +178,53 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     }
 
     private void writePushNotification(final ChannelHandlerContext context, final PushNotificationPromise responsePromise, final ChannelPromise writePromise) {
-        final int streamId = this.connection().local().incrementAndGetNextStreamId();
+        if (context.channel().isActive()) {
+            final int streamId = this.connection().local().incrementAndGetNextStreamId();
 
-        if (streamId > 0) {
-            // We'll attach the push notification and response promise to the stream as soon as the stream is created.
-            // Because we're using a StreamBufferingEncoder under the hood, there's no guarantee as to when the stream
-            // will actually be created, and so we attach these in the onStreamAdded listener to make sure everything
-            // is happening in a predictable order.
-            this.unattachedResponsePromisesByStreamId.put(streamId, responsePromise);
-            final ApnsPushNotification pushNotification = responsePromise.getPushNotification();
+            if (streamId > 0) {
+                // We'll attach the push notification and response promise to the stream as soon as the stream is created.
+                // Because we're using a StreamBufferingEncoder under the hood, there's no guarantee as to when the stream
+                // will actually be created, and so we attach these in the onStreamAdded listener to make sure everything
+                // is happening in a predictable order.
+                this.unattachedResponsePromisesByStreamId.put(streamId, responsePromise);
+                final ApnsPushNotification pushNotification = responsePromise.getPushNotification();
 
-            final Http2Headers headers = getHeadersForPushNotification(pushNotification, streamId);
+                final Http2Headers headers = getHeadersForPushNotification(pushNotification, streamId);
 
-            final ChannelPromise headersPromise = context.newPromise();
-            this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
-            log.trace("Wrote headers on stream {}: {}", streamId, headers);
+                final ChannelPromise headersPromise = context.newPromise();
+                this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
+                log.trace("Wrote headers on stream {}: {}", streamId, headers);
 
-            final ByteBuf payloadBuffer = context.alloc().ioBuffer(INITIAL_PAYLOAD_BUFFER_CAPACITY);
-            payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(StandardCharsets.UTF_8));
+                final ByteBuf payloadBuffer = context.alloc().ioBuffer(INITIAL_PAYLOAD_BUFFER_CAPACITY);
+                payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(StandardCharsets.UTF_8));
 
-            final ChannelPromise dataPromise = context.newPromise();
-            this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
-            log.trace("Wrote payload on stream {}: {}", streamId, pushNotification.getPayload());
+                final ChannelPromise dataPromise = context.newPromise();
+                this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
+                log.trace("Wrote payload on stream {}: {}", streamId, pushNotification.getPayload());
 
-            final PromiseCombiner promiseCombiner = new PromiseCombiner();
-            promiseCombiner.addAll((ChannelFuture) headersPromise, dataPromise);
-            promiseCombiner.finish(writePromise);
+                final PromiseCombiner promiseCombiner = new PromiseCombiner();
+                promiseCombiner.addAll((ChannelFuture) headersPromise, dataPromise);
+                promiseCombiner.finish(writePromise);
 
-            writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
+                writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
 
-                @Override
-                public void operationComplete(final ChannelPromise future) {
-                    if (!future.isSuccess()) {
-                        log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
-                        responsePromise.tryFailure(future.cause());
+                    @Override
+                    public void operationComplete(final ChannelPromise future) {
+                        if (!future.isSuccess()) {
+                            log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
+                            responsePromise.tryFailure(future.cause());
+                        }
                     }
-                }
-            });
+                });
+            } else {
+                // This is very unlikely, but in the event that we run out of stream IDs, we need to open a new
+                // connection. Just closing the context should be enough; automatic reconnection should take things
+                // from there.
+                writePromise.tryFailure(STREAMS_EXHAUSTED_EXCEPTION);
+                context.channel().close();
+            }
         } else {
-            // This is very unlikely, but in the event that we run out of stream IDs, we need to open a new
-            // connection. Just closing the context should be enough; automatic reconnection should take things
-            // from there.
-            writePromise.tryFailure(STREAMS_EXHAUSTED_EXCEPTION);
-            context.channel().close();
+            writePromise.tryFailure(STREAM_CLOSED_BEFORE_REPLY_EXCEPTION);
         }
     }
 
@@ -476,5 +480,16 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         this.connectionErrorCause = http2Exception != null ? http2Exception : cause;
 
         super.onConnectionError(context, isOutbound, cause, http2Exception);
+    }
+
+    @Override
+    public void channelInactive(final ChannelHandlerContext context) throws Exception {
+        super.channelInactive(context);
+
+        for (final PushNotificationPromise promise : this.unattachedResponsePromisesByStreamId.values()) {
+            promise.tryFailure(STREAM_CLOSED_BEFORE_REPLY_EXCEPTION);
+        }
+
+        this.unattachedResponsePromisesByStreamId.clear();
     }
 }
