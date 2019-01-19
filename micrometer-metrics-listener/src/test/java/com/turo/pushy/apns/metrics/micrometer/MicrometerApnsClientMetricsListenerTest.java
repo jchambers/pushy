@@ -22,14 +22,16 @@
 
 package com.turo.pushy.apns.metrics.micrometer;
 
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Gauge;
-import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.*;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.Collections;
+import java.util.List;
+
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class MicrometerApnsClientMetricsListenerTest {
 
@@ -40,6 +42,25 @@ public class MicrometerApnsClientMetricsListenerTest {
     public void setUp() {
         this.meterRegistry = new SimpleMeterRegistry();
         this.listener = new MicrometerApnsClientMetricsListener(this.meterRegistry);
+    }
+
+    @Test
+    public void testMicrometerApnsClientMetricsListenerNoTags() {
+        for (final Meter meter : this.meterRegistry.getMeters()) {
+            assertTrue(meter.getId().getTags().isEmpty());
+        }
+    }
+
+    @Test
+    public void testMicrometerApnsClientMetricsListenerTags() {
+        final MeterRegistry taggedMeterRegistry = new SimpleMeterRegistry();
+        new MicrometerApnsClientMetricsListener(taggedMeterRegistry, "key", "value");
+
+        final List<Tag> expectedTags = Collections.singletonList(Tag.of("key", "value"));
+
+        for (final Meter meter : taggedMeterRegistry.getMeters()) {
+            assertEquals(expectedTags, meter.getId().getTags());
+        }
     }
 
     @Test
