@@ -52,7 +52,7 @@ public class MicrometerApnsClientMetricsListenerTest {
     }
 
     @Test
-    public void testMicrometerApnsClientMetricsListenerTags() {
+    public void testMicrometerApnsClientMetricsListenerVariadicTags() {
         final MeterRegistry taggedMeterRegistry = new SimpleMeterRegistry();
         new MicrometerApnsClientMetricsListener(taggedMeterRegistry, "key", "value");
 
@@ -60,6 +60,18 @@ public class MicrometerApnsClientMetricsListenerTest {
 
         for (final Meter meter : taggedMeterRegistry.getMeters()) {
             assertEquals(expectedTags, meter.getId().getTags());
+        }
+    }
+
+    @Test
+    public void testMicrometerApnsClientMetricsListenerIterableTags() {
+        final MeterRegistry taggedMeterRegistry = new SimpleMeterRegistry();
+        final List<Tag> tags = Collections.singletonList(Tag.of("key", "value"));
+
+        new MicrometerApnsClientMetricsListener(taggedMeterRegistry, tags);
+
+        for (final Meter meter : taggedMeterRegistry.getMeters()) {
+            assertEquals(tags, meter.getId().getTags());
         }
     }
 
