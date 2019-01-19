@@ -26,6 +26,7 @@ import com.turo.pushy.apns.ApnsClient;
 import com.turo.pushy.apns.ApnsClientMetricsListener;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 
 import java.util.List;
@@ -160,7 +161,8 @@ public class MicrometerApnsClientMetricsListener implements ApnsClientMetricsLis
         this.rejectedNotifications = meterRegistry.counter(REJECTED_NOTIFICATIONS_COUNTER_NAME, tags);
 
         this.connectionFailures = meterRegistry.counter(CONNECTION_FAILURES_COUNTER_NAME, tags);
-        meterRegistry.gauge(OPEN_CONNECTIONS_GAUGE_NAME, openConnections);
+
+        meterRegistry.gauge(OPEN_CONNECTIONS_GAUGE_NAME, Tags.of(tags), openConnections);
     }
 
     /**
