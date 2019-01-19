@@ -24,10 +24,7 @@ package com.turo.pushy.apns.metrics.micrometer;
 
 import com.turo.pushy.apns.ApnsClient;
 import com.turo.pushy.apns.ApnsClientMetricsListener;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Tags;
-import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.*;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -149,9 +146,20 @@ public class MicrometerApnsClientMetricsListener implements ApnsClientMetricsLis
      * Constructs a new Micrometer metrics listener that adds metrics to the given registry with the given list of tags.
      *
      * @param meterRegistry the registry to which to add metrics
-     * @param tags an optional list of tags to attach to metrics
+     * @param tagKeysAndValues an optional list of tag keys/values to attach to metrics; must be an even number of
+     * strings representing alternating key/value pairs
      */
-    public MicrometerApnsClientMetricsListener(final MeterRegistry meterRegistry, final String... tags) {
+    public MicrometerApnsClientMetricsListener(final MeterRegistry meterRegistry, final String... tagKeysAndValues) {
+        this(meterRegistry, Tags.of(tagKeysAndValues));
+    }
+
+    /**
+     * Constructs a new Micrometer metrics listener that adds metrics to the given registry with the given list of tags.
+     *
+     * @param meterRegistry the registry to which to add metrics
+     * @param tags an optional collection of tags to attach to metrics; may be empty
+     */
+    public MicrometerApnsClientMetricsListener(final MeterRegistry meterRegistry, final Iterable<Tag> tags) {
         this.notificationStartTimes = new ConcurrentHashMap<>();
         this.notificationTimer = meterRegistry.timer(NOTIFICATION_TIMER_NAME, tags);
 
@@ -162,7 +170,7 @@ public class MicrometerApnsClientMetricsListener implements ApnsClientMetricsLis
 
         this.connectionFailures = meterRegistry.counter(CONNECTION_FAILURES_COUNTER_NAME, tags);
 
-        meterRegistry.gauge(OPEN_CONNECTIONS_GAUGE_NAME, Tags.of(tags), openConnections);
+        meterRegistry.gauge(OPEN_CONNECTIONS_GAUGE_NAME, tags, openConnections);
     }
 
     /**
