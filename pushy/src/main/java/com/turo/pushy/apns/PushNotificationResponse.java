@@ -73,13 +73,16 @@ public interface PushNotificationResponse<T extends ApnsPushNotification> {
     String getRejectionReason();
 
     /**
-     * If the sent push notification was rejected because the destination token is no longer valid, returns the most
-     * recent time at which the APNs gateway confirmed that the token is no longer valid. Callers should stop attempting
+     * If the sent push notification was rejected because the destination token is no longer valid, returns "the time at
+     * which APNs confirmed the token was no longer valid for the topic." Callers should stop attempting
      * to send notifications to the expired token unless the token has been re-registered more recently than the
      * returned timestamp.
      *
-     * @return the time at which the token for the sent push notification became invalid, or {@code null} if the push
-     * notification was either accepted or rejected for a reason other than token invalidation
+     * @return the time at which APNs confirmed the token was no longer valid for the given topic, or {@code null} if
+     * the push notification was either accepted or rejected for a reason other than token invalidation
+     *
+     * @see <a href="https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/sending_notification_requests_to_apns#2947616">Sending
+     * Notification Requests to APNs</a>
      *
      * @since 0.5
      */
