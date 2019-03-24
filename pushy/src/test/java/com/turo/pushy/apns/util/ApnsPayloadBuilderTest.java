@@ -25,8 +25,11 @@ package com.turo.pushy.apns.util;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.lang.reflect.Type;
 import java.nio.charset.CharsetEncoder;
@@ -37,6 +40,7 @@ import java.util.Map;
 
 import static org.junit.Assert.*;
 
+@RunWith(JUnitParamsRunner.class)
 public class ApnsPayloadBuilderTest {
 
     private ApnsPayloadBuilder builder;
@@ -368,9 +372,9 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testSetSoundForCriticalAlert() {
+    @Parameters({"true, 1", "false, 0"})
+    public void testSetSoundForCriticalAlert(final boolean isCriticalAlert, final int expectedCriticalValue) {
         final String soundFileName = "dying-giraffe.aiff";
-        final boolean isCriticalAlert = true;
         final double soundVolume = 0.781;
 
         this.builder.setSound(soundFileName, isCriticalAlert, soundVolume);
@@ -381,7 +385,7 @@ public class ApnsPayloadBuilderTest {
         final Map<String, Object> soundDictionary = (Map<String, Object>) aps.get("sound");
 
         assertEquals(soundFileName, soundDictionary.get("name"));
-        assertEquals(isCriticalAlert, soundDictionary.get("critical"));
+        assertEquals(expectedCriticalValue, soundDictionary.get("critical"));
         assertEquals(soundVolume, soundDictionary.get("volume"));
     }
 
