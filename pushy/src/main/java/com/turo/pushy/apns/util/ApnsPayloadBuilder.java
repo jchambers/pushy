@@ -112,12 +112,12 @@ public class ApnsPayloadBuilder {
 
     private static class SoundForCriticalAlert {
         private final String name;
-        private final boolean critical;
+        private final int critical;
         private final double volume;
 
         private SoundForCriticalAlert(final String name, final boolean critical, final double volume) {
             this.name = name;
-            this.critical = critical;
+            this.critical = critical ? 1 : 0;
             this.volume = volume;
         }
     }
