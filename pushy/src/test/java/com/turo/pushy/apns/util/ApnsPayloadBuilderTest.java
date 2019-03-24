@@ -385,7 +385,7 @@ public class ApnsPayloadBuilderTest {
         final Map<String, Object> soundDictionary = (Map<String, Object>) aps.get("sound");
 
         assertEquals(soundFileName, soundDictionary.get("name"));
-        assertEquals(expectedCriticalValue, soundDictionary.get("critical"));
+        assertEquals(expectedCriticalValue, ((Number) soundDictionary.get("critical")).intValue());
         assertEquals(soundVolume, soundDictionary.get("volume"));
     }
 
