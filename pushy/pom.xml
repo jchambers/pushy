@@ -26,6 +26,7 @@
 
     <artifactId>pushy</artifactId>
     <version>0.13.11-SNAPSHOT</version>
+    <packaging>bundle</packaging>
     <name>Pushy</name>
 
     <parent>
@@ -96,6 +97,23 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>maven-bundle-plugin</artifactId>
+                <extensions>true</extensions>
+                <configuration>
+                    <instructions>
+                        <Import-Package>
+                            <!-- Classes from the following packages are only loaded using Class.forName(), so BND can not detect they are required imports. -->
+                            io.netty.channel.socket.nio,
+                            io.netty.channel.socket.oio,
+                            <!-- This tells BND to add all other required imports that it does detect, as normal. -->
+                            *,
+                        </Import-Package>
+                    </instructions>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
