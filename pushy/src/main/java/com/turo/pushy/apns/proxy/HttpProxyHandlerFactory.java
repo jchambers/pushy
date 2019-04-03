@@ -22,7 +22,12 @@
 
 package com.turo.pushy.apns.proxy;
 
+import java.net.Proxy;
 import java.net.SocketAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
+
+import com.turo.pushy.apns.ApnsClientBuilder;
 
 import io.netty.handler.proxy.HttpProxyHandler;
 import io.netty.handler.proxy.ProxyHandler;
@@ -40,6 +45,52 @@ public class HttpProxyHandlerFactory implements ProxyHandlerFactory {
 
     private final String username;
     private final String password;
+
+    /**
+     * Checks the system default proxies to determine if an {@link HttpProxyHandlerFactory}
+     * is required for the given host or not, returning an instance or null for each case.
+     *
+     * @param apnsHost the APNs host to check e.g. "api.push.apple.com".
+     * @return an {@link HttpProxyHandlerFactory} if one is required, or <code>null</code> if not.
+     * @throws URISyntaxException if <code>apnsHost</code> is malformed in some way.
+     *
+     * @see #fromSystemProxies()
+     * @see <a href="https://docs.oracle.com/javase/7/docs/api/java/net/doc-files/net-properties.html#Proxies">The Java documentation on proxies.</a>
+     * @since 0.14
+     */
+    public static HttpProxyHandlerFactory fromSystemProxies(final String apnsHost)
+            throws URISyntaxException {
+
+        URI hostUri = new URI("https", apnsHost, null, null);
+        Proxy proxy = ProxyLocator.getProxyForUri(hostUri, Proxy.Type.HTTP);
+
+        if (proxy != null) {
+            return new HttpProxyHandlerFactory(proxy.address());
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Checks the system default proxies to determine if an {@link HttpProxyHandlerFactory}
+     * is required for the production APNs host or not, returning an instance or null for each case.
+     *
+     * @return an {@link HttpProxyHandlerFactory} if one is required, or <code>null</code> if not.
+     *
+     * @see #fromSystemProxies(String)
+     * @see <a href="https://docs.oracle.com/javase/7/docs/api/java/net/doc-files/net-properties.html#Proxies">The Java documentation on proxies.</a>
+     * @since 0.14
+     */
+    public static HttpProxyHandlerFactory fromSystemProxies() {
+
+        try {
+            return fromSystemProxies(ApnsClientBuilder.PRODUCTION_APNS_HOST);
+
+        } catch (URISyntaxException e) {
+            // This really should not happen as we are using a known good host name.
+            return null;
+        }
+    }
 
     /**
      * Creates a new proxy handler factory that will create HTTP proxy handlers that use the proxy at the given
@@ -88,5 +139,17 @@ public class HttpProxyHandlerFactory implements ProxyHandlerFactory {
         }
 
         return handler;
+    }
+
+    /* (non-Javadoc)
+     * @see java.lang.Object#toString()
+     */
+    @Override
+    public String toString() {
+        return "HttpProxyHandlerFactory {" +
+                "proxyAddress=" + proxyAddress +
+                ", username=" + username +
+                ", password=" + password
+                + "}";
     }
 }
