@@ -22,7 +22,16 @@
 
 package com.eatthepath.pushy.apns.proxy;
 
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.ProxySelector;
 import java.net.SocketAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.netty.handler.proxy.HttpProxyHandler;
 import io.netty.handler.proxy.ProxyHandler;
@@ -36,10 +45,58 @@ import io.netty.handler.proxy.ProxyHandler;
  */
 public class HttpProxyHandlerFactory implements ProxyHandlerFactory {
 
+    private static final Logger log = LoggerFactory.getLogger(HttpProxyHandlerFactory.class);
+
     private final SocketAddress proxyAddress;
 
     private final String username;
     private final String password;
+
+    /**
+     * Checks the system default proxies to determine if an {@link HttpProxyHandlerFactory}
+     * is required for the given host or not, returning an instance or null for each case.
+     *
+     * @param apnsHost the APNs host to check e.g. "api.push.apple.com".
+     * @return an {@link HttpProxyHandlerFactory} if one is required, or {@code null} if not.
+     * @throws URISyntaxException if <code>apnsHost</code> is malformed in some way.
+     *
+     * @see <a href="https://docs.oracle.com/javase/7/docs/api/java/net/doc-files/net-properties.html#Proxies">The Java documentation on proxies.</a>
+     * @since 0.14
+     */
+    public static HttpProxyHandlerFactory fromSystemProxies(final String apnsHost)
+            throws URISyntaxException {
+
+        final URI hostUri = new URI("https", apnsHost, null, null);
+        final SocketAddress proxyAddress = getProxyAddressForUri(hostUri, Proxy.Type.HTTP);
+
+        return (proxyAddress != null) ? new HttpProxyHandlerFactory(proxyAddress) : null;
+    }
+
+    /**
+     * Returns the {@link SocketAddress} for any system-wide {@link Proxy} of a given {@link Proxy.Type} for a given {@link URI}.
+     *
+     * @param uri the URI to find any system proxy for.
+     * @param proxyType the types of proxy to find for the URI.
+     * @return the {@link SocketAddress} of any <code>Proxy</code> found, or <code>null</code> if there were none.
+     * @since 0.14
+     */
+    private static SocketAddress getProxyAddressForUri(final URI uri, final Proxy.Type proxyType) {
+        final ProxySelector defaultProxySelector = ProxySelector.getDefault();
+        final List<Proxy> proxiesForUri = defaultProxySelector.select(uri);
+        log.debug("Proxies for URI \"{}\" were {}", uri, proxiesForUri);
+
+        for (java.net.Proxy proxy : proxiesForUri) {
+            if (proxy.type() == proxyType) {
+                InetSocketAddress proxyAddress = (InetSocketAddress) proxy.address();
+                if (proxyAddress.isUnresolved()) {
+                    proxyAddress = new InetSocketAddress(proxyAddress.getHostString(), proxyAddress.getPort());
+                }
+                return proxyAddress;
+            }
+        }
+
+        return null;
+    }
 
     /**
      * Creates a new proxy handler factory that will create HTTP proxy handlers that use the proxy at the given
@@ -88,5 +145,17 @@ public class HttpProxyHandlerFactory implements ProxyHandlerFactory {
         }
 
         return handler;
+    }
+
+    /* (non-Javadoc)
+     * @see java.lang.Object#toString()
+     */
+    @Override
+    public String toString() {
+        return "HttpProxyHandlerFactory {" +
+                "proxyAddress=" + proxyAddress +
+                ", username=" + username +
+                ", password=*****"
+                + "}";
     }
 }
