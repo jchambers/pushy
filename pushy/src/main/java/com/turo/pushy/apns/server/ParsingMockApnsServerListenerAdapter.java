@@ -25,6 +25,7 @@ package com.turo.pushy.apns.server;
 import com.eatthepath.uuid.FastUUID;
 import com.turo.pushy.apns.ApnsPushNotification;
 import com.turo.pushy.apns.DeliveryPriority;
+import com.turo.pushy.apns.PushType;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.AsciiString;
@@ -55,15 +56,17 @@ public abstract class ParsingMockApnsServerListenerAdapter implements MockApnsSe
         private final String payload;
         private final Date invalidationTime;
         private final DeliveryPriority priority;
+        private final PushType pushType;
         private final String topic;
         private final String collapseId;
         private final UUID apnsId;
 
-        private LenientApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority, final String collapseId, final UUID apnsId) {
+        private LenientApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority, final PushType pushType, final String collapseId, final UUID apnsId) {
             this.token = token;
             this.payload = payload;
             this.invalidationTime = invalidationTime;
             this.priority = priority;
+            this.pushType = pushType;
             this.topic = topic;
             this.collapseId = collapseId;
             this.apnsId = apnsId;
@@ -90,6 +93,11 @@ public abstract class ParsingMockApnsServerListenerAdapter implements MockApnsSe
         }
 
         @Override
+        public PushType getPushType() {
+            return this.pushType;
+        }
+
+        @Override
         public String getTopic() {
             return this.topic;
         }
@@ -111,6 +119,7 @@ public abstract class ParsingMockApnsServerListenerAdapter implements MockApnsSe
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
     private static final AsciiString APNS_COLLAPSE_ID_HEADER = new AsciiString("apns-collapse-id");
     private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
+    private static final AsciiString APNS_PUSH_TYPE_HEADER = new AsciiString("apns-push-type");
 
     private static final Logger log = LoggerFactory.getLogger(ParsingMockApnsServerListenerAdapter.class);
 
@@ -209,6 +218,21 @@ public abstract class ParsingMockApnsServerListenerAdapter implements MockApnsSe
             deliveryPriority = priorityFromCode;
         }
 
+        final PushType pushType;
+        {
+            final CharSequence pushTypeSequence = headers.get(APNS_PUSH_TYPE_HEADER);
+
+            PushType pushTypeFromHeader;
+
+            try {
+                pushTypeFromHeader = pushTypeSequence != null ? PushType.getFromHeaderValue(pushTypeSequence) : null;
+            } catch (final IllegalArgumentException e) {
+                pushTypeFromHeader = null;
+            }
+
+            pushType = pushTypeFromHeader;
+        }
+
         final Date expiration;
         {
             final Integer expirationTimestamp = headers.getInt(APNS_EXPIRATION_HEADER);
@@ -230,6 +254,7 @@ public abstract class ParsingMockApnsServerListenerAdapter implements MockApnsSe
                 payload != null ? payload.toString(StandardCharsets.UTF_8) : null,
                 expiration,
                 deliveryPriority,
+                pushType,
                 collapseId,
                 apnsId);
     }
