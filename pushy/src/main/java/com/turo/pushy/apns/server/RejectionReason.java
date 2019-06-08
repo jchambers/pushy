@@ -38,6 +38,7 @@ public enum RejectionReason {
     DEVICE_TOKEN_NOT_FOR_TOPIC("DeviceTokenNotForTopic", HttpResponseStatus.BAD_REQUEST),
     DUPLICATE_HEADERS("DuplicateHeaders", HttpResponseStatus.BAD_REQUEST),
     IDLE_TIMEOUT("IdleTimeout", HttpResponseStatus.BAD_REQUEST),
+    INVALID_PUSH_TYPE("InvalidPushType", HttpResponseStatus.BAD_REQUEST),
     MISSING_DEVICE_TOKEN("MissingDeviceToken", HttpResponseStatus.BAD_REQUEST),
     MISSING_TOPIC("MissingTopic", HttpResponseStatus.BAD_REQUEST),
     PAYLOAD_EMPTY("PayloadEmpty", HttpResponseStatus.BAD_REQUEST),

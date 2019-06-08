@@ -70,6 +70,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
     private static final AsciiString APNS_COLLAPSE_ID_HEADER = new AsciiString("apns-collapse-id");
     private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
+    private static final AsciiString APNS_PUSH_TYPE_HEADER = new AsciiString("apns-push-type");
 
     private static final int INITIAL_PAYLOAD_BUFFER_CAPACITY = 4096;
 
@@ -242,6 +243,10 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
         if (pushNotification.getPriority() != null) {
             headers.addInt(APNS_PRIORITY_HEADER, pushNotification.getPriority().getCode());
+        }
+
+        if (pushNotification.getPushType() != null) {
+            headers.add(APNS_PUSH_TYPE_HEADER, pushNotification.getPushType().getHeaderValue());
         }
 
         if (pushNotification.getTopic() != null) {

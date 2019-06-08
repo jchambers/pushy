@@ -24,6 +24,7 @@ package com.turo.pushy.apns.server;
 
 import com.eatthepath.uuid.FastUUID;
 import com.turo.pushy.apns.DeliveryPriority;
+import com.turo.pushy.apns.PushType;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http2.Http2Headers;
@@ -46,6 +47,7 @@ abstract class ValidatingPushNotificationHandler implements PushNotificationHand
     private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
     private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
     private static final AsciiString APNS_COLLAPSE_ID_HEADER = new AsciiString("apns-collapse-id");
+    private static final AsciiString APNS_PUSH_TYPE_HEADER = new AsciiString("apns-push-type");
 
     private static final Pattern DEVICE_TOKEN_PATTERN = Pattern.compile("[0-9a-fA-F]{64}");
 
@@ -101,6 +103,18 @@ abstract class ValidatingPushNotificationHandler implements PushNotificationHand
                     DeliveryPriority.getFromCode(priorityCode);
                 } catch (final IllegalArgumentException e) {
                     throw new RejectedNotificationException(RejectionReason.BAD_PRIORITY);
+                }
+            }
+        }
+
+        {
+            final CharSequence pushTypeSequence = headers.get(APNS_PUSH_TYPE_HEADER);
+
+            if (pushTypeSequence != null) {
+                try {
+                    PushType.getFromHeaderValue(pushTypeSequence);
+                } catch (final IllegalArgumentException e) {
+                    throw new RejectedNotificationException(RejectionReason.INVALID_PUSH_TYPE);
                 }
             }
         }

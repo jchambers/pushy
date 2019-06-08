@@ -329,7 +329,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
                 final UUID apnsId = UUID.randomUUID();
 
                 final SimpleApnsPushNotification pushNotificationWithApnsId =
-                        new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD, null, DeliveryPriority.IMMEDIATE, null, apnsId);
+                        new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD, null, DeliveryPriority.IMMEDIATE, PushType.ALERT, null, apnsId);
 
                 final PushNotificationResponse<SimpleApnsPushNotification> response =
                         client.sendNotification(pushNotificationWithApnsId).get();
@@ -379,7 +379,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
                 final UUID apnsId = UUID.randomUUID();
 
                 final SimpleApnsPushNotification pushNotificationWithApnsId =
-                        new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD, null, DeliveryPriority.IMMEDIATE, null, apnsId);
+                        new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD, null, DeliveryPriority.IMMEDIATE, PushType.ALERT, null, apnsId);
 
                 final PushNotificationResponse<SimpleApnsPushNotification> response =
                         client.sendNotification(pushNotificationWithApnsId).get();

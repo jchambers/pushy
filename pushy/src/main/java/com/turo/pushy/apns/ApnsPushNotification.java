@@ -86,6 +86,17 @@ public interface ApnsPushNotification {
     DeliveryPriority getPriority();
 
     /**
+     * Returns the display type this push notification. Note that push notification display types are required in iOS 13
+     * and later and watchOS 6 and later, but are ignored under earlier versions of either operating system. May be
+     * {@code null}.
+     *
+     * @return the display type this push notification
+     *
+     * @since 0.13.9
+     */
+    PushType getPushType();
+
+    /**
      * Returns the topic to which this notification should be sent. This is generally the bundle ID of the receiving
      * app. Topics must not be {@code null}.
      *
