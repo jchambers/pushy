@@ -214,4 +214,34 @@ public class ApnsChannelPoolTest {
         assertTrue(pendingFuture.await(1000));
         assertFalse(pendingFuture.isSuccess());
     }
+
+    @Test
+    public void testPendingCreateChannelFutureDuringPoolClosure() throws Exception {
+        final Promise<Void> createSuccess = new DefaultPromise<>(EVENT_EXECUTOR);
+        final PooledObjectFactory<Channel> factory = new PooledObjectFactory<Channel>() {
+            @Override
+            public Future<Channel> create(final Promise<Channel> promise) {
+                EVENT_EXECUTOR.schedule(new Runnable() {
+                    @Override
+                    public void run() {
+                        promise.trySuccess(new TestChannel(true));
+                        createSuccess.setSuccess(null);
+                    }
+                }, 1, TimeUnit.SECONDS);
+                return promise;
+            }
+
+            @Override
+            public Future<Void> destroy(final Channel channel, final Promise<Void> promise) {
+                promise.trySuccess(null);
+                return promise;
+            }
+        };
+
+        final ApnsChannelPool pool = new ApnsChannelPool(factory, 1, EVENT_EXECUTOR, this.metricsListener);
+
+        pool.acquire();
+        pool.close().await();
+        assertTrue(createSuccess.isSuccess());
+    }
 }

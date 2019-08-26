@@ -254,19 +254,37 @@ class ApnsChannelPool {
      * @return a {@code Future} that will be completed when all resources held by this pool have been released
      */
     public Future<Void> close() {
-        return this.allChannels.close().addListener(new GenericFutureListener<Future<Void>>() {
+        final Promise<Void> closeDonePromise = new DefaultPromise<>(this.executor);
+        this.allChannels.close().addListener(new GenericFutureListener<Future<Void>>() {
             @Override
-            public void operationComplete(final Future<Void> future) throws Exception {
+            public void operationComplete(final Future<Void> future) {
                 ApnsChannelPool.this.isClosed = true;
 
-                if (ApnsChannelPool.this.channelFactory instanceof Closeable) {
-                    ((Closeable) ApnsChannelPool.this.channelFactory).close();
+                final Promise<Void> waitForPendingCreateChannelFuturesPromise = new DefaultPromise<>(ApnsChannelPool.this.executor);
+                final PromiseCombiner combiner = new PromiseCombiner(ApnsChannelPool.this.executor);
+
+                for (final Future<Channel> f : pendingCreateChannelFutures) {
+                    combiner.add(f);
                 }
 
-                for (final Promise<Channel> acquisitionPromise : ApnsChannelPool.this.pendingAcquisitionPromises) {
-                    acquisitionPromise.tryFailure(POOL_CLOSED_EXCEPTION);
-                }
+                combiner.finish(waitForPendingCreateChannelFuturesPromise);
+
+                waitForPendingCreateChannelFuturesPromise.addListener(new GenericFutureListener<Future<? super Void>>() {
+                    @Override
+                    public void operationComplete(Future<? super Void> future) throws Exception {
+                        if (ApnsChannelPool.this.channelFactory instanceof Closeable) {
+                            ((Closeable) ApnsChannelPool.this.channelFactory).close();
+                        }
+
+                        for (final Promise<Channel> acquisitionPromise : ApnsChannelPool.this.pendingAcquisitionPromises) {
+                            acquisitionPromise.tryFailure(POOL_CLOSED_EXCEPTION);
+                        }
+
+                        closeDonePromise.setSuccess(null);
+                    }
+                });
             }
         });
+        return closeDonePromise;
     }
 }
