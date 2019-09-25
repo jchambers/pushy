@@ -42,7 +42,12 @@ public enum PushType {
     /**
      * Indicates that a push notification is not expected to interact with the user on the receiving device.
      */
-    BACKGROUND("background");
+    BACKGROUND("background"),
+
+    /**
+     * Indicates that a push notification is expected to activate the client for handling VoIP flow.
+     */
+    VOIP("voip");
 
     private final String headerValue;
 
