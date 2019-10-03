@@ -67,6 +67,7 @@ public class ApnsPayloadBuilder {
     private boolean mutableContent = false;
 
     private String threadId = null;
+    private String targetContentId = null;
 
     private String summaryArgument = null;
     private Integer summaryArgumentCount = null;
@@ -85,6 +86,7 @@ public class ApnsPayloadBuilder {
     private static final String CONTENT_AVAILABLE_KEY = "content-available";
     private static final String MUTABLE_CONTENT_KEY = "mutable-content";
     private static final String THREAD_ID_KEY = "thread-id";
+    private static final String TARGET_CONTENT_ID_KEY = "target-content-id";
     private static final String SUMMARY_ARGUMENT_KEY = "summary-arg";
     private static final String SUMMARY_ARGUMENT_COUNT_KEY = "summary-arg-count";
     private static final String URL_ARGS_KEY = "url-args";
@@ -536,6 +538,21 @@ public class ApnsPayloadBuilder {
     }
 
     /**
+     * Sets the identifier of the window to be brought forward by this notification. By default, no target content ID
+     * is included.
+     *
+     * @param targetContentId the identifier of the window to be brought forward by this notification
+     *
+     * @return a reference to this payload builder
+     *
+     * @since 0.13.10
+     */
+    public ApnsPayloadBuilder setTargetContentId(final String targetContentId) {
+        this.targetContentId = targetContentId;
+        return this;
+    }
+
+    /**
      * <p>Sets the summary argument for this notification. The summary argument is:</p>
      *
      * <blockquote>The string the notification adds to the category’s summary format string.</blockquote>
@@ -739,6 +756,10 @@ public class ApnsPayloadBuilder {
 
             if (this.threadId != null) {
                 aps.put(THREAD_ID_KEY, this.threadId);
+            }
+
+            if (this.targetContentId != null) {
+                aps.put(TARGET_CONTENT_ID_KEY, this.targetContentId);
             }
 
             if (this.urlArguments != null) {
