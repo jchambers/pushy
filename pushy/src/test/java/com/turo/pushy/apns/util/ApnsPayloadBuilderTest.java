@@ -455,6 +455,16 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
+    public void setTargetContentId() {
+        final String targetContentId = "example.window.id";
+
+        this.builder.setTargetContentId(targetContentId);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+        assertEquals(targetContentId, aps.get("target-content-id"));
+    }
+
+    @Test
     public void testSetSummaryArgument() {
         final String summaryArgument = "This is a summary argument";
 
