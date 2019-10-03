@@ -726,7 +726,11 @@ public class ApnsClientTest extends AbstractClientServerTest {
         return new Object[] {
                 null,
                 PushType.BACKGROUND,
-                PushType.ALERT
+                PushType.ALERT,
+                PushType.VOIP,
+                PushType.COMPLICATION,
+                PushType.FILEPROVIDER,
+                PushType.MDM
         };
     }
 }
