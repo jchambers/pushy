@@ -217,6 +217,8 @@ public class ApnsClient {
                             public void operationComplete(final ChannelFuture future) throws Exception {
                                 if (future.isSuccess()) {
                                     ApnsClient.this.metricsListener.handleNotificationSent(ApnsClient.this, notificationId);
+                                } else {
+                                    responsePromise.tryFailure(future.cause());
                                 }
                             }
                         });

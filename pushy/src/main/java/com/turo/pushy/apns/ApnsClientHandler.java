@@ -203,20 +203,21 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
                 this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
                 log.trace("Wrote payload on stream {}: {}", streamId, pushNotification.getPayload());
 
-                final PromiseCombiner promiseCombiner = new PromiseCombiner();
+                final PromiseCombiner promiseCombiner = new PromiseCombiner(context.executor());
                 promiseCombiner.addAll((ChannelFuture) headersPromise, dataPromise);
                 promiseCombiner.finish(writePromise);
 
-                writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
+                if (log.isTraceEnabled()) {
+                    writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
 
-                    @Override
-                    public void operationComplete(final ChannelPromise future) {
-                        if (!future.isSuccess()) {
-                            log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
-                            responsePromise.tryFailure(future.cause());
+                        @Override
+                        public void operationComplete(final ChannelPromise future) {
+                            if (!future.isSuccess()) {
+                                log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
+                            }
                         }
-                    }
-                });
+                    });
+                }
             } else {
                 // This is very unlikely, but in the event that we run out of stream IDs, we need to open a new
                 // connection. Just closing the context should be enough; automatic reconnection should take things
