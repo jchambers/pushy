@@ -343,6 +343,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
                 this.handleErrorResponse(context, stream.id(), headers, pushNotification, errorResponse);
             } else {
                 log.warn("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
+                // Shall we use a dedicated exception to fail responsePromise instead of just a log?
             }
         }
     }
