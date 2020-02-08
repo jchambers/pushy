@@ -30,7 +30,7 @@
     <description>A metrics listener for Pushy that uses the Dropwizard Metrics library for gathering and reporting metrics.</description>
 
     <parent>
-        <groupId>com.turo</groupId>
+        <groupId>com.eatthepath</groupId>
         <artifactId>pushy-parent</artifactId>
         <version>0.13.11-SNAPSHOT</version>
     </parent>

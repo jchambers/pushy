@@ -33,15 +33,19 @@
         notifications. Pushy is written by the engineers at <a href="https://turo.com/" target="_top">Turo</a>.</p>
 
         <p>Pushy sends push notifications using Apple's HTTP/2-based APNs protocol. Most users will interact with
-        Pushy via the {@link com.turo.pushy.apns.ApnsClient} class, which manages connections and sends notifications
-        to the APNs server. Generally, {@code ApnsClient} instances are constructed by an
-        {@link com.turo.pushy.apns.ApnsClientBuilder}.</p>
+            Pushy via the {@link com.eatthepath.pushy.apns.ApnsClient} class, which manages connections and sends
+            notifications
+            to the APNs server. Generally, {@code ApnsClient} instances are constructed by an
+            {@link com.eatthepath.pushy.apns.ApnsClientBuilder}.</p>
 
-        <p>The {@link com.turo.pushy.apns.util.SimpleApnsPushNotification} class provides a simple, concrete
-        implementation of the {@link com.turo.pushy.apns.ApnsPushNotification} interface. A push notification's payload
-        is just a JSON text, and callers may construct payloads however they choose. Most users, though, will probably
-        find the {@link com.turo.pushy.apns.util.ApnsPayloadBuilder} class helpful for constructing push notification
-        payloads.</p>
+        <p>The {@link com.eatthepath.pushy.apns.util.SimpleApnsPushNotification} class provides a simple, concrete
+            implementation of the {@link com.eatthepath.pushy.apns.ApnsPushNotification} interface. A push
+            notification's payload
+            is just a JSON text, and callers may construct payloads however they choose. Most users, though, will
+            probably
+            find the {@link com.eatthepath.pushy.apns.util.ApnsPayloadBuilder} class helpful for constructing push
+            notification
+            payloads.</p>
 
         <p>Pushy is available under the <a href="http://opensource.org/licenses/MIT">MIT License</a>.</p>
     </body>

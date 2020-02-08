@@ -30,7 +30,7 @@
 
     <parent>
         <artifactId>pushy-parent</artifactId>
-        <groupId>com.turo</groupId>
+        <groupId>com.eatthepath</groupId>
         <version>0.13.11-SNAPSHOT</version>
     </parent>
 
