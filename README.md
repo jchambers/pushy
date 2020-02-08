@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/relayrides/pushy.svg?branch=master)](https://travis-ci.org/relayrides/pushy)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.turo/pushy/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.turo/pushy)
 
-Pushy is a Java library for sending [APNs](https://developer.apple.com/documentation/usernotifications) (iOS, macOS, and Safari) push notifications. It is written and maintained by the engineers at [Turo](https://turo.com/).
+Pushy is a Java library for sending [APNs](https://developer.apple.com/documentation/usernotifications) (iOS, macOS, and Safari) push notifications.
 
 Pushy sends push notifications using Apple's HTTP/2-based APNs protocol and supports both TLS and token-based authentication. It distinguishes itself from other push notification libraries with a focus on [thorough documentation](https://pushy-apns.org/apidocs/0.13/index.html?overview-summary.html), asynchronous operation, and design for industrial-scale operation; with Pushy, it's easy and efficient to maintain multiple parallel connections to the APNs gateway to send large numbers of notifications to many different applications ("topics").
 
@@ -243,4 +243,4 @@ Callers may also provide a [`MockApnsServerListener`](https://pushy-apns.org/api
 
 Pushy is available under the [MIT License](https://github.com/relayrides/pushy/blob/master/LICENSE.md).
 
-The current version of Pushy is 0.13.10. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
+The current version of Pushy is 0.13.10. It's fully functional and widely used in production environments, but the public API may change significantly before a 1.0 release.
