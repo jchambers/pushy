@@ -30,7 +30,7 @@
     <name>Pushy</name>
 
     <parent>
-        <groupId>com.turo</groupId>
+        <groupId>com.eatthepath</groupId>
         <artifactId>pushy-parent</artifactId>
         <version>0.13.11-SNAPSHOT</version>
     </parent>
@@ -135,7 +135,7 @@
                     <properties>
                         <property>
                             <name>listener</name>
-                            <value>com.turo.pushy.apns.PrintTestNameRunListener</value>
+                            <value>com.eatthepath.pushy.apns.PrintTestNameRunListener</value>
                         </property>
                     </properties>
                 </configuration>
@@ -176,7 +176,7 @@
                             <properties>
                                 <property>
                                     <name>listener</name>
-                                    <value>com.turo.pushy.apns.PrintTestNameRunListener</value>
+                                    <value>com.eatthepath.pushy.apns.PrintTestNameRunListener</value>
                                 </property>
                             </properties>
                         </configuration>

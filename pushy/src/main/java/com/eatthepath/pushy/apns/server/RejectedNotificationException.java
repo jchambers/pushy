@@ -1,0 +1,51 @@
+/*
+ * Copyright (c) 2020 Jon Chambers
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
+package com.eatthepath.pushy.apns.server;
+
+import java.util.Objects;
+
+/**
+ * An exception thrown by {@link PushNotificationHandler} instances to indicate that a push notification should be
+ * rejected by the server. Handlers that need to reject a notification because its destination device token is no longer
+ * valid should throw an {@link UnregisteredDeviceTokenException} instead.
+ *
+ * @since 0.12
+ */
+public class RejectedNotificationException extends Exception {
+    private final RejectionReason errorReason;
+
+    /**
+     * Constructs a new rejected notification exception with the given rejection reason and notification identifier.
+     *
+     * @param rejectionReason the reason for the rejection
+     */
+    public RejectedNotificationException(final RejectionReason rejectionReason) {
+        Objects.requireNonNull(rejectionReason, "Error reason must not be null.");
+
+        this.errorReason = rejectionReason;
+    }
+
+    RejectionReason getRejectionReason() {
+        return errorReason;
+    }
+}
