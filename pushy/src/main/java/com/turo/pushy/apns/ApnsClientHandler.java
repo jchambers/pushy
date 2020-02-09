@@ -160,7 +160,20 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     @Override
     public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise writePromise) {
         if (message instanceof PushNotificationPromise) {
-            this.writePushNotification(context, (PushNotificationPromise) message, writePromise);
+            final PushNotificationPromise pushNotificationPromise = (PushNotificationPromise) message;
+
+            writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
+
+                @Override
+                public void operationComplete(final ChannelPromise future) {
+                    if (!future.isSuccess()) {
+                        log.trace("Failed to write push notification.", future.cause());
+                        pushNotificationPromise.tryFailure(future.cause());
+                    }
+                }
+            });
+
+            this.writePushNotification(context, pushNotificationPromise, writePromise);
         } else {
             // This should never happen, but in case some foreign debris winds up in the pipeline, just pass it through.
             log.error("Unexpected object in pipeline: {}", message);
@@ -205,17 +218,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
                 final PromiseCombiner promiseCombiner = new PromiseCombiner();
                 promiseCombiner.addAll((ChannelFuture) headersPromise, dataPromise);
                 promiseCombiner.finish(writePromise);
-
-                writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
-
-                    @Override
-                    public void operationComplete(final ChannelPromise future) {
-                        if (!future.isSuccess()) {
-                            log.trace("Failed to write push notification on stream {}.", streamId, future.cause());
-                            responsePromise.tryFailure(future.cause());
-                        }
-                    }
-                });
             } else {
                 // This is very unlikely, but in the event that we run out of stream IDs, we need to open a new
                 // connection. Just closing the context should be enough; automatic reconnection should take things
