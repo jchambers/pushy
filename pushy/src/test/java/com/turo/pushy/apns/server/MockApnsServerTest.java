@@ -28,6 +28,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.concurrent.Future;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import javax.net.ssl.SSLSession;
@@ -38,6 +39,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.Assert.*;
 import static org.junit.Assume.assumeTrue;
 
+@Ignore
 public class MockApnsServerTest extends AbstractClientServerTest {
 
     private static class TestMockApnsServerListener extends ParsingMockApnsServerListenerAdapter {
