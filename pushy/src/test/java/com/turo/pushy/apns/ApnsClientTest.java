@@ -700,6 +700,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
 
     @Test
     @Parameters(method = "getParametersForTestSendNotificationWithPushTypeHeader")
+    @Ignore
     public void testSendNotificationWithPushTypeHeader(final PushType pushType) throws Exception {
         final ValidatingPushNotificationHandlerFactory handlerFactory = new ValidatingPushNotificationHandlerFactory(
                 DEVICE_TOKENS_BY_TOPIC, EXPIRATION_TIMESTAMPS_BY_DEVICE_TOKEN, this.verificationKeysByKeyId,
