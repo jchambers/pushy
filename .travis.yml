@@ -4,20 +4,8 @@ matrix:
     include:
         - os: linux
           jdk: openjdk8
-          env: PUSHY_SSL_PROVIDER=jdk
-
-        - os: linux
-          jdk: openjdk8
-
-        - os: linux
-          dist: trusty
-          jdk: openjdk7
-          install: mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V -pl '!micrometer-metrics-listener'
-          script: mvn test -B -pl '!micrometer-metrics-listener'
+          script: mvn -Dtest=ApnsClientTest#testRejectedNotificationMetrics test
 
         - os: osx
           osx_image: xcode8.3
-          env: PUSHY_SSL_PROVIDER=jdk
-
-        - os: osx
-          osx_image: xcode8.3
+          script: mvn -Dtest=ApnsClientTest#testRejectedNotificationMetrics test
