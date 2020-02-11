@@ -218,6 +218,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
 
     @Test
     @Parameters({"true", "false"})
+    @Ignore
     public void testSendNotificationToUntrustedServer(final boolean useTokenAuthentication) throws Exception {
         final ApnsClient cautiousClient;
 
@@ -276,6 +277,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
 
     @Test
     @Parameters({"true", "false"})
+    @Ignore
     public void testSendNotificationAfterClose(final boolean useTokenAuthentication) throws Exception {
         final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory());
         final ApnsClient client = useTokenAuthentication ?
@@ -301,6 +303,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
 
     @Test
     @Parameters({"true", "false"})
+    @Ignore
     public void testSendNotification(final boolean useTokenAuthentication) throws Exception {
         final ValidatingPushNotificationHandlerFactory handlerFactory = new ValidatingPushNotificationHandlerFactory(
                 DEVICE_TOKENS_BY_TOPIC, EXPIRATION_TIMESTAMPS_BY_DEVICE_TOKEN, this.verificationKeysByKeyId,
@@ -374,6 +377,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
 
     @Test
     @Parameters({"true", "false"})
+    @Ignore
     public void testSendManyNotifications(final boolean useTokenAuthentication) throws Exception {
         final int notificationCount = 1000;
 
@@ -412,6 +416,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
 
     @Test
     @Parameters({"true", "false"})
+    @Ignore
     public void testSendManyNotificationsWithListeners(final boolean useTokenAuthentication) throws Exception {
         final int notificationCount = 1000;
 
@@ -458,6 +463,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
     // See https://github.com/relayrides/pushy/issues/256
     @Test
     @Parameters({"true", "false"})
+    @Ignore
     public void testRepeatedlySendSameNotification(final boolean useTokenAuthentication) throws Exception {
         final int notificationCount = 1000;
 
@@ -497,6 +503,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
 
     @Test
     @Parameters({"true", "false"})
+    @Ignore
     public void testSendNotificationWithExpiredDeviceToken(final boolean useTokenAuthentication) throws Exception {
         final Date expiration = new Date();
 
@@ -610,7 +617,6 @@ public class ApnsClientTest extends AbstractClientServerTest {
 
     @Test
     @Parameters({"true", "false"})
-    @Ignore
     public void testFailedConnectionAndWriteFailureMetrics(final boolean useTokenAuthentication) throws Exception {
         final TestClientMetricsListener metricsListener = new TestClientMetricsListener();
 
