@@ -32,6 +32,7 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -566,6 +567,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
 
     @Test
     @Parameters({"true", "false"})
+    @Ignore
     public void testRejectedNotificationMetrics(final boolean useTokenAuthentication) throws Exception {
         final PushNotificationHandlerFactory handlerFactory = new PushNotificationHandlerFactory() {
             @Override
