@@ -329,6 +329,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
     }
 
     @Test
+    @Ignore
     public void testSendNotificationWithExpiredAuthenticationToken() throws Exception {
         final PushNotificationHandlerFactory expireFirstTokenHandlerFactory = new PushNotificationHandlerFactory() {
             @Override
@@ -535,6 +536,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
 
     @Test
     @Parameters({"true", "false"})
+    @Ignore
     public void testAcceptedNotificationAndAddedConnectionMetrics(final boolean useTokenAuthentication) throws Exception {
         final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory());
 
@@ -608,6 +610,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
 
     @Test
     @Parameters({"true", "false"})
+    @Ignore
     public void testFailedConnectionAndWriteFailureMetrics(final boolean useTokenAuthentication) throws Exception {
         final TestClientMetricsListener metricsListener = new TestClientMetricsListener();
 
