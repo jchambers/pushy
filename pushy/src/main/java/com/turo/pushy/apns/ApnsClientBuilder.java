@@ -99,7 +99,7 @@ public class ApnsClientBuilder {
      *
      * @since 0.5
      */
-    public static final String DEVELOPMENT_APNS_HOST = "api.development.push.apple.com";
+    public static final String DEVELOPMENT_APNS_HOST = "api.sandbox.push.apple.com";
 
     /**
      * The default (HTTPS) port for communication with the APNs gateway.
