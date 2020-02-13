@@ -27,6 +27,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.turo.pushy.apns.util.DateAsTimeSinceEpochTypeAdapter;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
@@ -71,8 +72,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private static final AsciiString APNS_COLLAPSE_ID_HEADER = new AsciiString("apns-collapse-id");
     private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
     private static final AsciiString APNS_PUSH_TYPE_HEADER = new AsciiString("apns-push-type");
-
-    private static final int INITIAL_PAYLOAD_BUFFER_CAPACITY = 4096;
 
     private static final IOException STREAMS_EXHAUSTED_EXCEPTION =
             new IOException("HTTP/2 streams exhausted; closing connection.");
@@ -196,8 +195,8 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
                 this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
                 log.trace("Wrote headers on stream {}: {}", streamId, headers);
 
-                final ByteBuf payloadBuffer = context.alloc().ioBuffer(INITIAL_PAYLOAD_BUFFER_CAPACITY);
-                payloadBuffer.writeBytes(pushNotification.getPayload().getBytes(StandardCharsets.UTF_8));
+                final ByteBuf payloadBuffer =
+                        Unpooled.wrappedBuffer(pushNotification.getPayload().getBytes(StandardCharsets.UTF_8));
 
                 final ChannelPromise dataPromise = context.newPromise();
                 this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
