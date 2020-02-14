@@ -85,7 +85,7 @@ final SimpleApnsPushNotification pushNotification;
     final ApnsPayloadBuilder payloadBuilder = new ApnsPayloadBuilder();
     payloadBuilder.setAlertBody("Example!");
 
-    final String payload = payloadBuilder.buildWithDefaultMaximumLength();
+    final String payload = payloadBuilder.build();
     final String token = TokenUtil.sanitizeTokenString("<efc7492 bdbd8209>");
 
     pushNotification = new SimpleApnsPushNotification(token, "com.example.myApp", payload);
