@@ -25,8 +25,6 @@ package com.eatthepath.pushy.apns.util;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
-import java.io.CharArrayWriter;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /**
@@ -76,8 +74,6 @@ public class ApnsPayloadBuilder {
 
     private boolean preferStringRepresentationForAlerts = false;
 
-    private final CharArrayWriter buffer = new CharArrayWriter(DEFAULT_MAXIMUM_PAYLOAD_SIZE / 4);
-
     private static final String APS_KEY = "aps";
     private static final String ALERT_KEY = "alert";
     private static final String BADGE_KEY = "badge";
@@ -108,8 +104,6 @@ public class ApnsPayloadBuilder {
 
     private final HashMap<String, Object> customProperties = new HashMap<>();
 
-    private static final String ABBREVIATION_SUBSTRING = "…";
-
     private static final Gson GSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
 
     private static class SoundForCriticalAlert {
@@ -132,12 +126,6 @@ public class ApnsPayloadBuilder {
     public static final String DEFAULT_SOUND_FILENAME = "default";
 
     /**
-     * The default maximum size, in bytes, for a push notification payload.
-     *
-     * @see ApnsPayloadBuilder#buildWithDefaultMaximumLength()
-     */
-    public static final int DEFAULT_MAXIMUM_PAYLOAD_SIZE = 4096;
-
     /**
      * Sets whether this payload builder will attempt to represent alerts as strings when possible. Older versions of
      * the APNs specification recommended representing alerts as strings when only a literal alert body was provided,
@@ -700,33 +688,11 @@ public class ApnsPayloadBuilder {
     }
 
     /**
-     * <p>Returns a JSON representation of the push notification payload under construction. If the payload length is
-     * longer than the default maximum ({@value ApnsPayloadBuilder#DEFAULT_MAXIMUM_PAYLOAD_SIZE}
-     * bytes), the literal alert body will be shortened if possible. If the alert body cannot be shortened or is not
-     * present, an {@code IllegalArgumentException} is thrown.</p>
+     * Returns a JSON representation of the push notification payload under construction.
      *
      * @return a JSON representation of the payload under construction (possibly with an abbreviated alert body)
-     *
-     * @throws IllegalArgumentException if the payload is too large and cannot be compressed by truncating its literal
-     * alert message
      */
-    public String buildWithDefaultMaximumLength() {
-        return this.buildWithMaximumLength(DEFAULT_MAXIMUM_PAYLOAD_SIZE);
-    }
-
-    /**
-     * <p>Returns a JSON representation of the push notification payload under construction. If the payload length is
-     * longer than the given maximum, the literal alert body will be shortened if possible. If the alert body cannot be
-     * shortened or is not present, an {@code IllegalArgumentException} is thrown.</p>
-     *
-     * @param maximumPayloadSize the maximum length of the payload in bytes
-     *
-     * @return a JSON representation of the payload under construction (possibly with an abbreviated alert body)
-     *
-     * @throws IllegalArgumentException if the payload is too large and cannot be compressed by truncating its literal
-     * alert message
-     */
-    public String buildWithMaximumLength(final int maximumPayloadSize) {
+    public String build() {
         final Map<String, Object> payload = new HashMap<>();
 
         {
@@ -843,49 +809,7 @@ public class ApnsPayloadBuilder {
             payload.put(entry.getKey(), entry.getValue());
         }
 
-        this.buffer.reset();
-        GSON.toJson(payload, this.buffer);
-
-        final String payloadString = this.buffer.toString();
-        final int initialPayloadSize = payloadString.getBytes(StandardCharsets.UTF_8).length;
-
-        final String fittedPayloadString;
-
-        if (initialPayloadSize <= maximumPayloadSize) {
-            fittedPayloadString = payloadString;
-        } else {
-            if (this.alertBody != null) {
-                this.replaceMessageBody(payload, "");
-
-                this.buffer.reset();
-                GSON.toJson(payload, this.buffer);
-
-                final int payloadSizeWithEmptyMessage = this.buffer.toString().getBytes(StandardCharsets.UTF_8).length;
-
-                if (payloadSizeWithEmptyMessage >= maximumPayloadSize) {
-                    throw new IllegalArgumentException("Payload exceeds maximum size even with an empty message body.");
-                }
-
-                final int maximumEscapedMessageBodySize = maximumPayloadSize - payloadSizeWithEmptyMessage -
-                        ABBREVIATION_SUBSTRING.getBytes(StandardCharsets.UTF_8).length;
-
-                final String fittedMessageBody = this.alertBody.substring(0,
-                        ApnsPayloadBuilder.getLengthOfJsonEscapedUtf8StringFittingSize(this.alertBody, maximumEscapedMessageBodySize));
-
-                this.replaceMessageBody(payload, fittedMessageBody + ABBREVIATION_SUBSTRING);
-
-                this.buffer.reset();
-                GSON.toJson(payload, this.buffer);
-
-                fittedPayloadString = this.buffer.toString();
-            } else {
-                throw new IllegalArgumentException(String.format(
-                        "Payload size is %d bytes (with a maximum of %d bytes) and cannot be shortened.",
-                        initialPayloadSize, maximumPayloadSize));
-            }
-        }
-
-        return fittedPayloadString;
+        return GSON.toJson(payload);
     }
 
     /**
@@ -905,77 +829,5 @@ public class ApnsPayloadBuilder {
      */
     public static String buildMdmPayload(final String pushMagicValue) {
         return GSON.toJson(java.util.Collections.singletonMap(MDM_KEY, pushMagicValue));
-    }
-
-    private void replaceMessageBody(final Map<String, Object> payload, final String messageBody) {
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> aps = (Map<String, Object>) payload.get(APS_KEY);
-        final Object alert = aps.get(ALERT_KEY);
-
-        if (alert != null) {
-            if (alert instanceof String) {
-                aps.put(ALERT_KEY, messageBody);
-            } else {
-                @SuppressWarnings("unchecked")
-                final Map<String, Object> alertObject = (Map<String, Object>) alert;
-
-                if (alertObject.get(ALERT_BODY_KEY) != null) {
-                    alertObject.put(ALERT_BODY_KEY, messageBody);
-                } else {
-                    throw new IllegalArgumentException("Payload has no message body.");
-                }
-            }
-        } else {
-            throw new IllegalArgumentException("Payload has no message body.");
-        }
-    }
-
-    static int getLengthOfJsonEscapedUtf8StringFittingSize(final String string, final int maximumSize) {
-        int i = 0;
-        int cumulativeSize = 0;
-
-        for (i = 0; i < string.length(); i++) {
-            final char c = string.charAt(i);
-            final int charSize = getSizeOfJsonEscapedUtf8Character(c);
-
-            if (cumulativeSize + charSize > maximumSize) {
-                // The next character would put us over the edge; bail out here.
-                break;
-            }
-
-            cumulativeSize += charSize;
-
-            if (Character.isHighSurrogate(c)) {
-                // Skip the next character
-                i++;
-            }
-        }
-
-        return i;
-    }
-
-    static int getSizeOfJsonEscapedUtf8Character(final char c) {
-        final int charSize;
-
-        if (c == '"' || c == '\\' || c == '\b' || c == '\f' || c == '\n' || c == '\r' || c == '\t') {
-            // Character is backslash-escaped in JSON
-            charSize = 2;
-        } else if (c <= 0x001F || c == '\u2028' || c == '\u2029') {
-            // Character will be represented as an escaped control character
-            charSize = 6;
-        } else {
-            // The character will be represented as an un-escaped UTF8 character
-            if (c <= 0x007F) {
-                charSize = 1;
-            } else if (c <= 0x07FF) {
-                charSize = 2;
-            } else if (Character.isHighSurrogate(c)) {
-                charSize = 4;
-            } else {
-                charSize = 3;
-            }
-        }
-
-        return charSize;
     }
 }

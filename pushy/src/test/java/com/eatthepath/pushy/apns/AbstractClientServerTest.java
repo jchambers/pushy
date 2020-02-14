@@ -80,7 +80,7 @@ public class AbstractClientServerTest {
     protected Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey;
 
     @BeforeClass
-    public static void setUpBeforeClass() throws Exception {
+    public static void setUpBeforeClass() {
         CLIENT_EVENT_LOOP_GROUP = new NioEventLoopGroup(2);
         SERVER_EVENT_LOOP_GROUP = new NioEventLoopGroup(2);
     }
@@ -168,6 +168,6 @@ public class AbstractClientServerTest {
         final ApnsPayloadBuilder payloadBuilder = new ApnsPayloadBuilder();
         payloadBuilder.setAlertBody(UUID.randomUUID().toString());
 
-        return payloadBuilder.buildWithDefaultMaximumLength();
+        return payloadBuilder.build();
     }
 }

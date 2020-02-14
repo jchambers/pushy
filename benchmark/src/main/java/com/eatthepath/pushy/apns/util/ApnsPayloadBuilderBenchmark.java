@@ -22,24 +22,18 @@
 
 package com.eatthepath.pushy.apns.util;
 
+import org.apache.commons.lang3.RandomStringUtils;
+import org.openjdk.jmh.annotations.*;
+
 import java.util.ArrayList;
 import java.util.List;
-
-import org.apache.commons.lang3.RandomStringUtils;
-import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.Param;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
-import org.openjdk.jmh.annotations.State;
 
 @State(Scope.Thread)
 public class ApnsPayloadBuilderBenchmark {
 
     private ApnsPayloadBuilder apnsPayloadBuilder;
 
-    private static final int MAXIMUM_PAYLOAD_SIZE = 4096;
-
-    @Param({"512", "8192"})
+    @Param({"512", "4096"})
     public int messageBodyLength;
 
     @Param({"BASIC_LATIN", "CJK_UNIFIED_IDEOGRAPHS"})
@@ -73,8 +67,8 @@ public class ApnsPayloadBuilderBenchmark {
     }
 
     @Benchmark
-    public String testBuildWithMaximumLength() {
+    public String testBuild() {
         this.apnsPayloadBuilder.setAlertBody(this.messageBody);
-        return this.apnsPayloadBuilder.buildWithMaximumLength(MAXIMUM_PAYLOAD_SIZE);
+        return this.apnsPayloadBuilder.build();
     }
 }

@@ -32,8 +32,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.lang.reflect.Type;
-import java.nio.charset.CharsetEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -61,7 +59,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.setAlertBody(alertBody);
 
         {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
             @SuppressWarnings("unchecked")
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
@@ -72,7 +70,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.setPreferStringRepresentationForAlerts(true);
 
         {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
             assertEquals(alertBody, aps.get("alert"));
         }
 
@@ -81,7 +79,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.setShowActionButton(false);
 
         {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
             @SuppressWarnings("unchecked")
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
@@ -101,7 +99,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.setLocalizedAlertMessage(alertKey);
 
         {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
             assertEquals(alertKey, alert.get("loc-key"));
@@ -116,7 +114,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.setLocalizedAlertMessage(alertKey, alertArgs);
 
         {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
             assertEquals(alertKey, alert.get("loc-key"));
@@ -135,7 +133,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.setAlertTitle(alertTitle);
 
         {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
             @SuppressWarnings("unchecked")
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
@@ -154,7 +152,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.setLocalizedAlertTitle(localizedAlertTitleKey);
 
         {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
             @SuppressWarnings("unchecked")
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
@@ -171,7 +169,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.setLocalizedAlertTitle(localizedAlertTitleKey, alertArgs);
 
         {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
             @SuppressWarnings("unchecked")
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
@@ -193,7 +191,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.setAlertSubtitle(alertSubtitle);
 
         {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
             @SuppressWarnings("unchecked")
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
@@ -213,7 +211,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.setLocalizedAlertSubtitle(subtitleKey);
 
         {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
             assertEquals(subtitleKey, alert.get("subtitle-loc-key"));
@@ -228,7 +226,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.setLocalizedAlertSubtitle(subtitleKey, subtitleArgs);
 
         {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
             assertEquals(subtitleKey, alert.get("subtitle-loc-key"));
@@ -248,7 +246,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.setAlertTitle(alertTitle);
 
         {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
             @SuppressWarnings("unchecked")
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
@@ -263,7 +261,7 @@ public class ApnsPayloadBuilderTest {
         final String launchImageFilename = "launch.png";
         this.builder.setLaunchImageFileName(launchImageFilename);
 
-        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
         @SuppressWarnings("unchecked")
         final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
@@ -276,7 +274,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.setShowActionButton(true);
 
         {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
             assertNull(aps.get("alert"));
         }
@@ -284,12 +282,12 @@ public class ApnsPayloadBuilderTest {
         this.builder.setShowActionButton(false);
 
         {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
             @SuppressWarnings("unchecked")
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
-            assertTrue(alert.keySet().contains("action-loc-key"));
+            assertTrue(alert.containsKey("action-loc-key"));
             assertNull(alert.get("action-loc-key"));
         }
 
@@ -298,7 +296,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.setShowActionButton(true);
 
         {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
             @SuppressWarnings("unchecked")
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
@@ -309,12 +307,12 @@ public class ApnsPayloadBuilderTest {
         this.builder.setShowActionButton(false);
 
         {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
             @SuppressWarnings("unchecked")
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
-            assertTrue(alert.keySet().contains("action-loc-key"));
+            assertTrue(alert.containsKey("action-loc-key"));
             assertNull(alert.get("action-loc-key"));
         }
     }
@@ -326,7 +324,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.setLocalizedActionButtonKey("action.key");
         this.builder.setActionButtonLabel(actionButtonLabel);
 
-        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
         @SuppressWarnings("unchecked")
         final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
@@ -342,7 +340,7 @@ public class ApnsPayloadBuilderTest {
         this.builder.setActionButtonLabel("Literal action button label");
         this.builder.setLocalizedActionButtonKey(actionButtonKey);
 
-        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
         @SuppressWarnings("unchecked")
         final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
@@ -356,7 +354,7 @@ public class ApnsPayloadBuilderTest {
         final int badgeNumber = 4;
         this.builder.setBadgeNumber(badgeNumber);
 
-        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
         assertEquals(badgeNumber, ((Number) aps.get("badge")).intValue());
     }
@@ -366,7 +364,7 @@ public class ApnsPayloadBuilderTest {
         final String soundFileName = "dying-giraffe.aiff";
         this.builder.setSound(soundFileName);
 
-        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
         assertEquals(soundFileName, aps.get("sound"));
     }
@@ -379,7 +377,7 @@ public class ApnsPayloadBuilderTest {
 
         this.builder.setSound(soundFileName, isCriticalAlert, soundVolume);
 
-        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
         @SuppressWarnings("unchecked")
         final Map<String, Object> soundDictionary = (Map<String, Object>) aps.get("sound");
@@ -409,7 +407,7 @@ public class ApnsPayloadBuilderTest {
         final String categoryName = "INVITE";
         this.builder.setCategoryName(categoryName);
 
-        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
         assertEquals(categoryName, aps.get("category"));
     }
@@ -417,14 +415,14 @@ public class ApnsPayloadBuilderTest {
     @Test
     public void testSetContentAvailable() {
         {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
             assertNull(aps.get("content-available"));
         }
 
         {
             this.builder.setContentAvailable(true);
 
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
             assertEquals(1, ((Number) aps.get("content-available")).intValue());
         }
     }
@@ -432,14 +430,14 @@ public class ApnsPayloadBuilderTest {
     @Test
     public void testSetMutableContent() {
         {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
             assertNull(aps.get("mutable-content"));
         }
 
         {
             this.builder.setMutableContent(true);
 
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
             assertEquals(1, ((Number) aps.get("mutable-content")).intValue());
         }
     }
@@ -450,7 +448,7 @@ public class ApnsPayloadBuilderTest {
 
         this.builder.setThreadId(threadId);
 
-        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
         assertEquals(threadId, aps.get("thread-id"));
     }
 
@@ -460,7 +458,7 @@ public class ApnsPayloadBuilderTest {
 
         this.builder.setTargetContentId(targetContentId);
 
-        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
         assertEquals(targetContentId, aps.get("target-content-id"));
     }
 
@@ -470,7 +468,7 @@ public class ApnsPayloadBuilderTest {
 
         this.builder.setSummaryArgument(summaryArgument);
 
-        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
         @SuppressWarnings("unchecked")
         final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
@@ -484,7 +482,7 @@ public class ApnsPayloadBuilderTest {
 
         this.builder.setSummaryArgumentCount(argumentSummaryCount);
 
-        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
         @SuppressWarnings("unchecked")
         final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
@@ -504,8 +502,7 @@ public class ApnsPayloadBuilderTest {
 
         this.builder.addCustomProperty(customKey, customValue);
 
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> payload = GSON.fromJson(this.builder.buildWithDefaultMaximumLength(), MAP_OF_STRING_TO_OBJECT);
+        final Map<String, Object> payload = GSON.fromJson(this.builder.build(), MAP_OF_STRING_TO_OBJECT);
 
         assertEquals(customValue, payload.get(customKey));
     }
@@ -520,7 +517,7 @@ public class ApnsPayloadBuilderTest {
 
             this.builder.setUrlArguments(arguments);
 
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
             assertEquals(arguments, aps.get("url-args"));
         }
@@ -529,7 +526,7 @@ public class ApnsPayloadBuilderTest {
             final List<String> arguments = new ArrayList<>();
             this.builder.setUrlArguments(arguments);
 
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
             assertEquals(arguments, aps.get("url-args"));
         }
@@ -537,7 +534,7 @@ public class ApnsPayloadBuilderTest {
         {
             this.builder.setUrlArguments((List<String>) null);
 
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
             assertNull(aps.get("url-args"));
         }
@@ -549,7 +546,7 @@ public class ApnsPayloadBuilderTest {
         {
             this.builder.setUrlArguments("first", "second", "third");
 
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
             final List<String> argumentsFromPayload = (List<String>) aps.get("url-args");
 
@@ -563,7 +560,7 @@ public class ApnsPayloadBuilderTest {
             final String[] arguments = new String[0];
             this.builder.setUrlArguments(arguments);
 
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
             assertTrue(((List<String>) aps.get("url-args")).isEmpty());
         }
@@ -571,80 +568,10 @@ public class ApnsPayloadBuilderTest {
         {
             this.builder.setUrlArguments((String[]) null);
 
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithDefaultMaximumLength());
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
             assertNull(aps.get("url-args"));
         }
-    }
-
-    @Test
-    public void testBuildWithMaximumLength() {
-        final String reallyLongAlertMessage = "All non-glanded recruited mercenaries now engaging in training " +
-                "excercises are herefore and forever ordered to desist. Aforementioned activities have resulted in " +
-                "cost-defective damage to training areas.";
-
-        final int maxLength = 128;
-
-        this.builder.setAlertBody(reallyLongAlertMessage);
-
-        final String payloadString = this.builder.buildWithMaximumLength(maxLength);
-
-        assertTrue(reallyLongAlertMessage.getBytes(StandardCharsets.UTF_8).length > maxLength);
-        assertEquals(payloadString.getBytes(StandardCharsets.UTF_8).length, maxLength);
-    }
-
-    @Test
-    public void testBuildWithMaximumLengthAndAlreadyFittingMessageBody() {
-        final String shortAlertMessage = "This should just fit.";
-
-        this.builder.setAlertBody(shortAlertMessage);
-        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.buildWithMaximumLength(Integer.MAX_VALUE));
-
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
-
-        assertEquals(shortAlertMessage, alert.get("body"));
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void testBuildWithMaximumLengthAndUnshortenablePayload() {
-        final String reallyLongAlertKey =
-                "All non-glanded recruited mercenaries now engaging in training excercises are herefore and forever ordered to desist. Aforementioned activities have resulted in cost-defective damage to training areas.";
-
-        final int maxLength = 128;
-
-        this.builder.setLocalizedAlertMessage(reallyLongAlertKey);
-
-        final String payloadString = this.builder.buildWithMaximumLength(maxLength);
-
-        assertTrue(payloadString.getBytes(StandardCharsets.UTF_8).length <= maxLength);
-    }
-
-    @Test
-    public void testGetSizeOfJsonEscapedUtf8Character() {
-        final CharsetEncoder encoder = StandardCharsets.UTF_8.newEncoder();
-
-        for (int codePoint = Character.MIN_CODE_POINT; codePoint < Character.MAX_CODE_POINT; codePoint++) {
-            if (encoder.canEncode((char) codePoint)) {
-                // We subtract 2 here for the quotes that will appear on either end of a JSON string
-                assertEquals("Escaped/encoded lengths should match for code point " + codePoint,
-                        GSON.toJson(String.valueOf((char) codePoint)).getBytes(StandardCharsets.UTF_8).length - 2,
-                        ApnsPayloadBuilder.getSizeOfJsonEscapedUtf8Character((char) codePoint));
-            }
-        }
-    }
-
-    @Test
-    public void testGetLengthOfJsonEscapedUtf8StringFittingSize() {
-        {
-            final String stringThatFits = "Test!";
-
-            assertEquals(stringThatFits.length(),
-                    ApnsPayloadBuilder.getLengthOfJsonEscapedUtf8StringFittingSize(stringThatFits, Integer.MAX_VALUE));
-        }
-
-        assertEquals(4, ApnsPayloadBuilder.getLengthOfJsonEscapedUtf8StringFittingSize("This string is too long.", 4));
-        assertEquals(2, ApnsPayloadBuilder.getLengthOfJsonEscapedUtf8StringFittingSize("\n\tThis string has escaped characters.", 4));
     }
 
     @Test

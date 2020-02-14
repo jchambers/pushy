@@ -105,8 +105,8 @@ public class ApnsClientBenchmark {
             final ApnsPayloadBuilder payloadBuilder = new ApnsPayloadBuilder();
 
             for (int i = 0; i < this.notificationCount; i++) {
-                final String payload = payloadBuilder.setAlertBody(RandomStringUtils.randomAlphanumeric(MESSAGE_BODY_LENGTH))
-                        .buildWithDefaultMaximumLength();
+                final String payload =
+                        payloadBuilder.setAlertBody(RandomStringUtils.randomAlphanumeric(MESSAGE_BODY_LENGTH)).build();
 
                 this.pushNotifications.add(new SimpleApnsPushNotification(generateRandomDeviceToken(), TOPIC, payload));
             }
