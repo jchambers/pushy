@@ -106,7 +106,6 @@
                         <Import-Package>
                             <!-- Classes from the following packages are only loaded using Class.forName(), so BND can not detect they are required imports. -->
                             io.netty.channel.socket.nio,
-                            io.netty.channel.socket.oio,
                             <!-- This tells BND to add all other required imports that it does detect, as normal. -->
                             *,
                         </Import-Package>
