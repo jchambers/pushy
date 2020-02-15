@@ -9,11 +9,8 @@ import io.netty.channel.kqueue.KQueueDatagramChannel;
 import io.netty.channel.kqueue.KQueueEventLoopGroup;
 import io.netty.channel.kqueue.KQueueSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.oio.OioEventLoopGroup;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.channel.socket.oio.OioDatagramChannel;
-import io.netty.channel.socket.oio.OioSocketChannel;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -24,14 +21,11 @@ public class ClientChannelClassUtilTest {
     @Test
     public void testGetCoreSocketChannelClass() {
         final NioEventLoopGroup nioEventLoopGroup = new NioEventLoopGroup(1);
-        final OioEventLoopGroup oioEventLoopGroup = new OioEventLoopGroup(1);
 
         try {
             assertEquals(NioSocketChannel.class, ClientChannelClassUtil.getSocketChannelClass(nioEventLoopGroup));
-            assertEquals(OioSocketChannel.class, ClientChannelClassUtil.getSocketChannelClass(oioEventLoopGroup));
         } finally {
             nioEventLoopGroup.shutdownGracefully();
-            oioEventLoopGroup.shutdownGracefully();
         }
     }
 
@@ -70,14 +64,11 @@ public class ClientChannelClassUtilTest {
     @Test
     public void testGetCoreDatagramChannelClass() {
         final NioEventLoopGroup nioEventLoopGroup = new NioEventLoopGroup(1);
-        final OioEventLoopGroup oioEventLoopGroup = new OioEventLoopGroup(1);
 
         try {
             assertEquals(NioDatagramChannel.class, ClientChannelClassUtil.getDatagramChannelClass(nioEventLoopGroup));
-            assertEquals(OioDatagramChannel.class, ClientChannelClassUtil.getDatagramChannelClass(oioEventLoopGroup));
         } finally {
             nioEventLoopGroup.shutdownGracefully();
-            oioEventLoopGroup.shutdownGracefully();
         }
     }
 

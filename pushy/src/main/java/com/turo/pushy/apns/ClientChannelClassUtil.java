@@ -37,12 +37,10 @@ class ClientChannelClassUtil {
 
     static {
         SOCKET_CHANNEL_CLASSES.put("io.netty.channel.nio.NioEventLoopGroup", "io.netty.channel.socket.nio.NioSocketChannel");
-        SOCKET_CHANNEL_CLASSES.put("io.netty.channel.oio.OioEventLoopGroup", "io.netty.channel.socket.oio.OioSocketChannel");
         SOCKET_CHANNEL_CLASSES.put("io.netty.channel.epoll.EpollEventLoopGroup", "io.netty.channel.epoll.EpollSocketChannel");
         SOCKET_CHANNEL_CLASSES.put("io.netty.channel.kqueue.KQueueEventLoopGroup", "io.netty.channel.kqueue.KQueueSocketChannel");
 
         DATAGRAM_CHANNEL_CLASSES.put("io.netty.channel.nio.NioEventLoopGroup", "io.netty.channel.socket.nio.NioDatagramChannel");
-        DATAGRAM_CHANNEL_CLASSES.put("io.netty.channel.oio.OioEventLoopGroup", "io.netty.channel.socket.oio.OioDatagramChannel");
         DATAGRAM_CHANNEL_CLASSES.put("io.netty.channel.epoll.EpollEventLoopGroup", "io.netty.channel.epoll.EpollDatagramChannel");
         DATAGRAM_CHANNEL_CLASSES.put("io.netty.channel.kqueue.KQueueEventLoopGroup", "io.netty.channel.kqueue.KQueueDatagramChannel");
     }
