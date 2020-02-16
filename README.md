@@ -30,9 +30,7 @@ If you don't use Maven (or something else that understands Maven dependencies, l
 - [slf4j 1.7](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
 - [fast-uuid 0.1](https://github.com/jchambers/fast-uuid)
 
-Pushy itself requires Java 7 or newer to build and run. Under Java 7, Pushy has an additional dependency (included automatically by dependency management systems) on [netty-native 2.0.26.Final](http://netty.io/wiki/forked-tomcat-native.html), a native SSL provider that (among other benefits) includes ciphers required by APNs that are not included with Java 7 by default.
-
-Under Java 8 and newer, Pushy does not require a native SSL provider, but users may choose to use it regardless for enhanced performance. To use a native provider, make sure netty-tcnative is on your classpath. Maven users may add a dependency to their project as follows:
+Pushy itself requires Java 8 or newer to build and run. While not required, users may choose to use [netty-native](http://netty.io/wiki/forked-tomcat-native.html) as an SSL provider for enhanced performance. To use a native provider, make sure netty-tcnative is on your classpath. Maven users may add a dependency to their project as follows:
 
 ```xml
 <dependency>
