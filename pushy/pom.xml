@@ -145,20 +145,6 @@
 
     <profiles>
         <profile>
-            <id>jdk-7</id>
-            <activation>
-                <jdk>1.7</jdk>
-            </activation>
-            <dependencies>
-                <dependency>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-tcnative-boringssl-static</artifactId>
-                    <scope>runtime</scope>
-                </dependency>
-            </dependencies>
-        </profile>
-
-        <profile>
             <id>test-with-jdk-ssl-provider</id>
             <activation>
                 <property>

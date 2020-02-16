@@ -163,8 +163,7 @@
                 <plugin>
                     <groupId>org.apache.felix</groupId>
                     <artifactId>maven-bundle-plugin</artifactId>
-                    <!-- 3.5.1 is the last version supporting Java 7. -->
-                    <version>3.5.1</version>
+                    <version>4.2.1</version>
                 </plugin>
 
                 <plugin>
@@ -172,8 +171,8 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>3.7.0</version>
                     <configuration>
-                        <source>1.7</source>
-                        <target>1.7</target>
+                        <source>1.8</source>
+                        <target>1.8</target>
                     </configuration>
                 </plugin>
 
