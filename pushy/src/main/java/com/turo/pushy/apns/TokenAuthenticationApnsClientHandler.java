@@ -88,9 +88,11 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
 
         if (this.authenticationToken == null) {
             try {
+                log.debug("Generating new token for stream {}.", streamId);
+
                 this.authenticationToken = new AuthenticationToken(signingKey, new Date());
                 this.mostRecentStreamWithNewToken = streamId;
-            } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
+            } catch (final NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
                 // This should never happen because we check the key/algorithm at signing key construction time.
                 log.error("Failed to generate authentication token.", e);
                 throw new RuntimeException(e);
@@ -106,6 +108,7 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
     protected void handleErrorResponse(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final ApnsPushNotification pushNotification, final ErrorResponse errorResponse) {
         if (TokenAuthenticationApnsClientHandler.EXPIRED_AUTH_TOKEN_REASON.equals(errorResponse.getReason())) {
             if (streamId >= this.mostRecentStreamWithNewToken) {
+                log.debug("Token generated for stream {} has expired.", this.mostRecentStreamWithNewToken);
                 this.authenticationToken = null;
             }
 
