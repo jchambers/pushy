@@ -48,6 +48,7 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
     private AuthenticationToken authenticationToken;
     private int mostRecentStreamWithNewToken = 0;
 
+    private final long tokenExpirationMillis;
     private ScheduledFuture<?> expireTokenFuture;
 
     private static final AsciiString APNS_AUTHORIZATION_HEADER = new AsciiString("authorization");
@@ -58,6 +59,7 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
 
     public static class TokenAuthenticationApnsClientHandlerBuilder extends ApnsClientHandlerBuilder {
         private ApnsSigningKey signingKey;
+        private Long tokenExpirationMillis;
 
         public TokenAuthenticationApnsClientHandlerBuilder signingKey(final ApnsSigningKey signingKey) {
             this.signingKey = signingKey;
@@ -68,22 +70,33 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
             return this.signingKey;
         }
 
+        public TokenAuthenticationApnsClientHandlerBuilder tokenExpirationMillis(final long tokenExpirationMillis) {
+            this.tokenExpirationMillis = tokenExpirationMillis;
+            return this;
+        }
+
+        public Long tokenExpirationMillis() {
+            return this.tokenExpirationMillis;
+        }
+
         @Override
         public ApnsClientHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
             Objects.requireNonNull(this.authority(), "Authority must be set before building a TokenAuthenticationApnsClientHandler.");
             Objects.requireNonNull(this.signingKey(), "Signing key must be set before building a TokenAuthenticationApnsClientHandler.");
+            Objects.requireNonNull(this.tokenExpirationMillis(), "Token expiration duration must be set before building a TokenAuthenticationApnsClientHandler.");
 
-            final ApnsClientHandler handler = new TokenAuthenticationApnsClientHandler(decoder, encoder, initialSettings, this.authority(), this.signingKey(), this.idlePingIntervalMillis());
+            final ApnsClientHandler handler = new TokenAuthenticationApnsClientHandler(decoder, encoder, initialSettings, this.authority(), this.idlePingIntervalMillis(), this.signingKey(), this.tokenExpirationMillis());
             this.frameListener(handler);
             return handler;
         }
     }
 
-    protected TokenAuthenticationApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final String authority, final ApnsSigningKey signingKey, final long idlePingIntervalMillis) {
+    protected TokenAuthenticationApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final String authority, final long idlePingIntervalMillis, final ApnsSigningKey signingKey, final long tokenExpirationMillis) {
         super(decoder, encoder, initialSettings, authority, idlePingIntervalMillis);
 
         Objects.requireNonNull(signingKey, "Signing key must not be null for token-based client handlers.");
         this.signingKey = signingKey;
+        this.tokenExpirationMillis = tokenExpirationMillis;
     }
 
     @Override
@@ -100,10 +113,10 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
                 this.expireTokenFuture = context.executor().schedule(new Runnable() {
                     @Override
                     public void run() {
-                        log.debug("Proactively expiring token.");
+                        log.debug("Proactively expiring authentication token.");
                         TokenAuthenticationApnsClientHandler.this.authenticationToken = null;
                     }
-                }, 50, TimeUnit.MINUTES);
+                }, tokenExpirationMillis, TimeUnit.MILLISECONDS);
             } catch (final NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
                 // This should never happen because we check the key/algorithm at signing key construction time.
                 log.error("Failed to generate authentication token.", e);
@@ -119,8 +132,9 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
     @Override
     protected void handleErrorResponse(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final ApnsPushNotification pushNotification, final ErrorResponse errorResponse) {
         if (TokenAuthenticationApnsClientHandler.EXPIRED_AUTH_TOKEN_REASON.equals(errorResponse.getReason())) {
+            log.warn("APNs server reports token has expired.");
+
             if (streamId >= this.mostRecentStreamWithNewToken) {
-                log.warn("APNs server reports token for stream {} has expired.", this.mostRecentStreamWithNewToken);
                 this.authenticationToken = null;
             }
 
