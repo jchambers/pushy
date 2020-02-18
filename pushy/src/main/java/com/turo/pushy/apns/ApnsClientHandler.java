@@ -202,7 +202,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
                 this.unattachedResponsePromisesByStreamId.put(streamId, responsePromise);
                 final ApnsPushNotification pushNotification = responsePromise.getPushNotification();
 
-                final Http2Headers headers = getHeadersForPushNotification(pushNotification, streamId);
+                final Http2Headers headers = getHeadersForPushNotification(pushNotification, context, streamId);
 
                 final ChannelPromise headersPromise = context.newPromise();
                 this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
@@ -230,7 +230,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         }
     }
 
-    protected Http2Headers getHeadersForPushNotification(final ApnsPushNotification pushNotification, final int streamId) {
+    protected Http2Headers getHeadersForPushNotification(final ApnsPushNotification pushNotification, final ChannelHandlerContext context, final int streamId) {
         final Http2Headers headers = new DefaultHttp2Headers()
                 .method(HttpMethod.POST.asciiName())
                 .authority(this.authority)

@@ -30,6 +30,7 @@ import io.netty.handler.codec.http2.Http2ConnectionEncoder;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.util.AsciiString;
+import io.netty.util.concurrent.ScheduledFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +39,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
 import java.util.Date;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
 
@@ -45,6 +47,8 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
 
     private AuthenticationToken authenticationToken;
     private int mostRecentStreamWithNewToken = 0;
+
+    private ScheduledFuture<?> expireTokenFuture;
 
     private static final AsciiString APNS_AUTHORIZATION_HEADER = new AsciiString("authorization");
 
@@ -83,8 +87,8 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
     }
 
     @Override
-    protected Http2Headers getHeadersForPushNotification(final ApnsPushNotification pushNotification, final int streamId) {
-        final Http2Headers headers = super.getHeadersForPushNotification(pushNotification, streamId);
+    protected Http2Headers getHeadersForPushNotification(final ApnsPushNotification pushNotification, final ChannelHandlerContext context, final int streamId) {
+        final Http2Headers headers = super.getHeadersForPushNotification(pushNotification, context, streamId);
 
         if (this.authenticationToken == null) {
             try {
@@ -92,6 +96,14 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
 
                 this.authenticationToken = new AuthenticationToken(signingKey, new Date());
                 this.mostRecentStreamWithNewToken = streamId;
+
+                this.expireTokenFuture = context.executor().schedule(new Runnable() {
+                    @Override
+                    public void run() {
+                        log.debug("Proactively expiring token.");
+                        TokenAuthenticationApnsClientHandler.this.authenticationToken = null;
+                    }
+                }, 50, TimeUnit.MINUTES);
             } catch (final NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
                 // This should never happen because we check the key/algorithm at signing key construction time.
                 log.error("Failed to generate authentication token.", e);
@@ -108,7 +120,7 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
     protected void handleErrorResponse(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final ApnsPushNotification pushNotification, final ErrorResponse errorResponse) {
         if (TokenAuthenticationApnsClientHandler.EXPIRED_AUTH_TOKEN_REASON.equals(errorResponse.getReason())) {
             if (streamId >= this.mostRecentStreamWithNewToken) {
-                log.debug("Token generated for stream {} has expired.", this.mostRecentStreamWithNewToken);
+                log.warn("APNs server reports token for stream {} has expired.", this.mostRecentStreamWithNewToken);
                 this.authenticationToken = null;
             }
 
@@ -117,6 +129,17 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
             this.retryPushNotificationFromStream(context, streamId);
         } else {
             super.handleErrorResponse(context, streamId, headers, pushNotification, errorResponse);
+        }
+    }
+
+    @Override
+    protected void handlerRemoved0(final ChannelHandlerContext context) throws Exception {
+        super.handlerRemoved0(context);
+
+        // Cancel the token expiration future if it's still "live" to avoid a reference cycle that could keep handlers
+        // for closed connections in memory longer than expected.
+        if (expireTokenFuture != null) {
+            expireTokenFuture.cancel(false);
         }
     }
 }
