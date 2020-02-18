@@ -61,6 +61,7 @@ public class ApnsClientBuilder {
     private String privateKeyPassword;
 
     private ApnsSigningKey signingKey;
+    private long tokenExpirationMillis = TimeUnit.MINUTES.toMillis(50);
 
     private File trustedServerCertificatePemFile;
     private InputStream trustedServerCertificateInputStream;
@@ -280,6 +281,26 @@ public class ApnsClientBuilder {
     }
 
     /**
+     * <p>Sets the duration after which authentication tokens should expire and be regenerated from the signing key for
+     * clients using token-based authentication. Has no effect for clients using TLS-based authentication.</p>
+     *
+     * <p>At the time of writing, the APNs server will treat tokens as "expired" after 60 minutes. The default
+     * expiration duration for clients using token-based authentication is 50 minutes. Callers <em>should not</em> set a
+     * non-default value unless the upstream behavior changes.</p>
+     *
+     * @param duration the magnitude of the expiration duration in the given time units
+     * @param timeUnit the time units in which the given {@code duration} are measured
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.13.11
+     */
+    public ApnsClientBuilder setTokenExpiration(final long duration, final TimeUnit timeUnit) {
+        this.tokenExpirationMillis = timeUnit.toMillis(duration);
+        return this;
+    }
+
+    /**
      * <p>Sets the trusted certificate chain for the client under construction using the contents of the given PEM
      * file. If not set (or {@code null}), the client will use the JVM's default trust manager.</p>
      *
@@ -432,7 +453,6 @@ public class ApnsClientBuilder {
         return this;
     }
 
-
     /**
      * Sets the amount of idle time (in milliseconds) after which the client under construction will send a PING frame
      * to the APNs server. By default, clients will send a PING frame after
@@ -544,9 +564,9 @@ public class ApnsClientBuilder {
         }
 
         final ApnsClient client = new ApnsClient(this.apnsServerAddress, sslContext, this.signingKey,
-                this.proxyHandlerFactory, this.connectionTimeoutMillis, this.idlePingIntervalMillis,
-                this.gracefulShutdownTimeoutMillis, this.concurrentConnections, this.metricsListener,
-                this.frameLogger, this.eventLoopGroup);
+                this.tokenExpirationMillis,  this.proxyHandlerFactory, this.connectionTimeoutMillis,
+                this.idlePingIntervalMillis, this.gracefulShutdownTimeoutMillis, this.concurrentConnections,
+                this.metricsListener, this.frameLogger, this.eventLoopGroup);
 
         if (sslContext instanceof ReferenceCounted) {
             ((ReferenceCounted) sslContext).release();

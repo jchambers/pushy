@@ -130,11 +130,11 @@ public class ApnsClient {
     }
 
     protected ApnsClient(final InetSocketAddress apnsServerAddress, final SslContext sslContext,
-                         final ApnsSigningKey signingKey, final ProxyHandlerFactory proxyHandlerFactory,
-                         final int connectTimeoutMillis, final long idlePingIntervalMillis,
-                         final long gracefulShutdownTimeoutMillis, final int concurrentConnections,
-                         final ApnsClientMetricsListener metricsListener, final Http2FrameLogger frameLogger,
-                         final EventLoopGroup eventLoopGroup) {
+                         final ApnsSigningKey signingKey, final long tokenExpirationMillis,
+                         final ProxyHandlerFactory proxyHandlerFactory,  final int connectTimeoutMillis,
+                         final long idlePingIntervalMillis, final long gracefulShutdownTimeoutMillis,
+                         final int concurrentConnections,  final ApnsClientMetricsListener metricsListener,
+                         final Http2FrameLogger frameLogger, final EventLoopGroup eventLoopGroup) {
 
         if (eventLoopGroup != null) {
             this.eventLoopGroup = eventLoopGroup;
@@ -146,9 +146,9 @@ public class ApnsClient {
 
         this.metricsListener = metricsListener != null ? metricsListener : new NoopApnsClientMetricsListener();
 
-        final ApnsChannelFactory channelFactory = new ApnsChannelFactory(sslContext, signingKey, proxyHandlerFactory,
-                connectTimeoutMillis, idlePingIntervalMillis, gracefulShutdownTimeoutMillis, frameLogger,
-                apnsServerAddress, this.eventLoopGroup);
+        final ApnsChannelFactory channelFactory = new ApnsChannelFactory(sslContext, signingKey, tokenExpirationMillis,
+                proxyHandlerFactory,  connectTimeoutMillis, idlePingIntervalMillis, gracefulShutdownTimeoutMillis,
+                frameLogger, apnsServerAddress, this.eventLoopGroup);
 
         final ApnsChannelPoolMetricsListener channelPoolMetricsListener = new ApnsChannelPoolMetricsListener() {
 

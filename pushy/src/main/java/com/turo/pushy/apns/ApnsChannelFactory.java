@@ -85,7 +85,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
         }
     }
 
-    ApnsChannelFactory(final SslContext sslContext, final ApnsSigningKey signingKey,
+    ApnsChannelFactory(final SslContext sslContext, final ApnsSigningKey signingKey, final long tokenExpirationMillis,
                        final ProxyHandlerFactory proxyHandlerFactory, final int connectTimeoutMillis,
                        final long idlePingIntervalMillis, final long gracefulShutdownTimeoutMillis,
                        final Http2FrameLogger frameLogger, final InetSocketAddress apnsServerAddress,
@@ -134,6 +134,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
                             if (signingKey != null) {
                                 clientHandlerBuilder = new TokenAuthenticationApnsClientHandler.TokenAuthenticationApnsClientHandlerBuilder()
                                         .signingKey(signingKey)
+                                        .tokenExpirationMillis(tokenExpirationMillis)
                                         .authority(authority)
                                         .idlePingIntervalMillis(idlePingIntervalMillis);
                             } else {
