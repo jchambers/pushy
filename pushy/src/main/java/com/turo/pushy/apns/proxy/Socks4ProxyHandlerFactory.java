@@ -53,7 +53,7 @@ public class Socks4ProxyHandlerFactory implements ProxyHandlerFactory {
 
     /**
      * Creates a new proxy handler factory that will create SOCKS4 proxy handlers that use the proxy at the given
-     * address and that will authenticate with the given username and password.
+     * address and that will authenticate with the given username.
      *
      * @param proxyAddress the address of the SOCKS4 proxy server
      * @param username the username to use when connecting to the given proxy server
