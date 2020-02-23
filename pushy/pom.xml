@@ -122,7 +122,7 @@
                     <links>
                         <link>https://docs.oracle.com/javase/8/docs/api/</link>
                         <link>https://netty.io/4.1/api/</link>
-                        <link>https://google.github.io/gson/apidocs/</link>
+                        <link>https://www.javadoc.io/doc/com.google.code.gson/gson/2.8.0/</link>
                     </links>
                 </configuration>
             </plugin>

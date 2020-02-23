@@ -117,7 +117,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * @param pushType the type of notification to be sent
      * @param priority the priority with which this notification should be delivered to the receiving device
      */
-    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority, PushType pushType) {
+    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority, final PushType pushType) {
         this(token, topic, payload, invalidationTime, priority, pushType, null, null);
     }
 
@@ -148,6 +148,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * @param invalidationTime the time at which Apple's servers should stop trying to deliver this message; if
      * {@code null}, no delivery attempts beyond the first will be made
      * @param priority the priority with which this notification should be delivered to the receiving device
+     * @param pushType the type of notification to be sent
      * @param collapseId the "collapse identifier" for this notification, which allows it to supersede or be superseded
      * by other notifications with the same collapse identifier
      */
