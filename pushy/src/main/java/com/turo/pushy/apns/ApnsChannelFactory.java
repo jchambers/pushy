@@ -153,8 +153,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
                                 apnsClientHandler.gracefulShutdownTimeoutMillis(gracefulShutdownTimeoutMillis);
                             }
 
-                            // TODO Use a named constant when https://github.com/netty/netty/pull/8683 is available
-                            pipeline.addLast(new FlushConsolidationHandler(256, true));
+                            pipeline.addLast(new FlushConsolidationHandler(FlushConsolidationHandler.DEFAULT_EXPLICIT_FLUSH_AFTER_FLUSHES, true));
                             pipeline.addLast(new IdleStateHandler(idlePingIntervalMillis, 0, 0, TimeUnit.MILLISECONDS));
                             pipeline.addLast(apnsClientHandler);
                             pipeline.remove(ConnectionNegotiationErrorHandler.INSTANCE);
