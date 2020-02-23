@@ -248,8 +248,18 @@ public class ApnsClientTest extends AbstractClientServerTest {
             assertFalse("Clients must not connect to untrusted servers.",
                     sendFuture.isSuccess());
 
+            boolean hasSSLHandshakeException = false;
+            {
+                Throwable cause = sendFuture.cause();
+
+                while (!hasSSLHandshakeException && cause != null) {
+                    hasSSLHandshakeException = (cause instanceof SSLHandshakeException);
+                    cause = cause.getCause();
+                }
+            }
+
             assertTrue("Clients should refuse to connect to untrusted servers due to an SSL handshake failure.",
-                    sendFuture.cause() instanceof SSLHandshakeException);
+                    hasSSLHandshakeException);
         } finally {
             cautiousClient.close().await();
             server.shutdown().await();

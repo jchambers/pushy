@@ -42,8 +42,6 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
 import io.netty.util.concurrent.PromiseNotifier;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.net.InetSocketAddress;
@@ -70,10 +68,8 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
     private static final long MIN_CONNECT_DELAY_SECONDS = 1;
     private static final long MAX_CONNECT_DELAY_SECONDS = 60;
 
-    private static final AttributeKey<Promise<Channel>> CHANNEL_READY_PROMISE_ATTRIBUTE_KEY =
+    static final AttributeKey<Promise<Channel>> CHANNEL_READY_PROMISE_ATTRIBUTE_KEY =
             AttributeKey.valueOf(ApnsChannelFactory.class, "channelReadyPromise");
-
-    private static final Logger log = LoggerFactory.getLogger(ApnsChannelFactory.class);
 
     ApnsChannelFactory(final SslContext sslContext, final ApnsSigningKey signingKey, final long tokenExpirationMillis,
                        final ProxyHandlerFactory proxyHandlerFactory, final int connectTimeoutMillis,
@@ -106,17 +102,6 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
             @Override
             protected void initChannel(final SocketChannel channel) {
                 final SslHandler sslHandler = sslContext.newHandler(channel.alloc());
-
-                sslHandler.handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
-                    @Override
-                    public void operationComplete(final Future<Channel> handshakeFuture) {
-                        if (handshakeFuture.isSuccess()) {
-                            channel.attr(CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).get().trySuccess(channel);
-                        } else {
-                            tryFailureAndLogRejectedCause(channel.attr(CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).get(), handshakeFuture.cause());
-                        }
-                    }
-                });
 
                 final ApnsClientHandler apnsClientHandler;
                 {
@@ -203,25 +188,10 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
                     @Override
                     public void operationComplete(final ChannelFuture future) {
                         if (!future.isSuccess()) {
-                            // This may seem spurious, but our goal here is to accurately report the cause of
-                            // connection failure; if we just wait for connection closure, we won't be able to
-                            // tell callers anything more specific about what went wrong.
-                            tryFailureAndLogRejectedCause(channelReadyPromise, future.cause());
+                            channelReadyPromise.tryFailure(future.cause());
                         }
                     }
                 });
-
-                connectFuture.channel().closeFuture().addListener(new GenericFutureListener<ChannelFuture> () {
-
-                    @Override
-                    public void operationComplete(final ChannelFuture future) {
-                        // We always want to try to fail the "channel ready" promise if the connection closes; if it has
-                        // already succeeded, this will have no effect.
-                        channelReadyPromise.tryFailure(
-                                new IllegalStateException("Channel closed before HTTP/2 preface completed."));
-                    }
-                });
-
             }
         }, delay, TimeUnit.SECONDS);
 
@@ -250,12 +220,6 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
             if (this.hasReleasedSslContext.compareAndSet(false, true)) {
                 ((ReferenceCounted) this.sslContext).release();
             }
-        }
-    }
-
-    private static void tryFailureAndLogRejectedCause(final Promise<?> promise, final Throwable cause) {
-        if (!promise.tryFailure(cause)) {
-            log.warn("Tried to mark promise as \"failed,\" but it was already done.", cause);
         }
     }
 }
