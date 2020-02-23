@@ -5,7 +5,7 @@
 
 Pushy is a Java library for sending [APNs](https://developer.apple.com/documentation/usernotifications) (iOS, macOS, and Safari) push notifications. It is written and maintained by the engineers at [Turo](https://turo.com/).
 
-Pushy sends push notifications using Apple's HTTP/2-based APNs protocol and supports both TLS and token-based authentication. It distinguishes itself from other push notification libraries with a focus on [thorough documentation](http://relayrides.github.io/pushy/apidocs/0.13/index.html?overview-summary.html), asynchronous operation, and design for industrial-scale operation; with Pushy, it's easy and efficient to maintain multiple parallel connections to the APNs gateway to send large numbers of notifications to many different applications ("topics").
+Pushy sends push notifications using Apple's HTTP/2-based APNs protocol and supports both TLS and token-based authentication. It distinguishes itself from other push notification libraries with a focus on [thorough documentation](https://pushy-apns.org/apidocs/0.13/index.html?overview-summary.html), asynchronous operation, and design for industrial-scale operation; with Pushy, it's easy and efficient to maintain multiple parallel connections to the APNs gateway to send large numbers of notifications to many different applications ("topics").
 
 We believe that Pushy is already the best tool for sending APNs push notifications from Java applications, and we hope you'll help us make it even better via bug reports and pull requests. If you have questions about using Pushy, please join us on [the Pushy mailing list](https://groups.google.com/d/forum/pushy-apns) or take a look at [the wiki](https://github.com/relayrides/pushy/wiki). Thanks!
 
@@ -53,7 +53,7 @@ Generally speaking, APNs clients must authenticate with the APNs server by some 
 
 In TLS-based authentication, clients present a TLS certificate to the server when connecting, and may send notifications to any "topic" named in the certificate. Generally, this means that a single client can only send push notifications to a single receiving app.
 
-Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an [`ApnsClient`](http://relayrides.github.io/pushy/apidocs/0.13/com/turo/pushy/apns/ApnsClient.html). Clients using TLS authentication need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing). To create a client that will use TLS-based authentication:
+Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an [`ApnsClient`](https://pushy-apns.org/apidocs/0.13/com/turo/pushy/apns/ApnsClient.html). Clients using TLS authentication need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing). To create a client that will use TLS-based authentication:
 
 ```java
 final ApnsClient apnsClient = new ApnsClientBuilder()
@@ -78,7 +78,7 @@ final ApnsClient apnsClient = new ApnsClientBuilder()
 
 ## Sending push notifications
 
-Pushy's APNs clients maintain an internal pool of connections to the APNs server and create new connections on demand. As a result, clients do not need to be started explicitly. Regardless of the authentication method you choose, once you've created a client, it's ready to start sending push notifications. At minimum, [push notifications](http://relayrides.github.io/pushy/apidocs/0.13/com/turo/pushy/apns/ApnsPushNotification.html) need a device token (which identifies the notification's destination device and is a distinct idea from an authentication token), a topic, and a payload.
+Pushy's APNs clients maintain an internal pool of connections to the APNs server and create new connections on demand. As a result, clients do not need to be started explicitly. Regardless of the authentication method you choose, once you've created a client, it's ready to start sending push notifications. At minimum, [push notifications](https://pushy-apns.org/apidocs/0.13/com/turo/pushy/apns/ApnsPushNotification.html) need a device token (which identifies the notification's destination device and is a distinct idea from an authentication token), a topic, and a payload.
 
 ```java
 final SimpleApnsPushNotification pushNotification;
@@ -195,7 +195,7 @@ Please note that the metric-handling methods in your listener implementation sho
 
 ## Using a proxy
 
-If you need to use a proxy for outbound connections, you may specify a [`ProxyHandlerFactory`](http://relayrides.github.io/pushy/apidocs/0.13/com/turo/pushy/apns/proxy/ProxyHandlerFactory.html) when building your `ApnsClient` instance. Concrete implementations of `ProxyHandlerFactory` are provided for HTTP, SOCKS4, and SOCKS5 proxies.
+If you need to use a proxy for outbound connections, you may specify a [`ProxyHandlerFactory`](https://pushy-apns.org/apidocs/0.13/com/turo/pushy/apns/proxy/ProxyHandlerFactory.html) when building your `ApnsClient` instance. Concrete implementations of `ProxyHandlerFactory` are provided for HTTP, SOCKS4, and SOCKS5 proxies.
 
 An example:
 
@@ -235,9 +235,9 @@ Pushy uses logging levels as follows:
 
 Pushy includes a mock APNs server that callers may use in integration tests and benchmarks. It is not necessary to use a mock server (or any related classes) in normal operation.
 
-To build a mock server, callers should use a [`MockApnsServerBuilder`](http://relayrides.github.io/pushy/apidocs/0.13/com/turo/pushy/apns/server/MockApnsServerBuilder.html). All servers require a [`PushNotificationHandler`](http://relayrides.github.io/pushy/apidocs/0.13/com/turo/pushy/apns/server/PushNotificationHandler.html) (built by a [`PushNotificationHandlerFactory`](http://relayrides.github.io/pushy/apidocs/0.13/com/turo/pushy/apns/server/PushNotificationHandlerFactory.html) provided to the builder) that decides whether the mock server will accept or reject each incoming push notification. Pushy includes an `AcceptAllPushNotificationHandlerFactory` that is helpful for benchmarking and a `ValidatingPushNotificationHandlerFactory` that may be helpful for integration testing.
+To build a mock server, callers should use a [`MockApnsServerBuilder`](https://pushy-apns.org/apidocs/0.13/com/turo/pushy/apns/server/MockApnsServerBuilder.html). All servers require a [`PushNotificationHandler`](https://pushy-apns.org/apidocs/0.13/com/turo/pushy/apns/server/PushNotificationHandler.html) (built by a [`PushNotificationHandlerFactory`](https://pushy-apns.org/apidocs/0.13/com/turo/pushy/apns/server/PushNotificationHandlerFactory.html) provided to the builder) that decides whether the mock server will accept or reject each incoming push notification. Pushy includes an `AcceptAllPushNotificationHandlerFactory` that is helpful for benchmarking and a `ValidatingPushNotificationHandlerFactory` that may be helpful for integration testing.
 
-Callers may also provide a [`MockApnsServerListener`](http://relayrides.github.io/pushy/apidocs/0.13/com/turo/pushy/apns/server/MockApnsServerListener.html) when building a mock server; listeners are notified whenever the mock server accepts or rejects a notification from a client.
+Callers may also provide a [`MockApnsServerListener`](https://pushy-apns.org/apidocs/0.13/com/turo/pushy/apns/server/MockApnsServerListener.html) when building a mock server; listeners are notified whenever the mock server accepts or rejects a notification from a client.
 
 ## License and status
 
