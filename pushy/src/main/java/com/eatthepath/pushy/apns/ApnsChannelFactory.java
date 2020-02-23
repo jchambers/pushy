@@ -75,17 +75,6 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
     private static final Logger log = LoggerFactory.getLogger(ApnsChannelFactory.class);
 
-    @ChannelHandler.Sharable
-    private static class ConnectionNegotiationErrorHandler extends ChannelInboundHandlerAdapter {
-
-        static final ConnectionNegotiationErrorHandler INSTANCE = new ConnectionNegotiationErrorHandler();
-
-        @Override
-        public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
-            tryFailureAndLogRejectedCause(context.channel().attr(CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).get(), cause);
-        }
-    }
-
     ApnsChannelFactory(final SslContext sslContext, final ApnsSigningKey signingKey, final long tokenExpirationMillis,
                        final ProxyHandlerFactory proxyHandlerFactory, final int connectTimeoutMillis,
                        final long idlePingIntervalMillis, final long gracefulShutdownTimeoutMillis,
@@ -116,49 +105,12 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
             @Override
             protected void initChannel(final SocketChannel channel) {
-                final ChannelPipeline pipeline = channel.pipeline();
-
-                if (proxyHandlerFactory != null) {
-                    pipeline.addFirst(proxyHandlerFactory.createProxyHandler());
-                }
-
                 final SslHandler sslHandler = sslContext.newHandler(channel.alloc());
 
                 sslHandler.handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
                     @Override
                     public void operationComplete(final Future<Channel> handshakeFuture) {
                         if (handshakeFuture.isSuccess()) {
-                            final String authority = channel.remoteAddress().getHostName();
-
-                            final ApnsClientHandler.ApnsClientHandlerBuilder clientHandlerBuilder;
-
-                            if (signingKey != null) {
-                                clientHandlerBuilder = new TokenAuthenticationApnsClientHandler.TokenAuthenticationApnsClientHandlerBuilder()
-                                        .signingKey(signingKey)
-                                        .tokenExpirationMillis(tokenExpirationMillis)
-                                        .authority(authority)
-                                        .idlePingIntervalMillis(idlePingIntervalMillis);
-                            } else {
-                                clientHandlerBuilder = new ApnsClientHandler.ApnsClientHandlerBuilder()
-                                        .authority(authority)
-                                        .idlePingIntervalMillis(idlePingIntervalMillis);
-                            }
-
-                            if (frameLogger != null) {
-                                clientHandlerBuilder.frameLogger(frameLogger);
-                            }
-
-                            final ApnsClientHandler apnsClientHandler = clientHandlerBuilder.build();
-
-                            if (gracefulShutdownTimeoutMillis > 0) {
-                                apnsClientHandler.gracefulShutdownTimeoutMillis(gracefulShutdownTimeoutMillis);
-                            }
-
-                            pipeline.addLast(new FlushConsolidationHandler(FlushConsolidationHandler.DEFAULT_EXPLICIT_FLUSH_AFTER_FLUSHES, true));
-                            pipeline.addLast(new IdleStateHandler(idlePingIntervalMillis, 0, 0, TimeUnit.MILLISECONDS));
-                            pipeline.addLast(apnsClientHandler);
-                            pipeline.remove(ConnectionNegotiationErrorHandler.INSTANCE);
-
                             channel.attr(CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).get().trySuccess(channel);
                         } else {
                             tryFailureAndLogRejectedCause(channel.attr(CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).get(), handshakeFuture.cause());
@@ -166,8 +118,45 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
                     }
                 });
 
+                final ApnsClientHandler apnsClientHandler;
+                {
+                    final String authority = apnsServerAddress.getHostName();
+
+                    final ApnsClientHandler.ApnsClientHandlerBuilder clientHandlerBuilder;
+
+                    if (signingKey != null) {
+                        clientHandlerBuilder = new TokenAuthenticationApnsClientHandler.TokenAuthenticationApnsClientHandlerBuilder()
+                                .signingKey(signingKey)
+                                .tokenExpirationMillis(tokenExpirationMillis)
+                                .authority(authority)
+                                .idlePingIntervalMillis(idlePingIntervalMillis);
+                    } else {
+                        clientHandlerBuilder = new ApnsClientHandler.ApnsClientHandlerBuilder()
+                                .authority(authority)
+                                .idlePingIntervalMillis(idlePingIntervalMillis);
+                    }
+
+                    if (frameLogger != null) {
+                        clientHandlerBuilder.frameLogger(frameLogger);
+                    }
+
+                    apnsClientHandler = clientHandlerBuilder.build();
+
+                    if (gracefulShutdownTimeoutMillis > 0) {
+                        apnsClientHandler.gracefulShutdownTimeoutMillis(gracefulShutdownTimeoutMillis);
+                    }
+                }
+
+                final ChannelPipeline pipeline = channel.pipeline();
+
+                if (proxyHandlerFactory != null) {
+                    pipeline.addFirst(proxyHandlerFactory.createProxyHandler());
+                }
+
                 pipeline.addLast(sslHandler);
-                pipeline.addLast(ConnectionNegotiationErrorHandler.INSTANCE);
+                pipeline.addLast(new FlushConsolidationHandler(FlushConsolidationHandler.DEFAULT_EXPLICIT_FLUSH_AFTER_FLUSHES, true));
+                pipeline.addLast(new IdleStateHandler(idlePingIntervalMillis, 0, 0, TimeUnit.MILLISECONDS));
+                pipeline.addLast(apnsClientHandler);
             }
         });
     }
