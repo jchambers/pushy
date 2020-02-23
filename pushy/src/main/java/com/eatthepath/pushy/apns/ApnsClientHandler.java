@@ -294,13 +294,11 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     @Override
     public int onDataRead(final ChannelHandlerContext context, final int streamId, final ByteBuf data, final int padding, final boolean endOfStream) {
-        log.trace("Received data from APNs gateway on stream {}: {}", streamId, data.toString(StandardCharsets.UTF_8));
-
         final int bytesProcessed = data.readableBytes() + padding;
 
         if (endOfStream) {
             final Http2Stream stream = this.connection().stream(streamId);
-            this.handleEndOfStream(context, this.connection().stream(streamId), (Http2Headers) stream.getProperty(this.responseHeadersPropertyKey), data);
+            this.handleEndOfStream(context, stream, (Http2Headers) stream.getProperty(this.responseHeadersPropertyKey), data);
         } else {
             log.error("Gateway sent a DATA frame that was not the end of a stream.");
         }
@@ -315,7 +313,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     @Override
     public void onHeadersRead(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final int padding, final boolean endOfStream) {
-        log.trace("Received headers from APNs gateway on stream {}: {}", streamId, headers);
         final Http2Stream stream = this.connection().stream(streamId);
 
         if (endOfStream) {
@@ -390,7 +387,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     @Override
     public void onSettingsRead(final ChannelHandlerContext context, final Http2Settings settings) {
-        log.trace("Received settings from APNs gateway: {}", settings);
+        log.debug("Received settings from APNs gateway: {}", settings);
     }
 
     @Override
@@ -400,7 +397,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     @Override
     public void onPingAckRead(final ChannelHandlerContext context, final long pingData) {
         if (this.pingTimeoutFuture != null) {
-            log.trace("Received reply to ping.");
             this.pingTimeoutFuture.cancel(false);
         } else {
             log.error("Received PING ACK, but no corresponding outbound PING found.");
