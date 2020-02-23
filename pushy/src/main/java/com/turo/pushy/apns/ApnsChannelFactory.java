@@ -47,6 +47,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -60,7 +61,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
     private final SslContext sslContext;
     private final AtomicBoolean hasReleasedSslContext = new AtomicBoolean(false);
 
-    private final AddressResolverGroup addressResolverGroup;
+    private final AddressResolverGroup<? extends SocketAddress> addressResolverGroup;
 
     private final Bootstrap bootstrapTemplate;
 
@@ -75,7 +76,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
     private static final Logger log = LoggerFactory.getLogger(ApnsChannelFactory.class);
 
     @ChannelHandler.Sharable
-    private static class ConnectionNegotiationErrorHandler extends ChannelHandlerAdapter {
+    private static class ConnectionNegotiationErrorHandler extends ChannelInboundHandlerAdapter {
 
         static final ConnectionNegotiationErrorHandler INSTANCE = new ConnectionNegotiationErrorHandler();
 
