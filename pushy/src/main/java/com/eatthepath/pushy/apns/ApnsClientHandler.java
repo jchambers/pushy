@@ -28,6 +28,7 @@ import com.google.gson.GsonBuilder;
 import com.eatthepath.pushy.apns.util.DateAsTimeSinceEpochTypeAdapter;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
@@ -38,7 +39,10 @@ import io.netty.handler.codec.http2.*;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.AsciiString;
 import io.netty.util.collection.IntObjectHashMap;
-import io.netty.util.concurrent.*;
+import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.Promise;
+import io.netty.util.concurrent.PromiseCombiner;
+import io.netty.util.concurrent.ScheduledFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -388,6 +392,11 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     @Override
     public void onSettingsRead(final ChannelHandlerContext context, final Http2Settings settings) {
         log.debug("Received settings from APNs gateway: {}", settings);
+
+        // Always try to mark the "channel ready" promise as a success after we receive a SETTINGS frame. If it's the
+        // first SETTINGS frame, we know all handshaking and connection setup is done and the channel is ready to use.
+        // If it's a subsequent SETTINGS frame, this will have no effect.
+        getChannelReadyPromise(context.channel()).trySuccess(context.channel());
     }
 
     @Override
@@ -493,5 +502,15 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         }
 
         this.unattachedResponsePromisesByStreamId.clear();
+    }
+
+    public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
+        // Always try to fail the "channel ready" promise if we catch an exception; in some cases, these may happen
+        // after a connection has already become ready, in which case the failure attempt will have no effect.
+        getChannelReadyPromise(context.channel()).tryFailure(cause);
+    }
+
+    private Promise<Channel> getChannelReadyPromise(final Channel channel) {
+        return channel.attr(ApnsChannelFactory.CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).get();
     }
 }
