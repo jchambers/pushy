@@ -1,28 +1,30 @@
 package com.eatthepath.pushy.apns.proxy;
 
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.Proxy;
-import java.net.ProxySelector;
-import java.net.SocketAddress;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Arrays;
-import java.util.List;
-
+import com.eatthepath.pushy.apns.ApnsClientBuilder;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.eatthepath.pushy.apns.ApnsClientBuilder;
+import java.io.IOException;
+import java.net.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+import static org.junit.Assert.*;
 
 
 public class HttpProxyHandlerFactoryTest {
 
-    private static class FixedProxiesSelector extends ProxySelector {
+    private static abstract class TestProxySelectorAdapter extends ProxySelector {
+
+        @Override
+        public void connectFailed(final URI uri, final SocketAddress sa, final IOException ioe) {
+            // Not needed for this test.
+        }
+    }
+
+    private static class FixedProxiesSelector extends TestProxySelectorAdapter {
 
         private final List<Proxy> availableProxies;
 
@@ -31,17 +33,12 @@ public class HttpProxyHandlerFactoryTest {
         }
 
         @Override
-        public List<Proxy> select(URI uri) {
+        public List<Proxy> select(final URI uri) {
             return availableProxies;
-        }
-
-        @Override
-        public void connectFailed(URI uri, SocketAddress sa, IOException ioe) {
-            // Not needed for this test.
         }
     }
 
-    private static class SingleHostHttpProxySelector extends ProxySelector {
+    private static class SingleHostHttpProxySelector extends TestProxySelectorAdapter {
 
         private final String proxiedHost;
 
@@ -50,26 +47,16 @@ public class HttpProxyHandlerFactoryTest {
         }
 
         @Override
-        public List<Proxy> select(URI uri) {
-            Proxy proxy;
-
-            if (uri.getHost().equals(proxiedHost)) {
-                proxy = DUMMY_HTTP_PROXY;
-            } else {
-                proxy = Proxy.NO_PROXY;
-            }
-
-            return Arrays.asList(proxy);
-        }
-
-        @Override
-        public void connectFailed(URI uri, SocketAddress sa, IOException ioe) {
-            // Not needed for this test.
+        public List<Proxy> select(final URI uri) {
+            return Collections.singletonList(uri.getHost().equals(proxiedHost) ? DUMMY_HTTP_PROXY : Proxy.NO_PROXY);
         }
     }
 
     private static final Proxy DUMMY_HTTP_PROXY = new Proxy(Proxy.Type.HTTP, new InetSocketAddress("httpproxy", 123));
     private static final Proxy DUMMY_SOCKS_PROXY = new Proxy(Proxy.Type.SOCKS, new InetSocketAddress("socksproxy", 456));
+
+    private static final String USERNAME_PROPERTY_KEY = "http.proxyUser";
+    private static final String PASSWORD_PROPERTY_KEY = "http.proxyPassword";
 
     private static ProxySelector defaultProxySelector;
 
@@ -135,5 +122,54 @@ public class HttpProxyHandlerFactoryTest {
 
         assertNull(HttpProxyHandlerFactory.fromSystemProxies(ApnsClientBuilder.PRODUCTION_APNS_HOST));
         assertNotNull(HttpProxyHandlerFactory.fromSystemProxies(ApnsClientBuilder.DEVELOPMENT_APNS_HOST));
+    }
+
+    @Test
+    public void testProxyWithCredentials() throws URISyntaxException {
+        final String originalUsername = System.getProperty(USERNAME_PROPERTY_KEY);
+        final String originalPassword = System.getProperty(PASSWORD_PROPERTY_KEY);
+
+        try {
+            ProxySelector.setDefault(new SingleHostHttpProxySelector(ApnsClientBuilder.DEVELOPMENT_APNS_HOST));
+
+            {
+                System.clearProperty(USERNAME_PROPERTY_KEY);
+                System.clearProperty(PASSWORD_PROPERTY_KEY);
+
+                final HttpProxyHandlerFactory noCredentialProxyHandlerFactory =
+                        HttpProxyHandlerFactory.fromSystemProxies(ApnsClientBuilder.DEVELOPMENT_APNS_HOST);
+
+                assertNotNull(noCredentialProxyHandlerFactory);
+                assertNull(noCredentialProxyHandlerFactory.getUsername());
+                assertNull(noCredentialProxyHandlerFactory.getPassword());
+            }
+
+            {
+                final String username = "username";
+                final String password = "password";
+
+                System.setProperty(USERNAME_PROPERTY_KEY, username);
+                System.setProperty(PASSWORD_PROPERTY_KEY, password);
+
+                final HttpProxyHandlerFactory credentialedProxyHandlerFactory =
+                        HttpProxyHandlerFactory.fromSystemProxies(ApnsClientBuilder.DEVELOPMENT_APNS_HOST);
+
+                assertNotNull(credentialedProxyHandlerFactory);
+                assertEquals(username, credentialedProxyHandlerFactory.getUsername());
+                assertEquals(password, credentialedProxyHandlerFactory.getPassword());
+            }
+        } finally {
+            if (originalUsername == null) {
+                System.clearProperty(USERNAME_PROPERTY_KEY);
+            } else {
+                System.setProperty(USERNAME_PROPERTY_KEY, originalUsername);
+            }
+
+            if (originalPassword == null) {
+                System.clearProperty(PASSWORD_PROPERTY_KEY);
+            } else {
+                System.setProperty(PASSWORD_PROPERTY_KEY, originalPassword);
+            }
+        }
     }
 }
