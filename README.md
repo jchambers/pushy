@@ -209,7 +209,7 @@ final ApnsClient apnsClient = new ApnsClientBuilder()
     .build();
 ```
 
-If using HTTP proxies configured via JVM system properties, you can also use:
+If using HTTP proxies configured via [JVM system properties](https://docs.oracle.com/javase/7/docs/api/java/net/doc-files/net-properties.html#Proxies), you can also use:
 
 ```java
 final ApnsClient apnsClient = new ApnsClientBuilder()
