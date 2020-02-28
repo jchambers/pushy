@@ -52,10 +52,10 @@
         <developer>
             <id>jon</id>
             <name>Jon Chambers</name>
-            <email>jon@turo.com</email>
+            <email>jon.chambers@gmail.com</email>
             <url>https://github.com/jchambers</url>
-            <organization>Turo</organization>
-            <organizationUrl>https://turo.com/</organizationUrl>
+            <organization>Jon Chambers</organization>
+            <organizationUrl>https://github.com/jchambers</organizationUrl>
             <roles>
                 <role>developer</role>
             </roles>
@@ -64,8 +64,8 @@
     </developers>
 
     <organization>
-        <name>Turo</name>
-        <url>https://turo.com/</url>
+        <name>Jon Chambers</name>
+        <url>https://github.com/jchambers</url>
     </organization>
 
     <parent>

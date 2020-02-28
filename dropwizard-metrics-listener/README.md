@@ -4,9 +4,9 @@ This module is an implementation of Pushy's [`ApnsClientMetricsListener`](http:/
 
 ```xml
 <dependency>
-    <groupId>com.turo</groupId>
+    <groupId>com.eatthepath</groupId>
     <artifactId>pushy-dropwizard-metrics-listener</artifactId>
-    <version>0.13.0</version>
+    <version>0.13.11</version>
 </dependency>
 ```
 
