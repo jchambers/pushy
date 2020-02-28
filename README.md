@@ -209,6 +209,18 @@ final ApnsClient apnsClient = new ApnsClientBuilder()
     .build();
 ```
 
+If using HTTP proxies configured via JVM system properties, you can also use:
+
+```java
+final ApnsClient apnsClient = new ApnsClientBuilder()
+    .setApnsServer(ApnsClientBuilder.DEVELOPMENT_APNS_HOST)
+    .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
+            "TEAMID1234", "KEYID67890"))
+    .setProxyHandlerFactory(HttpProxyHandlerFactory.fromSystemProxies(
+            ApnsClientBuilder.DEVELOPMENT_APNS_HOST))
+    .build();
+```
+
 ## Logging
 
 Pushy uses [SLF4J](http://www.slf4j.org/) for logging. If you're not already familiar with it, SLF4J is a facade that allows users to choose which logging library to use at deploy time by adding a specific "binding" to the classpath. To avoid making the choice for you, Pushy itself does *not* depend on any SLF4J bindings; you'll need to add one on your own (either by adding it as a dependency in your own project or by installing it directly). If you have no SLF4J bindings on your classpath, you'll probably see a warning that looks something like this:
