@@ -24,7 +24,7 @@ package com.eatthepath.pushy.apns;
 
 import com.eatthepath.pushy.apns.util.ApnsPayloadBuilder;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -73,7 +73,7 @@ public interface ApnsPushNotification {
      *
      * @since 0.5
      */
-    Date getExpiration();
+    Instant getExpiration();
 
     /**
      * Returns the priority with which this push notification should be sent to the receiving device. If {@code null},

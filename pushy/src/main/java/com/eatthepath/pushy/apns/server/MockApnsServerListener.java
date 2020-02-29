@@ -25,7 +25,7 @@ package com.eatthepath.pushy.apns.server;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http2.Http2Headers;
 
-import java.util.Date;
+import java.time.Instant;
 
 /**
  * <p>Mock APNs server listeners are notified when push notifications are accepted or rejected by a
@@ -57,12 +57,11 @@ public interface MockApnsServerListener {
 
     /**
      * Indicates that a push notification has been rejected by the mock server.
-     *
-     * @param headers the notification's HTTP/2 headers
+     *  @param headers the notification's HTTP/2 headers
      * @param payload the notification's payload
      * @param rejectionReason the reason the push notification was rejected by the mock server
      * @param deviceTokenExpirationTimestamp the time at which the push notification's destination device token expired;
-     * may be {@code null} if the token has not expired
+* may be {@code null} if the token has not expired
      */
-    void handlePushNotificationRejected(Http2Headers headers, ByteBuf payload, RejectionReason rejectionReason, Date deviceTokenExpirationTimestamp);
+    void handlePushNotificationRejected(Http2Headers headers, ByteBuf payload, RejectionReason rejectionReason, Instant deviceTokenExpirationTimestamp);
 }

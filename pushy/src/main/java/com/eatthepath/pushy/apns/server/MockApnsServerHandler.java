@@ -22,10 +22,10 @@
 
 package com.eatthepath.pushy.apns.server;
 
+import com.eatthepath.pushy.apns.util.InstantAsTimeSinceEpochTypeAdapter;
 import com.eatthepath.uuid.FastUUID;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.eatthepath.pushy.apns.util.DateAsTimeSinceEpochTypeAdapter;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
@@ -39,7 +39,7 @@ import io.netty.util.concurrent.PromiseCombiner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -56,7 +56,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     private static final int MAX_CONTENT_LENGTH = 4096;
 
     private static final Gson GSON = new GsonBuilder()
-            .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
+            .registerTypeAdapter(Instant.class, new InstantAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
             .create();
 
     private static final Logger log = LoggerFactory.getLogger(MockApnsServerHandler.class);
@@ -120,9 +120,9 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
     private static class RejectNotificationResponse extends ApnsResponse {
         private final RejectionReason errorReason;
-        private final Date timestamp;
+        private final Instant timestamp;
 
-        RejectNotificationResponse(final int streamId, final UUID apnsId, final RejectionReason errorReason, final Date timestamp) {
+        RejectNotificationResponse(final int streamId, final UUID apnsId, final RejectionReason errorReason, final Instant timestamp) {
             super(streamId, apnsId);
 
             this.errorReason = errorReason;
@@ -133,7 +133,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             return this.errorReason;
         }
 
-        Date getTimestamp() {
+        Instant getTimestamp() {
             return this.timestamp;
         }
     }
@@ -141,9 +141,9 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     @SuppressWarnings({"unused", "FieldCanBeLocal"})
     private static class ErrorPayload {
         private final String reason;
-        private final Date timestamp;
+        private final Instant timestamp;
 
-        ErrorPayload(final String reason, final Date timestamp) {
+        ErrorPayload(final String reason, final Instant timestamp) {
             this.reason = reason;
             this.timestamp = timestamp;
         }
@@ -156,7 +156,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
 
         @Override
-        public void handlePushNotificationRejected(final Http2Headers headers, final ByteBuf payload, final RejectionReason rejectionReason, final Date deviceTokenExpirationTimestamp) {
+        public void handlePushNotificationRejected(final Http2Headers headers, final ByteBuf payload, final RejectionReason rejectionReason, final Instant deviceTokenExpirationTimestamp) {
         }
     }
 
@@ -278,7 +278,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             this.write(context, new AcceptNotificationResponse(stream.id(), apnsId), writePromise);
             this.listener.handlePushNotificationAccepted(headers, payload);
         } catch (final RejectedNotificationException e) {
-            final Date deviceTokenExpirationTimestamp = e instanceof UnregisteredDeviceTokenException ?
+            final Instant deviceTokenExpirationTimestamp = e instanceof UnregisteredDeviceTokenException ?
                     ((UnregisteredDeviceTokenException) e).getDeviceTokenExpirationTimestamp() : null;
 
             this.write(context, new RejectNotificationResponse(stream.id(), apnsId, e.getRejectionReason(), deviceTokenExpirationTimestamp), writePromise);

@@ -42,6 +42,7 @@ import java.io.InputStream;
 import java.security.KeyPair;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
+import java.time.Instant;
 import java.util.*;
 
 public class AbstractClientServerTest {
@@ -68,7 +69,7 @@ public class AbstractClientServerTest {
     protected static final Map<String, Set<String>> DEVICE_TOKENS_BY_TOPIC =
             Collections.singletonMap(TOPIC, Collections.singleton(DEVICE_TOKEN));
 
-    protected static final Map<String, Date> EXPIRATION_TIMESTAMPS_BY_DEVICE_TOKEN = Collections.emptyMap();
+    protected static final Map<String, Instant> EXPIRATION_TIMESTAMPS_BY_DEVICE_TOKEN = Collections.emptyMap();
 
     protected static final int TOKEN_LENGTH = 32; // bytes
 

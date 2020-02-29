@@ -22,10 +22,10 @@
 
 package com.eatthepath.pushy.apns;
 
+import com.eatthepath.pushy.apns.util.InstantAsTimeSinceEpochTypeAdapter;
 import com.eatthepath.uuid.FastUUID;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.eatthepath.pushy.apns.util.DateAsTimeSinceEpochTypeAdapter;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
@@ -48,7 +48,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Date;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -64,7 +65,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     private final String authority;
 
-    private final long pingTimeoutMillis;
+    private final Duration pingTimeout;
     private ScheduledFuture<?> pingTimeoutFuture;
 
     private Throwable connectionErrorCause;
@@ -84,7 +85,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
             new IOException("Stream closed before a reply was received");
 
     private static final Gson GSON = new GsonBuilder()
-            .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
+            .registerTypeAdapter(Instant.class, new InstantAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
             .create();
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientHandler.class);
@@ -92,7 +93,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     public static class ApnsClientHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<ApnsClientHandler, ApnsClientHandlerBuilder> {
 
         private String authority;
-        private long idlePingIntervalMillis;
+        private Duration idlePingInterval;
 
         ApnsClientHandlerBuilder authority(final String authority) {
             this.authority = authority;
@@ -103,12 +104,12 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
             return this.authority;
         }
 
-        long idlePingIntervalMillis() {
-            return idlePingIntervalMillis;
+        Duration idlePingInterval() {
+            return idlePingInterval;
         }
 
-        ApnsClientHandlerBuilder idlePingIntervalMillis(final long idlePingIntervalMillis) {
-            this.idlePingIntervalMillis = idlePingIntervalMillis;
+        ApnsClientHandlerBuilder idlePingInterval(final Duration idlePingIntervalMillis) {
+            this.idlePingInterval = idlePingIntervalMillis;
             return this;
         }
 
@@ -136,7 +137,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         public ApnsClientHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
             Objects.requireNonNull(this.authority(), "Authority must be set before building an ApnsClientHandler.");
 
-            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, initialSettings, this.authority(), this.idlePingIntervalMillis());
+            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, initialSettings, this.authority(), this.idlePingInterval());
             this.frameListener(handler);
             return handler;
         }
@@ -147,7 +148,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         }
     }
 
-    ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final String authority, final long idlePingIntervalMillis) {
+    ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final String authority, final Duration idlePingInterval) {
         super(decoder, encoder, initialSettings);
 
         this.authority = authority;
@@ -158,7 +159,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
         this.connection().addListener(this);
 
-        this.pingTimeoutMillis = idlePingIntervalMillis / 2;
+        this.pingTimeout = idlePingInterval.dividedBy(2);
     }
 
     @Override
@@ -236,7 +237,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
                 .authority(this.authority)
                 .path(APNS_PATH_PREFIX + pushNotification.getToken())
                 .scheme(HttpScheme.HTTPS.name())
-                .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) (pushNotification.getExpiration().getTime() / 1000));
+                .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) pushNotification.getExpiration().getEpochSecond());
 
         if (pushNotification.getCollapseId() != null) {
             headers.add(APNS_COLLAPSE_ID_HEADER, pushNotification.getCollapseId());
@@ -277,7 +278,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
             this.pingTimeoutFuture = context.channel().eventLoop().schedule(() -> {
                 log.debug("Closing channel due to ping timeout.");
                 context.channel().close();
-            }, pingTimeoutMillis, TimeUnit.MILLISECONDS);
+            }, pingTimeout.toMillis(), TimeUnit.MILLISECONDS);
 
             this.flush(context);
         }

@@ -24,14 +24,14 @@ package com.eatthepath.pushy.apns.server;
 
 import io.netty.handler.codec.http2.Http2Headers;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 
 public class TlsAuthenticationValidatingPushNotificationHandlerTest extends ValidatingPushNotificationHandlerTest {
 
     @Override
-    protected ValidatingPushNotificationHandler getHandler(final Map<String, Set<String>> deviceTokensByTopic, final Map<String, Date> expirationTimestampsByDeviceToken) {
+    protected ValidatingPushNotificationHandler getHandler(final Map<String, Set<String>> deviceTokensByTopic, final Map<String, Instant> expirationTimestampsByDeviceToken) {
         return new TlsAuthenticationValidatingPushNotificationHandler(deviceTokensByTopic, expirationTimestampsByDeviceToken, TOPIC);
     }
 

@@ -32,7 +32,7 @@ import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.AsciiString;
 import org.junit.Test;
 
-import java.util.Date;
+import java.time.Instant;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -49,7 +49,7 @@ public class ParsingMockApnsServerListenerAdapterTest {
 
         private ApnsPushNotification mostRecentPushNotification;
         private RejectionReason mostRecentRejectionReason;
-        private Date mostRecentDeviceTokenExpiration;
+        private Instant mostRecentDeviceTokenExpiration;
 
         @Override
         public void handlePushNotificationAccepted(final ApnsPushNotification pushNotification) {
@@ -59,7 +59,7 @@ public class ParsingMockApnsServerListenerAdapterTest {
         }
 
         @Override
-        public void handlePushNotificationRejected(final ApnsPushNotification pushNotification, final RejectionReason rejectionReason, final Date deviceTokenExpirationTimestamp) {
+        public void handlePushNotificationRejected(final ApnsPushNotification pushNotification, final RejectionReason rejectionReason, final Instant deviceTokenExpirationTimestamp) {
             this.mostRecentPushNotification = pushNotification;
             this.mostRecentRejectionReason = rejectionReason;
             this.mostRecentDeviceTokenExpiration = deviceTokenExpirationTimestamp;
@@ -116,9 +116,9 @@ public class ParsingMockApnsServerListenerAdapterTest {
         }
 
         {
-            final Date expiration = new Date(1_000_000_000);
+            final Instant expiration = Instant.ofEpochMilli(1_000_000_000);
 
-            final Http2Headers headers = new DefaultHttp2Headers().addInt(APNS_EXPIRATION_HEADER, (int) (expiration.getTime() / 1000));
+            final Http2Headers headers = new DefaultHttp2Headers().addInt(APNS_EXPIRATION_HEADER, (int) expiration.getEpochSecond());
 
             listener.handlePushNotificationAccepted(headers, null);
 
@@ -181,7 +181,7 @@ public class ParsingMockApnsServerListenerAdapterTest {
 
         {
             final RejectionReason rejectionReason = RejectionReason.BAD_PRIORITY;
-            final Date deviceTokenExpiration = new Date();
+            final Instant deviceTokenExpiration = Instant.now();
 
             listener.handlePushNotificationRejected(new DefaultHttp2Headers(), null, rejectionReason, deviceTokenExpiration);
             assertEquals(rejectionReason, listener.mostRecentRejectionReason);

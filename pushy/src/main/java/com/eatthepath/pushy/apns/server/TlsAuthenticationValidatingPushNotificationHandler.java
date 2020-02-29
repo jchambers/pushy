@@ -25,6 +25,7 @@ package com.eatthepath.pushy.apns.server;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.AsciiString;
 
+import java.time.Instant;
 import java.util.*;
 
 class TlsAuthenticationValidatingPushNotificationHandler extends ValidatingPushNotificationHandler {
@@ -33,7 +34,7 @@ class TlsAuthenticationValidatingPushNotificationHandler extends ValidatingPushN
 
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
 
-    TlsAuthenticationValidatingPushNotificationHandler(final Map<String, Set<String>> deviceTokensByTopic, final Map<String, Date> expirationTimestampsByDeviceToken, final String baseTopic) {
+    TlsAuthenticationValidatingPushNotificationHandler(final Map<String, Set<String>> deviceTokensByTopic, final Map<String, Instant> expirationTimestampsByDeviceToken, final String baseTopic) {
         super(deviceTokensByTopic, expirationTimestampsByDeviceToken);
 
         Objects.requireNonNull(baseTopic, "Base topic must not be null for mock server handlers using TLS-based authentication.");
