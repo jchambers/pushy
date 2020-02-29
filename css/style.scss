@@ -43,18 +43,6 @@ a {
     }
 }
 
-.pageHeader-logo {
-    @include minimum-display-size(small) {
-        float: left;
-    }
-
-    width: 88px;
-    height: 32px;
-
-    padding: 14px 0;
-    border: none;
-}
-
 .pageHeader-navigation {
     list-style: none;
     padding: 0;

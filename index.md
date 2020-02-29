@@ -2,11 +2,13 @@
 layout: home
 ---
 
-Pushy is a Java library for sending [APNs](https://developer.apple.com/documentation/usernotifications) (iOS, macOS, and Safari) push notifications. It is written and maintained by the engineers at [Turo](https://turo.com/).
+Pushy is a Java library for sending [APNs](https://developer.apple.com/documentation/usernotifications) (iOS, macOS, and Safari) push notifications.
 
-Pushy sends push notifications using Apple's HTTP/2-based APNs protocol and supports both TLS and token-based authentication. It distinguishes itself from other push notification libraries with a focus on [thorough documentation](http://relayrides.github.io/pushy/apidocs/0.13/index.html?overview-summary.html), asynchronous operation, and design for industrial-scale operation; with Pushy, it's easy and efficient to maintain multiple parallel connections to the APNs gateway to send large numbers of notifications to many different applications ("topics").
+Pushy sends push notifications using Apple's HTTP/2-based APNs protocol and supports both TLS and token-based authentication. It distinguishes itself from other push notification libraries with a focus on [thorough documentation](https://pushy-apns.org/apidocs/0.13/index.html?overview-summary.html), asynchronous operation, and design for industrial-scale operation; with Pushy, it's easy and efficient to maintain multiple parallel connections to the APNs gateway to send large numbers of notifications to many different applications ("topics").
 
-We believe that Pushy is already the best tool for sending APNs push notifications from Java applications, and we hope you'll help us make it even better via bug reports and pull requests. If you have questions about using Pushy, please join us on [the Pushy mailing list](https://groups.google.com/d/forum/pushy-apns) or take a look at [the wiki](https://github.com/relayrides/pushy/wiki). Thanks!
+We believe that Pushy is already the best tool for sending APNs push notifications from Java applications, and we hope you'll help us make it even better via bug reports and pull requests. If you have questions about using Pushy, please join us on [the Pushy mailing list](https://groups.google.com/d/forum/pushy-apns) or take a look at [the wiki](https://github.com/jchambers/pushy/wiki). Thanks!
+
+If you need a simple GUI application for sending push notifications for development or testing purposes, you might also be interested in Pushy's sister project, [Pushy Console](https://github.com/jchambers/pushy-console).
 
 ## Getting Pushy
 
@@ -14,20 +16,20 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 
 ```xml
 <dependency>
-    <groupId>com.turo</groupId>
+    <groupId>com.eatthepath</groupId>
     <artifactId>pushy</artifactId>
-    <version>0.13.10</version>
+    <version>0.13.11</version>
 </dependency>
 ```
 
-If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/relayrides/pushy/releases/download/pushy-0.13.10/pushy-0.13.10.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
+If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/jchambers/pushy/releases/download/pushy-0.13.11/pushy-0.13.11.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
-- [netty 4.1.37](http://netty.io/)
+- [netty 4.1.46](http://netty.io/)
 - [gson 2.6](https://github.com/google/gson)
 - [slf4j 1.7](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
 - [fast-uuid 0.1](https://github.com/jchambers/fast-uuid)
 
-Pushy itself requires Java 7 or newer to build and run. Under Java 7, Pushy has an additional dependency (included automatically by dependency management systems) on [netty-tcnative 2.0.25.Final](http://netty.io/wiki/forked-tomcat-native.html), a native SSL provider that (among other benefits) includes ciphers required by APNs that are not included with Java 7 by default.
+Pushy itself requires Java 7 or newer to build and run. Under Java 7, Pushy has an additional dependency (included automatically by dependency management systems) on [netty-native 2.0.26.Final](http://netty.io/wiki/forked-tomcat-native.html), a native SSL provider that (among other benefits) includes ciphers required by APNs that are not included with Java 7 by default.
 
 Under Java 8 and newer, Pushy does not require a native SSL provider, but users may choose to use it regardless for enhanced performance. To use a native provider, make sure netty-tcnative is on your classpath. Maven users may add a dependency to their project as follows:
 
@@ -35,14 +37,14 @@ Under Java 8 and newer, Pushy does not require a native SSL provider, but users 
 <dependency>
     <groupId>io.netty</groupId>
     <artifactId>netty-tcnative-boringssl-static</artifactId>
-    <version>2.0.20.Final</version>
+    <version>2.0.26.Final</version>
     <scope>runtime</scope>
 </dependency>
 ```
 
 ## Authenticating with the APNs server
 
-Before you can get started with Pushy, you'll need to do some provisioning work with Apple to register your app and get the required certificates or signing keys (more on these shortly). For details on this process, please see the [Registering Your App with APNs](https://developer.apple.com/documentation/usernotifications/registering_your_app_with_apns) section of Apple's UserNotifications documentation. Please note that there are [some caveats](https://github.com/relayrides/pushy/wiki/Certificates), particularly under macOS 10.13 (El Capitan).
+Before you can get started with Pushy, you'll need to do some provisioning work with Apple to register your app and get the required certificates or signing keys (more on these shortly). For details on this process, please see the [Registering Your App with APNs](https://developer.apple.com/documentation/usernotifications/registering_your_app_with_apns) section of Apple's UserNotifications documentation. Please note that there are [some caveats](https://github.com/jchambers/pushy/wiki/Certificates), particularly under macOS 10.13 (El Capitan).
 
 Generally speaking, APNs clients must authenticate with the APNs server by some means before they can send push notifications. Currently, APNs (and Pushy) supports two authentication methods: TLS-based authentication and token-based authentication. The two approaches are mutually-exclusive; you'll need to pick one or the other for each client.
 
@@ -50,7 +52,7 @@ Generally speaking, APNs clients must authenticate with the APNs server by some 
 
 In TLS-based authentication, clients present a TLS certificate to the server when connecting, and may send notifications to any "topic" named in the certificate. Generally, this means that a single client can only send push notifications to a single receiving app.
 
-Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an [`ApnsClient`](http://relayrides.github.io/pushy/apidocs/0.13/com/turo/pushy/apns/ApnsClient.html). Clients using TLS authentication need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing). To create a client that will use TLS-based authentication:
+Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an [`ApnsClient`](https://pushy-apns.org/apidocs/0.13/com/eatthepath/pushy/apns/ApnsClient.html). Clients using TLS authentication need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing). To create a client that will use TLS-based authentication:
 
 ```java
 final ApnsClient apnsClient = new ApnsClientBuilder()
@@ -75,7 +77,7 @@ final ApnsClient apnsClient = new ApnsClientBuilder()
 
 ## Sending push notifications
 
-Pushy's APNs clients maintain an internal pool of connections to the APNs server and create new connections on demand. As a result, clients do not need to be started explicitly. Regardless of the authentication method you choose, once you've created a client, it's ready to start sending push notifications. At minimum, [push notifications](http://relayrides.github.io/pushy/apidocs/0.13/com/turo/pushy/apns/ApnsPushNotification.html) need a device token (which identifies the notification's destination device and is a distinct idea from an authentication token), a topic, and a payload.
+Pushy's APNs clients maintain an internal pool of connections to the APNs server and create new connections on demand. As a result, clients do not need to be started explicitly. Regardless of the authentication method you choose, once you've created a client, it's ready to start sending push notifications. At minimum, [push notifications](https://pushy-apns.org/apidocs/0.13/com/eatthepath/pushy/apns/ApnsPushNotification.html) need a device token (which identifies the notification's destination device and is a distinct idea from an authentication token), a topic, and a payload.
 
 ```java
 final SimpleApnsPushNotification pushNotification;
@@ -164,7 +166,7 @@ When shutting down, clients will wait for all sent-but-not-acknowledged notifica
 
 ## Performance and best practices
 
-Making the most of your system resources for high-throughput applications always takes some effort. To guide you through the process, we've put together a wiki page covering some [best practices for using Pushy](https://github.com/relayrides/pushy/wiki/Best-practices). All of these points are covered in much more detail on the wiki, but in general, our recommendations are:
+Making the most of your system resources for high-throughput applications always takes some effort. To guide you through the process, we've put together a wiki page covering some [best practices for using Pushy](https://github.com/jchambers/pushy/wiki/Best-practices). All of these points are covered in much more detail on the wiki, but in general, our recommendations are:
 
 - Treat `ApnsClient` instances as long-lived resources
 - Use listeners if you want to track the status of your push notifications
@@ -177,7 +179,7 @@ Pushy requires Java 7 or newer. Under Java 7, Pushy depends on netty-tcnative as
 
 ## Metrics
 
-Pushy includes an interface for monitoring metrics that provide insight into clients' behavior and performance. You can write your own implementation of the `ApnsClientMetricsListener` interface to record and report metrics. We also provide metrics listeners that gather and report metrics [using the Dropwizard Metrics library](https://github.com/relayrides/pushy/tree/master/dropwizard-metrics-listener) and [using the Micrometer application monitoring facade](https://github.com/relayrides/pushy/tree/master/micrometer-metrics-listener) as separate modules. To begin receiving metrics, set a listener when building a new client:
+Pushy includes an interface for monitoring metrics that provide insight into clients' behavior and performance. You can write your own implementation of the `ApnsClientMetricsListener` interface to record and report metrics. We also provide metrics listeners that gather and report metrics [using the Dropwizard Metrics library](https://github.com/jchambers/pushy/tree/master/dropwizard-metrics-listener) and [using the Micrometer application monitoring facade](https://github.com/jchambers/pushy/tree/master/micrometer-metrics-listener) as separate modules. To begin receiving metrics, set a listener when building a new client:
 
 ```java
 final ApnsClient apnsClient = new ApnsClientBuilder()
@@ -192,7 +194,7 @@ Please note that the metric-handling methods in your listener implementation sho
 
 ## Using a proxy
 
-If you need to use a proxy for outbound connections, you may specify a [`ProxyHandlerFactory`](http://relayrides.github.io/pushy/apidocs/0.13/com/turo/pushy/apns/proxy/ProxyHandlerFactory.html) when building your `ApnsClient` instance. Concrete implementations of `ProxyHandlerFactory` are provided for HTTP, SOCKS4, and SOCKS5 proxies.
+If you need to use a proxy for outbound connections, you may specify a [`ProxyHandlerFactory`](https://pushy-apns.org/apidocs/0.13/com/eatthepath/pushy/apns/proxy/ProxyHandlerFactory.html) when building your `ApnsClient` instance. Concrete implementations of `ProxyHandlerFactory` are provided for HTTP, SOCKS4, and SOCKS5 proxies.
 
 An example:
 
@@ -203,6 +205,18 @@ final ApnsClient apnsClient = new ApnsClientBuilder()
             "TEAMID1234", "KEYID67890"))
     .setProxyHandlerFactory(new Socks5ProxyHandlerFactory(
         new InetSocketAddress("my.proxy.com", 1080), "username", "password"))
+    .build();
+```
+
+If using HTTP proxies configured via [JVM system properties](https://docs.oracle.com/javase/7/docs/api/java/net/doc-files/net-properties.html#Proxies), you can also use:
+
+```java
+final ApnsClient apnsClient = new ApnsClientBuilder()
+    .setApnsServer(ApnsClientBuilder.DEVELOPMENT_APNS_HOST)
+    .setSigningKey(ApnsSigningKey.loadFromPkcs8File(new File("/path/to/key.p8"),
+            "TEAMID1234", "KEYID67890"))
+    .setProxyHandlerFactory(HttpProxyHandlerFactory.fromSystemProxies(
+            ApnsClientBuilder.DEVELOPMENT_APNS_HOST))
     .build();
 ```
 
@@ -232,12 +246,12 @@ Pushy uses logging levels as follows:
 
 Pushy includes a mock APNs server that callers may use in integration tests and benchmarks. It is not necessary to use a mock server (or any related classes) in normal operation.
 
-To build a mock server, callers should use a [`MockApnsServerBuilder`](http://relayrides.github.io/pushy/apidocs/0.13/com/turo/pushy/apns/server/MockApnsServerBuilder.html). All servers require a [`PushNotificationHandler`](http://relayrides.github.io/pushy/apidocs/0.13/com/turo/pushy/apns/server/PushNotificationHandler.html) (built by a [`PushNotificationHandlerFactory`](http://relayrides.github.io/pushy/apidocs/0.13/com/turo/pushy/apns/server/PushNotificationHandlerFactory.html) provided to the builder) that decides whether the mock server will accept or reject each incoming push notification. Pushy includes an `AcceptAllPushNotificationHandlerFactory` that is helpful for benchmarking and a `ValidatingPushNotificationHandlerFactory` that may be helpful for integration testing.
+To build a mock server, callers should use a [`MockApnsServerBuilder`](https://pushy-apns.org/apidocs/0.13/com/eatthepath/pushy/apns/server/MockApnsServerBuilder.html). All servers require a [`PushNotificationHandler`](https://pushy-apns.org/apidocs/0.13/com/eatthepath/pushy/apns/server/PushNotificationHandler.html) (built by a [`PushNotificationHandlerFactory`](https://pushy-apns.org/apidocs/0.13/com/eatthepath/pushy/apns/server/PushNotificationHandlerFactory.html) provided to the builder) that decides whether the mock server will accept or reject each incoming push notification. Pushy includes an `AcceptAllPushNotificationHandlerFactory` that is helpful for benchmarking and a `ValidatingPushNotificationHandlerFactory` that may be helpful for integration testing.
 
-Callers may also provide a [`MockApnsServerListener`](http://relayrides.github.io/pushy/apidocs/0.13/com/turo/pushy/apns/server/MockApnsServerListener.html) when building a mock server; listeners are notified whenever the mock server accepts or rejects a notification from a client.
+Callers may also provide a [`MockApnsServerListener`](https://pushy-apns.org/apidocs/0.13/com/eatthepath/pushy/apns/server/MockApnsServerListener.html) when building a mock server; listeners are notified whenever the mock server accepts or rejects a notification from a client.
 
 ## License and status
 
-Pushy is available under the [MIT License](https://github.com/relayrides/pushy/blob/master/LICENSE.md).
+Pushy is available under the [MIT License](https://github.com/jchambers/pushy/blob/master/LICENSE.md).
 
-The current version of Pushy is 0.13.10. We consider it to be fully functional (and use it in production!), but the public API may change significantly before a 1.0 release.
+The current version of Pushy is 0.13.11. It's fully functional and widely used in production environments, but the public API may change significantly before a 1.0 release.

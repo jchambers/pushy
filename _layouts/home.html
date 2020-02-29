@@ -16,8 +16,6 @@
 
     <body>
         <div class="container pageHeader">
-            <a href="https://turo.com/"><img class="pageHeader-logo" src="img/turo.png" alt="Turo" /></a>
-
             <ul class="pageHeader-navigation">
                 <li class="navigation-item"><a class="navigation-item--text" href="{{ site.data.latest_version.url }}">Latest release ({{ site.data.latest_version.version}})</a></li>
                 <li class="navigation-item"><a class="navigation-item--text" href="{{ site.data.latest_version.documentation_url }}">Documentation</a></li>
@@ -40,7 +38,7 @@
             {% capture footer_include %}{% include footer.md %}{% endcapture %}
             {{ footer_include | markdownify }}
 
-            <p>&copy;{{ "now" | date: "%Y" }} <a href="https://turo.com/">Turo</a>. Available under the <a href="{{ site.license_url }}">{{ site.license_name }}</a>.</p>
+            <p>&copy;{{ "now" | date: "%Y" }} <a href="https://github.com/jchambers/">Jon Chambers</a>. Available under the <a href="{{ site.license_url }}">{{ site.license_name }}</a>.</p>
         </div>
     </body>
 </html>
