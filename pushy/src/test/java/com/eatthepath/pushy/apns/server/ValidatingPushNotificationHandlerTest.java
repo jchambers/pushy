@@ -34,6 +34,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.*;
 
 import static org.junit.Assert.assertEquals;
@@ -59,7 +60,7 @@ public abstract class ValidatingPushNotificationHandlerTest {
     protected ByteBuf payload;
 
     @SuppressWarnings("SameParameterValue")
-    protected abstract ValidatingPushNotificationHandler getHandler(final Map<String, Set<String>> deviceTokensByTopic, final Map<String, Date> expirationTimestampsByDeviceToken);
+    protected abstract ValidatingPushNotificationHandler getHandler(final Map<String, Set<String>> deviceTokensByTopic, final Map<String, Instant> expirationTimestampsByDeviceToken);
 
     protected abstract void addAcceptableCredentialsToHeaders(Http2Headers headers) throws Exception;
 
@@ -121,7 +122,7 @@ public abstract class ValidatingPushNotificationHandlerTest {
 
     @Test
     public void testHandleNotificationWithExpirationDate() throws Exception {
-        this.headers.setInt(APNS_EXPIRATION_HEADER, (int) (new Date().getTime() / 1000));
+        this.headers.setInt(APNS_EXPIRATION_HEADER, (int) Instant.now().getEpochSecond());
 
         this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap())
                 .handlePushNotification(this.headers, this.payload);
@@ -197,8 +198,8 @@ public abstract class ValidatingPushNotificationHandlerTest {
 
     @Test
     public void testHandleNotificationWithExpiredDeviceToken() {
-        final Map<String, Date> deviceTokenExpirationDates =
-                Collections.singletonMap(TOKEN, new Date(System.currentTimeMillis() - 1));
+        final Map<String, Instant> deviceTokenExpirationDates =
+                Collections.singletonMap(TOKEN, Instant.now().minusMillis(1));
 
         this.testWithExpectedRejection("Push notifications with an expired device token should be rejected.",
                 this.getHandler(DEVICE_TOKENS_BY_TOPIC, deviceTokenExpirationDates),

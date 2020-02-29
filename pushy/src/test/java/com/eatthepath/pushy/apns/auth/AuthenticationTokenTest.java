@@ -28,7 +28,7 @@ import org.junit.Test;
 import java.security.KeyPair;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
-import java.util.Date;
+import java.time.Instant;
 import java.util.regex.Pattern;
 
 import static org.junit.Assert.*;
@@ -52,12 +52,12 @@ public class AuthenticationTokenTest {
     @Test
     public void testAuthenticationTokenFromSigningKey() throws Exception {
         // We're happy here as long as nothing explodes
-        new AuthenticationToken(this.signingKey, new Date());
+        new AuthenticationToken(this.signingKey, Instant.now());
     }
 
     @Test
     public void testAuthenticationTokenFromString() throws Exception {
-        final String base64EncodedToken = new AuthenticationToken(this.signingKey, new Date()).toString();
+        final String base64EncodedToken = new AuthenticationToken(this.signingKey, Instant.now()).toString();
 
         // We're happy here as long as nothing explodes
         new AuthenticationToken(base64EncodedToken);
@@ -65,7 +65,7 @@ public class AuthenticationTokenTest {
 
     @Test
     public void testGetIssuedAt() throws Exception {
-        final Date now = new Date();
+        final Instant now = Instant.now();
         final AuthenticationToken token = new AuthenticationToken(this.signingKey, now);
 
         assertEquals(token.getIssuedAt(), now);
@@ -73,7 +73,7 @@ public class AuthenticationTokenTest {
 
     @Test
     public void testVerifySignature() throws Exception {
-        final AuthenticationToken token = new AuthenticationToken(this.signingKey, new Date());
+        final AuthenticationToken token = new AuthenticationToken(this.signingKey, Instant.now());
 
         assertTrue(token.verifySignature(this.verificationKey));
 
@@ -105,7 +105,7 @@ public class AuthenticationTokenTest {
 
     @Test
     public void testToString() throws Exception {
-        final AuthenticationToken token = new AuthenticationToken(this.signingKey, new Date());
+        final AuthenticationToken token = new AuthenticationToken(this.signingKey, Instant.now());
 
         assertTrue(Pattern.matches("^[a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9_\\-]+$", token.toString()));
     }

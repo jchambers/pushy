@@ -22,7 +22,7 @@
 
 package com.eatthepath.pushy.apns;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -86,5 +86,5 @@ public interface PushNotificationResponse<T extends ApnsPushNotification> {
      *
      * @since 0.5
      */
-    Date getTokenInvalidationTimestamp();
+    Instant getTokenInvalidationTimestamp();
 }

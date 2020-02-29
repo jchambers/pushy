@@ -32,10 +32,10 @@ import org.slf4j.LoggerFactory;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
-import java.util.Date;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 class TokenAuthenticationValidatingPushNotificationHandler extends ValidatingPushNotificationHandler {
 
@@ -47,11 +47,11 @@ class TokenAuthenticationValidatingPushNotificationHandler extends ValidatingPus
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
     private static final AsciiString APNS_AUTHORIZATION_HEADER = new AsciiString("authorization");
 
-    private static final long AUTHENTICATION_TOKEN_EXPIRATION_MILLIS = TimeUnit.HOURS.toMillis(1);
+    private static final Duration AUTHENTICATION_TOKEN_EXPIRATION_DURATION = Duration.ofHours(1);
 
     private static final Logger log = LoggerFactory.getLogger(TokenAuthenticationValidatingPushNotificationHandler.class);
 
-    TokenAuthenticationValidatingPushNotificationHandler(final Map<String, Set<String>> deviceTokensByTopic, final Map<String, Date> expirationTimestampsByDeviceToken, final Map<String, ApnsVerificationKey> verificationKeysByKeyId, final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey) {
+    TokenAuthenticationValidatingPushNotificationHandler(final Map<String, Set<String>> deviceTokensByTopic, final Map<String, Instant> expirationTimestampsByDeviceToken, final Map<String, ApnsVerificationKey> verificationKeysByKeyId, final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey) {
         super(deviceTokensByTopic, expirationTimestampsByDeviceToken);
 
         this.verificationKeysByKeyId = verificationKeysByKeyId;
@@ -119,7 +119,7 @@ class TokenAuthenticationValidatingPushNotificationHandler extends ValidatingPus
             throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN);
         }
 
-        if (authenticationToken.getIssuedAt().getTime() + AUTHENTICATION_TOKEN_EXPIRATION_MILLIS < System.currentTimeMillis()) {
+        if (Instant.now().isAfter(authenticationToken.getIssuedAt().plus(AUTHENTICATION_TOKEN_EXPIRATION_DURATION))) {
             throw new RejectedNotificationException(RejectionReason.EXPIRED_PROVIDER_TOKEN);
         }
 

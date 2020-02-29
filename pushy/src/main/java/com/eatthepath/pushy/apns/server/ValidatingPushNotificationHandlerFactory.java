@@ -26,8 +26,8 @@ import com.eatthepath.pushy.apns.auth.ApnsVerificationKey;
 
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
+import java.time.Instant;
 import java.util.Collections;
-import java.util.Date;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -51,7 +51,7 @@ import java.util.regex.Pattern;
 public class ValidatingPushNotificationHandlerFactory implements PushNotificationHandlerFactory {
 
     private final Map<String, Set<String>> deviceTokensByTopic;
-    private final Map<String, Date> expirationTimestampsByDeviceToken;
+    private final Map<String, Instant> expirationTimestampsByDeviceToken;
 
     private final Map<String, ApnsVerificationKey> verificationKeysByKeyId;
     private final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey;
@@ -70,7 +70,7 @@ public class ValidatingPushNotificationHandlerFactory implements PushNotificatio
      * authentication tokens; only needed for token authentication, and may be {@code null} in which case all
      * notifications sent with token authentication will be rejected
      */
-    public ValidatingPushNotificationHandlerFactory(final Map<String, Set<String>> deviceTokensByTopic, final Map<String, Date> expirationTimestampsByDeviceToken, final Map<String, ApnsVerificationKey> verificationKeysByKeyId, final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey) {
+    public ValidatingPushNotificationHandlerFactory(final Map<String, Set<String>> deviceTokensByTopic, final Map<String, Instant> expirationTimestampsByDeviceToken, final Map<String, ApnsVerificationKey> verificationKeysByKeyId, final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey) {
         this.deviceTokensByTopic = deviceTokensByTopic != null ?
                 deviceTokensByTopic : Collections.emptyMap();
 

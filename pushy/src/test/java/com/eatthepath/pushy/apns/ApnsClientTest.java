@@ -32,8 +32,8 @@ import org.junit.runner.RunWith;
 
 import javax.net.ssl.SSLHandshakeException;
 import java.io.InputStream;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -183,7 +183,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
         }
 
         @Override
-        public void handlePushNotificationRejected(final ApnsPushNotification pushNotification, final RejectionReason rejectionReason, final Date deviceTokenExpirationTimestamp) {
+        public void handlePushNotificationRejected(final ApnsPushNotification pushNotification, final RejectionReason rejectionReason, final Instant deviceTokenExpirationTimestamp) {
             synchronized (this.rejectedNotifications) {
                 this.rejectedNotifications.add(pushNotification);
                 this.rejectedNotifications.notifyAll();
@@ -482,7 +482,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
     @Test
     @Parameters({"true", "false"})
     public void testSendNotificationWithExpiredDeviceToken(final boolean useTokenAuthentication) throws Exception {
-        final Date expiration = new Date();
+        final Instant expiration = Instant.now();
 
         final PushNotificationHandlerFactory handlerFactory = sslSession -> (headers, payload) -> {
             throw new UnregisteredDeviceTokenException(expiration);

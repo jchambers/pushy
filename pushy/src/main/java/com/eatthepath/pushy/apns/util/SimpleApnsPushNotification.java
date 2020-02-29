@@ -22,15 +22,15 @@
 
 package com.eatthepath.pushy.apns.util;
 
-import com.eatthepath.uuid.FastUUID;
 import com.eatthepath.pushy.apns.ApnsPushNotification;
 import com.eatthepath.pushy.apns.DeliveryPriority;
 import com.eatthepath.pushy.apns.PushType;
+import com.eatthepath.uuid.FastUUID;
 
-import java.util.Date;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 /**
  * A simple and immutable implementation of the {@link ApnsPushNotification} interface.
@@ -43,7 +43,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
 
     private final String token;
     private final String payload;
-    private final Date invalidationTime;
+    private final Instant invalidationTime;
     private final DeliveryPriority priority;
     private final PushType pushType;
     private final String topic;
@@ -53,7 +53,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
     /**
      * The default expiration period for push notifications (one day).
      */
-    public static final long DEFAULT_EXPIRATION_PERIOD_MILLIS = TimeUnit.DAYS.toMillis(1);
+    public static final Duration DEFAULT_EXPIRATION_PERIOD = Duration.ofDays(1);
 
     /**
      * Constructs a new push notification with the given token, topic, and payload. A default expiration time is set for
@@ -67,10 +67,11 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * @param payload the payload to include in this push notification
      *
      * @see DeliveryPriority#IMMEDIATE
-     * @see #DEFAULT_EXPIRATION_PERIOD_MILLIS
+     * @see #DEFAULT_EXPIRATION_PERIOD
      */
     public SimpleApnsPushNotification(final String token, final String topic, final String payload) {
-        this(token, topic, payload, new Date(System.currentTimeMillis() + DEFAULT_EXPIRATION_PERIOD_MILLIS), DeliveryPriority.IMMEDIATE, null, null, null);
+
+        this(token, topic, payload, Instant.now().plus(DEFAULT_EXPIRATION_PERIOD), DeliveryPriority.IMMEDIATE, null, null, null);
     }
 
     /**
@@ -86,7 +87,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      *
      * @see DeliveryPriority#IMMEDIATE
      */
-    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime) {
+    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Instant invalidationTime) {
         this(token, topic, payload, invalidationTime, DeliveryPriority.IMMEDIATE, null, null, null);
     }
 
@@ -101,7 +102,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * {@code null}, no delivery attempts beyond the first will be made
      * @param priority the priority with which this notification should be delivered to the receiving device
      */
-    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority) {
+    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Instant invalidationTime, final DeliveryPriority priority) {
         this(token, topic, payload, invalidationTime, priority, null, null, null);
     }
 
@@ -117,7 +118,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * @param pushType the type of notification to be sent
      * @param priority the priority with which this notification should be delivered to the receiving device
      */
-    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority, final PushType pushType) {
+    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Instant invalidationTime, final DeliveryPriority priority, final PushType pushType) {
         this(token, topic, payload, invalidationTime, priority, pushType, null, null);
     }
 
@@ -134,7 +135,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * @param collapseId the "collapse identifier" for this notification, which allows it to supersede or be superseded
      * by other notifications with the same collapse identifier
      */
-    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority, final String collapseId) {
+    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Instant invalidationTime, final DeliveryPriority priority, final String collapseId) {
         this(token, topic, payload, invalidationTime, priority, null, collapseId, null);
     }
 
@@ -152,7 +153,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * @param collapseId the "collapse identifier" for this notification, which allows it to supersede or be superseded
      * by other notifications with the same collapse identifier
      */
-    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority, final PushType pushType, final String collapseId) {
+    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Instant invalidationTime, final DeliveryPriority priority, final PushType pushType, final String collapseId) {
         this(token, topic, payload, invalidationTime, priority, pushType, collapseId, null);
     }
 
@@ -171,7 +172,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * @param apnsId the unique identifier for this notification; may be {@code null}, in which case the APNs server
      * will assign a unique identifier automatically
      */
-    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority, final String collapseId, final UUID apnsId) {
+    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Instant invalidationTime, final DeliveryPriority priority, final String collapseId, final UUID apnsId) {
         this(token, topic, payload, invalidationTime, priority, null, collapseId, apnsId);
     }
 
@@ -191,7 +192,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * @param apnsId the unique identifier for this notification; may be {@code null}, in which case the APNs server
      * will assign a unique identifier automatically
      */
-    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority, final PushType pushType, final String collapseId, final UUID apnsId) {
+    public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Instant invalidationTime, final DeliveryPriority priority, final PushType pushType, final String collapseId, final UUID apnsId) {
         this.token = Objects.requireNonNull(token, "Destination device token must not be null.");
         this.topic = Objects.requireNonNull(topic, "Destination topic must not be null.");
         this.payload = Objects.requireNonNull(payload, "Payload must not be null.");
@@ -201,7 +202,6 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
         this.collapseId = collapseId;
         this.apnsId = apnsId;
     }
-
 
     /**
      * Returns the token of the device to which this push notification should be delivered.
@@ -229,7 +229,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      * @return the time at which this push notification is no longer valid and should no longer be delivered
      */
     @Override
-    public Date getExpiration() {
+    public Instant getExpiration() {
         return this.invalidationTime;
     }
 

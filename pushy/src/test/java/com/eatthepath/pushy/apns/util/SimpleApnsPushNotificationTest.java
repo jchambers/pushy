@@ -26,7 +26,7 @@ import com.eatthepath.pushy.apns.DeliveryPriority;
 import com.eatthepath.pushy.apns.PushType;
 import org.junit.Test;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.UUID;
 
 import static org.junit.Assert.*;
@@ -39,7 +39,7 @@ public class SimpleApnsPushNotificationTest {
         final String topic = "test-topic";
         final String payload = "{\"test\": true}";
 
-        final Date now = new Date();
+        final Instant now = Instant.now();
 
         final SimpleApnsPushNotification pushNotification =
                 new SimpleApnsPushNotification(token, topic, payload);
@@ -47,7 +47,7 @@ public class SimpleApnsPushNotificationTest {
         assertEquals(token, pushNotification.getToken());
         assertEquals(topic, pushNotification.getTopic());
         assertEquals(payload, pushNotification.getPayload());
-        assertTrue(pushNotification.getExpiration().after(now));
+        assertTrue(pushNotification.getExpiration().isAfter(now));
         assertEquals(DeliveryPriority.IMMEDIATE, pushNotification.getPriority());
         assertNull(pushNotification.getPushType());
         assertNull(pushNotification.getCollapseId());
@@ -73,7 +73,7 @@ public class SimpleApnsPushNotificationTest {
         final String token = "test-token";
         final String topic = "test-topic";
         final String payload = "{\"test\": true}";
-        final Date expiration = new Date();
+        final Instant expiration = Instant.now();
 
         final SimpleApnsPushNotification pushNotification =
                 new SimpleApnsPushNotification(token, topic, payload, expiration);
@@ -93,7 +93,7 @@ public class SimpleApnsPushNotificationTest {
         final String token = "test-token";
         final String topic = "test-topic";
         final String payload = "{\"test\": true}";
-        final Date expiration = new Date();
+        final Instant expiration = Instant.now();
         final DeliveryPriority priority = DeliveryPriority.CONSERVE_POWER;
 
         final SimpleApnsPushNotification pushNotification =
@@ -114,7 +114,7 @@ public class SimpleApnsPushNotificationTest {
         final String token = "test-token";
         final String topic = "test-topic";
         final String payload = "{\"test\": true}";
-        final Date expiration = new Date();
+        final Instant expiration = Instant.now();
         final DeliveryPriority priority = DeliveryPriority.CONSERVE_POWER;
         final PushType pushType = PushType.BACKGROUND;
 
@@ -136,7 +136,7 @@ public class SimpleApnsPushNotificationTest {
         final String token = "test-token";
         final String topic = "test-topic";
         final String payload = "{\"test\": true}";
-        final Date expiration = new Date();
+        final Instant expiration = Instant.now();
         final DeliveryPriority priority = DeliveryPriority.CONSERVE_POWER;
         final String collapseId = "test-collapse-id";
 
@@ -158,7 +158,7 @@ public class SimpleApnsPushNotificationTest {
         final String token = "test-token";
         final String topic = "test-topic";
         final String payload = "{\"test\": true}";
-        final Date expiration = new Date();
+        final Instant expiration = Instant.now();
         final DeliveryPriority priority = DeliveryPriority.CONSERVE_POWER;
         final PushType pushType = PushType.BACKGROUND;
         final String collapseId = "test-collapse-id";
@@ -181,7 +181,7 @@ public class SimpleApnsPushNotificationTest {
         final String token = "test-token";
         final String topic = "test-topic";
         final String payload = "{\"test\": true}";
-        final Date expiration = new Date();
+        final Instant expiration = Instant.now();
         final DeliveryPriority priority = DeliveryPriority.CONSERVE_POWER;
         final PushType pushType = PushType.BACKGROUND;
         final String collapseId = "test-collapse-id";

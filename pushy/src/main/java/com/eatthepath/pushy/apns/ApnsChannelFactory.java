@@ -45,6 +45,7 @@ import io.netty.util.concurrent.PromiseNotifier;
 import java.io.Closeable;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -70,9 +71,9 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
     static final AttributeKey<Promise<Channel>> CHANNEL_READY_PROMISE_ATTRIBUTE_KEY =
             AttributeKey.valueOf(ApnsChannelFactory.class, "channelReadyPromise");
 
-    ApnsChannelFactory(final SslContext sslContext, final ApnsSigningKey signingKey, final long tokenExpirationMillis,
-                       final ProxyHandlerFactory proxyHandlerFactory, final int connectTimeoutMillis,
-                       final long idlePingIntervalMillis, final long gracefulShutdownTimeoutMillis,
+    ApnsChannelFactory(final SslContext sslContext, final ApnsSigningKey signingKey, final Duration tokenExpiration,
+                       final ProxyHandlerFactory proxyHandlerFactory, final Duration connectTimeout,
+                       final Duration idlePingInterval, final Duration gracefulShutdownTimeout,
                        final Http2FrameLogger frameLogger, final InetSocketAddress apnsServerAddress,
                        final EventLoopGroup eventLoopGroup) {
 
@@ -92,8 +93,8 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
         this.bootstrapTemplate.remoteAddress(apnsServerAddress);
         this.bootstrapTemplate.resolver(this.addressResolverGroup);
 
-        if (connectTimeoutMillis > 0) {
-            this.bootstrapTemplate.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMillis);
+        if (connectTimeout != null) {
+            this.bootstrapTemplate.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) connectTimeout.toMillis());
         }
 
         this.bootstrapTemplate.handler(new ChannelInitializer<SocketChannel>() {
@@ -111,13 +112,13 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
                     if (signingKey != null) {
                         clientHandlerBuilder = new TokenAuthenticationApnsClientHandler.TokenAuthenticationApnsClientHandlerBuilder()
                                 .signingKey(signingKey)
-                                .tokenExpirationMillis(tokenExpirationMillis)
+                                .tokenExpiration(tokenExpiration)
                                 .authority(authority)
-                                .idlePingIntervalMillis(idlePingIntervalMillis);
+                                .idlePingInterval(idlePingInterval);
                     } else {
                         clientHandlerBuilder = new ApnsClientHandler.ApnsClientHandlerBuilder()
                                 .authority(authority)
-                                .idlePingIntervalMillis(idlePingIntervalMillis);
+                                .idlePingInterval(idlePingInterval);
                     }
 
                     if (frameLogger != null) {
@@ -126,8 +127,8 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
                     apnsClientHandler = clientHandlerBuilder.build();
 
-                    if (gracefulShutdownTimeoutMillis > 0) {
-                        apnsClientHandler.gracefulShutdownTimeoutMillis(gracefulShutdownTimeoutMillis);
+                    if (gracefulShutdownTimeout != null) {
+                        apnsClientHandler.gracefulShutdownTimeoutMillis(gracefulShutdownTimeout.toMillis());
                     }
                 }
 
@@ -139,7 +140,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
                 pipeline.addLast(sslHandler);
                 pipeline.addLast(new FlushConsolidationHandler(FlushConsolidationHandler.DEFAULT_EXPLICIT_FLUSH_AFTER_FLUSHES, true));
-                pipeline.addLast(new IdleStateHandler(idlePingIntervalMillis, 0, 0, TimeUnit.MILLISECONDS));
+                pipeline.addLast(new IdleStateHandler(idlePingInterval.toMillis(), 0, 0, TimeUnit.MILLISECONDS));
                 pipeline.addLast(apnsClientHandler);
             }
         });

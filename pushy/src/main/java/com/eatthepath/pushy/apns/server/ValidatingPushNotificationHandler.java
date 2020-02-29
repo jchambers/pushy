@@ -22,16 +22,16 @@
 
 package com.eatthepath.pushy.apns.server;
 
-import com.eatthepath.uuid.FastUUID;
 import com.eatthepath.pushy.apns.DeliveryPriority;
 import com.eatthepath.pushy.apns.PushType;
+import com.eatthepath.uuid.FastUUID;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.AsciiString;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Date;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -40,7 +40,7 @@ import java.util.regex.Pattern;
 abstract class ValidatingPushNotificationHandler implements PushNotificationHandler {
 
     private final Map<String, Set<String>> deviceTokensByTopic;
-    private final Map<String, Date> expirationTimestampsByDeviceToken;
+    private final Map<String, Instant> expirationTimestampsByDeviceToken;
 
     private static final String APNS_PATH_PREFIX = "/3/device/";
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
@@ -54,7 +54,7 @@ abstract class ValidatingPushNotificationHandler implements PushNotificationHand
     private static final int MAX_PAYLOAD_SIZE = 4096;
     private static final int MAX_COLLAPSE_ID_SIZE = 64;
 
-    ValidatingPushNotificationHandler(final Map<String, Set<String>> deviceTokensByTopic, final Map<String, Date> expirationTimestampsByDeviceToken) {
+    ValidatingPushNotificationHandler(final Map<String, Set<String>> deviceTokensByTopic, final Map<String, Instant> expirationTimestampsByDeviceToken) {
         this.deviceTokensByTopic = deviceTokensByTopic;
         this.expirationTimestampsByDeviceToken = expirationTimestampsByDeviceToken;
     }
@@ -136,7 +136,7 @@ abstract class ValidatingPushNotificationHandler implements PushNotificationHand
                         throw new RejectedNotificationException(RejectionReason.BAD_DEVICE_TOKEN);
                     }
 
-                    final Date expirationTimestamp = this.expirationTimestampsByDeviceToken.get(deviceToken);
+                    final Instant expirationTimestamp = this.expirationTimestampsByDeviceToken.get(deviceToken);
 
                     if (expirationTimestamp != null) {
                         throw new UnregisteredDeviceTokenException(expirationTimestamp);

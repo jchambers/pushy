@@ -22,7 +22,7 @@
 
 package com.eatthepath.pushy.apns.server;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.Objects;
 
 /**
@@ -33,14 +33,14 @@ import java.util.Objects;
  * @since 0.12
  */
 public class UnregisteredDeviceTokenException extends RejectedNotificationException {
-    private final Date deviceTokenExpirationTimestamp;
+    private final Instant deviceTokenExpirationTimestamp;
 
     /**
      * Constructs a new unregistered device token exception indicating that the device token expired at the given time.
      *
      * @param deviceTokenExpirationTimestamp the time at which the destination device token expired
      */
-    public UnregisteredDeviceTokenException(final Date deviceTokenExpirationTimestamp) {
+    public UnregisteredDeviceTokenException(final Instant deviceTokenExpirationTimestamp) {
         super(RejectionReason.UNREGISTERED);
 
         Objects.requireNonNull(deviceTokenExpirationTimestamp, "Device token expiration timestamp must not be null.");
@@ -48,7 +48,7 @@ public class UnregisteredDeviceTokenException extends RejectedNotificationExcept
         this.deviceTokenExpirationTimestamp = deviceTokenExpirationTimestamp;
     }
 
-    Date getDeviceTokenExpirationTimestamp() {
+    Instant getDeviceTokenExpirationTimestamp() {
         return deviceTokenExpirationTimestamp;
     }
 }

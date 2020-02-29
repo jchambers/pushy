@@ -28,7 +28,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
 import org.junit.Test;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -44,7 +44,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
 
         private ApnsPushNotification mostRecentPushNotification;
         private RejectionReason mostRecentRejectionReason;
-        private Date mostRecentDeviceTokenExpiration;
+        private Instant mostRecentDeviceTokenExpiration;
 
         @Override
         public void handlePushNotificationAccepted(final ApnsPushNotification pushNotification) {
@@ -68,7 +68,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
         }
 
         @Override
-        public void handlePushNotificationRejected(final ApnsPushNotification pushNotification, final RejectionReason rejectionReason, final Date deviceTokenExpirationTimestamp) {
+        public void handlePushNotificationRejected(final ApnsPushNotification pushNotification, final RejectionReason rejectionReason, final Instant deviceTokenExpirationTimestamp) {
             this.mostRecentPushNotification = pushNotification;
             this.mostRecentRejectionReason = rejectionReason;
             this.mostRecentDeviceTokenExpiration = deviceTokenExpirationTimestamp;
@@ -217,7 +217,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
     @Test
     public void testListenerRejectedNotificationWithExpiration() throws Exception {
         final TestMockApnsServerListener listener = new TestMockApnsServerListener();
-        final Date expiration = new Date();
+        final Instant expiration = Instant.now();
 
         final MockApnsServer server = this.buildServer(sslSession -> (headers, payload) -> {
             throw new UnregisteredDeviceTokenException(expiration);

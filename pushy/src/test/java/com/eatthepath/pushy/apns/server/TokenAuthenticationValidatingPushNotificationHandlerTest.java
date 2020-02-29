@@ -34,8 +34,8 @@ import org.junit.Test;
 import java.security.KeyPair;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
+import java.time.Instant;
 import java.util.Collections;
-import java.util.Date;
 import java.util.Map;
 import java.util.Set;
 
@@ -61,7 +61,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
     }
 
     @Override
-    protected TokenAuthenticationValidatingPushNotificationHandler getHandler(final Map<String, Set<String>> deviceTokensByTopic, final Map<String, Date> expirationTimestampsByDeviceToken) {
+    protected TokenAuthenticationValidatingPushNotificationHandler getHandler(final Map<String, Set<String>> deviceTokensByTopic, final Map<String, Instant> expirationTimestampsByDeviceToken) {
         final Map<String, ApnsVerificationKey> verificationKeysByKeyId =
                 Collections.singletonMap(KEY_ID, this.verificationKey);
 
@@ -73,7 +73,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
 
     @Override
     protected void addAcceptableCredentialsToHeaders(final Http2Headers headers) throws Exception {
-        final AuthenticationToken authenticationToken = new AuthenticationToken(this.signingKey, new Date());
+        final AuthenticationToken authenticationToken = new AuthenticationToken(this.signingKey, Instant.now());
 
         headers.set(APNS_AUTHORIZATION_HEADER, authenticationToken.getAuthorizationHeader());
     }
@@ -139,7 +139,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
                 new TokenAuthenticationValidatingPushNotificationHandler(
                         DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap(), verificationKeysByKeyId, topicsByVerificationKey);
 
-        final AuthenticationToken authenticationToken = new AuthenticationToken(signingKey, new Date());
+        final AuthenticationToken authenticationToken = new AuthenticationToken(signingKey, Instant.now());
 
         this.headers.set(APNS_AUTHORIZATION_HEADER, authenticationToken.getAuthorizationHeader());
 
@@ -155,7 +155,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
         final ApnsSigningKey unverifiedKey = new ApnsSigningKey(KEY_ID, TEAM_ID, (ECPrivateKey) keyPair.getPrivate());
-        final AuthenticationToken unverifiedToken = new AuthenticationToken(unverifiedKey, new Date());
+        final AuthenticationToken unverifiedToken = new AuthenticationToken(unverifiedKey, Instant.now());
 
         this.headers.set(APNS_AUTHORIZATION_HEADER, unverifiedToken.getAuthorizationHeader());
 
@@ -168,7 +168,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
 
     @Test
     public void testHandleNotificationWithWithExpiredAuthenticationToken() throws Exception {
-        final AuthenticationToken expiredToken = new AuthenticationToken(this.signingKey, new Date(0));
+        final AuthenticationToken expiredToken = new AuthenticationToken(this.signingKey, Instant.ofEpochMilli(0));
 
         this.headers.set(APNS_AUTHORIZATION_HEADER, expiredToken.getAuthorizationHeader());
 
@@ -190,7 +190,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
                 new TokenAuthenticationValidatingPushNotificationHandler(
                         DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap(), verificationKeysByKeyId, topicsByVerificationKey);
 
-        final AuthenticationToken authenticationToken = new AuthenticationToken(signingKey, new Date());
+        final AuthenticationToken authenticationToken = new AuthenticationToken(signingKey, Instant.now());
 
         this.headers.set(APNS_AUTHORIZATION_HEADER, authenticationToken.getAuthorizationHeader());
 

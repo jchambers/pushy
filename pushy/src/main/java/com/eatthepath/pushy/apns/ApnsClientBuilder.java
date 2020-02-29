@@ -43,7 +43,7 @@ import java.security.KeyStoreException;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 
 /**
  * An {@code ApnsClientBuilder} constructs new {@link ApnsClient} instances. Callers must specify the APNs server to
@@ -62,7 +62,7 @@ public class ApnsClientBuilder {
     private String privateKeyPassword;
 
     private ApnsSigningKey signingKey;
-    private long tokenExpirationMillis = TimeUnit.MINUTES.toMillis(50);
+    private Duration tokenExpiration = Duration.ofMinutes(50);
 
     private File trustedServerCertificatePemFile;
     private InputStream trustedServerCertificateInputStream;
@@ -76,9 +76,9 @@ public class ApnsClientBuilder {
 
     private ProxyHandlerFactory proxyHandlerFactory;
 
-    private int connectionTimeoutMillis;
-    private long idlePingIntervalMillis = DEFAULT_PING_IDLE_TIME_MILLIS;
-    private long gracefulShutdownTimeoutMillis;
+    private Duration connectionTimeout;
+    private Duration idlePingInterval = DEFAULT_IDLE_PING_INTERVAL;
+    private Duration gracefulShutdownTimeout;
 
     private Http2FrameLogger frameLogger;
 
@@ -87,7 +87,7 @@ public class ApnsClientBuilder {
      *
      * @since 0.11
      */
-    public static final int DEFAULT_PING_IDLE_TIME_MILLIS = 60_000;
+    public static final Duration DEFAULT_IDLE_PING_INTERVAL = Duration.ofMinutes(1);
 
     /**
      * The hostname for the production APNs gateway.
@@ -289,15 +289,14 @@ public class ApnsClientBuilder {
      * expiration duration for clients using token-based authentication is 50 minutes. Callers <em>should not</em> set a
      * non-default value unless the upstream behavior changes.</p>
      *
-     * @param duration the magnitude of the expiration duration in the given time units
-     * @param timeUnit the time units in which the given {@code duration} are measured
+     * @param tokenExpiration the duration after which authentication tokens should expire
      *
      * @return a reference to this builder
      *
      * @since 0.13.11
      */
-    public ApnsClientBuilder setTokenExpiration(final long duration, final TimeUnit timeUnit) {
-        this.tokenExpirationMillis = timeUnit.toMillis(duration);
+    public ApnsClientBuilder setTokenExpiration(final Duration tokenExpiration) {
+        this.tokenExpiration = tokenExpiration;
         return this;
     }
 
@@ -442,32 +441,30 @@ public class ApnsClientBuilder {
      * Sets the maximum amount of time, in milliseconds, that the client under construction will wait to establish a
      * connection with the APNs server before the connection attempt is considered a failure.
      *
-     * @param connectionTimeout the maximum amount of time to wait for a connection attempt to complete
-     * @param timeoutUnit the time unit for the given timeout
+     * @param timeout the maximum amount of time to wait for a connection attempt to complete
      *
      * @return a reference to this builder
      *
      * @since 0.8
      */
-    public ApnsClientBuilder setConnectionTimeout(final long connectionTimeout, final TimeUnit timeoutUnit) {
-        this.connectionTimeoutMillis = (int) timeoutUnit.toMillis(connectionTimeout);
+    public ApnsClientBuilder setConnectionTimeout(final Duration timeout) {
+        this.connectionTimeout = timeout;
         return this;
     }
 
     /**
      * Sets the amount of idle time (in milliseconds) after which the client under construction will send a PING frame
-     * to the APNs server. By default, clients will send a PING frame after
-     * {@value com.eatthepath.pushy.apns.ApnsClientBuilder#DEFAULT_PING_IDLE_TIME_MILLIS} milliseconds of inactivity.
+     * to the APNs server. By default, clients will send a PING frame after an idle period of
+     * {@link com.eatthepath.pushy.apns.ApnsClientBuilder#DEFAULT_IDLE_PING_INTERVAL}.
      *
-     * @param pingInterval the amount of idle time after which the client will send a PING frame
-     * @param pingIntervalUnit the time unit for the given idle time
+     * @param idlePingInterval the amount of idle time after which the client will send a PING frame
      *
      * @return a reference to this builder
      *
      * @since 0.10
      */
-    public ApnsClientBuilder setIdlePingInterval(final long pingInterval, final TimeUnit pingIntervalUnit) {
-        this.idlePingIntervalMillis = pingIntervalUnit.toMillis(pingInterval);
+    public ApnsClientBuilder setIdlePingInterval(final Duration idlePingInterval) {
+        this.idlePingInterval = idlePingInterval;
         return this;
     }
 
@@ -477,7 +474,6 @@ public class ApnsClientBuilder {
      *
      * @param gracefulShutdownTimeout the amount of time to wait for in-progress requests to complete before closing a
      * connection
-     * @param timeoutUnit the time unit for the given timeout
      *
      * @return a reference to this builder
      *
@@ -485,8 +481,8 @@ public class ApnsClientBuilder {
      *
      * @since 0.8
      */
-    public ApnsClientBuilder setGracefulShutdownTimeout(final long gracefulShutdownTimeout, final TimeUnit timeoutUnit) {
-        this.gracefulShutdownTimeoutMillis = timeoutUnit.toMillis(gracefulShutdownTimeout);
+    public ApnsClientBuilder setGracefulShutdownTimeout(final Duration gracefulShutdownTimeout) {
+        this.gracefulShutdownTimeout = gracefulShutdownTimeout;
         return this;
     }
 
@@ -565,8 +561,8 @@ public class ApnsClientBuilder {
         }
 
         final ApnsClient client = new ApnsClient(this.apnsServerAddress, sslContext, this.signingKey,
-                this.tokenExpirationMillis,  this.proxyHandlerFactory, this.connectionTimeoutMillis,
-                this.idlePingIntervalMillis, this.gracefulShutdownTimeoutMillis, this.concurrentConnections,
+                this.tokenExpiration, this.proxyHandlerFactory, this.connectionTimeout,
+                this.idlePingInterval, this.gracefulShutdownTimeout, this.concurrentConnections,
                 this.metricsListener, this.frameLogger, this.eventLoopGroup);
 
         if (sslContext instanceof ReferenceCounted) {

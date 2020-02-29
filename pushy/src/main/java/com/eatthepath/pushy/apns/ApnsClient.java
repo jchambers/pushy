@@ -37,6 +37,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -130,9 +131,9 @@ public class ApnsClient {
     }
 
     protected ApnsClient(final InetSocketAddress apnsServerAddress, final SslContext sslContext,
-                         final ApnsSigningKey signingKey, final long tokenExpirationMillis,
-                         final ProxyHandlerFactory proxyHandlerFactory,  final int connectTimeoutMillis,
-                         final long idlePingIntervalMillis, final long gracefulShutdownTimeoutMillis,
+                         final ApnsSigningKey signingKey, final Duration tokenExpiration,
+                         final ProxyHandlerFactory proxyHandlerFactory,  final Duration connectTimeout,
+                         final Duration idlePingInterval, final Duration gracefulShutdownTimeout,
                          final int concurrentConnections,  final ApnsClientMetricsListener metricsListener,
                          final Http2FrameLogger frameLogger, final EventLoopGroup eventLoopGroup) {
 
@@ -146,8 +147,8 @@ public class ApnsClient {
 
         this.metricsListener = metricsListener != null ? metricsListener : new NoopApnsClientMetricsListener();
 
-        final ApnsChannelFactory channelFactory = new ApnsChannelFactory(sslContext, signingKey, tokenExpirationMillis,
-                proxyHandlerFactory,  connectTimeoutMillis, idlePingIntervalMillis, gracefulShutdownTimeoutMillis,
+        final ApnsChannelFactory channelFactory = new ApnsChannelFactory(sslContext, signingKey, tokenExpiration,
+                proxyHandlerFactory, connectTimeout, idlePingInterval, gracefulShutdownTimeout,
                 frameLogger, apnsServerAddress, this.eventLoopGroup);
 
         final ApnsChannelPoolMetricsListener channelPoolMetricsListener = new ApnsChannelPoolMetricsListener() {

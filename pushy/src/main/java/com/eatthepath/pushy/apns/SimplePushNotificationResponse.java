@@ -24,7 +24,7 @@ package com.eatthepath.pushy.apns;
 
 import com.eatthepath.uuid.FastUUID;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -37,9 +37,9 @@ class SimplePushNotificationResponse<T extends ApnsPushNotification> implements 
     private final boolean success;
     private final UUID apnsId;
     private final String rejectionReason;
-    private final Date tokenExpirationTimestamp;
+    private final Instant tokenExpirationTimestamp;
 
-    SimplePushNotificationResponse(final T pushNotification, final boolean success, final UUID apnsId, final String rejectionReason, final Date tokenExpirationTimestamp) {
+    SimplePushNotificationResponse(final T pushNotification, final boolean success, final UUID apnsId, final String rejectionReason, final Instant tokenExpirationTimestamp) {
         this.pushNotification = pushNotification;
         this.success = success;
         this.apnsId = apnsId;
@@ -68,7 +68,7 @@ class SimplePushNotificationResponse<T extends ApnsPushNotification> implements 
     }
 
     @Override
-    public Date getTokenInvalidationTimestamp() {
+    public Instant getTokenInvalidationTimestamp() {
         return this.tokenExpirationTimestamp;
     }
 

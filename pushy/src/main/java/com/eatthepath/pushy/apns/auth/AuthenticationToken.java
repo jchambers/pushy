@@ -22,10 +22,10 @@
 
 package com.eatthepath.pushy.apns.auth;
 
+import com.eatthepath.pushy.apns.util.InstantAsTimeSinceEpochTypeAdapter;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.annotations.SerializedName;
-import com.eatthepath.pushy.apns.util.DateAsTimeSinceEpochTypeAdapter;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.base64.Base64;
@@ -37,7 +37,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.Signature;
 import java.security.SignatureException;
-import java.util.Date;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
@@ -90,9 +90,9 @@ public class AuthenticationToken {
         private final String issuer;
 
         @SerializedName("iat")
-        private final Date issuedAt;
+        private final Instant issuedAt;
 
-        AuthenticationTokenClaims(final String teamId, final Date issuedAt) {
+        AuthenticationTokenClaims(final String teamId, final Instant issuedAt) {
             this.issuer = teamId;
             this.issuedAt = issuedAt;
         }
@@ -101,14 +101,14 @@ public class AuthenticationToken {
             return this.issuer;
         }
 
-        Date getIssuedAt() {
+        Instant getIssuedAt() {
             return this.issuedAt;
         }
     }
 
     private static final Gson GSON = new GsonBuilder()
             .disableHtmlEscaping()
-            .registerTypeAdapter(Date.class, new DateAsTimeSinceEpochTypeAdapter(TimeUnit.SECONDS))
+            .registerTypeAdapter(Instant.class, new InstantAsTimeSinceEpochTypeAdapter(TimeUnit.SECONDS))
             .create();
 
     private final AuthenticationTokenHeader header;
@@ -130,7 +130,7 @@ public class AuthenticationToken {
      * @throws InvalidKeyException if the given key was invalid for any reason
      * @throws SignatureException if the given key could not be used to sign the token
      */
-    public AuthenticationToken(final ApnsSigningKey signingKey, final Date issuedAt) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
+    public AuthenticationToken(final ApnsSigningKey signingKey, final Instant issuedAt) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
         this.header = new AuthenticationTokenHeader(signingKey.getKeyId());
         this.claims = new AuthenticationTokenClaims(signingKey.getTeamId(), issuedAt);
 
@@ -185,7 +185,7 @@ public class AuthenticationToken {
      *
      * @return the time at which this token was issued
      */
-    public Date getIssuedAt() {
+    public Instant getIssuedAt() {
         return this.claims.getIssuedAt();
     }
 

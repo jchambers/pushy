@@ -22,10 +22,10 @@
 
 package com.eatthepath.pushy.apns.server;
 
-import com.eatthepath.uuid.FastUUID;
 import com.eatthepath.pushy.apns.ApnsPushNotification;
 import com.eatthepath.pushy.apns.DeliveryPriority;
 import com.eatthepath.pushy.apns.PushType;
+import com.eatthepath.uuid.FastUUID;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.AsciiString;
@@ -33,7 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Date;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -54,14 +54,14 @@ public abstract class ParsingMockApnsServerListenerAdapter implements MockApnsSe
     private static class LenientApnsPushNotification implements ApnsPushNotification {
         private final String token;
         private final String payload;
-        private final Date invalidationTime;
+        private final Instant invalidationTime;
         private final DeliveryPriority priority;
         private final PushType pushType;
         private final String topic;
         private final String collapseId;
         private final UUID apnsId;
 
-        private LenientApnsPushNotification(final String token, final String topic, final String payload, final Date invalidationTime, final DeliveryPriority priority, final PushType pushType, final String collapseId, final UUID apnsId) {
+        private LenientApnsPushNotification(final String token, final String topic, final String payload, final Instant invalidationTime, final DeliveryPriority priority, final PushType pushType, final String collapseId, final UUID apnsId) {
             this.token = token;
             this.payload = payload;
             this.invalidationTime = invalidationTime;
@@ -83,7 +83,7 @@ public abstract class ParsingMockApnsServerListenerAdapter implements MockApnsSe
         }
 
         @Override
-        public Date getExpiration() {
+        public Instant getExpiration() {
             return this.invalidationTime;
         }
 
@@ -146,26 +146,24 @@ public abstract class ParsingMockApnsServerListenerAdapter implements MockApnsSe
     /**
      * Parses a push notification rejected by a mock APNs server into an {@link ApnsPushNotification} instance for
      * further processing by
-     * {@link ParsingMockApnsServerListenerAdapter#handlePushNotificationRejected(ApnsPushNotification, RejectionReason, Date)}.
-     *
-     * @param headers the notification's HTTP/2 headers
+     * {@link ParsingMockApnsServerListenerAdapter#handlePushNotificationRejected(ApnsPushNotification, RejectionReason, Instant)}.
+     *  @param headers the notification's HTTP/2 headers
      * @param payload the notification's payload
      * @param rejectionReason the reason the push notification was rejected by the mock server
      * @param deviceTokenExpirationTimestamp the time at which the push notification's destination device token expired;
      */
-    public void handlePushNotificationRejected(final Http2Headers headers, final ByteBuf payload, final RejectionReason rejectionReason, final Date deviceTokenExpirationTimestamp) {
+    public void handlePushNotificationRejected(final Http2Headers headers, final ByteBuf payload, final RejectionReason rejectionReason, final Instant deviceTokenExpirationTimestamp) {
         this.handlePushNotificationRejected(parsePushNotification(headers, payload), rejectionReason, deviceTokenExpirationTimestamp);
     }
 
     /**
      * Handles a parsed push notification accepted by a mock server. Note that any field of the parsed push notification
      * may be {@code null}.
-     *
-     * @param pushNotification the push notification rejected by the server
+     *  @param pushNotification the push notification rejected by the server
      * @param rejectionReason the reason the push notification was rejected by the mock server
      * @param deviceTokenExpirationTimestamp the time at which the push notification's destination device token expired;
      */
-    public abstract void handlePushNotificationRejected(final ApnsPushNotification pushNotification, final RejectionReason rejectionReason, final Date deviceTokenExpirationTimestamp);
+    public abstract void handlePushNotificationRejected(final ApnsPushNotification pushNotification, final RejectionReason rejectionReason, final Instant deviceTokenExpirationTimestamp);
 
     private static ApnsPushNotification parsePushNotification(final Http2Headers headers, final ByteBuf payload) {
         final UUID apnsId;
@@ -233,10 +231,10 @@ public abstract class ParsingMockApnsServerListenerAdapter implements MockApnsSe
             pushType = pushTypeFromHeader;
         }
 
-        final Date expiration;
+        final Instant expiration;
         {
             final Integer expirationTimestamp = headers.getInt(APNS_EXPIRATION_HEADER);
-            expiration = expirationTimestamp != null ? new Date(expirationTimestamp * 1000) : null;
+            expiration = expirationTimestamp != null ? Instant.ofEpochSecond(expirationTimestamp) : null;
         }
 
         final String collapseId;

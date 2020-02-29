@@ -22,13 +22,13 @@
 
 package com.eatthepath.pushy.apns;
 
-import java.util.Date;
+import java.time.Instant;
 
 class ErrorResponse {
     private final String reason;
-    private final Date timestamp;
+    private final Instant timestamp;
 
-    public ErrorResponse(final String reason, final Date timestamp) {
+    public ErrorResponse(final String reason, final Instant timestamp) {
         this.reason = reason;
         this.timestamp = timestamp;
     }
@@ -37,7 +37,7 @@ class ErrorResponse {
         return this.reason;
     }
 
-    Date getTimestamp() {
+    Instant getTimestamp() {
         return this.timestamp;
     }
 }

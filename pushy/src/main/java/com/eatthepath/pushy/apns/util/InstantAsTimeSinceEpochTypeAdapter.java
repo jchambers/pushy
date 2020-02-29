@@ -25,16 +25,16 @@ package com.eatthepath.pushy.apns.util;
 import com.google.gson.*;
 
 import java.lang.reflect.Type;
-import java.util.Date;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Converts {@link java.util.Date} instances in JSON objects to or from timestamps since the epoch.
+ * Converts {@link java.time.Instant} instances in JSON objects to or from timestamps since the epoch.
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */
-public class DateAsTimeSinceEpochTypeAdapter implements JsonSerializer<Date>, JsonDeserializer<Date> {
+public class InstantAsTimeSinceEpochTypeAdapter implements JsonSerializer<Instant>, JsonDeserializer<Instant> {
 
     private final TimeUnit timeUnit;
 
@@ -43,32 +43,32 @@ public class DateAsTimeSinceEpochTypeAdapter implements JsonSerializer<Date>, Js
      *
      * @param timeUnit the time unit in which to express timestamps
      */
-    public DateAsTimeSinceEpochTypeAdapter(final TimeUnit timeUnit) {
+    public InstantAsTimeSinceEpochTypeAdapter(final TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
         this.timeUnit = timeUnit;
     }
 
     @Override
-    public Date deserialize(final JsonElement json, final Type typeOfT, final JsonDeserializationContext context) throws JsonParseException {
-        final Date date;
+    public Instant deserialize(final JsonElement json, final Type typeOfT, final JsonDeserializationContext context) throws JsonParseException {
+        final Instant instant;
 
         if (json.isJsonPrimitive()) {
-            date = new Date(this.timeUnit.toMillis(json.getAsLong()));
+            instant = Instant.ofEpochMilli(this.timeUnit.toMillis(json.getAsLong()));
         } else if (json.isJsonNull()) {
-            date = null;
+            instant = null;
         } else {
             throw new JsonParseException("Dates represented as time since the epoch must either be numbers or null.");
         }
 
-        return date;
+        return instant;
     }
 
     @Override
-    public JsonElement serialize(final Date src, final Type typeOfSrc, final JsonSerializationContext context) {
+    public JsonElement serialize(final Instant src, final Type typeOfSrc, final JsonSerializationContext context) {
         final JsonElement element;
 
         if (src != null) {
-            element = new JsonPrimitive(this.timeUnit.convert(src.getTime(), TimeUnit.MILLISECONDS));
+            element = new JsonPrimitive(this.timeUnit.convert(src.toEpochMilli(), TimeUnit.MILLISECONDS));
         } else {
             element = JsonNull.INSTANCE;
         }
