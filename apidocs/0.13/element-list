@@ -1,6 +1,6 @@
-com.turo.pushy.apns
-com.turo.pushy.apns.auth
-com.turo.pushy.apns.proxy
-com.turo.pushy.apns.server
-com.turo.pushy.apns.util
-com.turo.pushy.apns.util.concurrent
+com.eatthepath.pushy.apns
+com.eatthepath.pushy.apns.auth
+com.eatthepath.pushy.apns.proxy
+com.eatthepath.pushy.apns.server
+com.eatthepath.pushy.apns.util
+com.eatthepath.pushy.apns.util.concurrent
