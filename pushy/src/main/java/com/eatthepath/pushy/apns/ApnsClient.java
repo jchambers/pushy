@@ -195,7 +195,6 @@ public class ApnsClient {
      *
      * @since 0.8
      */
-    @SuppressWarnings("unchecked")
     public <T extends ApnsPushNotification> PushNotificationFuture<T, PushNotificationResponse<T>> sendNotification(final T notification) {
         final PushNotificationFuture<T, PushNotificationResponse<T>> responseFuture;
 
@@ -205,43 +204,33 @@ public class ApnsClient {
 
             final long notificationId = this.nextNotificationId.getAndIncrement();
 
-            this.channelPool.acquire().addListener(new GenericFutureListener<Future<Channel>>() {
-                @Override
-                public void operationComplete(final Future<Channel> acquireFuture) throws Exception {
-                    if (acquireFuture.isSuccess()) {
-                        final Channel channel = acquireFuture.getNow();
+            this.channelPool.acquire().addListener((GenericFutureListener<Future<Channel>>) acquireFuture -> {
+                if (acquireFuture.isSuccess()) {
+                    final Channel channel = acquireFuture.getNow();
 
-                        channel.writeAndFlush(responsePromise).addListener(new GenericFutureListener<ChannelFuture>() {
+                    channel.writeAndFlush(responsePromise).addListener((GenericFutureListener<ChannelFuture>) future -> {
+                        if (future.isSuccess()) {
+                            ApnsClient.this.metricsListener.handleNotificationSent(ApnsClient.this, notificationId);
+                        }
+                    });
 
-                            @Override
-                            public void operationComplete(final ChannelFuture future) throws Exception {
-                                if (future.isSuccess()) {
-                                    ApnsClient.this.metricsListener.handleNotificationSent(ApnsClient.this, notificationId);
-                                }
-                            }
-                        });
-
-                        ApnsClient.this.channelPool.release(channel);
-                    } else {
-                        responsePromise.tryFailure(acquireFuture.cause());
-                    }
+                    ApnsClient.this.channelPool.release(channel);
+                } else {
+                    responsePromise.tryFailure(acquireFuture.cause());
                 }
             });
 
-            responsePromise.addListener(new PushNotificationResponseListener<T>() {
-                @Override
-                public void operationComplete(final PushNotificationFuture<T, PushNotificationResponse<T>> future) throws Exception {
-                    if (future.isSuccess()) {
-                        final PushNotificationResponse response = future.getNow();
+            responsePromise.addListener((PushNotificationResponseListener<T>) future -> {
+                if (future.isSuccess()) {
+                    final PushNotificationResponse<T> response = future.getNow();
 
-                        if (response.isAccepted()) {
-                            ApnsClient.this.metricsListener.handleNotificationAccepted(ApnsClient.this, notificationId);
-                        } else {
-                            ApnsClient.this.metricsListener.handleNotificationRejected(ApnsClient.this, notificationId);
-                        }
+                    if (response.isAccepted()) {
+                        ApnsClient.this.metricsListener.handleNotificationAccepted(ApnsClient.this, notificationId);
                     } else {
-                        ApnsClient.this.metricsListener.handleWriteFailure(ApnsClient.this, notificationId);
+                        ApnsClient.this.metricsListener.handleNotificationRejected(ApnsClient.this, notificationId);
                     }
+                } else {
+                    ApnsClient.this.metricsListener.handleWriteFailure(ApnsClient.this, notificationId);
                 }
             });
 
@@ -287,21 +276,11 @@ public class ApnsClient {
             // event executor to notify listeners.
             final Promise<Void> closePromise = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
 
-            this.channelPool.close().addListener(new GenericFutureListener<Future<Void>>() {
-
-                @Override
-                public void operationComplete(final Future<Void> closePoolFuture) throws Exception {
-                    if (ApnsClient.this.shouldShutDownEventLoopGroup) {
-                        ApnsClient.this.eventLoopGroup.shutdownGracefully().addListener(new GenericFutureListener() {
-
-                            @Override
-                            public void operationComplete(final Future future) throws Exception {
-                                closePromise.trySuccess(null);
-                            }
-                        });
-                    } else {
-                        closePromise.trySuccess(null);
-                    }
+            this.channelPool.close().addListener((GenericFutureListener<Future<Void>>) closePoolFuture -> {
+                if (ApnsClient.this.shouldShutDownEventLoopGroup) {
+                    ApnsClient.this.eventLoopGroup.shutdownGracefully().addListener((GenericFutureListener) future -> closePromise.trySuccess(null));
+                } else {
+                    closePromise.trySuccess(null);
                 }
             });
 

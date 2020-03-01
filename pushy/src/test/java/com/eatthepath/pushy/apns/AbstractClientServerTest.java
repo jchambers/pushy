@@ -31,10 +31,7 @@ import com.eatthepath.pushy.apns.server.MockApnsServerListener;
 import com.eatthepath.pushy.apns.server.PushNotificationHandlerFactory;
 import com.eatthepath.pushy.apns.util.ApnsPayloadBuilder;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.util.concurrent.DefaultPromise;
-import io.netty.util.concurrent.GlobalEventExecutor;
-import io.netty.util.concurrent.Promise;
-import io.netty.util.concurrent.PromiseCombiner;
+import io.netty.util.concurrent.*;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -99,7 +96,7 @@ public class AbstractClientServerTest {
 
     @AfterClass
     public static void tearDownAfterClass() throws Exception {
-        final PromiseCombiner combiner = new PromiseCombiner();
+        final PromiseCombiner combiner = new PromiseCombiner(ImmediateEventExecutor.INSTANCE);
         combiner.addAll(CLIENT_EVENT_LOOP_GROUP.shutdownGracefully(), SERVER_EVENT_LOOP_GROUP.shutdownGracefully());
 
         final Promise<Void> shutdownPromise = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);

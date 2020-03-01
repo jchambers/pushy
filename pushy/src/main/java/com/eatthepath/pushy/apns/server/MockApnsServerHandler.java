@@ -138,7 +138,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         }
     }
 
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "FieldCanBeLocal"})
     private static class ErrorPayload {
         private final String reason;
         private final Date timestamp;
@@ -330,7 +330,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             final ChannelPromise dataPromise = context.newPromise();
             this.encoder().writeData(context, rejectNotificationResponse.getStreamId(), Unpooled.wrappedBuffer(payloadBytes), 0, true, dataPromise);
 
-            final PromiseCombiner promiseCombiner = new PromiseCombiner();
+            final PromiseCombiner promiseCombiner = new PromiseCombiner(context.executor());
             promiseCombiner.addAll((ChannelFuture) headersPromise, dataPromise);
             promiseCombiner.finish(writePromise);
 

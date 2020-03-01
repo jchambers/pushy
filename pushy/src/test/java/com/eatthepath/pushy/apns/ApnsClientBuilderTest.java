@@ -45,7 +45,7 @@ public class ApnsClientBuilderTest {
     private static NioEventLoopGroup EVENT_LOOP_GROUP;
 
     @BeforeClass
-    public static void setUpBeforeClass() throws Exception {
+    public static void setUpBeforeClass() {
         EVENT_LOOP_GROUP = new NioEventLoopGroup(1);
     }
 

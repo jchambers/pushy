@@ -56,7 +56,7 @@ import java.util.concurrent.TimeUnit;
 
 class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameListener, Http2Connection.Listener {
 
-    private final Map<Integer, PushNotificationPromise> unattachedResponsePromisesByStreamId = new IntObjectHashMap<>();
+    private final Map<Integer, PushNotificationPromise<?, ?>> unattachedResponsePromisesByStreamId = new IntObjectHashMap<>();
 
     private final Http2Connection.PropertyKey responseHeadersPropertyKey;
     private final Http2Connection.PropertyKey responsePromisePropertyKey;
@@ -164,16 +164,12 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     @Override
     public void write(final ChannelHandlerContext context, final Object message, final ChannelPromise writePromise) {
         if (message instanceof PushNotificationPromise) {
-            final PushNotificationPromise pushNotificationPromise = (PushNotificationPromise) message;
+            final PushNotificationPromise<?, ?> pushNotificationPromise = (PushNotificationPromise<?, ?>) message;
 
-            writePromise.addListener(new GenericFutureListener<ChannelPromise>() {
-
-                @Override
-                public void operationComplete(final ChannelPromise future) {
-                    if (!future.isSuccess()) {
-                        log.trace("Failed to write push notification.", future.cause());
-                        pushNotificationPromise.tryFailure(future.cause());
-                    }
+            writePromise.addListener(future -> {
+                if (!future.isSuccess()) {
+                    log.trace("Failed to write push notification.", future.cause());
+                    pushNotificationPromise.tryFailure(future.cause());
                 }
             });
 
@@ -188,13 +184,13 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     void retryPushNotificationFromStream(final ChannelHandlerContext context, final int streamId) {
         final Http2Stream stream = this.connection().stream(streamId);
 
-        final PushNotificationPromise responsePromise = stream.removeProperty(this.responsePromisePropertyKey);
+        final PushNotificationPromise<?, ?> responsePromise = stream.removeProperty(this.responsePromisePropertyKey);
 
         final ChannelPromise writePromise = context.channel().newPromise();
         this.writePushNotification(context, responsePromise, writePromise);
     }
 
-    private void writePushNotification(final ChannelHandlerContext context, final PushNotificationPromise responsePromise, final ChannelPromise writePromise) {
+    private void writePushNotification(final ChannelHandlerContext context, final PushNotificationPromise<?, ?> responsePromise, final ChannelPromise writePromise) {
         if (context.channel().isActive()) {
             final int streamId = this.connection().local().incrementAndGetNextStreamId();
 
@@ -219,7 +215,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
                 this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
                 log.trace("Wrote payload on stream {}: {}", streamId, pushNotification.getPayload());
 
-                final PromiseCombiner promiseCombiner = new PromiseCombiner();
+                final PromiseCombiner promiseCombiner = new PromiseCombiner(context.executor());
                 promiseCombiner.addAll((ChannelFuture) headersPromise, dataPromise);
                 promiseCombiner.finish(writePromise);
             } else {
@@ -270,24 +266,17 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         if (event instanceof IdleStateEvent) {
             log.trace("Sending ping due to inactivity.");
 
-            this.encoder().writePing(context, false, System.currentTimeMillis(), context.newPromise()).addListener(new GenericFutureListener<ChannelFuture>() {
+            this.encoder().writePing(context, false, System.currentTimeMillis(), context.newPromise()).addListener(
+                    (GenericFutureListener<ChannelFuture>) future -> {
+                        if (!future.isSuccess()) {
+                            log.debug("Failed to write PING frame.", future.cause());
+                            future.channel().close();
+                        }
+                    });
 
-                @Override
-                public void operationComplete(final ChannelFuture future) {
-                    if (!future.isSuccess()) {
-                        log.debug("Failed to write PING frame.", future.cause());
-                        future.channel().close();
-                    }
-                }
-            });
-
-            this.pingTimeoutFuture = context.channel().eventLoop().schedule(new Runnable() {
-
-                @Override
-                public void run() {
-                    log.debug("Closing channel due to ping timeout.");
-                    context.channel().close();
-                }
+            this.pingTimeoutFuture = context.channel().eventLoop().schedule(() -> {
+                log.debug("Closing channel due to ping timeout.");
+                context.channel().close();
             }, pingTimeoutMillis, TimeUnit.MILLISECONDS);
 
             this.flush(context);
@@ -302,7 +291,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
         if (endOfStream) {
             final Http2Stream stream = this.connection().stream(streamId);
-            this.handleEndOfStream(context, stream, (Http2Headers) stream.getProperty(this.responseHeadersPropertyKey), data);
+            this.handleEndOfStream(context, stream, stream.getProperty(this.responseHeadersPropertyKey), data);
         } else {
             log.error("Gateway sent a DATA frame that was not the end of a stream.");
         }
@@ -497,7 +486,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     public void channelInactive(final ChannelHandlerContext context) throws Exception {
         super.channelInactive(context);
 
-        for (final PushNotificationPromise promise : this.unattachedResponsePromisesByStreamId.values()) {
+        for (final PushNotificationPromise<?, ?> promise : this.unattachedResponsePromisesByStreamId.values()) {
             promise.tryFailure(STREAM_CLOSED_BEFORE_REPLY_EXCEPTION);
         }
 

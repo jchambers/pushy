@@ -24,13 +24,10 @@ package com.eatthepath.pushy.apns.server;
 
 import com.eatthepath.pushy.apns.*;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
-import io.netty.buffer.ByteBuf;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.concurrent.Future;
 import org.junit.Test;
 
-import javax.net.ssl.SSLSession;
 import java.util.Date;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -191,20 +188,9 @@ public class MockApnsServerTest extends AbstractClientServerTest {
     public void testListenerRejectedNotification() throws Exception {
         final TestMockApnsServerListener listener = new TestMockApnsServerListener();
 
-        final MockApnsServer server = this.buildServer(new PushNotificationHandlerFactory() {
-
-            @Override
-            public PushNotificationHandler buildHandler(final SSLSession sslSession) {
-                return new PushNotificationHandler() {
-
-                    @Override
-                    public void handlePushNotification(final Http2Headers headers, final ByteBuf payload) throws RejectedNotificationException {
-                        throw new RejectedNotificationException(RejectionReason.BAD_DEVICE_TOKEN);
-                    }
-                };
-            }
+        final MockApnsServer server = this.buildServer(sslSession -> (headers, payload) -> {
+            throw new RejectedNotificationException(RejectionReason.BAD_DEVICE_TOKEN);
         }, listener);
-
 
         final ApnsClient client = this.buildTokenAuthenticationClient();
 
@@ -233,17 +219,8 @@ public class MockApnsServerTest extends AbstractClientServerTest {
         final TestMockApnsServerListener listener = new TestMockApnsServerListener();
         final Date expiration = new Date();
 
-        final MockApnsServer server = this.buildServer(new PushNotificationHandlerFactory() {
-            @Override
-            public PushNotificationHandler buildHandler(final SSLSession sslSession) {
-                return new PushNotificationHandler() {
-
-                    @Override
-                    public void handlePushNotification(final Http2Headers headers, final ByteBuf payload) throws RejectedNotificationException {
-                        throw new UnregisteredDeviceTokenException(expiration);
-                    }
-                };
-            }
+        final MockApnsServer server = this.buildServer(sslSession -> (headers, payload) -> {
+            throw new UnregisteredDeviceTokenException(expiration);
         }, listener);
 
         final ApnsClient client = this.buildTokenAuthenticationClient();
@@ -272,18 +249,8 @@ public class MockApnsServerTest extends AbstractClientServerTest {
     public void testListenerInternalServerError() throws Exception {
         final TestMockApnsServerListener listener = new TestMockApnsServerListener();
 
-        final MockApnsServer server = this.buildServer(new PushNotificationHandlerFactory() {
-
-            @Override
-            public PushNotificationHandler buildHandler(final SSLSession sslSession) {
-                return new PushNotificationHandler() {
-
-                    @Override
-                    public void handlePushNotification(final Http2Headers headers, final ByteBuf payload) {
-                        throw new RuntimeException("Everything is terrible.");
-                    }
-                };
-            }
+        final MockApnsServer server = this.buildServer(sslSession -> (headers, payload) -> {
+            throw new RuntimeException("Everything is terrible.");
         }, listener);
 
         final ApnsClient client = this.buildTokenAuthenticationClient();
@@ -346,18 +313,8 @@ public class MockApnsServerTest extends AbstractClientServerTest {
 
     @Test
     public void testApnsIdForRejectedNotification() throws Exception {
-        final MockApnsServer server = this.buildServer(new PushNotificationHandlerFactory() {
-
-            @Override
-            public PushNotificationHandler buildHandler(final SSLSession sslSession) {
-                return new PushNotificationHandler() {
-
-                    @Override
-                    public void handlePushNotification(final Http2Headers headers, final ByteBuf payload) throws RejectedNotificationException {
-                        throw new RejectedNotificationException(RejectionReason.MISSING_TOPIC);
-                    }
-                };
-            }
+        final MockApnsServer server = this.buildServer(sslSession -> (headers, payload) -> {
+            throw new RejectedNotificationException(RejectionReason.MISSING_TOPIC);
         });
 
         final ApnsClient client = this.buildTokenAuthenticationClient();

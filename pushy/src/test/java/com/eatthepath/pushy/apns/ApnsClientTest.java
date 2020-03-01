@@ -24,19 +24,13 @@ package com.eatthepath.pushy.apns;
 
 import com.eatthepath.pushy.apns.server.*;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
-import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
-import com.eatthepath.pushy.apns.util.concurrent.PushNotificationResponseListener;
-import io.netty.buffer.ByteBuf;
-import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import javax.net.ssl.SSLHandshakeException;
-import javax.net.ssl.SSLSession;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Date;
@@ -339,12 +333,8 @@ public class ApnsClientTest extends AbstractClientServerTest {
 
     @Test
     public void testSendNotificationWithExpiredAuthenticationToken() throws Exception {
-        final PushNotificationHandlerFactory expireFirstTokenHandlerFactory = new PushNotificationHandlerFactory() {
-            @Override
-            public PushNotificationHandler buildHandler(final SSLSession sslSession) {
-                return new ExpireFirstTokenPushNotificationHandler();
-            }
-        };
+        final PushNotificationHandlerFactory expireFirstTokenHandlerFactory =
+                sslSession -> new ExpireFirstTokenPushNotificationHandler();
 
         final MockApnsServer server = this.buildServer(expireFirstTokenHandlerFactory);
 
@@ -442,16 +432,9 @@ public class ApnsClientTest extends AbstractClientServerTest {
             server.start(PORT).await();
 
             for (final SimpleApnsPushNotification pushNotification : pushNotifications) {
-                final Future<PushNotificationResponse<SimpleApnsPushNotification>> future =
-                        client.sendNotification(pushNotification);
-
-                future.addListener(new GenericFutureListener<Future<PushNotificationResponse<SimpleApnsPushNotification>>>() {
-
-                    @Override
-                    public void operationComplete(final Future<PushNotificationResponse<SimpleApnsPushNotification>> future) {
-                        if (future.isSuccess()) {
-                            countDownLatch.countDown();
-                        }
+                client.sendNotification(pushNotification).addListener(future -> {
+                    if (future.isSuccess()) {
+                        countDownLatch.countDown();
                     }
                 });
             }
@@ -482,17 +465,10 @@ public class ApnsClientTest extends AbstractClientServerTest {
             server.start(PORT).await();
 
             for (int i = 0; i < notificationCount; i++) {
-                final Future<PushNotificationResponse<SimpleApnsPushNotification>> future =
-                        client.sendNotification(pushNotification);
-
-                future.addListener(new GenericFutureListener<Future<PushNotificationResponse<SimpleApnsPushNotification>>>() {
-
-                    @Override
-                    public void operationComplete(final Future<PushNotificationResponse<SimpleApnsPushNotification>> future) {
-                        // All we're concerned with here is that the client told us SOMETHING about what happened to the
-                        // notification
-                        countDownLatch.countDown();
-                    }
+                client.sendNotification(pushNotification).addListener(future -> {
+                    // All we're concerned with here is that the client told us SOMETHING about what happened to the
+                    // notification
+                    countDownLatch.countDown();
                 });
             }
 
@@ -508,16 +484,8 @@ public class ApnsClientTest extends AbstractClientServerTest {
     public void testSendNotificationWithExpiredDeviceToken(final boolean useTokenAuthentication) throws Exception {
         final Date expiration = new Date();
 
-        final PushNotificationHandlerFactory handlerFactory = new PushNotificationHandlerFactory() {
-            @Override
-            public PushNotificationHandler buildHandler(final SSLSession sslSession) {
-                return new PushNotificationHandler() {
-                    @Override
-                    public void handlePushNotification(final Http2Headers headers, final ByteBuf payload) throws RejectedNotificationException {
-                        throw new UnregisteredDeviceTokenException(expiration);
-                    }
-                };
-            }
+        final PushNotificationHandlerFactory handlerFactory = sslSession -> (headers, payload) -> {
+            throw new UnregisteredDeviceTokenException(expiration);
         };
 
         final SimpleApnsPushNotification pushNotification =
@@ -577,16 +545,8 @@ public class ApnsClientTest extends AbstractClientServerTest {
     @Test
     @Parameters({"true", "false"})
     public void testRejectedNotificationMetrics(final boolean useTokenAuthentication) throws Exception {
-        final PushNotificationHandlerFactory handlerFactory = new PushNotificationHandlerFactory() {
-            @Override
-            public PushNotificationHandler buildHandler(final SSLSession sslSession) {
-                return new PushNotificationHandler() {
-                    @Override
-                    public void handlePushNotification(final Http2Headers headers, final ByteBuf payload) throws RejectedNotificationException {
-                        throw new RejectedNotificationException(RejectionReason.BAD_DEVICE_TOKEN);
-                    }
-                };
-            }
+        final PushNotificationHandlerFactory handlerFactory = sslSession -> (headers, payload) -> {
+            throw new RejectedNotificationException(RejectionReason.BAD_DEVICE_TOKEN);
         };
 
         final MockApnsServer server = this.buildServer(handlerFactory);
@@ -680,13 +640,8 @@ public class ApnsClientTest extends AbstractClientServerTest {
             final CountDownLatch countDownLatch = new CountDownLatch(notificationCount);
 
             for (int i = 0; i < notificationCount; i++) {
-                client.sendNotification(pushNotification).addListener(new PushNotificationResponseListener<SimpleApnsPushNotification>() {
-
-                    @Override
-                    public void operationComplete(final PushNotificationFuture<SimpleApnsPushNotification, PushNotificationResponse<SimpleApnsPushNotification>> simpleApnsPushNotificationPushNotificationResponsePushNotificationFuture) {
-                        countDownLatch.countDown();
-                    }
-                });
+                client.sendNotification(pushNotification).addListener(
+                        future -> countDownLatch.countDown());
             }
 
             // We should see delays of roughly 0, 1, and 2 seconds (for a total of 3 seconds); waiting 6 seconds in

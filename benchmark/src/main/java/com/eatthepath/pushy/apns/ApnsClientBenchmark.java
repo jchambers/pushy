@@ -29,7 +29,6 @@ import com.eatthepath.pushy.apns.util.ApnsPayloadBuilder;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.openjdk.jmh.annotations.*;
 
@@ -124,13 +123,9 @@ public class ApnsClientBenchmark {
         final CountDownLatch countDownLatch = new CountDownLatch(this.pushNotifications.size());
 
         for (final SimpleApnsPushNotification notification : this.pushNotifications) {
-            this.client.sendNotification(notification).addListener(new GenericFutureListener<Future<PushNotificationResponse<SimpleApnsPushNotification>>>() {
-
-                @Override
-                public void operationComplete(final Future<PushNotificationResponse<SimpleApnsPushNotification>> future) {
-                    if (future.isSuccess()) {
-                        countDownLatch.countDown();
-                    }
+            this.client.sendNotification(notification).addListener(future -> {
+                if (future.isSuccess()) {
+                    countDownLatch.countDown();
                 }
             });
         }

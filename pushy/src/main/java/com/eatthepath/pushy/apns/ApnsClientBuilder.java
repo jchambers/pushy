@@ -53,6 +53,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */
+@SuppressWarnings("unused")
 public class ApnsClientBuilder {
     private InetSocketAddress apnsServerAddress;
 

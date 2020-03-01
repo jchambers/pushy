@@ -243,12 +243,9 @@ public class ApnsChannelPoolTest {
         final PooledObjectFactory<Channel> factory = new PooledObjectFactory<Channel>() {
             @Override
             public Future<Channel> create(final Promise<Channel> promise) {
-                EVENT_EXECUTOR.schedule(new Runnable() {
-                    @Override
-                    public void run() {
-                        promise.trySuccess(new TestChannel(true));
-                        createSuccess.setSuccess(null);
-                    }
+                EVENT_EXECUTOR.schedule(() -> {
+                    promise.trySuccess(new TestChannel(true));
+                    createSuccess.setSuccess(null);
                 }, 1, TimeUnit.SECONDS);
                 return promise;
             }

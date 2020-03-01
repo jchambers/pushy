@@ -49,7 +49,6 @@ class ServerChannelClassUtil {
      *
      * @throws IllegalArgumentException in case of null or unrecognized event loop group
      */
-    @SuppressWarnings("unchecked")
     static Class<? extends ServerChannel> getServerSocketChannelClass(final EventLoopGroup eventLoopGroup) {
         Objects.requireNonNull(eventLoopGroup);
 

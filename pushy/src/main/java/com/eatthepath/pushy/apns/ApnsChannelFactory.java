@@ -39,7 +39,6 @@ import io.netty.resolver.dns.RoundRobinDnsAddressResolverGroup;
 import io.netty.util.AttributeKey;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
 import io.netty.util.concurrent.PromiseNotifier;
 
@@ -159,40 +158,27 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
     public Future<Channel> create(final Promise<Channel> channelReadyPromise) {
         final long delay = this.currentDelaySeconds.get();
 
-        channelReadyPromise.addListener(new GenericFutureListener<Future<Channel>>() {
+        channelReadyPromise.addListener(future -> {
+            final long updatedDelay = future.isSuccess() ? 0 :
+                    Math.max(Math.min(delay * 2, MAX_CONNECT_DELAY_SECONDS), MIN_CONNECT_DELAY_SECONDS);
 
-            @Override
-            public void operationComplete(final Future<Channel> future) {
-                final long updatedDelay = future.isSuccess() ? 0 :
-                        Math.max(Math.min(delay * 2, MAX_CONNECT_DELAY_SECONDS), MIN_CONNECT_DELAY_SECONDS);
-
-                ApnsChannelFactory.this.currentDelaySeconds.compareAndSet(delay, updatedDelay);
-            }
+            ApnsChannelFactory.this.currentDelaySeconds.compareAndSet(delay, updatedDelay);
         });
 
 
-        this.bootstrapTemplate.config().group().schedule(new Runnable() {
+        this.bootstrapTemplate.config().group().schedule(() -> {
+            final Bootstrap bootstrap = ApnsChannelFactory.this.bootstrapTemplate.clone()
+                    .channelFactory(new AugmentingReflectiveChannelFactory<>(
+                            ClientChannelClassUtil.getSocketChannelClass(ApnsChannelFactory.this.bootstrapTemplate.config().group()),
+                            CHANNEL_READY_PROMISE_ATTRIBUTE_KEY, channelReadyPromise));
 
-            @Override
-            public void run() {
+            final ChannelFuture connectFuture = bootstrap.connect();
 
-                final Bootstrap bootstrap = ApnsChannelFactory.this.bootstrapTemplate.clone()
-                        .channelFactory(new AugmentingReflectiveChannelFactory<>(
-                                ClientChannelClassUtil.getSocketChannelClass(ApnsChannelFactory.this.bootstrapTemplate.config().group()),
-                                CHANNEL_READY_PROMISE_ATTRIBUTE_KEY, channelReadyPromise));
-
-                final ChannelFuture connectFuture = bootstrap.connect();
-
-                connectFuture.addListener(new GenericFutureListener<ChannelFuture>() {
-
-                    @Override
-                    public void operationComplete(final ChannelFuture future) {
-                        if (!future.isSuccess()) {
-                            channelReadyPromise.tryFailure(future.cause());
-                        }
-                    }
-                });
-            }
+            connectFuture.addListener(future -> {
+                if (!future.isSuccess()) {
+                    channelReadyPromise.tryFailure(future.cause());
+                }
+            });
         }, delay, TimeUnit.SECONDS);
 
         return channelReadyPromise;
