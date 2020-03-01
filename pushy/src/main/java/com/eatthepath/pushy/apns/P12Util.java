@@ -60,7 +60,7 @@ class P12Util {
 
         try {
             keyStore.load(p12InputStream, password.toCharArray());
-        } catch (NoSuchAlgorithmException | CertificateException e) {
+        } catch (final NoSuchAlgorithmException | CertificateException e) {
             throw new KeyStoreException(e);
         }
 

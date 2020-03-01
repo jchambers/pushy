@@ -110,12 +110,9 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
                 this.authenticationToken = new AuthenticationToken(signingKey, new Date());
                 this.mostRecentStreamWithNewToken = streamId;
 
-                this.expireTokenFuture = context.executor().schedule(new Runnable() {
-                    @Override
-                    public void run() {
-                        log.debug("Proactively expiring authentication token.");
-                        TokenAuthenticationApnsClientHandler.this.authenticationToken = null;
-                    }
+                this.expireTokenFuture = context.executor().schedule(() -> {
+                    log.debug("Proactively expiring authentication token.");
+                    TokenAuthenticationApnsClientHandler.this.authenticationToken = null;
                 }, tokenExpirationMillis, TimeUnit.MILLISECONDS);
             } catch (final NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
                 // This should never happen because we check the key/algorithm at signing key construction time.

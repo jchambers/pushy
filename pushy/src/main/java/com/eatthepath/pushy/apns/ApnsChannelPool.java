@@ -122,17 +122,10 @@ class ApnsChannelPool {
         if (this.executor.inEventLoop()) {
             this.acquireWithinEventExecutor(acquirePromise);
         } else {
-            this.executor.submit(new Runnable() {
-                @Override
-                public void run() {
-                    ApnsChannelPool.this.acquireWithinEventExecutor(acquirePromise);
-                }
-            }).addListener(new GenericFutureListener() {
-                @Override
-                public void operationComplete(final Future future) throws Exception {
-                    if (!future.isSuccess()) {
-                        acquirePromise.tryFailure(future.cause());
-                    }
+            this.executor.submit(() ->
+                    ApnsChannelPool.this.acquireWithinEventExecutor(acquirePromise)).addListener(future -> {
+                if (!future.isSuccess()) {
+                    acquirePromise.tryFailure(future.cause());
                 }
             });
         }
@@ -147,32 +140,28 @@ class ApnsChannelPool {
             // We always want to open new channels if we have spare capacity. Once the pool is full, we'll start looking
             // for idle, pre-existing channels.
             if (this.allChannels.size() + this.pendingCreateChannelFutures.size() < this.capacity) {
-                final Future<Channel> createChannelFuture = this.channelFactory.create(executor.<Channel>newPromise());
+                final Future<Channel> createChannelFuture = this.channelFactory.create(executor.newPromise());
                 this.pendingCreateChannelFutures.add(createChannelFuture);
 
-                createChannelFuture.addListener(new GenericFutureListener<Future<Channel>>() {
+                createChannelFuture.addListener((GenericFutureListener<Future<Channel>>) future -> {
+                    ApnsChannelPool.this.pendingCreateChannelFutures.remove(createChannelFuture);
 
-                    @Override
-                    public void operationComplete(final Future<Channel> future) {
-                        ApnsChannelPool.this.pendingCreateChannelFutures.remove(createChannelFuture);
+                    if (future.isSuccess()) {
+                        final Channel channel = future.getNow();
 
-                        if (future.isSuccess()) {
-                            final Channel channel = future.getNow();
+                        ApnsChannelPool.this.allChannels.add(channel);
+                        ApnsChannelPool.this.metricsListener.handleConnectionAdded();
 
-                            ApnsChannelPool.this.allChannels.add(channel);
-                            ApnsChannelPool.this.metricsListener.handleConnectionAdded();
+                        acquirePromise.trySuccess(channel);
+                    } else {
+                        ApnsChannelPool.this.metricsListener.handleConnectionCreationFailed();
 
-                            acquirePromise.trySuccess(channel);
-                        } else {
-                            ApnsChannelPool.this.metricsListener.handleConnectionCreationFailed();
+                        acquirePromise.tryFailure(future.cause());
 
-                            acquirePromise.tryFailure(future.cause());
-
-                            // If we failed to open a connection, this is the end of the line for this acquisition
-                            // attempt, and callers won't be able to release the channel (since they didn't get one
-                            // in the first place). Move on to the next acquisition attempt if one is present.
-                            ApnsChannelPool.this.handleNextAcquisition();
-                        }
+                        // If we failed to open a connection, this is the end of the line for this acquisition
+                        // attempt, and callers won't be able to release the channel (since they didn't get one
+                        // in the first place). Move on to the next acquisition attempt if one is present.
+                        ApnsChannelPool.this.handleNextAcquisition();
                     }
                 });
             } else {
@@ -206,12 +195,7 @@ class ApnsChannelPool {
         if (this.executor.inEventLoop()) {
             this.releaseWithinEventExecutor(channel);
         } else {
-            this.executor.submit(new Runnable() {
-                @Override
-                public void run() {
-                    ApnsChannelPool.this.releaseWithinEventExecutor(channel);
-                }
-            });
+            this.executor.submit(() -> ApnsChannelPool.this.releaseWithinEventExecutor(channel));
         }
     }
 
@@ -238,12 +222,9 @@ class ApnsChannelPool {
 
         this.metricsListener.handleConnectionRemoved();
 
-        this.channelFactory.destroy(channel, this.executor.<Void>newPromise()).addListener(new GenericFutureListener<Future<Void>>() {
-            @Override
-            public void operationComplete(final Future<Void> destroyFuture) throws Exception {
-                if (!destroyFuture.isSuccess()) {
-                    log.warn("Failed to destroy channel.", destroyFuture.cause());
-                }
+        this.channelFactory.destroy(channel, this.executor.newPromise()).addListener(destroyFuture -> {
+            if (!destroyFuture.isSuccess()) {
+                log.warn("Failed to destroy channel.", destroyFuture.cause());
             }
         });
     }
@@ -255,35 +236,29 @@ class ApnsChannelPool {
      */
     public Future<Void> close() {
         final Promise<Void> closeDonePromise = new DefaultPromise<>(this.executor);
-        this.allChannels.close().addListener(new GenericFutureListener<Future<Void>>() {
-            @Override
-            public void operationComplete(final Future<Void> future) {
-                ApnsChannelPool.this.isClosed = true;
+        this.allChannels.close().addListener(allCloseFuture -> {
+            ApnsChannelPool.this.isClosed = true;
 
-                final Promise<Void> waitForPendingCreateChannelFuturesPromise = new DefaultPromise<>(ApnsChannelPool.this.executor);
-                final PromiseCombiner combiner = new PromiseCombiner(ApnsChannelPool.this.executor);
+            final Promise<Void> waitForPendingCreateChannelFuturesPromise = new DefaultPromise<>(ApnsChannelPool.this.executor);
+            final PromiseCombiner combiner = new PromiseCombiner(ApnsChannelPool.this.executor);
 
-                for (final Future<Channel> f : pendingCreateChannelFutures) {
-                    combiner.add(f);
+            for (final Future<Channel> f : pendingCreateChannelFutures) {
+                combiner.add(f);
+            }
+
+            combiner.finish(waitForPendingCreateChannelFuturesPromise);
+
+            waitForPendingCreateChannelFuturesPromise.addListener(pendingChannelsFuture -> {
+                if (ApnsChannelPool.this.channelFactory instanceof Closeable) {
+                    ((Closeable) ApnsChannelPool.this.channelFactory).close();
                 }
 
-                combiner.finish(waitForPendingCreateChannelFuturesPromise);
+                for (final Promise<Channel> acquisitionPromise : ApnsChannelPool.this.pendingAcquisitionPromises) {
+                    acquisitionPromise.tryFailure(POOL_CLOSED_EXCEPTION);
+                }
 
-                waitForPendingCreateChannelFuturesPromise.addListener(new GenericFutureListener<Future<? super Void>>() {
-                    @Override
-                    public void operationComplete(Future<? super Void> future) throws Exception {
-                        if (ApnsChannelPool.this.channelFactory instanceof Closeable) {
-                            ((Closeable) ApnsChannelPool.this.channelFactory).close();
-                        }
-
-                        for (final Promise<Channel> acquisitionPromise : ApnsChannelPool.this.pendingAcquisitionPromises) {
-                            acquisitionPromise.tryFailure(POOL_CLOSED_EXCEPTION);
-                        }
-
-                        closeDonePromise.setSuccess(null);
-                    }
-                });
-            }
+                closeDonePromise.setSuccess(null);
+            });
         });
         return closeDonePromise;
     }

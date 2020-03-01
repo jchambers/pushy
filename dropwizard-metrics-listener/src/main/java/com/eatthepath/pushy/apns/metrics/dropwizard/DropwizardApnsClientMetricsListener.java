@@ -152,12 +152,8 @@ public class DropwizardApnsClientMetricsListener implements ApnsClientMetricsLis
         this.acceptedNotifications = this.metrics.meter(ACCEPTED_NOTIFICATIONS_METER_NAME);
         this.rejectedNotifications = this.metrics.meter(REJECTED_NOTIFICATIONS_METER_NAME);
 
-        this.metrics.register(OPEN_CONNECTIONS_GAUGE_NAME, new Gauge<Integer>() {
-            @Override
-            public Integer getValue() {
-                return DropwizardApnsClientMetricsListener.this.openConnections.get();
-            }
-        });
+        this.metrics.register(OPEN_CONNECTIONS_GAUGE_NAME,
+                (Gauge<Integer>) DropwizardApnsClientMetricsListener.this.openConnections::get);
 
         this.connectionFailures = this.metrics.meter(CONNECTION_FAILURES_METER_NAME);
     }

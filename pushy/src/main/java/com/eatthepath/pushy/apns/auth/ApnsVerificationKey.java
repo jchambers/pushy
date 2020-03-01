@@ -168,7 +168,7 @@ public class ApnsVerificationKey extends ApnsKey implements ECPublicKey {
 
             try {
                 verificationKey = (ECPublicKey) keyFactory.generatePublic(keySpec);
-            } catch (InvalidKeySpecException e) {
+            } catch (final InvalidKeySpecException e) {
                 throw new InvalidKeyException(e);
             }
         }

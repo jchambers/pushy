@@ -35,6 +35,7 @@ import java.io.InputStream;
 import java.security.PrivateKey;
 import java.security.cert.X509Certificate;
 
+@SuppressWarnings("UnusedReturnValue")
 abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
 
     protected X509Certificate[] certificateChain;
@@ -79,7 +80,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @since 0.8
      */
-    public BaseHttp2ServerBuilder setServerCredentials(final File certificatePemFile, final File privateKeyPkcs8File, final String privateKeyPassword) {
+    public BaseHttp2ServerBuilder<T> setServerCredentials(final File certificatePemFile, final File privateKeyPkcs8File, final String privateKeyPassword) {
         this.certificateChain = null;
         this.privateKey = null;
 
@@ -109,7 +110,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @since 0.8
      */
-    public BaseHttp2ServerBuilder setServerCredentials(final InputStream certificatePemInputStream, final InputStream privateKeyPkcs8InputStream, final String privateKeyPassword) {
+    public BaseHttp2ServerBuilder<T> setServerCredentials(final InputStream certificatePemInputStream, final InputStream privateKeyPkcs8InputStream, final String privateKeyPassword) {
         this.certificateChain = null;
         this.privateKey = null;
 
@@ -136,7 +137,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @since 0.8
      */
-    public BaseHttp2ServerBuilder setServerCredentials(final X509Certificate[] certificates, final PrivateKey privateKey, final String privateKeyPassword) {
+    public BaseHttp2ServerBuilder<T> setServerCredentials(final X509Certificate[] certificates, final PrivateKey privateKey, final String privateKeyPassword) {
         this.certificateChain = certificates;
         this.privateKey = privateKey;
 
@@ -163,7 +164,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @return a reference to this builder
      */
-    public BaseHttp2ServerBuilder setTrustedClientCertificateChain(final File certificatePemFile) {
+    public BaseHttp2ServerBuilder<T> setTrustedClientCertificateChain(final File certificatePemFile) {
         this.trustedClientCertificatePemFile = certificatePemFile;
         this.trustedClientCertificateInputStream = null;
         this.trustedClientCertificates = null;
@@ -183,7 +184,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @return a reference to this builder
      */
-    public BaseHttp2ServerBuilder setTrustedClientCertificateChain(final InputStream certificateInputStream) {
+    public BaseHttp2ServerBuilder<T> setTrustedClientCertificateChain(final InputStream certificateInputStream) {
         this.trustedClientCertificatePemFile = null;
         this.trustedClientCertificateInputStream = certificateInputStream;
         this.trustedClientCertificates = null;
@@ -203,7 +204,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @return a reference to this builder
      */
-    public BaseHttp2ServerBuilder setTrustedServerCertificateChain(final X509Certificate... certificates) {
+    public BaseHttp2ServerBuilder<T> setTrustedServerCertificateChain(final X509Certificate... certificates) {
         this.trustedClientCertificatePemFile = null;
         this.trustedClientCertificateInputStream = null;
         this.trustedClientCertificates = certificates;
@@ -222,7 +223,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @since 0.8
      */
-    public BaseHttp2ServerBuilder setEventLoopGroup(final EventLoopGroup eventLoopGroup) {
+    public BaseHttp2ServerBuilder<T> setEventLoopGroup(final EventLoopGroup eventLoopGroup) {
         this.eventLoopGroup = eventLoopGroup;
         return this;
     }
@@ -238,7 +239,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @since 0.12
      */
-    public BaseHttp2ServerBuilder setMaxConcurrentStreams(final int maxConcurrentStreams) {
+    public BaseHttp2ServerBuilder<T> setMaxConcurrentStreams(final int maxConcurrentStreams) {
         if (maxConcurrentStreams <= 0) {
             throw new IllegalArgumentException("Maximum number of concurrent streams must be positive.");
         }
@@ -268,7 +269,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @since 0.13.7
      */
-    public BaseHttp2ServerBuilder setUseAlpn(final boolean useAlpn) {
+    public BaseHttp2ServerBuilder<T> setUseAlpn(final boolean useAlpn) {
         this.useAlpn = useAlpn;
         return this;
     }

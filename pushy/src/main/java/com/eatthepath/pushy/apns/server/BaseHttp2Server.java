@@ -50,7 +50,7 @@ abstract class BaseHttp2Server {
     private static final Logger log = LoggerFactory.getLogger(BaseHttp2Server.class);
 
     @ChannelHandler.Sharable
-    private static class ConnectionNegotiationErrorHandler extends ChannelHandlerAdapter {
+    private static class ConnectionNegotiationErrorHandler extends ChannelInboundHandlerAdapter {
 
         static final ConnectionNegotiationErrorHandler INSTANCE = new ConnectionNegotiationErrorHandler();
 
@@ -89,17 +89,14 @@ abstract class BaseHttp2Server {
                 channel.pipeline().addLast(sslHandler);
                 channel.pipeline().addLast(ConnectionNegotiationErrorHandler.INSTANCE);
 
-                sslHandler.handshakeFuture().addListener(new GenericFutureListener<Future<Channel>>() {
-                    @Override
-                    public void operationComplete(final Future<Channel> handshakeFuture) throws Exception {
-                        if (handshakeFuture.isSuccess()) {
-                            BaseHttp2Server.this.addHandlersToPipeline(sslHandler.engine().getSession(), channel.pipeline());
-                            channel.pipeline().remove(ConnectionNegotiationErrorHandler.INSTANCE);
+                sslHandler.handshakeFuture().addListener(handshakeFuture -> {
+                    if (handshakeFuture.isSuccess()) {
+                        BaseHttp2Server.this.addHandlersToPipeline(sslHandler.engine().getSession(), channel.pipeline());
+                        channel.pipeline().remove(ConnectionNegotiationErrorHandler.INSTANCE);
 
-                            BaseHttp2Server.this.allChannels.add(channel);
-                        } else {
-                            log.debug("TLS handshake failed.", handshakeFuture.cause());
-                        }
+                        BaseHttp2Server.this.allChannels.add(channel);
+                    } else {
+                        log.debug("TLS handshake failed.", handshakeFuture.cause());
                     }
                 });
             }
@@ -135,7 +132,6 @@ abstract class BaseHttp2Server {
      * @return a {@code Future} that will succeed once the server has finished unbinding from its port and, if the
      * server was managing its own event loop group, its event loop group has shut down
      */
-    @SuppressWarnings({ "rawtypes", "unchecked" })
     public Future<Void> shutdown() {
         final Future<Void> channelCloseFuture = this.allChannels.close();
 
@@ -143,37 +139,24 @@ abstract class BaseHttp2Server {
 
         if (this.shouldShutDownEventLoopGroup) {
             // Wait for the channel to close before we try to shut down the event loop group
-            channelCloseFuture.addListener(new GenericFutureListener<Future<Void>>() {
-
-                @Override
-                public void operationComplete(final Future<Void> future) throws Exception {
-                    BaseHttp2Server.this.bootstrap.config().group().shutdownGracefully();
-                }
-            });
+            channelCloseFuture.addListener(future ->
+                    BaseHttp2Server.this.bootstrap.config().group().shutdownGracefully());
 
             // Since the termination future for the event loop group is a Future<?> instead of a Future<Void>,
             // we'll need to create our own promise and then notify it when the termination future completes.
             disconnectFuture = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
 
-            this.bootstrap.config().group().terminationFuture().addListener(new GenericFutureListener() {
-
-                @Override
-                public void operationComplete(final Future future) throws Exception {
-                    ((Promise<Void>) disconnectFuture).trySuccess(null);
-                }
-            });
+            this.bootstrap.config().group().terminationFuture().addListener(future ->
+                    ((Promise<Void>) disconnectFuture).trySuccess(null));
         } else {
             // We're done once we've closed all the channels, so we can return the closure future directly.
             disconnectFuture = channelCloseFuture;
         }
 
-        disconnectFuture.addListener(new GenericFutureListener<Future<Void>>() {
-            @Override
-            public void operationComplete(final Future<Void> future) throws Exception {
-                if (BaseHttp2Server.this.sslContext instanceof ReferenceCounted) {
-                    if (BaseHttp2Server.this.hasReleasedSslContext.compareAndSet(false, true)) {
-                        ((ReferenceCounted) BaseHttp2Server.this.sslContext).release();
-                    }
+        disconnectFuture.addListener((GenericFutureListener<Future<Void>>) future -> {
+            if (BaseHttp2Server.this.sslContext instanceof ReferenceCounted) {
+                if (BaseHttp2Server.this.hasReleasedSslContext.compareAndSet(false, true)) {
+                    ((ReferenceCounted) BaseHttp2Server.this.sslContext).release();
                 }
             }
         });

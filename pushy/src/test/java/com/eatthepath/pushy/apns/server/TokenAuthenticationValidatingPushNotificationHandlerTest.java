@@ -83,7 +83,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
         this.headers.remove(APNS_AUTHORIZATION_HEADER);
 
         this.testWithExpectedRejection("Push notifications without an authentication token should be rejected",
-                this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.<String, Date>emptyMap()),
+                this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap()),
                 this.headers,
                 this.payload,
                 RejectionReason.MISSING_PROVIDER_TOKEN);
@@ -94,7 +94,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
         this.headers.set(APNS_AUTHORIZATION_HEADER, "bearer");
 
         this.testWithExpectedRejection("Push notifications without an authentication token should be rejected",
-                this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.<String, Date>emptyMap()),
+                this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap()),
                 this.headers,
                 this.payload,
                 RejectionReason.MISSING_PROVIDER_TOKEN);
@@ -105,7 +105,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
         this.headers.set(APNS_AUTHORIZATION_HEADER, "Definitely not a legit authorization header.");
 
         this.testWithExpectedRejection("Push notifications without an authentication token should be rejected",
-                this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.<String, Date>emptyMap()),
+                this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap()),
                 this.headers,
                 this.payload,
                 RejectionReason.MISSING_PROVIDER_TOKEN);
@@ -116,7 +116,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
         this.headers.set(APNS_AUTHORIZATION_HEADER, "bearer Definitely not a legit token.");
 
         this.testWithExpectedRejection("Push notifications without an authentication token should be rejected",
-                this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.<String, Date>emptyMap()),
+                this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap()),
                 this.headers,
                 this.payload,
                 RejectionReason.INVALID_PROVIDER_TOKEN);
@@ -137,7 +137,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
 
         final TokenAuthenticationValidatingPushNotificationHandler handler =
                 new TokenAuthenticationValidatingPushNotificationHandler(
-                        DEVICE_TOKENS_BY_TOPIC, Collections.<String, Date>emptyMap(), verificationKeysByKeyId, topicsByVerificationKey);
+                        DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap(), verificationKeysByKeyId, topicsByVerificationKey);
 
         final AuthenticationToken authenticationToken = new AuthenticationToken(signingKey, new Date());
 
@@ -160,7 +160,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
         this.headers.set(APNS_AUTHORIZATION_HEADER, unverifiedToken.getAuthorizationHeader());
 
         this.testWithExpectedRejection("Push notifications with an authentication token that can't be verified by the registered public key should be rejected.",
-                this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.<String, Date>emptyMap()),
+                this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap()),
                 this.headers,
                 this.payload,
                 RejectionReason.INVALID_PROVIDER_TOKEN);
@@ -173,7 +173,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
         this.headers.set(APNS_AUTHORIZATION_HEADER, expiredToken.getAuthorizationHeader());
 
         this.testWithExpectedRejection("Push notifications with an expired authentication token should be rejected.",
-                this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.<String, Date>emptyMap()),
+                this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap()),
                 this.headers,
                 this.payload,
                 RejectionReason.EXPIRED_PROVIDER_TOKEN);
@@ -188,7 +188,7 @@ public class TokenAuthenticationValidatingPushNotificationHandlerTest extends Va
 
         final TokenAuthenticationValidatingPushNotificationHandler handler =
                 new TokenAuthenticationValidatingPushNotificationHandler(
-                        DEVICE_TOKENS_BY_TOPIC, Collections.<String, Date>emptyMap(), verificationKeysByKeyId, topicsByVerificationKey);
+                        DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap(), verificationKeysByKeyId, topicsByVerificationKey);
 
         final AuthenticationToken authenticationToken = new AuthenticationToken(signingKey, new Date());
 

@@ -72,16 +72,16 @@ public class ValidatingPushNotificationHandlerFactory implements PushNotificatio
      */
     public ValidatingPushNotificationHandlerFactory(final Map<String, Set<String>> deviceTokensByTopic, final Map<String, Date> expirationTimestampsByDeviceToken, final Map<String, ApnsVerificationKey> verificationKeysByKeyId, final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey) {
         this.deviceTokensByTopic = deviceTokensByTopic != null ?
-                deviceTokensByTopic : Collections.<String, Set<String>>emptyMap();
+                deviceTokensByTopic : Collections.emptyMap();
 
         this.expirationTimestampsByDeviceToken = expirationTimestampsByDeviceToken != null ?
-                expirationTimestampsByDeviceToken : Collections.<String, Date>emptyMap();
+                expirationTimestampsByDeviceToken : Collections.emptyMap();
 
         this.verificationKeysByKeyId = verificationKeysByKeyId != null ?
-                verificationKeysByKeyId : Collections.<String, ApnsVerificationKey>emptyMap();
+                verificationKeysByKeyId : Collections.emptyMap();
 
         this.topicsByVerificationKey = topicsByVerificationKey != null ?
-                topicsByVerificationKey : Collections.<ApnsVerificationKey, Set<String>>emptyMap();
+                topicsByVerificationKey : Collections.emptyMap();
     }
 
     @Override

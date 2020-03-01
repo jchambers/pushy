@@ -100,7 +100,7 @@ class TokenAuthenticationValidatingPushNotificationHandler extends ValidatingPus
             if (!authenticationToken.verifySignature(verificationKey)) {
                 throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN);
             }
-        } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
+        } catch (final NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
             // This should never happen (here, at least) because we check keys at construction time. If something's
             // going to go wrong, it will go wrong before we ever get here.
             log.error("Failed to verify authentication token signature.", e);

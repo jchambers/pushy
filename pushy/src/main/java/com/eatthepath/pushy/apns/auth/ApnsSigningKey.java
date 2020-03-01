@@ -161,7 +161,7 @@ public class ApnsSigningKey extends ApnsKey implements ECPrivateKey {
 
             try {
                 signingKey = (ECPrivateKey) keyFactory.generatePrivate(keySpec);
-            } catch (InvalidKeySpecException e) {
+            } catch (final InvalidKeySpecException e) {
                 throw new InvalidKeyException(e);
             }
         }

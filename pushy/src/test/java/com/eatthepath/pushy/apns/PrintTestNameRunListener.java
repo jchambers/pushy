@@ -35,7 +35,7 @@ import org.junit.runner.notification.RunListener;
 public class PrintTestNameRunListener extends RunListener {
 
     @Override
-    public void testStarted(final Description description) throws Exception {
+    public void testStarted(final Description description) {
         System.out.println("\t" + description.getMethodName());
     }
 }

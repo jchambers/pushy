@@ -35,6 +35,7 @@ import java.util.*;
  *
  * @see <a href="https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification">Generating a Remote Notification</a>
  */
+@SuppressWarnings({"UnusedReturnValue", "unused"})
 public class ApnsPayloadBuilder {
 
     private String alertBody = null;
@@ -106,6 +107,7 @@ public class ApnsPayloadBuilder {
 
     private static final Gson GSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
 
+    @SuppressWarnings({"FieldCanBeLocal", "unused"})
     private static class SoundForCriticalAlert {
         private final String name;
         private final int critical;

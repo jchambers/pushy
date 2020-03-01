@@ -28,7 +28,6 @@ import com.eatthepath.pushy.apns.util.ApnsPayloadBuilder;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import com.eatthepath.pushy.apns.util.TokenUtil;
 import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
-import com.eatthepath.pushy.apns.util.concurrent.PushNotificationResponseListener;
 import io.netty.util.concurrent.Future;
 
 import java.io.File;
@@ -123,23 +122,20 @@ public class ExampleApp {
         // To send push notifications efficiently, it's best to attach listeners
         // to "send push notification" futures so we don't have to wait for the
         // server to reply before we start sending the next notification.
-        sendNotificationFuture.addListener(new PushNotificationResponseListener<SimpleApnsPushNotification>() {
-            @Override
-            public void operationComplete(final PushNotificationFuture<SimpleApnsPushNotification, PushNotificationResponse<SimpleApnsPushNotification>> future) throws Exception {
-                // When using a listener, callers should check for a failure to send a
-                // notification by checking whether the future itself was successful
-                // since an exception will not be thrown.
-                if (future.isSuccess()) {
-                    final PushNotificationResponse<SimpleApnsPushNotification> pushNotificationResponse =
-                            sendNotificationFuture.getNow();
+        sendNotificationFuture.addListener(future -> {
+            // When using a listener, callers should check for a failure to send a
+            // notification by checking whether the future itself was successful
+            // since an exception will not be thrown.
+            if (future.isSuccess()) {
+                final PushNotificationResponse<SimpleApnsPushNotification> pushNotificationResponse =
+                        sendNotificationFuture.getNow();
 
-                    // Handle the push notification response as before from here.
-                } else {
-                    // Something went wrong when trying to send the notification to the
-                    // APNs gateway. We can find the exception that caused the failure
-                    // by getting future.cause().
-                    future.cause().printStackTrace();
-                }
+                // Handle the push notification response as before from here.
+            } else {
+                // Something went wrong when trying to send the notification to the
+                // APNs gateway. We can find the exception that caused the failure
+                // by getting future.cause().
+                future.cause().printStackTrace();
             }
         });
 

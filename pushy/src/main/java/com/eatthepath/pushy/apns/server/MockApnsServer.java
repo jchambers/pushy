@@ -67,7 +67,7 @@ public class MockApnsServer extends BaseHttp2Server {
     }
 
     @Override
-    protected void addHandlersToPipeline(final SSLSession sslSession, final ChannelPipeline pipeline) throws Exception {
+    protected void addHandlersToPipeline(final SSLSession sslSession, final ChannelPipeline pipeline) {
         final PushNotificationHandler pushNotificationHandler = this.handlerFactory.buildHandler(sslSession);
 
         final MockApnsServerHandler serverHandler = new MockApnsServerHandler.MockApnsServerHandlerBuilder()
