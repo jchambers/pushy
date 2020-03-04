@@ -25,7 +25,6 @@ package com.eatthepath.pushy.apns;
 import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
 import com.eatthepath.pushy.apns.proxy.ProxyHandlerFactory;
 import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
-import com.eatthepath.pushy.apns.util.concurrent.PushNotificationResponseListener;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.EventLoopGroup;
@@ -66,12 +65,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * as they're constructed.</p>
  *
  * <p>Notifications sent by a client to an APNs server are sent asynchronously. A
- * {@link io.netty.util.concurrent.Future io.netty.util.concurrent.Future} is returned immediately when a notification
- * is sent, but will not complete until the attempt to send the notification has failed, the notification has been
- * accepted by the APNs server, or the notification has been rejected by the APNs server. Please note that the
- * {@code Future} returned is a {@code io.netty.util.concurrent.Future}, which is an extension of the
- * {@link java.util.concurrent.Future java.util.concurrent.Future} interface that allows callers to attach listeners
- * that will be notified when the {@code Future} completes.</p>
+ * {@link CompletableFuture} is returned immediately when a notification is sent, but will not complete until the
+ * attempt to send the notification has failed, the notification has been accepted by the APNs server, or the
+ * notification has been rejected by the APNs server.</p>
  *
  * <p>APNs clients are intended to be long-lived, persistent resources. They are also inherently thread-safe and can be
  * shared across many threads in a complex application. Callers must shut them down via the {@link ApnsClient#close()}
@@ -192,24 +188,20 @@ public class ApnsClient {
      * @return a {@code Future} that will complete when the notification has been either accepted or rejected by the
      * APNs gateway
      *
-     * @see com.eatthepath.pushy.apns.util.concurrent.PushNotificationResponseListener
-     *
      * @since 0.8
      */
     public <T extends ApnsPushNotification> PushNotificationFuture<T, PushNotificationResponse<T>> sendNotification(final T notification) {
-        final PushNotificationFuture<T, PushNotificationResponse<T>> responseFuture;
+        final PushNotificationFuture<T, PushNotificationResponse<T>> responseFuture =
+                new PushNotificationFuture<>(notification);
 
         if (!this.isClosed.get()) {
-            final PushNotificationPromise<T, PushNotificationResponse<T>> responsePromise =
-                    new PushNotificationPromise<>(this.eventLoopGroup.next(), notification);
-
             final long notificationId = this.nextNotificationId.getAndIncrement();
 
             this.channelPool.acquire().addListener((GenericFutureListener<Future<Channel>>) acquireFuture -> {
                 if (acquireFuture.isSuccess()) {
                     final Channel channel = acquireFuture.getNow();
 
-                    channel.writeAndFlush(responsePromise).addListener((GenericFutureListener<ChannelFuture>) future -> {
+                    channel.writeAndFlush(responseFuture).addListener((GenericFutureListener<ChannelFuture>) future -> {
                         if (future.isSuccess()) {
                             ApnsClient.this.metricsListener.handleNotificationSent(ApnsClient.this, notificationId);
                         }
@@ -217,14 +209,12 @@ public class ApnsClient {
 
                     ApnsClient.this.channelPool.release(channel);
                 } else {
-                    responsePromise.tryFailure(acquireFuture.cause());
+                    responseFuture.completeExceptionally(acquireFuture.cause());
                 }
             });
 
-            responsePromise.addListener((PushNotificationResponseListener<T>) future -> {
-                if (future.isSuccess()) {
-                    final PushNotificationResponse<T> response = future.getNow();
-
+            responseFuture.whenComplete((response, cause) -> {
+                if (response != null) {
                     if (response.isAccepted()) {
                         ApnsClient.this.metricsListener.handleNotificationAccepted(ApnsClient.this, notificationId);
                     } else {
@@ -234,15 +224,8 @@ public class ApnsClient {
                     ApnsClient.this.metricsListener.handleWriteFailure(ApnsClient.this, notificationId);
                 }
             });
-
-            responseFuture = responsePromise;
         } else {
-            final PushNotificationPromise<T, PushNotificationResponse<T>> failedPromise =
-                    new PushNotificationPromise<>(GlobalEventExecutor.INSTANCE, notification);
-
-            failedPromise.setFailure(CLIENT_CLOSED_EXCEPTION);
-
-            responseFuture = failedPromise;
+            responseFuture.completeExceptionally(CLIENT_CLOSED_EXCEPTION);
         }
 
         return responseFuture;

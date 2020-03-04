@@ -92,18 +92,18 @@ final SimpleApnsPushNotification pushNotification;
 }
 ```
 
-The process of sending a push notification is asynchronous; although the process of sending a notification and getting a reply from the server may take some time, the client will return a [`io.netty.util.concurrent.Future`](http://netty.io/4.1/api/io/netty/util/concurrent/Future.html) right away. You can use that `Future` to track the progress and eventual outcome of the sending operation. Note that an `io.netty.util.concurrent.Future` is an extension of the Java [`Future`](http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/Future.html) interface that allows callers to add listeners and adds methods for checking the status of the `Future`.
+The process of sending a push notification is asynchronous; although the process of sending a notification and getting a reply from the server may take some time, the client will return a [`CompletableFuture`](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletableFuture.html) right away. You can use that `CompletableFuture` to track the progress and eventual outcome of the sending operation. Note that sending a notification returns a [`PushNotificationFuture`](https://pushy-apns.org/apidocs/0.13/com/eatthepath/pushy/apns/util/concurrent/PushNotificationFuture.html), which is a subclass of `CompletableFuture` that always holds a reference to the notification that was sent.
 
 ```java
 final PushNotificationFuture<SimpleApnsPushNotification, PushNotificationResponse<SimpleApnsPushNotification>>
     sendNotificationFuture = apnsClient.sendNotification(pushNotification);
 ```
 
-The `Future` will complete in one of three circumstances:
+The `CompletableFuture` will complete in one of three circumstances:
 
 1. The gateway accepts the notification and will attempt to deliver it to the destination device.
 2. The gateway rejects the notification; this should be considered a permanent failure, and the notification should not be sent again. Additionally, the APNs gateway may indicate a timestamp at which the destination token became invalid. If that happens, you should stop trying to send *any* notification to that token unless the token has been re-registered since that timestamp.
-3. The `Future` fails with an exception. This should generally be considered a temporary failure, and callers should try to send the notification again when the problem has been resolved.
+3. The `CompletableFuture` fails with an exception. This should generally be considered a temporary failure, and callers should try to send the notification again when the problem has been resolved.
 
 An example:
 
@@ -129,23 +129,18 @@ try {
 }
 ```
 
-Again, it's important to note that the returned `Future` supports listeners; waiting for each individual push notification is inefficient in practice, and most users will be better serverd by adding a listener to the `Future` instead of blocking until it completes. As an example:
+It's important to note that `CompletableFuture` has affordances for scheduling additional tasks to run when an operation is complete. Waiting for each individual push notification is inefficient in practice, and most users will be better served by adding follow-up tasks to the `CompletableFuture` instead of blocking until it completes. As an example:
 
 ```java
-sendNotificationFuture.addListener(future -> {
-    // When using a listener, callers should check for a failure to send a
-    // notification by checking whether the future itself was successful
-    // since an exception will not be thrown.
-    if (future.isSuccess()) {
-        final PushNotificationResponse<SimpleApnsPushNotification> pushNotificationResponse =
-                sendNotificationFuture.getNow();
-
+sendNotificationFuture.whenComplete((response, cause) -> {
+    if (response != null) {
         // Handle the push notification response as before from here.
     } else {
         // Something went wrong when trying to send the notification to the
-        // APNs gateway. We can find the exception that caused the failure
-        // by getting future.cause().
-        future.cause().printStackTrace();
+        // APNs server. Note that this is distinct from a rejection from
+        // the server, and indicates that something went wrong when actually
+        // sending the notification or waiting for a reply.
+        cause.printStackTrace();
     }
 });
 ```
@@ -164,7 +159,7 @@ When shutting down, clients will wait for all sent-but-not-acknowledged notifica
 Making the most of your system resources for high-throughput applications always takes some effort. To guide you through the process, we've put together a wiki page covering some [best practices for using Pushy](https://github.com/jchambers/pushy/wiki/Best-practices). All of these points are covered in much more detail on the wiki, but in general, our recommendations are:
 
 - Treat `ApnsClient` instances as long-lived resources
-- Use listeners if you want to track the status of your push notifications
+- Add follow-up tasks to `CompletableFutures` if you want to track the status of your push notifications
 - Use a flow control strategy to avoid enqueueing push notifications faster than the server can respond
 - Choose a number of threads and concurrent connections that balances CPU time and network throughput
 

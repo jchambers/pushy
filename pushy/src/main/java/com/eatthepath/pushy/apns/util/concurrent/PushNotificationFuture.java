@@ -23,22 +23,33 @@
 package com.eatthepath.pushy.apns.util.concurrent;
 
 import com.eatthepath.pushy.apns.ApnsPushNotification;
-import io.netty.util.concurrent.Future;
+
+import java.util.concurrent.CompletableFuture;
 
 /**
- * A push notification future represents the result an operation on a push notification.
+ * A push notification future represents the result an asynchronous operation on a {@link ApnsPushNotification}.
  *
  * @param <P> the type of push notification sent
  * @param <V> the type of value returned by the operation
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */
-public interface PushNotificationFuture<P extends ApnsPushNotification, V> extends Future<V> {
+public class PushNotificationFuture<P extends ApnsPushNotification, V> extends CompletableFuture<V> {
+
+    private final P pushNotification;
+
+    public PushNotificationFuture(final P pushNotification) {
+        super();
+
+        this.pushNotification = pushNotification;
+    }
 
     /**
      * Returns the push notification to which the operation represented by this future applies.
      *
      * @return the push notification to which the operation represented by this future applies
      */
-    P getPushNotification();
+    public P getPushNotification() {
+        return this.pushNotification;
+    }
 }
