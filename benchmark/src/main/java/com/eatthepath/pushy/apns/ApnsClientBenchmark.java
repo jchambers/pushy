@@ -123,11 +123,7 @@ public class ApnsClientBenchmark {
         final CountDownLatch countDownLatch = new CountDownLatch(this.pushNotifications.size());
 
         for (final SimpleApnsPushNotification notification : this.pushNotifications) {
-            this.client.sendNotification(notification).addListener(future -> {
-                if (future.isSuccess()) {
-                    countDownLatch.countDown();
-                }
-            });
+            this.client.sendNotification(notification).thenRun(countDownLatch::countDown);
         }
 
         countDownLatch.await();

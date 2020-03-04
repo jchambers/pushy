@@ -24,7 +24,7 @@ package com.eatthepath.pushy.apns;
 
 import com.eatthepath.pushy.apns.server.*;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
-import io.netty.util.concurrent.Future;
+import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -36,7 +36,9 @@ import java.io.InputStream;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
@@ -237,16 +239,14 @@ public class ApnsClientTest extends AbstractClientServerTest {
         try {
             server.start(PORT).await();
 
-            final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
-                    cautiousClient.sendNotification(
-                            new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD)).await();
+            final PushNotificationFuture<SimpleApnsPushNotification, PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
+                    cautiousClient.sendNotification(new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD));
 
-            assertFalse(sendFuture.isSuccess(), "Clients must not connect to untrusted servers.");
+            Throwable cause = assertThrows(ExecutionException.class, sendFuture::get,
+                    "Clients must not connect to untrusted servers.");
 
             boolean hasSSLHandshakeException = false;
             {
-                Throwable cause = sendFuture.cause();
-
                 while (!hasSSLHandshakeException && cause != null) {
                     hasSSLHandshakeException = (cause instanceof SSLHandshakeException);
                     cause = cause.getCause();
@@ -292,10 +292,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
             final SimpleApnsPushNotification pushNotification =
                     new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
 
-            final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
-                    client.sendNotification(pushNotification).await();
-
-            assertFalse(sendFuture.isSuccess(),
+            assertThrows(ExecutionException.class, () -> client.sendNotification(pushNotification).get(),
                     "Once a client has closed, attempts to send push notifications should fail.");
         } finally {
             client.close().await();
@@ -385,8 +382,6 @@ public class ApnsClientTest extends AbstractClientServerTest {
             pushNotifications.add(new SimpleApnsPushNotification(token, TOPIC, payload));
         }
 
-        final List<Future<PushNotificationResponse<SimpleApnsPushNotification>>> futures = new ArrayList<>();
-
         final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory());
         final ApnsClient client = useTokenAuthentication ?
                 this.buildTokenAuthenticationClient() : this.buildTlsAuthenticationClient();
@@ -394,16 +389,16 @@ public class ApnsClientTest extends AbstractClientServerTest {
         try {
             server.start(PORT).await();
 
+            final List<CompletableFuture<PushNotificationResponse<SimpleApnsPushNotification>>> futures =
+                    new ArrayList<>();
+
             for (final SimpleApnsPushNotification pushNotification : pushNotifications) {
                 futures.add(client.sendNotification(pushNotification));
             }
 
-            for (final Future<PushNotificationResponse<SimpleApnsPushNotification>> future : futures) {
-                future.await();
-
-                assertTrue(future.isSuccess(),
-                        "Send future should have succeeded, but failed with: " + future.cause());
-            }
+            // We're happy as long as nothing explodes
+            //noinspection ZeroLengthArrayAllocation
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
         } finally {
             client.close().await();
             server.shutdown().await();
@@ -434,11 +429,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
             server.start(PORT).await();
 
             for (final SimpleApnsPushNotification pushNotification : pushNotifications) {
-                client.sendNotification(pushNotification).addListener(future -> {
-                    if (future.isSuccess()) {
-                        countDownLatch.countDown();
-                    }
-                });
+                client.sendNotification(pushNotification).thenRun(countDownLatch::countDown);
             }
 
             countDownLatch.await();
@@ -467,11 +458,9 @@ public class ApnsClientTest extends AbstractClientServerTest {
             server.start(PORT).await();
 
             for (int i = 0; i < notificationCount; i++) {
-                client.sendNotification(pushNotification).addListener(future -> {
-                    // All we're concerned with here is that the client told us SOMETHING about what happened to the
-                    // notification
-                    countDownLatch.countDown();
-                });
+                // All we're concerned with here is that the client told us SOMETHING about what happened to the
+                // notification
+                client.sendNotification(pushNotification).whenComplete((response, cause) -> countDownLatch.countDown());
             }
 
             countDownLatch.await();
@@ -527,7 +516,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
             final SimpleApnsPushNotification pushNotification =
                     new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
 
-            client.sendNotification(pushNotification).await();
+            client.sendNotification(pushNotification).get();
 
             metricsListener.waitForNonZeroAcceptedNotifications();
 
@@ -563,7 +552,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
             final SimpleApnsPushNotification pushNotification =
                     new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
 
-            client.sendNotification(pushNotification).await();
+            client.sendNotification(pushNotification).get();
 
             metricsListener.waitForNonZeroRejectedNotifications();
 
@@ -588,7 +577,8 @@ public class ApnsClientTest extends AbstractClientServerTest {
             final SimpleApnsPushNotification pushNotification =
                     new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
 
-            client.sendNotification(pushNotification).await();
+            // This should fail because there's no server running
+            assertThrows(ExecutionException.class, () -> client.sendNotification(pushNotification).get());
 
             metricsListener.waitForNonZeroFailedConnections();
             metricsListener.waitForNonZeroWriteFailures();
@@ -616,11 +606,11 @@ public class ApnsClientTest extends AbstractClientServerTest {
             for (int i = 0; i < 3; i++) {
                 // We should see delays of roughly 0, 1, and 2 seconds; 4 seconds per notification is excessive, but
                 // better to play it safe with a timed assertion.
-                final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
+                final CompletableFuture<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
                         client.sendNotification(pushNotification);
 
-                assertTrue(sendFuture.await(4, TimeUnit.SECONDS));
-                assertFalse(sendFuture.isSuccess());
+                // This should fail because there's no server running
+                assertThrows(ExecutionException.class, () -> sendFuture.get(4, TimeUnit.SECONDS));
             }
         } finally {
             client.close().await();
@@ -642,8 +632,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
             final CountDownLatch countDownLatch = new CountDownLatch(notificationCount);
 
             for (int i = 0; i < notificationCount; i++) {
-                client.sendNotification(pushNotification).addListener(
-                        future -> countDownLatch.countDown());
+                client.sendNotification(pushNotification).whenComplete((response, cause) -> countDownLatch.countDown());
             }
 
             // We should see delays of roughly 0, 1, and 2 seconds (for a total of 3 seconds); waiting 6 seconds in

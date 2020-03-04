@@ -122,20 +122,13 @@ public class ExampleApp {
         // To send push notifications efficiently, it's best to attach listeners
         // to "send push notification" futures so we don't have to wait for the
         // server to reply before we start sending the next notification.
-        sendNotificationFuture.addListener(future -> {
-            // When using a listener, callers should check for a failure to send a
-            // notification by checking whether the future itself was successful
-            // since an exception will not be thrown.
-            if (future.isSuccess()) {
-                final PushNotificationResponse<SimpleApnsPushNotification> pushNotificationResponse =
-                        sendNotificationFuture.getNow();
-
+        sendNotificationFuture.whenComplete((response, cause) -> {
+            if (response != null) {
                 // Handle the push notification response as before from here.
             } else {
                 // Something went wrong when trying to send the notification to the
-                // APNs gateway. We can find the exception that caused the failure
-                // by getting future.cause().
-                future.cause().printStackTrace();
+                // APNs gateway.
+                cause.printStackTrace();
             }
         });
 

@@ -25,7 +25,6 @@ package com.eatthepath.pushy.apns.server;
 import com.eatthepath.pushy.apns.*;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -260,10 +259,10 @@ public class MockApnsServerTest extends AbstractClientServerTest {
 
             final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
 
-            final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
-                    client.sendNotification(pushNotification).await();
+            final PushNotificationResponse<SimpleApnsPushNotification> response =
+                    client.sendNotification(pushNotification).get();
 
-            assertTrue(sendFuture.isSuccess());
+            assertNotNull(response);
 
             listener.waitForNonZeroRejectedNotifications();
 
