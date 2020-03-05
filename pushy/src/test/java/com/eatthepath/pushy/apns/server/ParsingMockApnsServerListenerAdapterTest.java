@@ -30,12 +30,11 @@ import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.handler.codec.http2.DefaultHttp2Headers;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.AsciiString;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class ParsingMockApnsServerListenerAdapterTest {
 
@@ -67,7 +66,7 @@ public class ParsingMockApnsServerListenerAdapterTest {
     }
 
     @Test
-    public void testHandlePushNotificationAccepted() {
+    void testHandlePushNotificationAccepted() {
         final TestParsingMockApnsServerListener listener = new TestParsingMockApnsServerListener();
 
         {
@@ -168,7 +167,7 @@ public class ParsingMockApnsServerListenerAdapterTest {
     }
 
     @Test
-    public void testHandlePushNotificationRejected() {
+    void testHandlePushNotificationRejected() {
         final TestParsingMockApnsServerListener listener = new TestParsingMockApnsServerListener();
 
         {

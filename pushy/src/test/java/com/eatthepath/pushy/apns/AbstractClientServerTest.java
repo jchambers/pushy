@@ -32,9 +32,9 @@ import com.eatthepath.pushy.apns.server.PushNotificationHandlerFactory;
 import com.eatthepath.pushy.apns.util.ApnsPayloadBuilder;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.*;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 
 import javax.net.ssl.SSLException;
 import java.io.IOException;
@@ -77,13 +77,13 @@ public class AbstractClientServerTest {
     protected Map<String, ApnsVerificationKey> verificationKeysByKeyId;
     protected Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey;
 
-    @BeforeClass
+    @BeforeAll
     public static void setUpBeforeClass() {
         CLIENT_EVENT_LOOP_GROUP = new NioEventLoopGroup(2);
         SERVER_EVENT_LOOP_GROUP = new NioEventLoopGroup(2);
     }
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
@@ -95,7 +95,7 @@ public class AbstractClientServerTest {
         this.topicsByVerificationKey = Collections.singletonMap(verificationKey, Collections.singleton(TOPIC));
     }
 
-    @AfterClass
+    @AfterAll
     public static void tearDownAfterClass() throws Exception {
         final PromiseCombiner combiner = new PromiseCombiner(ImmediateEventExecutor.INSTANCE);
         combiner.addAll(CLIENT_EVENT_LOOP_GROUP.shutdownGracefully(), SERVER_EVENT_LOOP_GROUP.shutdownGracefully());

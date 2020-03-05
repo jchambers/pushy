@@ -24,17 +24,17 @@ package com.eatthepath.pushy.apns.util;
 
 import com.eatthepath.pushy.apns.DeliveryPriority;
 import com.eatthepath.pushy.apns.PushType;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.UUID;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class SimpleApnsPushNotificationTest {
 
     @Test
-    public void testSimpleApnsPushNotificationTokenTopicPayload() {
+    void testSimpleApnsPushNotificationTokenTopicPayload() {
         final String token = "test-token";
         final String topic = "test-topic";
         final String payload = "{\"test\": true}";
@@ -53,23 +53,23 @@ public class SimpleApnsPushNotificationTest {
         assertNull(pushNotification.getCollapseId());
     }
 
-    @Test(expected = NullPointerException.class)
-    public void testSimpleApnsPushNotificationNullToken() {
-        new SimpleApnsPushNotification(null, "topic", "payload");
-    }
-
-    @Test(expected = NullPointerException.class)
-    public void testSimpleApnsPushNotificationNullTopic() {
-        new SimpleApnsPushNotification("token", null, "payload");
-    }
-
-    @Test(expected = NullPointerException.class)
-    public void testSimpleApnsPushNotificationNullPayload() {
-        new SimpleApnsPushNotification("token", "topic", null);
+    @Test
+    void testSimpleApnsPushNotificationNullToken() {
+        assertThrows(NullPointerException.class, () -> new SimpleApnsPushNotification(null, "topic", "payload"));
     }
 
     @Test
-    public void testSimpleApnsPushNotificationTokenTopicPayloadExpiration() {
+    void testSimpleApnsPushNotificationNullTopic() {
+        assertThrows(NullPointerException.class, () -> new SimpleApnsPushNotification("token", null, "payload"));
+    }
+
+    @Test
+    void testSimpleApnsPushNotificationNullPayload() {
+        assertThrows(NullPointerException.class, () -> new SimpleApnsPushNotification("token", "topic", null));
+    }
+
+    @Test
+    void testSimpleApnsPushNotificationTokenTopicPayloadExpiration() {
         final String token = "test-token";
         final String topic = "test-topic";
         final String payload = "{\"test\": true}";
@@ -89,7 +89,7 @@ public class SimpleApnsPushNotificationTest {
     }
 
     @Test
-    public void testSimpleApnsPushNotificationTokenTopicPayloadExpirationPriority() {
+    void testSimpleApnsPushNotificationTokenTopicPayloadExpirationPriority() {
         final String token = "test-token";
         final String topic = "test-topic";
         final String payload = "{\"test\": true}";
@@ -110,7 +110,7 @@ public class SimpleApnsPushNotificationTest {
     }
 
     @Test
-    public void testSimpleApnsPushNotificationTokenTopicPayloadExpirationPriorityType() {
+    void testSimpleApnsPushNotificationTokenTopicPayloadExpirationPriorityType() {
         final String token = "test-token";
         final String topic = "test-topic";
         final String payload = "{\"test\": true}";
@@ -132,7 +132,7 @@ public class SimpleApnsPushNotificationTest {
     }
 
     @Test
-    public void testSimpleApnsPushNotificationTokenTopicPayloadExpirationPriorityCollapseId() {
+    void testSimpleApnsPushNotificationTokenTopicPayloadExpirationPriorityCollapseId() {
         final String token = "test-token";
         final String topic = "test-topic";
         final String payload = "{\"test\": true}";
@@ -154,7 +154,7 @@ public class SimpleApnsPushNotificationTest {
     }
 
     @Test
-    public void testSimpleApnsPushNotificationTokenTopicPayloadExpirationPriorityTypeCollapseId() {
+    void testSimpleApnsPushNotificationTokenTopicPayloadExpirationPriorityTypeCollapseId() {
         final String token = "test-token";
         final String topic = "test-topic";
         final String payload = "{\"test\": true}";
@@ -177,7 +177,7 @@ public class SimpleApnsPushNotificationTest {
     }
 
     @Test
-    public void testSimpleApnsPushNotificationTokenTopicPayloadExpirationPriorityTypeCollapseIdApnsId() {
+    void testSimpleApnsPushNotificationTokenTopicPayloadExpirationPriorityTypeCollapseIdApnsId() {
         final String token = "test-token";
         final String topic = "test-topic";
         final String payload = "{\"test\": true}";

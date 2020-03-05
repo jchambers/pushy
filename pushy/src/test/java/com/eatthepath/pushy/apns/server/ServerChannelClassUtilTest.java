@@ -30,15 +30,15 @@ import io.netty.channel.kqueue.KQueueEventLoopGroup;
 import io.netty.channel.kqueue.KQueueServerSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assume.assumeTrue;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class ServerChannelClassUtilTest {
 
     @Test
-    public void testGetCoreSocketChannelClass() {
+    void testGetCoreSocketChannelClass() {
         final NioEventLoopGroup nioEventLoopGroup = new NioEventLoopGroup(1);
 
         try {
@@ -49,11 +49,11 @@ public class ServerChannelClassUtilTest {
     }
 
     @Test
-    public void testGetKqueueSocketChannelClass() {
+    void testGetKqueueSocketChannelClass() {
         final String unavailabilityMessage =
                 KQueue.unavailabilityCause() != null ? KQueue.unavailabilityCause().getMessage() : null;
 
-        assumeTrue("KQueue not available: " + unavailabilityMessage, KQueue.isAvailable());
+        assumeTrue(KQueue.isAvailable(), "KQueue not available: " + unavailabilityMessage);
 
         final KQueueEventLoopGroup kQueueEventLoopGroup = new KQueueEventLoopGroup(1);
 
@@ -65,11 +65,11 @@ public class ServerChannelClassUtilTest {
     }
 
     @Test
-    public void testGetEpollSocketChannelClass() {
+    void testGetEpollSocketChannelClass() {
         final String unavailabilityMessage =
                 Epoll.unavailabilityCause() != null ? Epoll.unavailabilityCause().getMessage() : null;
 
-        assumeTrue("Epoll not available: " + unavailabilityMessage, Epoll.isAvailable());
+        assumeTrue(Epoll.isAvailable(), "Epoll not available: " + unavailabilityMessage);
 
         final EpollEventLoopGroup epollEventLoopGroup = new EpollEventLoopGroup(1);
 

@@ -22,8 +22,8 @@
 
 package com.eatthepath.pushy.apns.auth;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.security.KeyPair;
 import java.security.interfaces.ECPrivateKey;
@@ -31,7 +31,8 @@ import java.security.interfaces.ECPublicKey;
 import java.time.Instant;
 import java.util.regex.Pattern;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
+
 
 public class AuthenticationTokenTest {
 
@@ -41,7 +42,7 @@ public class AuthenticationTokenTest {
     private static final String KEY_ID = "TESTKEY123";
     private static final String TEAM_ID = "TEAMID0987";
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         final KeyPair keyPair = KeyPairUtil.generateKeyPair();
 
@@ -50,13 +51,13 @@ public class AuthenticationTokenTest {
     }
 
     @Test
-    public void testAuthenticationTokenFromSigningKey() throws Exception {
+    void testAuthenticationTokenFromSigningKey() throws Exception {
         // We're happy here as long as nothing explodes
         new AuthenticationToken(this.signingKey, Instant.now());
     }
 
     @Test
-    public void testAuthenticationTokenFromString() throws Exception {
+    void testAuthenticationTokenFromString() throws Exception {
         final String base64EncodedToken = new AuthenticationToken(this.signingKey, Instant.now()).toString();
 
         // We're happy here as long as nothing explodes
@@ -64,7 +65,7 @@ public class AuthenticationTokenTest {
     }
 
     @Test
-    public void testGetIssuedAt() throws Exception {
+    void testGetIssuedAt() throws Exception {
         final Instant now = Instant.now();
         final AuthenticationToken token = new AuthenticationToken(this.signingKey, now);
 
@@ -72,7 +73,7 @@ public class AuthenticationTokenTest {
     }
 
     @Test
-    public void testVerifySignature() throws Exception {
+    void testVerifySignature() throws Exception {
         final AuthenticationToken token = new AuthenticationToken(this.signingKey, Instant.now());
 
         assertTrue(token.verifySignature(this.verificationKey));
@@ -104,14 +105,14 @@ public class AuthenticationTokenTest {
     }
 
     @Test
-    public void testToString() throws Exception {
+    void testToString() throws Exception {
         final AuthenticationToken token = new AuthenticationToken(this.signingKey, Instant.now());
 
         assertTrue(Pattern.matches("^[a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9_\\-]+$", token.toString()));
     }
 
     @Test
-    public void testEncodeDecodeBase64() {
+    void testEncodeDecodeBase64() {
         final byte[] originalBytes =
                 "We expect to get these bytes back after encoding, then decoding as Base64.".getBytes();
 

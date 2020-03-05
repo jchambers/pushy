@@ -22,13 +22,14 @@
 
 package com.eatthepath.pushy.apns;
 
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
-import java.security.KeyStoreException;
 import java.security.KeyStore.PrivateKeyEntry;
+import java.security.KeyStoreException;
 
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class P12UtilTest {
 
@@ -39,7 +40,7 @@ public class P12UtilTest {
     private static final String KEYSTORE_PASSWORD = "pushy-test";
 
     @Test
-    public void testGetPrivateKeyEntryFromP12InputStream() throws Exception {
+    void testGetPrivateKeyEntryFromP12InputStream() throws Exception {
         try (final InputStream p12InputStream = P12UtilTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
             final PrivateKeyEntry privateKeyEntry =
                     P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
@@ -49,7 +50,7 @@ public class P12UtilTest {
     }
 
     @Test
-    public void testGetPrivateKeyEntryFromP12InputStreamWithMultipleKeys() throws Exception {
+    void testGetPrivateKeyEntryFromP12InputStreamWithMultipleKeys() throws Exception {
         try (final InputStream p12InputStream = P12UtilTest.class.getResourceAsStream(MULTIPLE_KEY_KEYSTORE_FILENAME)) {
             final PrivateKeyEntry privateKeyEntry =
                     P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
@@ -58,10 +59,11 @@ public class P12UtilTest {
         }
     }
 
-    @Test(expected = KeyStoreException.class)
-    public void testGetPrivateKeyEntryFromP12InputStreamWithNoKeys() throws Exception {
+    @Test
+    void testGetPrivateKeyEntryFromP12InputStreamWithNoKeys() throws Exception {
         try (final InputStream p12InputStream = P12UtilTest.class.getResourceAsStream(NO_KEY_KEYSTORE_FILENAME)) {
-            P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
+            assertThrows(KeyStoreException.class,
+                    () -> P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD));
         }
     }
 }
