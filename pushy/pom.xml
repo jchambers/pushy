@@ -62,13 +62,13 @@
         </dependency>
         <!-- Test dependencies -->
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>pl.pragmatists</groupId>
-            <artifactId>JUnitParams</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -132,12 +132,13 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <argLine>-Dorg.slf4j.simpleLogger.defaultLogLevel=warn -Dio.netty.leakDetection.level=paranoid -ea</argLine>
-                    <properties>
+                    <!-- TODO Restore this in a JUnit5-compliant way -->
+                    <!-- <properties>
                         <property>
                             <name>listener</name>
                             <value>com.eatthepath.pushy.apns.PrintTestNameRunListener</value>
                         </property>
-                    </properties>
+                    </properties> -->
                 </configuration>
             </plugin>
         </plugins>

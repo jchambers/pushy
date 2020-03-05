@@ -26,14 +26,14 @@ import com.eatthepath.pushy.apns.*;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.Assert.*;
-import static org.junit.Assume.assumeTrue;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class MockApnsServerTest extends AbstractClientServerTest {
 
@@ -90,7 +90,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
     }
 
     @Test
-    public void testStartAndShutdown() throws Exception {
+    void testStartAndShutdown() throws Exception {
         final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory());
 
         assertTrue(server.start(PORT).await().isSuccess());
@@ -98,14 +98,14 @@ public class MockApnsServerTest extends AbstractClientServerTest {
     }
 
     @Test
-    public void testShutdownBeforeStart() throws Exception {
+    void testShutdownBeforeStart() throws Exception {
         final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory());
 
         assertTrue(server.shutdown().await().isSuccess());
     }
 
     @Test
-    public void testShutdownWithProvidedEventLoopGroup() throws Exception {
+    void testShutdownWithProvidedEventLoopGroup() throws Exception {
         final NioEventLoopGroup eventLoopGroup = new NioEventLoopGroup(1);
 
         try {
@@ -126,7 +126,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
     }
 
     @Test
-    public void testRestartWithProvidedEventLoopGroup() throws Exception {
+    void testRestartWithProvidedEventLoopGroup() throws Exception {
         int javaVersion = 0;
 
         try {
@@ -157,7 +157,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
     }
 
     @Test
-    public void testListenerAcceptedNotification() throws Exception {
+    void testListenerAcceptedNotification() throws Exception {
         final TestMockApnsServerListener listener = new TestMockApnsServerListener();
 
         final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory(), listener);
@@ -185,7 +185,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
     }
 
     @Test
-    public void testListenerRejectedNotification() throws Exception {
+    void testListenerRejectedNotification() throws Exception {
         final TestMockApnsServerListener listener = new TestMockApnsServerListener();
 
         final MockApnsServer server = this.buildServer(sslSession -> (headers, payload) -> {
@@ -215,7 +215,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
     }
 
     @Test
-    public void testListenerRejectedNotificationWithExpiration() throws Exception {
+    void testListenerRejectedNotificationWithExpiration() throws Exception {
         final TestMockApnsServerListener listener = new TestMockApnsServerListener();
         final Instant expiration = Instant.now();
 
@@ -246,7 +246,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
     }
 
     @Test
-    public void testListenerInternalServerError() throws Exception {
+    void testListenerInternalServerError() throws Exception {
         final TestMockApnsServerListener listener = new TestMockApnsServerListener();
 
         final MockApnsServer server = this.buildServer(sslSession -> (headers, payload) -> {
@@ -275,7 +275,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
     }
 
     @Test
-    public void testApnsIdForAcceptedNotification() throws Exception {
+    void testApnsIdForAcceptedNotification() throws Exception {
         final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory());
         final ApnsClient client = this.buildTokenAuthenticationClient();
 
@@ -312,7 +312,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
     }
 
     @Test
-    public void testApnsIdForRejectedNotification() throws Exception {
+    void testApnsIdForRejectedNotification() throws Exception {
         final MockApnsServer server = this.buildServer(sslSession -> (headers, payload) -> {
             throw new RejectedNotificationException(RejectionReason.MISSING_TOPIC);
         });

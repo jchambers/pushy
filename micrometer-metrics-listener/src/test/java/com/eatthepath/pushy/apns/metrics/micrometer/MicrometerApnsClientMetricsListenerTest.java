@@ -24,21 +24,22 @@ package com.eatthepath.pushy.apns.metrics.micrometer;
 
 import io.micrometer.core.instrument.*;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 
 public class MicrometerApnsClientMetricsListenerTest {
 
     private MeterRegistry meterRegistry;
     private MicrometerApnsClientMetricsListener listener;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         this.meterRegistry = new SimpleMeterRegistry();
         this.listener = new MicrometerApnsClientMetricsListener(this.meterRegistry);

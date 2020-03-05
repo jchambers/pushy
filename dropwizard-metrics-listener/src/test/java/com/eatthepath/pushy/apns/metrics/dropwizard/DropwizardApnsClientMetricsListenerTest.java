@@ -26,19 +26,19 @@ import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.Metric;
 import com.codahale.metrics.Timer;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class DropwizardApnsClientMetricsListenerTest {
 
     private DropwizardApnsClientMetricsListener listener;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         this.listener = new DropwizardApnsClientMetricsListener();
     }

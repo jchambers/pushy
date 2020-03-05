@@ -25,23 +25,22 @@ package com.eatthepath.pushy.apns;
 import com.eatthepath.pushy.apns.util.InstantAsTimeSinceEpochTypeAdapter;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonPrimitive;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class InstantAsTimeSinceEpochTypeAdapterTest {
 
-    @Test(expected = NullPointerException.class)
-    public void testInstantAsTimeSinceEpochTypeAdapterNullUnits() {
-        new InstantAsTimeSinceEpochTypeAdapter(null);
+    @Test
+    void testInstantAsTimeSinceEpochTypeAdapterNullUnits() {
+        assertThrows(NullPointerException.class, () -> new InstantAsTimeSinceEpochTypeAdapter(null));
     }
 
     @Test
-    public void testDeserialize() {
+    void testDeserialize() {
         {
             final InstantAsTimeSinceEpochTypeAdapter adapter = new InstantAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS);
             assertNull(adapter.deserialize(JsonNull.INSTANCE, Instant.class, null));
@@ -68,7 +67,7 @@ public class InstantAsTimeSinceEpochTypeAdapterTest {
     }
 
     @Test
-    public void testSerialize() {
+    void testSerialize() {
         {
             final InstantAsTimeSinceEpochTypeAdapter adapter = new InstantAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS);
             assertEquals(JsonNull.INSTANCE, adapter.serialize(null, Instant.class, null));

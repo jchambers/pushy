@@ -25,10 +25,11 @@ package com.eatthepath.pushy.apns;
 import com.eatthepath.pushy.apns.server.*;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import io.netty.util.concurrent.Future;
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.net.ssl.SSLHandshakeException;
 import java.io.InputStream;
@@ -38,10 +39,11 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-@RunWith(JUnitParamsRunner.class)
 public class ApnsClientTest extends AbstractClientServerTest {
 
     private static class TestClientMetricsListener implements ApnsClientMetricsListener {
@@ -200,7 +202,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
     }
 
     @Test
-    public void testApnsClientWithManagedEventLoopGroup() throws Exception {
+    void testApnsClientWithManagedEventLoopGroup() throws Exception {
         final ApnsClient managedGroupClient = new ApnsClientBuilder()
                 .setApnsServer(HOST, PORT)
                 .setSigningKey(this.signingKey)
@@ -209,9 +211,9 @@ public class ApnsClientTest extends AbstractClientServerTest {
         assertTrue(managedGroupClient.close().await().isSuccess());
     }
 
-    @Test
-    @Parameters({"true", "false"})
-    public void testSendNotificationToUntrustedServer(final boolean useTokenAuthentication) throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void testSendNotificationToUntrustedServer(final boolean useTokenAuthentication) throws Exception {
         final ApnsClient cautiousClient;
 
         if (useTokenAuthentication) {
@@ -239,8 +241,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
                     cautiousClient.sendNotification(
                             new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD)).await();
 
-            assertFalse("Clients must not connect to untrusted servers.",
-                    sendFuture.isSuccess());
+            assertFalse(sendFuture.isSuccess(), "Clients must not connect to untrusted servers.");
 
             boolean hasSSLHandshakeException = false;
             {
@@ -252,34 +253,34 @@ public class ApnsClientTest extends AbstractClientServerTest {
                 }
             }
 
-            assertTrue("Clients should refuse to connect to untrusted servers due to an SSL handshake failure.",
-                    hasSSLHandshakeException);
+            assertTrue(hasSSLHandshakeException,
+                    "Clients should refuse to connect to untrusted servers due to an SSL handshake failure.");
         } finally {
             cautiousClient.close().await();
             server.shutdown().await();
         }
     }
 
-    @Test
-    @Parameters({"true", "false"})
-    public void testRepeatedClose(final boolean useTokenAuthentication) throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void testRepeatedClose(final boolean useTokenAuthentication) throws Exception {
         final ApnsClient client = useTokenAuthentication ?
                 this.buildTokenAuthenticationClient() : this.buildTlsAuthenticationClient();
 
         try {
-            assertTrue("Client should close successfully under normal circumstances.",
-                    client.close().await().isSuccess());
+            assertTrue(client.close().await().isSuccess(),
+                    "Client should close successfully under normal circumstances.");
 
-            assertTrue("Client should report successful closure on subsequent calls to close().",
-                    client.close().await().isSuccess());
+            assertTrue(client.close().await().isSuccess(),
+                    "Client should report successful closure on subsequent calls to close().");
         } finally {
             client.close().await();
         }
     }
 
-    @Test
-    @Parameters({"true", "false"})
-    public void testSendNotificationAfterClose(final boolean useTokenAuthentication) throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void testSendNotificationAfterClose(final boolean useTokenAuthentication) throws Exception {
         final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory());
         final ApnsClient client = useTokenAuthentication ?
                 this.buildTokenAuthenticationClient() : this.buildTlsAuthenticationClient();
@@ -294,17 +295,17 @@ public class ApnsClientTest extends AbstractClientServerTest {
             final Future<PushNotificationResponse<SimpleApnsPushNotification>> sendFuture =
                     client.sendNotification(pushNotification).await();
 
-            assertFalse("Once a client has closed, attempts to send push notifications should fail.",
-                    sendFuture.isSuccess());
+            assertFalse(sendFuture.isSuccess(),
+                    "Once a client has closed, attempts to send push notifications should fail.");
         } finally {
             client.close().await();
             server.shutdown().await();
         }
     }
 
-    @Test
-    @Parameters({"true", "false"})
-    public void testSendNotification(final boolean useTokenAuthentication) throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void testSendNotification(final boolean useTokenAuthentication) throws Exception {
         final ValidatingPushNotificationHandlerFactory handlerFactory = new ValidatingPushNotificationHandlerFactory(
                 DEVICE_TOKENS_BY_TOPIC, EXPIRATION_TIMESTAMPS_BY_DEVICE_TOKEN, this.verificationKeysByKeyId,
                 this.topicsByVerificationKey);
@@ -321,8 +322,8 @@ public class ApnsClientTest extends AbstractClientServerTest {
             final PushNotificationResponse<SimpleApnsPushNotification> response =
                     client.sendNotification(pushNotification).get();
 
-            assertTrue("Clients must send notifications that conform to the APNs protocol specification.",
-                    response.isAccepted());
+            assertTrue(response.isAccepted(),
+                    "Clients must send notifications that conform to the APNs protocol specification.");
 
             assertNotNull(response.getApnsId());
         } finally {
@@ -332,7 +333,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
     }
 
     @Test
-    public void testSendNotificationWithExpiredAuthenticationToken() throws Exception {
+    void testSendNotificationWithExpiredAuthenticationToken() throws Exception {
         final PushNotificationHandlerFactory expireFirstTokenHandlerFactory =
                 sslSession -> new ExpireFirstTokenPushNotificationHandler();
 
@@ -350,29 +351,29 @@ public class ApnsClientTest extends AbstractClientServerTest {
             final PushNotificationResponse<SimpleApnsPushNotification> response =
                     client.sendNotification(pushNotification).get();
 
-            assertTrue("Client should automatically re-send notifications with expired authentication tokens.",
-                    response.isAccepted());
+            assertTrue(response.isAccepted(),
+                    "Client should automatically re-send notifications with expired authentication tokens.");
 
             metricsListener.waitForNonZeroAcceptedNotifications();
 
             // See https://github.com/relayrides/pushy/issues/448
-            assertEquals("Re-sent notifications with expired tokens must not be double-counted.",
-                    1, metricsListener.getSentNotifications().size());
+            assertEquals(1, metricsListener.getSentNotifications().size(),
+                    "Re-sent notifications with expired tokens must not be double-counted.");
 
-            assertEquals("Re-sent notifications should be counted as accepted exactly once.",
-                    1, metricsListener.getAcceptedNotifications().size());
+            assertEquals(1, metricsListener.getAcceptedNotifications().size(),
+                    "Re-sent notifications should be counted as accepted exactly once.");
 
-            assertTrue("Notifications with expired authentication tokens should not count as rejections.",
-                    metricsListener.getRejectedNotifications().isEmpty());
+            assertTrue(metricsListener.getRejectedNotifications().isEmpty(),
+                    "Notifications with expired authentication tokens should not count as rejections.");
         } finally {
             client.close().await();
             server.shutdown().await();
         }
     }
 
-    @Test
-    @Parameters({"true", "false"})
-    public void testSendManyNotifications(final boolean useTokenAuthentication) throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void testSendManyNotifications(final boolean useTokenAuthentication) throws Exception {
         final int notificationCount = 1000;
 
         final List<SimpleApnsPushNotification> pushNotifications = new ArrayList<>();
@@ -400,7 +401,8 @@ public class ApnsClientTest extends AbstractClientServerTest {
             for (final Future<PushNotificationResponse<SimpleApnsPushNotification>> future : futures) {
                 future.await();
 
-                assertTrue("Send future should have succeeded, but failed with: " + future.cause(), future.isSuccess());
+                assertTrue(future.isSuccess(),
+                        "Send future should have succeeded, but failed with: " + future.cause());
             }
         } finally {
             client.close().await();
@@ -408,9 +410,9 @@ public class ApnsClientTest extends AbstractClientServerTest {
         }
     }
 
-    @Test
-    @Parameters({"true", "false"})
-    public void testSendManyNotificationsWithListeners(final boolean useTokenAuthentication) throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void testSendManyNotificationsWithListeners(final boolean useTokenAuthentication) throws Exception {
         final int notificationCount = 1000;
 
         final List<SimpleApnsPushNotification> pushNotifications = new ArrayList<>();
@@ -447,9 +449,9 @@ public class ApnsClientTest extends AbstractClientServerTest {
     }
 
     // See https://github.com/relayrides/pushy/issues/256
-    @Test
-    @Parameters({"true", "false"})
-    public void testRepeatedlySendSameNotification(final boolean useTokenAuthentication) throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void testRepeatedlySendSameNotification(final boolean useTokenAuthentication) throws Exception {
         final int notificationCount = 1000;
 
         final SimpleApnsPushNotification pushNotification =
@@ -479,9 +481,9 @@ public class ApnsClientTest extends AbstractClientServerTest {
         }
     }
 
-    @Test
-    @Parameters({"true", "false"})
-    public void testSendNotificationWithExpiredDeviceToken(final boolean useTokenAuthentication) throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void testSendNotificationWithExpiredDeviceToken(final boolean useTokenAuthentication) throws Exception {
         final Instant expiration = Instant.now();
 
         final PushNotificationHandlerFactory handlerFactory = sslSession -> (headers, payload) -> {
@@ -510,9 +512,9 @@ public class ApnsClientTest extends AbstractClientServerTest {
         }
     }
 
-    @Test
-    @Parameters({"true", "false"})
-    public void testAcceptedNotificationAndAddedConnectionMetrics(final boolean useTokenAuthentication) throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void testAcceptedNotificationAndAddedConnectionMetrics(final boolean useTokenAuthentication) throws Exception {
         final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory());
 
         final TestClientMetricsListener metricsListener = new TestClientMetricsListener();
@@ -542,9 +544,9 @@ public class ApnsClientTest extends AbstractClientServerTest {
         }
     }
 
-    @Test
-    @Parameters({"true", "false"})
-    public void testRejectedNotificationMetrics(final boolean useTokenAuthentication) throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void testRejectedNotificationMetrics(final boolean useTokenAuthentication) throws Exception {
         final PushNotificationHandlerFactory handlerFactory = sslSession -> (headers, payload) -> {
             throw new RejectedNotificationException(RejectionReason.BAD_DEVICE_TOKEN);
         };
@@ -574,9 +576,9 @@ public class ApnsClientTest extends AbstractClientServerTest {
         }
     }
 
-    @Test
-    @Parameters({"true", "false"})
-    public void testFailedConnectionAndWriteFailureMetrics(final boolean useTokenAuthentication) throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void testFailedConnectionAndWriteFailureMetrics(final boolean useTokenAuthentication) throws Exception {
         final TestClientMetricsListener metricsListener = new TestClientMetricsListener();
 
         final ApnsClient client = useTokenAuthentication ?
@@ -601,9 +603,9 @@ public class ApnsClientTest extends AbstractClientServerTest {
         }
     }
 
-    @Test
-    @Parameters({"true", "false"})
-    public void testRepeatedlySendNotificationAfterConnectionFailure(final boolean useTokenAuthentication) throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void testRepeatedlySendNotificationAfterConnectionFailure(final boolean useTokenAuthentication) throws Exception {
         final ApnsClient client = useTokenAuthentication ?
                 this.buildTokenAuthenticationClient() : this.buildTlsAuthenticationClient();
 
@@ -625,9 +627,9 @@ public class ApnsClientTest extends AbstractClientServerTest {
         }
     }
 
-    @Test
-    @Parameters({"true", "false"})
-    public void testRepeatedlySendNotificationAfterConnectionFailureWithListeners(final boolean useTokenAuthentication) throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void testRepeatedlySendNotificationAfterConnectionFailureWithListeners(final boolean useTokenAuthentication) throws Exception {
         final ApnsClient client = useTokenAuthentication ?
                 this.buildTokenAuthenticationClient() : this.buildTlsAuthenticationClient();
 
@@ -652,9 +654,9 @@ public class ApnsClientTest extends AbstractClientServerTest {
         }
     }
 
-    @Test
-    @Parameters(method = "getParametersForTestSendNotificationWithPushTypeHeader")
-    public void testSendNotificationWithPushTypeHeader(final PushType pushType) throws Exception {
+    @ParameterizedTest
+    @MethodSource("getParametersForTestSendNotificationWithPushTypeHeader")
+    void testSendNotificationWithPushTypeHeader(final PushType pushType) throws Exception {
         final ValidatingPushNotificationHandlerFactory handlerFactory = new ValidatingPushNotificationHandlerFactory(
                 DEVICE_TOKENS_BY_TOPIC, EXPIRATION_TIMESTAMPS_BY_DEVICE_TOKEN, this.verificationKeysByKeyId,
                 this.topicsByVerificationKey);
@@ -674,8 +676,8 @@ public class ApnsClientTest extends AbstractClientServerTest {
             final PushNotificationResponse<SimpleApnsPushNotification> response =
                     client.sendNotification(pushNotification).get();
 
-            assertTrue("Clients must send notifications that conform to the APNs protocol specification.",
-                    response.isAccepted());
+            assertTrue(response.isAccepted(),
+                    "Clients must send notifications that conform to the APNs protocol specification.");
 
             parsingServerHandler.waitForNonZeroAcceptedNotifications();
 
@@ -686,16 +688,14 @@ public class ApnsClientTest extends AbstractClientServerTest {
         }
     }
 
-    @SuppressWarnings("unused")
-    private Object getParametersForTestSendNotificationWithPushTypeHeader() {
-        return new Object[] {
-                null,
-                PushType.BACKGROUND,
-                PushType.ALERT,
-                PushType.VOIP,
-                PushType.COMPLICATION,
-                PushType.FILEPROVIDER,
-                PushType.MDM
-        };
+    private static Stream<Arguments> getParametersForTestSendNotificationWithPushTypeHeader() {
+        return Stream.of(
+                arguments((Object) null),
+                arguments(PushType.BACKGROUND),
+                arguments(PushType.ALERT),
+                arguments(PushType.VOIP),
+                arguments(PushType.COMPLICATION),
+                arguments(PushType.FILEPROVIDER),
+                arguments(PushType.MDM));
     }
 }

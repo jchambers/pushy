@@ -24,19 +24,22 @@ package com.eatthepath.pushy.apns;
 
 import io.netty.channel.local.LocalChannel;
 import io.netty.util.AttributeKey;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 
 public class AugmentingReflectiveChannelFactoryTest {
 
-    @Test(expected = NullPointerException.class)
-    public void testAugmentingReflectiveChannelFactoryNullAttributeKey() {
-        new AugmentingReflectiveChannelFactory<>(LocalChannel.class, null, null);
+    @Test
+    void testAugmentingReflectiveChannelFactoryNullAttributeKey() {
+        assertThrows(NullPointerException.class,
+                () -> new AugmentingReflectiveChannelFactory<>(LocalChannel.class, null, null));
     }
 
     @Test
-    public void testNewChannel() {
+    void testNewChannel() {
         final AttributeKey<String> attributeKey = AttributeKey.valueOf(getClass(), "attributeKey");
 
         final AugmentingReflectiveChannelFactory<LocalChannel, String> factory =
@@ -44,7 +47,6 @@ public class AugmentingReflectiveChannelFactoryTest {
 
         final LocalChannel channel = factory.newChannel();
 
-        assertTrue("Newly-created channels should have attribute provided to factory.",
-                channel.hasAttr(attributeKey));
+        assertTrue(channel.hasAttr(attributeKey), "Newly-created channels should have attribute provided to factory.");
     }
 }

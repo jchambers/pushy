@@ -28,15 +28,15 @@ import io.netty.channel.ChannelPromise;
 import io.netty.channel.DefaultChannelPromise;
 import io.netty.channel.local.LocalChannel;
 import io.netty.util.concurrent.*;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class ApnsChannelPoolTest {
 
@@ -124,24 +124,24 @@ public class ApnsChannelPoolTest {
 
     private static OrderedEventExecutor EVENT_EXECUTOR;
 
-    @BeforeClass
+    @BeforeAll
     public static void setUpBeforeClass() {
         EVENT_EXECUTOR = new DefaultEventExecutor();
     }
 
-    @Before
+    @BeforeEach
     public void setUp() {
         this.metricsListener = new TestChannelPoolMetricListener();
         this.pool = new ApnsChannelPool(new TestChannelFactory(), 1, EVENT_EXECUTOR, this.metricsListener);
     }
 
-    @AfterClass
+    @AfterAll
     public static void tearDownAfterClass() throws Exception {
         EVENT_EXECUTOR.shutdownGracefully().await();
     }
 
     @Test
-    public void testAcquireRelease() throws Exception {
+    void testAcquireRelease() throws Exception {
         final Future<Channel> firstAcquireFuture = this.pool.acquire();
         final Future<Channel> secondAcquireFuture = this.pool.acquire();
 
@@ -164,8 +164,9 @@ public class ApnsChannelPoolTest {
         assertEquals(0, this.metricsListener.getConnectionsFailed());
     }
 
+    @SuppressWarnings("AnonymousInnerClassMayBeStatic")
     @Test
-    public void testAcquireConstructionFailure() throws Exception {
+    void testAcquireConstructionFailure() throws Exception {
         final PooledObjectFactory<Channel> factory = new PooledObjectFactory<Channel>() {
             @Override
             public Future<Channel> create(final Promise<Channel> promise) {
@@ -190,7 +191,7 @@ public class ApnsChannelPoolTest {
     }
 
     @Test
-    public void testAcquireClosedChannelFromIdlePool() throws Exception {
+    void testAcquireClosedChannelFromIdlePool() throws Exception {
         final Future<Channel> firstAcquireFuture = this.pool.acquire();
         assertTrue(firstAcquireFuture.await().isSuccess());
 
@@ -216,7 +217,7 @@ public class ApnsChannelPoolTest {
     }
 
     @Test
-    public void testAcquireFromClosedPool() throws Exception {
+    void testAcquireFromClosedPool() throws Exception {
         this.pool.close().await();
 
         final Future<Channel> acquireFuture = this.pool.acquire().await();
@@ -224,7 +225,7 @@ public class ApnsChannelPoolTest {
     }
 
     @Test
-    public void testPendingAcquisitionsDuringPoolClosure() throws Exception {
+    void testPendingAcquisitionsDuringPoolClosure() throws Exception {
         final Future<Channel> firstFuture = this.pool.acquire().await();
 
         assertTrue(firstFuture.isSuccess());
@@ -237,8 +238,9 @@ public class ApnsChannelPoolTest {
         assertFalse(pendingFuture.isSuccess());
     }
 
+    @SuppressWarnings("AnonymousInnerClassMayBeStatic")
     @Test
-    public void testPendingCreateChannelFutureDuringPoolClosure() throws Exception {
+    void testPendingCreateChannelFutureDuringPoolClosure() throws Exception {
         final Promise<Void> createSuccess = new DefaultPromise<>(EVENT_EXECUTOR);
         final PooledObjectFactory<Channel> factory = new PooledObjectFactory<Channel>() {
             @Override

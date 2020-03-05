@@ -29,16 +29,18 @@ import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http2.DefaultHttp2Headers;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.AsciiString;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.*;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.*;
 
 public abstract class ValidatingPushNotificationHandlerTest {
 
@@ -64,7 +66,7 @@ public abstract class ValidatingPushNotificationHandlerTest {
 
     protected abstract void addAcceptableCredentialsToHeaders(Http2Headers headers) throws Exception;
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
         this.headers = new DefaultHttp2Headers()
                 .method(HttpMethod.POST.asciiName())
@@ -79,22 +81,22 @@ public abstract class ValidatingPushNotificationHandlerTest {
         this.payload.writeBytes("{}".getBytes(StandardCharsets.UTF_8));
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         this.payload.release();
     }
 
     @Test
-    public void testHandleNotificationWithValidNotification() throws Exception {
+    void testHandleNotificationWithValidNotification() throws Exception {
         this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap())
                 .handlePushNotification(this.headers, this.payload);
     }
 
     @Test
-    public void testHandleNotificationWithBadApnsId() {
+    void testHandleNotificationWithBadApnsId() {
         this.headers.set(APNS_ID_HEADER, "This is not a valid UUID.");
 
-        this.testWithExpectedRejection("Push notifications with an invalid APNs ID should be rejected.",
+        this.assertNotificationRejected("Push notifications with an invalid APNs ID should be rejected.",
                 this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap()),
                 this.headers,
                 this.payload,
@@ -102,7 +104,7 @@ public abstract class ValidatingPushNotificationHandlerTest {
     }
 
     @Test
-    public void testHandleNotificationWithCollapseId() throws Exception {
+    void testHandleNotificationWithCollapseId() throws Exception {
         this.headers.set(APNS_COLLAPSE_ID_HEADER, "Collapse ID!");
 
         this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap())
@@ -110,10 +112,10 @@ public abstract class ValidatingPushNotificationHandlerTest {
     }
 
     @Test
-    public void testHandleNotificationWithOversizedCollapseId() {
+    void testHandleNotificationWithOversizedCollapseId() {
         this.headers.set(APNS_COLLAPSE_ID_HEADER, "1234567890123456789012345678901234567890123456789012345678901234567890");
 
-        this.testWithExpectedRejection("Push notifications with a collapse ID longer than 64 bytes should be rejected.",
+        this.assertNotificationRejected("Push notifications with a collapse ID longer than 64 bytes should be rejected.",
                 this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap()),
                 this.headers,
                 this.payload,
@@ -121,7 +123,7 @@ public abstract class ValidatingPushNotificationHandlerTest {
     }
 
     @Test
-    public void testHandleNotificationWithExpirationDate() throws Exception {
+    void testHandleNotificationWithExpirationDate() throws Exception {
         this.headers.setInt(APNS_EXPIRATION_HEADER, (int) Instant.now().getEpochSecond());
 
         this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap())
@@ -129,10 +131,10 @@ public abstract class ValidatingPushNotificationHandlerTest {
     }
 
     @Test
-    public void testHandleNotificationWithMissingTopic() {
+    void testHandleNotificationWithMissingTopic() {
         this.headers.remove(APNS_TOPIC_HEADER);
 
-        this.testWithExpectedRejection("Push notifications without a topic should be rejected.",
+        this.assertNotificationRejected("Push notifications without a topic should be rejected.",
                 this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap()),
                 this.headers,
                 this.payload,
@@ -140,7 +142,7 @@ public abstract class ValidatingPushNotificationHandlerTest {
     }
 
     @Test
-    public void testHandleNotificationWithSpecifiedPriority() throws Exception {
+    void testHandleNotificationWithSpecifiedPriority() throws Exception {
         this.headers.setInt(APNS_PRIORITY_HEADER, DeliveryPriority.CONSERVE_POWER.getCode());
 
         this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap())
@@ -153,10 +155,10 @@ public abstract class ValidatingPushNotificationHandlerTest {
     }
 
     @Test
-    public void testHandleNotificationWithBadPriority() {
+    void testHandleNotificationWithBadPriority() {
         this.headers.setInt(APNS_PRIORITY_HEADER, 9000);
 
-        this.testWithExpectedRejection("Push notifications without an unrecognized priority should be rejected.",
+        this.assertNotificationRejected("Push notifications without an unrecognized priority should be rejected.",
                 this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap()),
                 this.headers,
                 this.payload,
@@ -164,10 +166,10 @@ public abstract class ValidatingPushNotificationHandlerTest {
     }
 
     @Test
-    public void testHandleNotificationWithBadPath() {
+    void testHandleNotificationWithBadPath() {
         this.headers.path("/example/definitely-not-the-correct-path/");
 
-        this.testWithExpectedRejection("Push notifications with a bad path should be rejected.",
+        this.assertNotificationRejected("Push notifications with a bad path should be rejected.",
                 this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap()),
                 this.headers,
                 this.payload,
@@ -175,10 +177,10 @@ public abstract class ValidatingPushNotificationHandlerTest {
     }
 
     @Test
-    public void testHandleNotificationWithMissingDeviceToken() {
+    void testHandleNotificationWithMissingDeviceToken() {
         this.headers.path(APNS_PATH_PREFIX);
 
-        this.testWithExpectedRejection("Push notifications with no device token should be rejected.",
+        this.assertNotificationRejected("Push notifications with no device token should be rejected.",
                 this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap()),
                 this.headers,
                 this.payload,
@@ -186,10 +188,10 @@ public abstract class ValidatingPushNotificationHandlerTest {
     }
 
     @Test
-    public void testHandleNotificationWithBadDeviceToken() {
+    void testHandleNotificationWithBadDeviceToken() {
         this.headers.path(APNS_PATH_PREFIX + "Definitely not a legit device token.");
 
-        this.testWithExpectedRejection("Push notifications with a malformed device token should be rejected.",
+        this.assertNotificationRejected("Push notifications with a malformed device token should be rejected.",
                 this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap()),
                 this.headers,
                 this.payload,
@@ -197,11 +199,11 @@ public abstract class ValidatingPushNotificationHandlerTest {
     }
 
     @Test
-    public void testHandleNotificationWithExpiredDeviceToken() {
+    void testHandleNotificationWithExpiredDeviceToken() {
         final Map<String, Instant> deviceTokenExpirationDates =
                 Collections.singletonMap(TOKEN, Instant.now().minusMillis(1));
 
-        this.testWithExpectedRejection("Push notifications with an expired device token should be rejected.",
+        this.assertNotificationRejected("Push notifications with an expired device token should be rejected.",
                 this.getHandler(DEVICE_TOKENS_BY_TOPIC, deviceTokenExpirationDates),
                 this.headers,
                 this.payload,
@@ -209,10 +211,10 @@ public abstract class ValidatingPushNotificationHandlerTest {
     }
 
     @Test
-    public void testHandleNotificationWithDeviceTokenForWrongTopic() {
+    void testHandleNotificationWithDeviceTokenForWrongTopic() {
         this.headers.set(APNS_TOPIC_HEADER, TOPIC + ".definitely.wrong");
 
-        this.testWithExpectedRejection("Push notifications with a device token for the wrong topic should be rejected.",
+        this.assertNotificationRejected("Push notifications with a device token for the wrong topic should be rejected.",
                 this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap()),
                 this.headers,
                 this.payload,
@@ -220,8 +222,8 @@ public abstract class ValidatingPushNotificationHandlerTest {
     }
 
     @Test
-    public void testHandleNotificationWithMissingPayload() {
-        this.testWithExpectedRejection("Push notifications with a device token for the wrong topic should be rejected.",
+    void testHandleNotificationWithMissingPayload() {
+        this.assertNotificationRejected("Push notifications with a device token for the wrong topic should be rejected.",
                 this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap()),
                 this.headers,
                 null,
@@ -229,11 +231,11 @@ public abstract class ValidatingPushNotificationHandlerTest {
     }
 
     @Test
-    public void testHandleNotificationWithEmptyPayload() {
+    void testHandleNotificationWithEmptyPayload() {
         final ByteBuf emptyPayload = UnpooledByteBufAllocator.DEFAULT.buffer();
 
         try {
-            this.testWithExpectedRejection("Push notifications with a device token for the wrong topic should be rejected.",
+            this.assertNotificationRejected("Push notifications with a device token for the wrong topic should be rejected.",
                     this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap()),
                     this.headers,
                     emptyPayload,
@@ -244,7 +246,7 @@ public abstract class ValidatingPushNotificationHandlerTest {
     }
 
     @Test
-    public void testHandleNotificationWithOversizedPayload() {
+    void testHandleNotificationWithOversizedPayload() {
         final int size = 4096 * 2;
         final ByteBuf largePayload = UnpooledByteBufAllocator.DEFAULT.buffer(size);
 
@@ -254,7 +256,7 @@ public abstract class ValidatingPushNotificationHandlerTest {
 
             largePayload.writeBytes(payloadBytes);
 
-            this.testWithExpectedRejection("Push notifications with a device token for the wrong topic should be rejected.",
+            this.assertNotificationRejected("Push notifications with a device token for the wrong topic should be rejected.",
                     this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap()),
                     this.headers,
                     largePayload,
@@ -264,12 +266,10 @@ public abstract class ValidatingPushNotificationHandlerTest {
         }
     }
 
-    protected void testWithExpectedRejection(final String message, final ValidatingPushNotificationHandler handler, final Http2Headers headers, final ByteBuf payload, final RejectionReason expectedRejectionReason) {
-        try {
-            handler.handlePushNotification(headers, payload);
-            fail(message);
-        } catch (final RejectedNotificationException e) {
-            assertEquals(expectedRejectionReason, e.getRejectionReason());
-        }
+    protected void assertNotificationRejected(final String message, final ValidatingPushNotificationHandler handler, final Http2Headers headers, final ByteBuf payload, final RejectionReason expectedRejectionReason) {
+        final RejectedNotificationException rejectedNotificationException =
+                assertThrows(RejectedNotificationException.class, () -> handler.handlePushNotification(headers, payload), message);
+
+        assertEquals(expectedRejectionReason, rejectedNotificationException.getRejectionReason(), message);
     }
 }

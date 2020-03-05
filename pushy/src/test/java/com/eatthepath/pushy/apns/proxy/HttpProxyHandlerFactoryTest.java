@@ -1,9 +1,9 @@
 package com.eatthepath.pushy.apns.proxy;
 
 import com.eatthepath.pushy.apns.ApnsClientBuilder;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.*;
@@ -11,8 +11,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.Assert.*;
-
+import static org.junit.jupiter.api.Assertions.*;
 
 public class HttpProxyHandlerFactoryTest {
 
@@ -60,18 +59,18 @@ public class HttpProxyHandlerFactoryTest {
 
     private static ProxySelector defaultProxySelector;
 
-    @BeforeClass
+    @BeforeAll
     public static void setUpClass() {
         defaultProxySelector = ProxySelector.getDefault();
     }
 
-    @AfterClass
+    @AfterAll
     public static void tearDownClass() {
         ProxySelector.setDefault(defaultProxySelector);
     }
 
     @Test
-    public void testNoProxy() throws URISyntaxException {
+    void testNoProxy() throws URISyntaxException {
 
         ProxySelector.setDefault(new FixedProxiesSelector(Proxy.NO_PROXY));
 
@@ -80,7 +79,7 @@ public class HttpProxyHandlerFactoryTest {
     }
 
     @Test
-    public void testHasHttpProxy() throws URISyntaxException {
+    void testHasHttpProxy() throws URISyntaxException {
 
         ProxySelector.setDefault(new FixedProxiesSelector(DUMMY_HTTP_PROXY));
 
@@ -89,7 +88,7 @@ public class HttpProxyHandlerFactoryTest {
     }
 
     @Test
-    public void testHasSocksProxy() throws URISyntaxException {
+    void testHasSocksProxy() throws URISyntaxException {
 
         ProxySelector.setDefault(new FixedProxiesSelector(DUMMY_SOCKS_PROXY));
 
@@ -98,7 +97,7 @@ public class HttpProxyHandlerFactoryTest {
     }
 
     @Test
-    public void testHasSocksAndHttpProxies() throws URISyntaxException {
+    void testHasSocksAndHttpProxies() throws URISyntaxException {
 
         ProxySelector.setDefault(new FixedProxiesSelector(DUMMY_HTTP_PROXY, DUMMY_SOCKS_PROXY));
 
@@ -107,7 +106,7 @@ public class HttpProxyHandlerFactoryTest {
     }
 
     @Test
-    public void testHasHttpProxyForApnsProductionOnly() throws URISyntaxException {
+    void testHasHttpProxyForApnsProductionOnly() throws URISyntaxException {
 
         ProxySelector.setDefault(new SingleHostHttpProxySelector(ApnsClientBuilder.PRODUCTION_APNS_HOST));
 
@@ -116,7 +115,7 @@ public class HttpProxyHandlerFactoryTest {
     }
 
     @Test
-    public void testHasHttpProxyForApnsDevelopmentOnly() throws URISyntaxException {
+    void testHasHttpProxyForApnsDevelopmentOnly() throws URISyntaxException {
 
         ProxySelector.setDefault(new SingleHostHttpProxySelector(ApnsClientBuilder.DEVELOPMENT_APNS_HOST));
 
@@ -125,7 +124,7 @@ public class HttpProxyHandlerFactoryTest {
     }
 
     @Test
-    public void testProxyWithCredentials() throws URISyntaxException {
+    void testProxyWithCredentials() throws URISyntaxException {
         final String originalUsername = System.getProperty(USERNAME_PROPERTY_KEY);
         final String originalPassword = System.getProperty(PASSWORD_PROPERTY_KEY);
 

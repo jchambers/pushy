@@ -22,12 +22,14 @@
 
 package com.eatthepath.pushy.apns.server;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.InputStream;
 import java.security.KeyStore;
 import java.security.cert.X509Certificate;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class MockApnsServerBuilderTest {
 
@@ -38,7 +40,7 @@ public class MockApnsServerBuilderTest {
     private static final String SERVER_KEYSTORE_PASSWORD = "pushy-test";
 
     @Test
-    public void testSetServerCredentialsFileFileString() throws Exception {
+    void testSetServerCredentialsFileFileString() throws Exception {
         final File certificateFile = new File(this.getClass().getResource(SERVER_CERTIFICATE_FILENAME).toURI());
         final File keyFile = new File(this.getClass().getResource(SERVER_KEY_FILENAME).toURI());
 
@@ -50,7 +52,7 @@ public class MockApnsServerBuilderTest {
     }
 
     @Test
-    public void testSetServerCredentialsInputStreamInputStreamString() throws Exception {
+    void testSetServerCredentialsInputStreamInputStreamString() throws Exception {
         try (final InputStream certificateInputStream = this.getClass().getResourceAsStream(SERVER_CERTIFICATE_FILENAME);
                 final InputStream keyInputStream = this.getClass().getResourceAsStream(SERVER_KEY_FILENAME)) {
 
@@ -63,7 +65,7 @@ public class MockApnsServerBuilderTest {
     }
 
     @Test
-    public void testSetServerCredentialsX509CertificateArrayPrivateKeyString() throws Exception {
+    void testSetServerCredentialsX509CertificateArrayPrivateKeyString() throws Exception {
         try (final InputStream p12InputStream = this.getClass().getResourceAsStream(SERVER_KEYSTORE_FILENAME)) {
             final KeyStore keyStore = KeyStore.getInstance("PKCS12");
             keyStore.load(p12InputStream, SERVER_KEYSTORE_PASSWORD.toCharArray());
@@ -82,32 +84,31 @@ public class MockApnsServerBuilderTest {
         }
     }
 
-    @Test(expected = IllegalStateException.class)
-    public void testBuildWithoutServerCredentials() throws Exception {
-        new MockApnsServerBuilder()
+    @Test
+    void testBuildWithoutServerCredentials() {
+        assertThrows(IllegalStateException.class, () -> new MockApnsServerBuilder()
                 .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
-                .build();
-    }
-
-    @Test(expected = IllegalStateException.class)
-    public void testBuildWithoutHandlerFactory() throws Exception {
-        final File certificateFile = new File(this.getClass().getResource(SERVER_CERTIFICATE_FILENAME).toURI());
-        final File keyFile = new File(this.getClass().getResource(SERVER_KEY_FILENAME).toURI());
-
-        // We're happy here as long as nothing explodes
-        new MockApnsServerBuilder()
-                .setServerCredentials(certificateFile, keyFile, null)
-                .build();
+                .build());
     }
 
     @Test
-    public void testSetMaxConcurrentStreams() {
+    void testBuildWithoutHandlerFactory() throws Exception {
+        final File certificateFile = new File(this.getClass().getResource(SERVER_CERTIFICATE_FILENAME).toURI());
+        final File keyFile = new File(this.getClass().getResource(SERVER_KEY_FILENAME).toURI());
+
+        assertThrows(IllegalStateException.class, () -> new MockApnsServerBuilder()
+                .setServerCredentials(certificateFile, keyFile, null)
+                .build());
+    }
+
+    @Test
+    void testSetMaxConcurrentStreams() {
         // We're happy here as long as nothing explodes
         new MockApnsServerBuilder().setMaxConcurrentStreams(1);
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void testSetNegativeMaxConcurrentStreams() {
-        new MockApnsServerBuilder().setMaxConcurrentStreams(-7);
+    @Test
+    void testSetNegativeMaxConcurrentStreams() {
+        assertThrows(IllegalArgumentException.class, () -> new MockApnsServerBuilder().setMaxConcurrentStreams(-7));
     }
 }

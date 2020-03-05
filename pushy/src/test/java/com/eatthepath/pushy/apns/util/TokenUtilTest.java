@@ -22,19 +22,21 @@
 
 package com.eatthepath.pushy.apns.util;
 
-import static org.junit.Assert.assertEquals;
+import org.junit.jupiter.api.Test;
 
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class TokenUtilTest {
 
     @Test
-    public void testSanitizeTokenString() {
+    void testSanitizeTokenString() {
         assertEquals("ffff1234", TokenUtil.sanitizeTokenString("<ffff 1234>"));
     }
 
-    @Test(expected = NullPointerException.class)
-    public void testSanitizeNullTokenString() {
-        TokenUtil.sanitizeTokenString(null);
+    @SuppressWarnings({"ResultOfMethodCallIgnored", "ConstantConditions"})
+    @Test
+    void testSanitizeNullTokenString() {
+        assertThrows(NullPointerException.class, () -> TokenUtil.sanitizeTokenString(null));
     }
 }

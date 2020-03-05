@@ -22,54 +22,59 @@
 
 package com.eatthepath.pushy.apns.auth;
 
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.stream.Stream;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-@RunWith(JUnitParamsRunner.class)
 public abstract class ApnsKeyTest {
 
     protected abstract ApnsKey getApnsKey() throws NoSuchAlgorithmException, InvalidKeyException, IOException;
 
     @Test
-    public void testGetKeyId() throws Exception {
+    void testGetKeyId() throws Exception {
         assertNotNull(this.getApnsKey().getKeyId());
     }
 
     @Test
-    public void testGetTeamId() throws Exception {
+    void testGetTeamId() throws Exception {
         assertNotNull(this.getApnsKey().getTeamId());
     }
 
     @Test
-    public void testGetKey() throws Exception {
+    void testGetKey() throws Exception {
         assertNotNull(this.getApnsKey().getKey());
     }
 
     @Test
-    public void testGetParams() throws Exception {
+    void testGetParams() throws Exception {
         assertNotNull(this.getApnsKey().getParams());
     }
 
-    @Test
-    // Test vectors from https://tools.ietf.org/html/rfc4648#section-10
-    @Parameters({
-            "Zg==,     f",
-            "Zm8=,     fo",
-            "Zm9v,     foo",
-            "Zm9vYg==, foob",
-            "Zm9vYmE=, fooba",
-            "Zm9vYmFy, foobar"  })
-    public void testDecodeBase64EncodedString(final String base64EncodedString, final String decodedAsciiString) {
+    @ParameterizedTest
+    @MethodSource("argumentsForDecodeBase64EncodedString")
+    void testDecodeBase64EncodedString(final String base64EncodedString, final String decodedAsciiString) {
         assertEquals(decodedAsciiString, new String(ApnsKey.decodeBase64EncodedString(base64EncodedString), StandardCharsets.US_ASCII));
+    }
+
+    private static Stream<Arguments> argumentsForDecodeBase64EncodedString() {
+        // Test vectors from https://tools.ietf.org/html/rfc4648#section-10
+        return Stream.of(
+                arguments("Zg==",     "f"),
+                arguments("Zm8=",     "fo"),
+                arguments("Zm9v",     "foo"),
+                arguments("Zm9vYg==", "foob"),
+                arguments("Zm9vYmE=", "fooba"),
+                arguments("Zm9vYmFy", "foobar"));
     }
 }

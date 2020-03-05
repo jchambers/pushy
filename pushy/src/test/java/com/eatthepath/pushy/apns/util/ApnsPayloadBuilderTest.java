@@ -25,20 +25,21 @@ package com.eatthepath.pushy.apns.util;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-@RunWith(JUnitParamsRunner.class)
 public class ApnsPayloadBuilderTest {
 
     private ApnsPayloadBuilder builder;
@@ -46,13 +47,13 @@ public class ApnsPayloadBuilderTest {
     private static final Gson GSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
     private static final Type MAP_OF_STRING_TO_OBJECT = new TypeToken<Map<String, Object>>(){}.getType();
 
-    @Before
+    @BeforeEach
     public void setUp() {
         this.builder = new ApnsPayloadBuilder();
     }
 
     @Test
-    public void testSetAlertBody() {
+    void testSetAlertBody() {
         final String alertBody = "This is a test alert message.";
 
         this.builder.setLocalizedAlertMessage("test.alert");
@@ -92,7 +93,7 @@ public class ApnsPayloadBuilderTest {
 
     @SuppressWarnings("unchecked")
     @Test
-    public void testSetLocalizedAlertBody() {
+    void testSetLocalizedAlertBody() {
         final String alertKey = "test.alert";
 
         this.builder.setAlertBody("Alert body!");
@@ -126,7 +127,7 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testSetAlertTitle() {
+    void testSetAlertTitle() {
         final String alertTitle = "This is a test alert message.";
 
         this.builder.setLocalizedAlertTitle("alert.title");
@@ -145,7 +146,7 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testSetLocalizedAlertTitle() {
+    void testSetLocalizedAlertTitle() {
         final String localizedAlertTitleKey = "alert.title";
 
         this.builder.setAlertTitle("Alert title!");
@@ -184,7 +185,7 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testSetAlertSubtitle() {
+    void testSetAlertSubtitle() {
         final String alertSubtitle = "This is a test alert message.";
 
         this.builder.setLocalizedAlertSubtitle("alert.subtitle");
@@ -204,7 +205,7 @@ public class ApnsPayloadBuilderTest {
 
     @SuppressWarnings("unchecked")
     @Test
-    public void testSetLocalizedAlertSubitle() {
+    void testSetLocalizedAlertSubitle() {
         final String subtitleKey = "test.subtitle";
 
         this.builder.setAlertSubtitle("Subtitle!");
@@ -238,7 +239,7 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testSetAlertTitleAndBody() {
+    void testSetAlertTitleAndBody() {
         final String alertTitle = "This is a short alert title";
         final String alertBody = "This is a longer alert body";
 
@@ -257,7 +258,7 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testSetLaunchImage() {
+    void testSetLaunchImage() {
         final String launchImageFilename = "launch.png";
         this.builder.setLaunchImageFileName(launchImageFilename);
 
@@ -270,7 +271,7 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testSetShowActionButton() {
+    void testSetShowActionButton() {
         this.builder.setShowActionButton(true);
 
         {
@@ -318,7 +319,7 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testSetActionButtonLabel() {
+    void testSetActionButtonLabel() {
         final String actionButtonLabel = "Bam! Pow!";
 
         this.builder.setLocalizedActionButtonKey("action.key");
@@ -334,7 +335,7 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testSetLocalizedActionButtonKey() {
+    void testSetLocalizedActionButtonKey() {
         final String actionButtonKey = "action.key";
 
         this.builder.setActionButtonLabel("Literal action button label");
@@ -350,7 +351,7 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testSetBadgeNumber() {
+    void testSetBadgeNumber() {
         final int badgeNumber = 4;
         this.builder.setBadgeNumber(badgeNumber);
 
@@ -360,7 +361,7 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testSetSound() {
+    void testSetSound() {
         final String soundFileName = "dying-giraffe.aiff";
         this.builder.setSound(soundFileName);
 
@@ -369,9 +370,9 @@ public class ApnsPayloadBuilderTest {
         assertEquals(soundFileName, aps.get("sound"));
     }
 
-    @Test
-    @Parameters({"true, 1", "false, 0"})
-    public void testSetSoundForCriticalAlert(final boolean isCriticalAlert, final int expectedCriticalValue) {
+    @ParameterizedTest
+    @MethodSource("argumentsForSetSoundForCriticalAlert")
+    void testSetSoundForCriticalAlert(final boolean isCriticalAlert, final int expectedCriticalValue) {
         final String soundFileName = "dying-giraffe.aiff";
         final double soundVolume = 0.781;
 
@@ -387,23 +388,29 @@ public class ApnsPayloadBuilderTest {
         assertEquals(soundVolume, soundDictionary.get("volume"));
     }
 
-    @Test(expected = NullPointerException.class)
-    public void testSetSoundForCriticalAlertNullFilename() {
-        this.builder.setSound(null, true, 0.5);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void testSetSoundForCriticalAlertLowVolume() {
-        this.builder.setSound("test", true, -4);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void testSetSoundForCriticalAlertHighVolume() {
-        this.builder.setSound("test", true, 4);
+    private static Stream<Arguments> argumentsForSetSoundForCriticalAlert() {
+        return Stream.of(
+                arguments(true, 1),
+                arguments(false, 0));
     }
 
     @Test
-    public void testSetCategoryName() {
+    void testSetSoundForCriticalAlertNullFilename() {
+        assertThrows(NullPointerException.class, () -> this.builder.setSound(null, true, 0.5));
+    }
+
+    @Test
+    void testSetSoundForCriticalAlertLowVolume() {
+        assertThrows(IllegalArgumentException.class, () -> this.builder.setSound("test", true, -4));
+    }
+
+    @Test
+    void testSetSoundForCriticalAlertHighVolume() {
+        assertThrows(IllegalArgumentException.class, () -> this.builder.setSound("test", true, 4));
+    }
+
+    @Test
+    void testSetCategoryName() {
         final String categoryName = "INVITE";
         this.builder.setCategoryName(categoryName);
 
@@ -413,7 +420,7 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testSetContentAvailable() {
+    void testSetContentAvailable() {
         {
             final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
             assertNull(aps.get("content-available"));
@@ -428,7 +435,7 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testSetMutableContent() {
+    void testSetMutableContent() {
         {
             final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
             assertNull(aps.get("mutable-content"));
@@ -443,7 +450,7 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testSetThreadId() {
+    void testSetThreadId() {
         final String threadId = "example.thread.identifier";
 
         this.builder.setThreadId(threadId);
@@ -463,7 +470,7 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testSetSummaryArgument() {
+    void testSetSummaryArgument() {
         final String summaryArgument = "This is a summary argument";
 
         this.builder.setSummaryArgument(summaryArgument);
@@ -477,7 +484,7 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testSetSummaryArgumentCount() {
+    void testSetSummaryArgumentCount() {
         final int argumentSummaryCount = 3;
 
         this.builder.setSummaryArgumentCount(argumentSummaryCount);
@@ -490,13 +497,13 @@ public class ApnsPayloadBuilderTest {
         assertEquals(argumentSummaryCount, ((Number) alert.get("summary-arg-count")).intValue());
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void testSetSummaryArgumentCountNonPositive() {
-        this.builder.setSummaryArgumentCount(0);
+    @Test
+    void testSetSummaryArgumentCountNonPositive() {
+        assertThrows(IllegalArgumentException.class, () -> this.builder.setSummaryArgumentCount(0));
     }
 
     @Test
-    public void testAddCustomProperty() {
+    void testAddCustomProperty() {
         final String customKey = "string";
         final String customValue = "Hello";
 
@@ -508,7 +515,7 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testSetUrlArgumentsList() {
+    void testSetUrlArgumentsList() {
         {
             final List<String> arguments = new ArrayList<>();
             arguments.add("first");
@@ -542,7 +549,7 @@ public class ApnsPayloadBuilderTest {
 
     @SuppressWarnings("unchecked")
     @Test
-    public void testSetUrlArgumentsArray() {
+    void testSetUrlArgumentsArray() {
         {
             this.builder.setUrlArguments("first", "second", "third");
 
@@ -557,7 +564,7 @@ public class ApnsPayloadBuilderTest {
         }
 
         {
-            final String[] arguments = new String[0];
+            @SuppressWarnings("ZeroLengthArrayAllocation") final String[] arguments = new String[0];
             this.builder.setUrlArguments(arguments);
 
             final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
@@ -575,7 +582,7 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    public void testBuildMdmPayload() {
+    void testBuildMdmPayload() {
         assertEquals("{\"mdm\":\"Magic!\"}", ApnsPayloadBuilder.buildMdmPayload("Magic!"));
     }
 
