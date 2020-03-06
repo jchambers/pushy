@@ -28,10 +28,10 @@ import com.eatthepath.pushy.apns.util.ApnsPayloadBuilder;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import com.eatthepath.pushy.apns.util.TokenUtil;
 import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
-import io.netty.util.concurrent.Future;
 
 import java.io.File;
 import java.net.InetSocketAddress;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -135,7 +135,6 @@ public class ExampleApp {
         // Finally, when we're done sending notifications (i.e. when our
         // application is shutting down), we should close all APNs clients
         // that may be in play.
-        final Future<Void> closeFuture = apnsClient.close();
-        closeFuture.await();
+        final CompletableFuture<Void> closeFuture = apnsClient.close();
     }
 }

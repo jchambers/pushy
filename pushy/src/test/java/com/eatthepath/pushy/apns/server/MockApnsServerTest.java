@@ -92,15 +92,15 @@ public class MockApnsServerTest extends AbstractClientServerTest {
     void testStartAndShutdown() throws Exception {
         final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory());
 
-        assertTrue(server.start(PORT).await().isSuccess());
-        assertTrue(server.shutdown().await().isSuccess());
+        assertDoesNotThrow(() -> server.start(PORT).get());
+        assertDoesNotThrow(() -> server.shutdown().get());
     }
 
     @Test
     void testShutdownBeforeStart() throws Exception {
         final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory());
 
-        assertTrue(server.shutdown().await().isSuccess());
+        assertDoesNotThrow(() -> server.shutdown().get());
     }
 
     @Test
@@ -115,8 +115,8 @@ public class MockApnsServerTest extends AbstractClientServerTest {
                     .setEventLoopGroup(eventLoopGroup)
                     .build();
 
-            assertTrue(providedGroupServer.start(PORT).await().isSuccess());
-            assertTrue(providedGroupServer.shutdown().await().isSuccess());
+            assertDoesNotThrow(() -> providedGroupServer.start(PORT).get());
+            assertDoesNotThrow(() -> providedGroupServer.shutdown().get());
 
             assertFalse(eventLoopGroup.isShutdown());
         } finally {
@@ -145,11 +145,11 @@ public class MockApnsServerTest extends AbstractClientServerTest {
                     .setEventLoopGroup(eventLoopGroup)
                     .build();
 
-            assertTrue(providedGroupServer.start(PORT).await().isSuccess());
-            assertTrue(providedGroupServer.shutdown().await().isSuccess());
+            assertDoesNotThrow(() -> providedGroupServer.start(PORT).get());
+            assertDoesNotThrow(() -> providedGroupServer.shutdown().get());
 
-            assertTrue(providedGroupServer.start(PORT).await().isSuccess());
-            assertTrue(providedGroupServer.shutdown().await().isSuccess());
+            assertDoesNotThrow(() -> providedGroupServer.start(PORT).get());
+            assertDoesNotThrow(() -> providedGroupServer.shutdown().get());
         } finally {
             eventLoopGroup.shutdownGracefully().await();
         }
@@ -163,7 +163,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
         final ApnsClient client = this.buildTokenAuthenticationClient();
 
         try {
-            server.start(PORT).await();
+            server.start(PORT).get();
 
             final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
 
@@ -178,8 +178,8 @@ public class MockApnsServerTest extends AbstractClientServerTest {
             assertEquals(pushNotification.getTopic(), listener.mostRecentPushNotification.getTopic());
             assertEquals(pushNotification.getPayload(), listener.mostRecentPushNotification.getPayload());
         } finally {
-            client.close().await();
-            server.shutdown().await();
+            client.close().get();
+            server.shutdown().get();
         }
     }
 
@@ -194,7 +194,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
         final ApnsClient client = this.buildTokenAuthenticationClient();
 
         try {
-            server.start(PORT).await();
+            server.start(PORT).get();
 
             final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
 
@@ -208,8 +208,8 @@ public class MockApnsServerTest extends AbstractClientServerTest {
             assertEquals(RejectionReason.BAD_DEVICE_TOKEN, listener.mostRecentRejectionReason);
             assertNull(listener.mostRecentDeviceTokenExpiration);
         } finally {
-            client.close().await();
-            server.shutdown().await();
+            client.close().get();
+            server.shutdown().get();
         }
     }
 
@@ -225,7 +225,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
         final ApnsClient client = this.buildTokenAuthenticationClient();
 
         try {
-            server.start(PORT).await();
+            server.start(PORT).get();
 
             final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
 
@@ -239,8 +239,8 @@ public class MockApnsServerTest extends AbstractClientServerTest {
             assertEquals(RejectionReason.UNREGISTERED, listener.mostRecentRejectionReason);
             assertEquals(expiration, listener.mostRecentDeviceTokenExpiration);
         } finally {
-            client.close().await();
-            server.shutdown().await();
+            client.close().get();
+            server.shutdown().get();
         }
     }
 
@@ -255,7 +255,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
         final ApnsClient client = this.buildTokenAuthenticationClient();
 
         try {
-            server.start(PORT).await();
+            server.start(PORT).get();
 
             final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
 
@@ -268,8 +268,8 @@ public class MockApnsServerTest extends AbstractClientServerTest {
 
             assertEquals(RejectionReason.INTERNAL_SERVER_ERROR, listener.mostRecentRejectionReason);
         } finally {
-            client.close().await();
-            server.shutdown().await();
+            client.close().get();
+            server.shutdown().get();
         }
     }
 
@@ -279,7 +279,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
         final ApnsClient client = this.buildTokenAuthenticationClient();
 
         try {
-            server.start(PORT).await();
+            server.start(PORT).get();
 
             {
                 final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
@@ -305,8 +305,8 @@ public class MockApnsServerTest extends AbstractClientServerTest {
                 assertEquals(pushNotificationWithApnsId.getApnsId(), response.getApnsId());
             }
         } finally {
-            client.close().await();
-            server.shutdown().await();
+            client.close().get();
+            server.shutdown().get();
         }
     }
 
@@ -319,7 +319,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
         final ApnsClient client = this.buildTokenAuthenticationClient();
 
         try {
-            server.start(PORT).await();
+            server.start(PORT).get();
 
             {
                 final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
@@ -345,8 +345,8 @@ public class MockApnsServerTest extends AbstractClientServerTest {
                 assertEquals(pushNotificationWithApnsId.getApnsId(), response.getApnsId());
             }
         } finally {
-            client.close().await();
-            server.shutdown().await();
+            client.close().get();
+            server.shutdown().get();
         }
     }
 }

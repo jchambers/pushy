@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -249,28 +250,23 @@ public class ApnsClient {
      *
      * @since 0.11
      */
-    @SuppressWarnings({ "rawtypes", "unchecked" })
-    public Future<Void> close() {
+    public CompletableFuture<Void> close() {
         log.info("Shutting down.");
 
-        final Future<Void> closeFuture;
+        final CompletableFuture<Void> closeFuture;
 
         if (this.isClosed.compareAndSet(false, true)) {
-            // Since we're (maybe) going to clobber the main event loop group, we should have this promise use the global
-            // event executor to notify listeners.
-            final Promise<Void> closePromise = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
+            closeFuture = new CompletableFuture<>();
 
             this.channelPool.close().addListener((GenericFutureListener<Future<Void>>) closePoolFuture -> {
                 if (ApnsClient.this.shouldShutDownEventLoopGroup) {
-                    ApnsClient.this.eventLoopGroup.shutdownGracefully().addListener((GenericFutureListener) future -> closePromise.trySuccess(null));
+                    ApnsClient.this.eventLoopGroup.shutdownGracefully().addListener(future -> closeFuture.complete(null));
                 } else {
-                    closePromise.trySuccess(null);
+                    closeFuture.complete(null);
                 }
             });
-
-            closeFuture = closePromise;
         } else {
-            closeFuture = new SucceededFuture<>(GlobalEventExecutor.INSTANCE, null);
+            closeFuture = CompletableFuture.completedFuture(null);
         }
 
         return closeFuture;

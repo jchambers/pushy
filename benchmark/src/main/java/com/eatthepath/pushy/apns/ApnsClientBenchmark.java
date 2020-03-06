@@ -111,7 +111,7 @@ public class ApnsClientBenchmark {
             }
         }
 
-        this.server.start(PORT).await();
+        this.server.start(PORT).get();
     }
 
     @Benchmark
@@ -132,8 +132,8 @@ public class ApnsClientBenchmark {
 
     @TearDown
     public void tearDown() throws Exception {
-        this.client.close().await();
-        this.server.shutdown().await();
+        this.client.close().get();
+        this.server.shutdown().get();
 
         final Future<?> clientShutdownFuture = this.clientEventLoopGroup.shutdownGracefully();
         final Future<?> serverShutdownFuture = this.serverEventLoopGroup.shutdownGracefully();
