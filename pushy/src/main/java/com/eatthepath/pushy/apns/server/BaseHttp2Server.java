@@ -36,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLSession;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 abstract class BaseHttp2Server {
@@ -113,11 +114,21 @@ abstract class BaseHttp2Server {
      * @return a {@code Future} that will succeed when the server has bound to the given port and is ready to accept
      * traffic
      */
-    public Future<Void> start(final int port) {
+    public CompletableFuture<Void> start(final int port) {
         final ChannelFuture channelFuture = this.bootstrap.bind(port);
         this.allChannels.add(channelFuture.channel());
 
-        return channelFuture;
+        final CompletableFuture<Void> startFuture = new CompletableFuture<>();
+
+        channelFuture.addListener((future -> {
+            if (future.isSuccess()) {
+                startFuture.complete(null);
+            } else {
+                startFuture.completeExceptionally(future.cause());
+            }
+        }));
+
+        return startFuture;
     }
 
     /**
@@ -132,35 +143,39 @@ abstract class BaseHttp2Server {
      * @return a {@code Future} that will succeed once the server has finished unbinding from its port and, if the
      * server was managing its own event loop group, its event loop group has shut down
      */
-    public Future<Void> shutdown() {
+    public CompletableFuture<Void> shutdown() {
+        final CompletableFuture<Void> shutdownFuture = new CompletableFuture<>();
         final Future<Void> channelCloseFuture = this.allChannels.close();
-
-        final Future<Void> disconnectFuture;
 
         if (this.shouldShutDownEventLoopGroup) {
             // Wait for the channel to close before we try to shut down the event loop group
             channelCloseFuture.addListener(future ->
                     BaseHttp2Server.this.bootstrap.config().group().shutdownGracefully());
 
-            // Since the termination future for the event loop group is a Future<?> instead of a Future<Void>,
-            // we'll need to create our own promise and then notify it when the termination future completes.
-            disconnectFuture = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
-
-            this.bootstrap.config().group().terminationFuture().addListener(future ->
-                    ((Promise<Void>) disconnectFuture).trySuccess(null));
+            this.bootstrap.config().group().terminationFuture().addListener(future -> {
+                if (future.isSuccess()) {
+                    shutdownFuture.complete(null);
+                } else {
+                    shutdownFuture.completeExceptionally(future.cause());
+                }
+            });
         } else {
-            // We're done once we've closed all the channels, so we can return the closure future directly.
-            disconnectFuture = channelCloseFuture;
+            // We're done once we've closed all the channels.
+            channelCloseFuture.addListener(future -> {
+                if (future.isSuccess()) {
+                    shutdownFuture.complete(null);
+                } else {
+                    shutdownFuture.completeExceptionally(future.cause());
+                }
+            });
         }
 
-        disconnectFuture.addListener((GenericFutureListener<Future<Void>>) future -> {
+        return shutdownFuture.thenRun(() -> {
             if (BaseHttp2Server.this.sslContext instanceof ReferenceCounted) {
                 if (BaseHttp2Server.this.hasReleasedSslContext.compareAndSet(false, true)) {
                     ((ReferenceCounted) BaseHttp2Server.this.sslContext).release();
                 }
             }
         });
-
-        return disconnectFuture;
     }
 }

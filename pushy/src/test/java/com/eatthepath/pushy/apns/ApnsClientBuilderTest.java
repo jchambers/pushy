@@ -65,7 +65,7 @@ public class ApnsClientBuilderTest {
                 .setClientCredentials(new File(this.getClass().getResource(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME).toURI()), KEYSTORE_PASSWORD)
                 .build();
 
-        client.close().await();
+        client.close().get();
     }
 
     @Test
@@ -78,7 +78,7 @@ public class ApnsClientBuilderTest {
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .build();
 
-            client.close().await();
+            client.close().get();
         }
     }
 
@@ -103,7 +103,7 @@ public class ApnsClientBuilderTest {
                     .setClientCredentials((X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey(), KEYSTORE_PASSWORD)
                     .build();
 
-            client.close().await();
+            client.close().get();
         }
     }
 
@@ -121,7 +121,7 @@ public class ApnsClientBuilderTest {
                     .setClientCredentials((X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey(), null)
                     .build();
 
-            client.close().await();
+            client.close().get();
         }
     }
 
@@ -137,7 +137,7 @@ public class ApnsClientBuilderTest {
                     .setSigningKey(signingKey)
                     .build();
 
-            client.close().await();
+            client.close().get();
         }
     }
 

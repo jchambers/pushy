@@ -148,8 +148,7 @@ sendNotificationFuture.whenComplete((response, cause) -> {
 All APNs clients—even those that have never sent a message—may allocate and hold on to system resources, and it's important to release them. APNs clients are intended to be persistent, long-lived resources; you definitely don't need to shut down a client after sending a notification (or even batch of notifications), but you'll want to shut down your client (or clients) when your application is shutting down:
 
 ```java
-final Future<Void> closeFuture = apnsClient.close();
-closeFuture.await();
+final CompletableFuture<Void> closeFuture = apnsClient.close();
 ```
 
 When shutting down, clients will wait for all sent-but-not-acknowledged notifications to receive a reply from the server. Notifications that have been passed to `sendNotification` but not yet sent to the server (i.e. notifications waiting in an internal queue) will fail immediately when disconnecting. Callers should generally make sure that all sent notifications have been acknowledged by the server before shutting down.
