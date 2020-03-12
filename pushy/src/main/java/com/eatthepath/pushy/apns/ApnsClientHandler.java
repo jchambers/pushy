@@ -72,7 +72,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     private Throwable connectionErrorCause;
 
-    private static final String APNS_PATH_PREFIX = "/3/device/";
+    private static final AsciiString APNS_PATH_PREFIX = new AsciiString("/3/device/");
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
     private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
@@ -237,7 +237,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         final Http2Headers headers = new DefaultHttp2Headers()
                 .method(HttpMethod.POST.asciiName())
                 .authority(this.authority)
-                .path(APNS_PATH_PREFIX + pushNotification.getToken())
+                .path(APNS_PATH_PREFIX.concat(pushNotification.getToken()))
                 .scheme(HttpScheme.HTTPS.name())
                 .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) pushNotification.getExpiration().getEpochSecond());
 
