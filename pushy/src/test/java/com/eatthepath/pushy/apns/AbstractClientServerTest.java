@@ -35,6 +35,7 @@ import io.netty.util.concurrent.*;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Timeout;
 
 import javax.net.ssl.SSLException;
 import java.io.IOException;
@@ -45,6 +46,7 @@ import java.security.interfaces.ECPublicKey;
 import java.time.Instant;
 import java.util.*;
 
+@Timeout(10)
 public class AbstractClientServerTest {
 
     protected static NioEventLoopGroup CLIENT_EVENT_LOOP_GROUP;
