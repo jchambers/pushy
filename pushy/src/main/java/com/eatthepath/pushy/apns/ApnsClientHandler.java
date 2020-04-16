@@ -472,7 +472,11 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     @Override
     protected void onStreamError(final ChannelHandlerContext context, final boolean isOutbound, final Throwable cause, final Http2Exception.StreamException streamException) {
         final Http2Stream stream = this.connection().stream(streamException.streamId());
-        stream.setProperty(this.streamErrorCausePropertyKey, streamException);
+
+        // The affected stream may already be closed (or was never open in the first place)
+        if (stream != null) {
+            stream.setProperty(this.streamErrorCausePropertyKey, streamException);
+        }
 
         super.onStreamError(context, isOutbound, cause, streamException);
     }
