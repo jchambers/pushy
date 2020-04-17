@@ -331,13 +331,13 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
             sslContext = sslContextBuilder.build();
         }
 
-        final T server = this.constructServer(sslContext);
-
-        if (sslContext instanceof ReferenceCounted) {
-            ((ReferenceCounted) sslContext).release();
+        try {
+            return this.constructServer(sslContext);
+        } finally {
+            if (sslContext instanceof ReferenceCounted) {
+                ((ReferenceCounted) sslContext).release();
+            }
         }
-
-        return server;
     }
 
     protected abstract T constructServer(final SslContext sslContext);

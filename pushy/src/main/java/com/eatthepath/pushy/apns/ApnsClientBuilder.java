@@ -560,15 +560,15 @@ public class ApnsClientBuilder {
             sslContext = sslContextBuilder.build();
         }
 
-        final ApnsClient client = new ApnsClient(this.apnsServerAddress, sslContext, this.signingKey,
-                this.tokenExpiration, this.proxyHandlerFactory, this.connectionTimeout,
-                this.idlePingInterval, this.gracefulShutdownTimeout, this.concurrentConnections,
-                this.metricsListener, this.frameLogger, this.eventLoopGroup);
-
-        if (sslContext instanceof ReferenceCounted) {
-            ((ReferenceCounted) sslContext).release();
+        try {
+            return new ApnsClient(this.apnsServerAddress, sslContext, this.signingKey,
+                    this.tokenExpiration, this.proxyHandlerFactory, this.connectionTimeout,
+                    this.idlePingInterval, this.gracefulShutdownTimeout, this.concurrentConnections,
+                    this.metricsListener, this.frameLogger, this.eventLoopGroup);
+        } finally {
+            if (sslContext instanceof ReferenceCounted) {
+                ((ReferenceCounted) sslContext).release();
+            }
         }
-
-        return client;
     }
 }
