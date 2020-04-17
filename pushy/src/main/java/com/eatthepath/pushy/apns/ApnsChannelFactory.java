@@ -201,11 +201,13 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
     @Override
     public void close() {
-        this.addressResolverGroup.close();
-
-        if (this.sslContext instanceof ReferenceCounted) {
-            if (this.hasReleasedSslContext.compareAndSet(false, true)) {
-                ((ReferenceCounted) this.sslContext).release();
+        try {
+            this.addressResolverGroup.close();
+        } finally {
+            if (this.sslContext instanceof ReferenceCounted) {
+                if (this.hasReleasedSslContext.compareAndSet(false, true)) {
+                    ((ReferenceCounted) this.sslContext).release();
+                }
             }
         }
     }
