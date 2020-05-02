@@ -22,16 +22,14 @@
 
 package com.eatthepath.pushy.apns.util;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
+import com.eatthepath.json.JsonDeserializer;
+import com.eatthepath.json.ParseException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -43,9 +41,6 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 public class ApnsPayloadBuilderTest {
 
     private ApnsPayloadBuilder builder;
-
-    private static final Gson GSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
-    private static final Type MAP_OF_STRING_TO_OBJECT = new TypeToken<Map<String, Object>>(){}.getType();
 
     @BeforeEach
     public void setUp() {
@@ -503,13 +498,13 @@ public class ApnsPayloadBuilderTest {
     }
 
     @Test
-    void testAddCustomProperty() {
+    void testAddCustomProperty() throws ParseException {
         final String customKey = "string";
         final String customValue = "Hello";
 
         this.builder.addCustomProperty(customKey, customValue);
 
-        final Map<String, Object> payload = GSON.fromJson(this.builder.build(), MAP_OF_STRING_TO_OBJECT);
+        final Map<String, Object> payload = new JsonDeserializer().parseJsonObject(this.builder.build());
 
         assertEquals(customValue, payload.get(customKey));
     }
@@ -588,7 +583,14 @@ public class ApnsPayloadBuilderTest {
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> extractApsObjectFromPayloadString(final String payloadString) {
-        final Map<String, Object> payload = GSON.fromJson(payloadString, MAP_OF_STRING_TO_OBJECT);
+        final Map<String, Object> payload;
+
+        try {
+            payload = new JsonDeserializer().parseJsonObject(payloadString);
+        } catch (final ParseException e) {
+            throw new IllegalArgumentException("Failed to parse JSON", e);
+        }
+
         return (Map<String, Object>) payload.get("aps");
     }
 }
