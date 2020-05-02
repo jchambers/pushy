@@ -23,6 +23,7 @@
 package com.eatthepath.pushy.apns;
 
 import java.time.Instant;
+import java.util.Map;
 
 class ErrorResponse {
     private final String reason;
@@ -31,6 +32,30 @@ class ErrorResponse {
     public ErrorResponse(final String reason, final Instant timestamp) {
         this.reason = reason;
         this.timestamp = timestamp;
+    }
+
+    static ErrorResponse fromMap(final Map<String, Object> errorResponseMap) {
+        String reason;
+
+        try {
+            reason = (String) errorResponseMap.get("reason");
+        } catch (final ClassCastException e) {
+            reason = null;
+        }
+
+        Instant timestamp;
+
+        if (errorResponseMap.containsKey("timestamp")) {
+            try {
+                timestamp = Instant.ofEpochMilli((Long) errorResponseMap.get("timestamp"));
+            } catch (final ClassCastException e) {
+                timestamp = null;
+            }
+        } else {
+            timestamp = null;
+        }
+
+        return new ErrorResponse(reason, timestamp);
     }
 
     String getReason() {

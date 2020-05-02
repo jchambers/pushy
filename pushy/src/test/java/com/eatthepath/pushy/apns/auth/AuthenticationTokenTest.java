@@ -29,6 +29,9 @@ import java.security.KeyPair;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.time.Instant;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -51,17 +54,89 @@ public class AuthenticationTokenTest {
     }
 
     @Test
-    void testAuthenticationTokenFromSigningKey() throws Exception {
-        // We're happy here as long as nothing explodes
-        new AuthenticationToken(this.signingKey, Instant.now());
+    void testHeaderFromMap() {
+        assertThrows(IllegalArgumentException.class, () ->
+                AuthenticationToken.AuthenticationTokenHeader.fromMap(Collections.emptyMap()));
+
+        assertThrows(IllegalArgumentException.class, () ->
+                AuthenticationToken.AuthenticationTokenHeader.fromMap(
+                        Collections.singletonMap("kid", false)));
+
+        final String keyId = "test-key-id";
+
+        final Map<String, Object> headerMap = new HashMap<>();
+        headerMap.put("alg", "ES256");
+        headerMap.put("typ", "JWT");
+        headerMap.put("kid", keyId);
+
+        final AuthenticationToken.AuthenticationTokenHeader authenticationTokenHeader =
+                AuthenticationToken.AuthenticationTokenHeader.fromMap(headerMap);
+
+        assertEquals(keyId, authenticationTokenHeader.getKeyId());
+    }
+
+    @Test
+    void testClaimsFromMap() {
+        assertThrows(IllegalArgumentException.class,
+                () -> AuthenticationToken.AuthenticationTokenClaims.fromMap(
+                        Collections.emptyMap()));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> AuthenticationToken.AuthenticationTokenClaims.fromMap(
+                        Collections.singletonMap("iss", "team-id")));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> AuthenticationToken.AuthenticationTokenClaims.fromMap(
+                        Collections.singletonMap("iat", Instant.now().getEpochSecond())));
+
+        {
+            final Map<String, Object> badIssuerMap = new HashMap<>();
+            badIssuerMap.put("iss", false);
+            badIssuerMap.put("iat", Instant.now().getEpochSecond());
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> AuthenticationToken.AuthenticationTokenClaims.fromMap(
+                            badIssuerMap));
+        }
+
+        {
+            final Map<String, Object> badTimestampMap = new HashMap<>();
+            badTimestampMap.put("iss", "team-id");
+            badTimestampMap.put("iat", "soon");
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> AuthenticationToken.AuthenticationTokenClaims.fromMap(
+                            badTimestampMap));
+        }
+
+        {
+            final String teamId = "team-id";
+
+            // Hack: make sure we don't have a millisecond component
+            final Instant timestamp = Instant.ofEpochSecond(Instant.now().getEpochSecond());
+
+            final Map<String, Object> claimsMap = new HashMap<>();
+            claimsMap.put("iss", "team-id");
+            claimsMap.put("iat", timestamp.getEpochSecond());
+
+            final AuthenticationToken.AuthenticationTokenClaims claims =
+                    AuthenticationToken.AuthenticationTokenClaims.fromMap(claimsMap);
+
+            assertEquals(teamId, claims.getIssuer());
+            assertEquals(timestamp, claims.getIssuedAt());
+        }
+    }
+
+    @Test
+    void testAuthenticationTokenFromSigningKey() {
+        assertDoesNotThrow(() -> new AuthenticationToken(this.signingKey, Instant.now()));
     }
 
     @Test
     void testAuthenticationTokenFromString() throws Exception {
         final String base64EncodedToken = new AuthenticationToken(this.signingKey, Instant.now()).toString();
 
-        // We're happy here as long as nothing explodes
-        new AuthenticationToken(base64EncodedToken);
+        assertDoesNotThrow(() -> new AuthenticationToken(base64EncodedToken));
     }
 
     @Test

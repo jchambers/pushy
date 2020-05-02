@@ -22,6 +22,8 @@
 
 package com.eatthepath.pushy.apns.auth;
 
+import com.eatthepath.json.JsonDeserializer;
+import com.eatthepath.json.ParseException;
 import com.eatthepath.pushy.apns.util.InstantAsTimeSinceEpochTypeAdapter;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -38,6 +40,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.Signature;
 import java.security.SignatureException;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
@@ -65,7 +68,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class AuthenticationToken {
 
-    private static class AuthenticationTokenHeader {
+    static class AuthenticationTokenHeader {
         @SerializedName("alg")
         private final String algorithm = "ES256";
 
@@ -79,12 +82,20 @@ public class AuthenticationToken {
             this.keyId = keyId;
         }
 
+        static AuthenticationTokenHeader fromMap(final Map<String, Object> headerMap) {
+            if (!headerMap.containsKey("kid") || !(headerMap.get("kid") instanceof String)) {
+                throw new IllegalArgumentException("Header map must map a string value to the \"kid\" key.");
+            }
+
+            return new AuthenticationTokenHeader((String) headerMap.get("kid"));
+        }
+
         String getKeyId() {
             return this.keyId;
         }
     }
 
-    private static class AuthenticationTokenClaims {
+    static class AuthenticationTokenClaims {
 
         @SerializedName("iss")
         private final String issuer;
@@ -95,6 +106,21 @@ public class AuthenticationToken {
         AuthenticationTokenClaims(final String teamId, final Instant issuedAt) {
             this.issuer = teamId;
             this.issuedAt = issuedAt;
+        }
+
+        static AuthenticationTokenClaims fromMap(final Map<String, Object> claimsMap) {
+            if (!claimsMap.containsKey("iss") || !(claimsMap.get("iss") instanceof String)) {
+                throw new IllegalArgumentException("Claims map must map a string value to the \"iss\" key.");
+            }
+
+            if (!claimsMap.containsKey("iat") || !(claimsMap.get("iat") instanceof Long)) {
+                throw new IllegalArgumentException("Claims map must map a long value to the \"iat\" key.");
+            }
+
+            final String teamId = (String) claimsMap.get("iss");
+            final Instant issuedAt = Instant.ofEpochSecond((Long) claimsMap.get("iat"));
+
+            return new AuthenticationTokenClaims(teamId, issuedAt);
         }
 
         String getIssuer() {
@@ -175,8 +201,26 @@ public class AuthenticationToken {
             throw new IllegalArgumentException();
         }
 
-        this.header = GSON.fromJson(new String(decodeBase64UrlEncodedString(jwtSegments[0]), StandardCharsets.US_ASCII), AuthenticationTokenHeader.class);
-        this.claims = GSON.fromJson(new String(decodeBase64UrlEncodedString(jwtSegments[1]), StandardCharsets.US_ASCII), AuthenticationTokenClaims.class);
+        final JsonDeserializer jsonDeserializer = new JsonDeserializer();
+
+        try {
+            this.header = AuthenticationTokenHeader.fromMap(
+                    jsonDeserializer.parseJsonObject(
+                            new String(decodeBase64UrlEncodedString(jwtSegments[0]), StandardCharsets.US_ASCII)));
+        } catch (final ParseException e) {
+            throw new IllegalArgumentException("Could not parse header as a JSON object: " +
+                    new String(decodeBase64UrlEncodedString(jwtSegments[0]), StandardCharsets.US_ASCII));
+        }
+
+        try {
+            this.claims = AuthenticationTokenClaims.fromMap(
+                    jsonDeserializer.parseJsonObject(
+                            new String(decodeBase64UrlEncodedString(jwtSegments[1]), StandardCharsets.US_ASCII)));
+        } catch (final ParseException e) {
+            throw new IllegalArgumentException("Could not parse claims as a JSON object: " +
+                    new String(decodeBase64UrlEncodedString(jwtSegments[1]), StandardCharsets.US_ASCII));
+        }
+
         this.signatureBytes = decodeBase64UrlEncodedString(jwtSegments[2]);
     }
 

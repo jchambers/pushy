@@ -680,7 +680,6 @@ public class ApnsPayloadBuilder {
      *
      * @return a reference to this payload builder
      *
-     * @see Gson#toJson(Object)
      * @see <a href="https://github.com/google/gson/blob/master/UserGuide.md#TOC-Using-Gson">Gson User Guide - Using
      * Gson</a>
      */
