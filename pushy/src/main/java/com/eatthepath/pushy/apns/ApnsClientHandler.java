@@ -22,11 +22,10 @@
 
 package com.eatthepath.pushy.apns;
 
-import com.eatthepath.pushy.apns.util.InstantAsTimeSinceEpochTypeAdapter;
+import com.eatthepath.json.JsonDeserializer;
+import com.eatthepath.json.ParseException;
 import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
 import com.eatthepath.uuid.FastUUID;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
@@ -50,7 +49,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -86,9 +84,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private static final IOException STREAM_CLOSED_BEFORE_REPLY_EXCEPTION =
             new IOException("Stream closed before a reply was received");
 
-    private static final Gson GSON = new GsonBuilder()
-            .registerTypeAdapter(Instant.class, new InstantAsTimeSinceEpochTypeAdapter(TimeUnit.MILLISECONDS))
-            .create();
+    private final JsonDeserializer jsonDeserializer = new JsonDeserializer();
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientHandler.class);
 
@@ -332,7 +328,16 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
                     true, getApnsIdFromHeaders(headers), null, null));
         } else {
             if (data != null) {
-                final ErrorResponse errorResponse = GSON.fromJson(data.toString(StandardCharsets.UTF_8), ErrorResponse.class);
+                ErrorResponse errorResponse;
+
+                try {
+                    errorResponse = ErrorResponse.fromMap(
+                            jsonDeserializer.parseJsonObject(data.toString(StandardCharsets.UTF_8)));
+                } catch (final ParseException e) {
+                    log.error("Failed to parse error response: {}", data.toString(StandardCharsets.UTF_8));
+                    errorResponse = new ErrorResponse(null, null);
+                }
+
                 this.handleErrorResponse(context, stream.id(), headers, pushNotification, errorResponse);
             } else {
                 log.warn("Gateway sent an end-of-stream HEADERS frame for an unsuccessful notification.");
