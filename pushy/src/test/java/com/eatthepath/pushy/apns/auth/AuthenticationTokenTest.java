@@ -76,6 +76,18 @@ public class AuthenticationTokenTest {
     }
 
     @Test
+    void testHeadersToMap() {
+        final String keyId = "test-key";
+
+        final Map<String, Object> headerMap = new HashMap<>();
+        headerMap.put("alg", "ES256");
+        headerMap.put("typ", "JWT");
+        headerMap.put("kid", keyId);
+
+        assertEquals(headerMap, new AuthenticationToken.AuthenticationTokenHeader(keyId).toMap());
+    }
+
+    @Test
     void testClaimsFromMap() {
         assertThrows(IllegalArgumentException.class,
                 () -> AuthenticationToken.AuthenticationTokenClaims.fromMap(
@@ -116,7 +128,7 @@ public class AuthenticationTokenTest {
             final Instant timestamp = Instant.ofEpochSecond(Instant.now().getEpochSecond());
 
             final Map<String, Object> claimsMap = new HashMap<>();
-            claimsMap.put("iss", "team-id");
+            claimsMap.put("iss", teamId);
             claimsMap.put("iat", timestamp.getEpochSecond());
 
             final AuthenticationToken.AuthenticationTokenClaims claims =
@@ -125,6 +137,20 @@ public class AuthenticationTokenTest {
             assertEquals(teamId, claims.getIssuer());
             assertEquals(timestamp, claims.getIssuedAt());
         }
+    }
+
+    @Test
+    void testClaimsToMap() {
+        final String teamId = "team-id";
+
+        // Hack: make sure we don't have a millisecond component
+        final Instant timestamp = Instant.ofEpochSecond(Instant.now().getEpochSecond());
+
+        final Map<String, Object> claimsMap = new HashMap<>();
+        claimsMap.put("iss", teamId);
+        claimsMap.put("iat", timestamp.getEpochSecond());
+
+        assertEquals(claimsMap, new AuthenticationToken.AuthenticationTokenClaims(teamId, timestamp).toMap());
     }
 
     @Test

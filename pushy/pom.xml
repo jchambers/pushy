@@ -53,10 +53,6 @@
             <artifactId>fast-uuid</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
         </dependency>
@@ -147,7 +143,6 @@
                     <links>
                         <link>https://docs.oracle.com/javase/8/docs/api/</link>
                         <link>https://netty.io/4.1/api/</link>
-                        <link>https://www.javadoc.io/doc/com.google.code.gson/gson/2.8.0/</link>
                     </links>
                 </configuration>
             </plugin>

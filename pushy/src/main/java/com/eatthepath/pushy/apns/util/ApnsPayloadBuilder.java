@@ -22,8 +22,7 @@
 
 package com.eatthepath.pushy.apns.util;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import com.eatthepath.json.JsonSerializer;
 
 import java.util.*;
 
@@ -58,7 +57,7 @@ public class ApnsPayloadBuilder {
     private Integer badgeNumber = null;
 
     private String soundFileName = null;
-    private SoundForCriticalAlert soundForCriticalAlert = null;
+    private Map<String, Object> soundForCriticalAlert = null;
 
     private String categoryName = null;
 
@@ -72,6 +71,8 @@ public class ApnsPayloadBuilder {
     private Integer summaryArgumentCount = null;
 
     private String[] urlArguments = null;
+
+    private final HashMap<String, Object> customProperties = new HashMap<>();
 
     private boolean preferStringRepresentationForAlerts = false;
 
@@ -103,22 +104,7 @@ public class ApnsPayloadBuilder {
 
     private static final String MDM_KEY = "mdm";
 
-    private final HashMap<String, Object> customProperties = new HashMap<>();
-
-    private static final Gson GSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
-
-    @SuppressWarnings({"FieldCanBeLocal", "unused"})
-    private static class SoundForCriticalAlert {
-        private final String name;
-        private final int critical;
-        private final double volume;
-
-        private SoundForCriticalAlert(final String name, final boolean critical, final double volume) {
-            this.name = name;
-            this.critical = critical ? 1 : 0;
-            this.volume = volume;
-        }
-    }
+    public static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     /**
      * The name of the iOS default push notification sound.
@@ -466,9 +452,19 @@ public class ApnsPayloadBuilder {
         }
 
         this.soundFileName = null;
-        this.soundForCriticalAlert = new SoundForCriticalAlert(soundFileName, isCriticalAlert, soundVolume);
+        this.soundForCriticalAlert = buildSoundForCriticalAlertMap(soundFileName, isCriticalAlert, soundVolume);
 
         return this;
+    }
+
+    private static Map<String, Object> buildSoundForCriticalAlertMap(final String name, final boolean critical, final double volume) {
+        final Map<String, Object> soundForCriticalAlertMap = new HashMap<>(3, 1);
+
+        soundForCriticalAlertMap.put("name", name);
+        soundForCriticalAlertMap.put("critical", critical ? 1 : 0);
+        soundForCriticalAlertMap.put("volume", volume);
+
+        return soundForCriticalAlertMap;
     }
 
     /**
@@ -630,7 +626,7 @@ public class ApnsPayloadBuilder {
      * @since 0.8.2
      */
     public ApnsPayloadBuilder setUrlArguments(final List<String> arguments) {
-        return this.setUrlArguments(arguments != null ? arguments.toArray(new String[0]) : null);
+        return this.setUrlArguments(arguments != null ? arguments.toArray(EMPTY_STRING_ARRAY) : null);
     }
 
     /**
@@ -671,17 +667,12 @@ public class ApnsPayloadBuilder {
      * identifying when the provider sent the notification. Any action associated with an alert message should not be
      * destructive—for example, it should not delete data on the device.</blockquote>
      *
-     * <p>The value for the property is serialized to JSON by <a href="https://github.com/google/gson">Gson</a>. For
-     * a detailed explanation of how Gson serializes Java objects to JSON, please see the
-     * <a href="https://github.com/google/gson/blob/master/UserGuide.md#TOC-Using-Gson">Gson User Guide</a>.</p>
+     * <p>The value for the property is serialized to JSON as described in {@link JsonSerializer}.</p>
      *
      * @param key the key of the custom property in the payload object
      * @param value the value of the custom property
      *
      * @return a reference to this payload builder
-     *
-     * @see <a href="https://github.com/google/gson/blob/master/UserGuide.md#TOC-Using-Gson">Gson User Guide - Using
-     * Gson</a>
      */
     public ApnsPayloadBuilder addCustomProperty(final String key, final Object value) {
         this.customProperties.put(key, value);
@@ -810,7 +801,7 @@ public class ApnsPayloadBuilder {
             payload.put(entry.getKey(), entry.getValue());
         }
 
-        return GSON.toJson(payload);
+        return JsonSerializer.writeJsonTextAsString(payload);
     }
 
     /**
@@ -829,6 +820,6 @@ public class ApnsPayloadBuilder {
      * @since 0.12
      */
     public static String buildMdmPayload(final String pushMagicValue) {
-        return GSON.toJson(java.util.Collections.singletonMap(MDM_KEY, pushMagicValue));
+        return JsonSerializer.writeJsonTextAsString(Collections.singletonMap(MDM_KEY, pushMagicValue));
     }
 }
