@@ -20,26 +20,10 @@
  * THE SOFTWARE.
  */
 
-package com.eatthepath.pushy.apns.util;
-
-import com.eatthepath.json.JsonSerializer;
-
 /**
- * A simple APNs payload builder that serializes payloads using a {@link JsonSerializer}.
+ * <p>Provides a concrete implementation of the {@link com.eatthepath.pushy.apns.util.ApnsPayloadBuilder} base class
+ * that serializes payloads using <a href="https://github.com/google/gson">Gson</a>.</p>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
- *
- * @since 0.14.0
  */
-public class SimpleApnsPayloadBuilder extends ApnsPayloadBuilder {
-
-    @Override
-    public String build() {
-        return JsonSerializer.writeJsonTextAsString(this.buildPayloadMap());
-    }
-
-    @Override
-    public String buildMdmPayload(final String pushMagicValue) {
-        return JsonSerializer.writeJsonTextAsString(this.buildMdmPayloadMap(pushMagicValue));
-    }
-}
+package com.eatthepath.pushy.apns.util.gson;

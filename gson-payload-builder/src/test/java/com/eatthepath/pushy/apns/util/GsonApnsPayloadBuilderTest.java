@@ -22,24 +22,20 @@
 
 package com.eatthepath.pushy.apns.util;
 
-import com.eatthepath.json.JsonSerializer;
+import com.eatthepath.pushy.apns.util.gson.GsonApnsPayloadBuilder;
+import org.junit.jupiter.api.Test;
 
-/**
- * A simple APNs payload builder that serializes payloads using a {@link JsonSerializer}.
- *
- * @author <a href="https://github.com/jchambers">Jon Chambers</a>
- *
- * @since 0.14.0
- */
-public class SimpleApnsPayloadBuilder extends ApnsPayloadBuilder {
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+class GsonApnsPayloadBuilderTest extends ApnsPayloadBuilderTest {
 
     @Override
-    public String build() {
-        return JsonSerializer.writeJsonTextAsString(this.buildPayloadMap());
+    protected ApnsPayloadBuilder getBuilder() {
+        return new GsonApnsPayloadBuilder();
     }
 
-    @Override
-    public String buildMdmPayload(final String pushMagicValue) {
-        return JsonSerializer.writeJsonTextAsString(this.buildMdmPayloadMap(pushMagicValue));
+    @Test
+    void gsonApnsPayloadBuilder() {
+        assertThrows(NullPointerException.class, () -> new GsonApnsPayloadBuilder(null));
     }
 }

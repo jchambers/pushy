@@ -81,6 +81,8 @@
         <module>benchmark</module>
         <module>dropwizard-metrics-listener</module>
         <module>micrometer-metrics-listener</module>
+        <module>gson-payload-builder</module>
+        <module>jackson-payload-builder</module>
     </modules>
 
     <dependencyManagement>
