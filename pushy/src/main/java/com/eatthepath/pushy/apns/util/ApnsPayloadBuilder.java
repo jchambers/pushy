@@ -27,15 +27,15 @@ import com.eatthepath.json.JsonSerializer;
 import java.util.*;
 
 /**
- * <p>A utility class for constructing JSON payloads suitable for inclusion in APNs push notifications. Payload builders
- * are reusable, but are <em>not</em> thread-safe.</p>
+ * <p>A base utility class for constructing JSON payloads suitable for inclusion in APNs push notifications. Payload
+ * builders are reusable, but are <em>not</em> thread-safe.</p>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
  * @see <a href="https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification">Generating a Remote Notification</a>
  */
 @SuppressWarnings({"UnusedReturnValue", "unused"})
-public class ApnsPayloadBuilder {
+public abstract class ApnsPayloadBuilder {
 
     private String alertBody = null;
 
@@ -680,11 +680,14 @@ public class ApnsPayloadBuilder {
     }
 
     /**
-     * Returns a JSON representation of the push notification payload under construction.
+     * Returns a map representing the push notification payload under construction. Subclasses will generally serialize
+     * this map as a JSON string to produce a push notification payload.
      *
-     * @return a JSON representation of the payload under construction (possibly with an abbreviated alert body)
+     * @return a map representing the push notification payload under construction
+     *
+     * @since 0.14.0
      */
-    public String build() {
+    protected Map<String, Object> buildPayloadMap() {
         final Map<String, Object> payload = new HashMap<>();
 
         {
@@ -801,7 +804,35 @@ public class ApnsPayloadBuilder {
             payload.put(entry.getKey(), entry.getValue());
         }
 
-        return JsonSerializer.writeJsonTextAsString(payload);
+        return payload;
+    }
+
+    /**
+     * Returns a JSON representation of the push notification payload under construction.
+     *
+     * @return a JSON representation of the payload under construction (possibly with an abbreviated alert body)
+     *
+     * @see #buildPayloadMap()
+     *
+     * @since 0.14.0
+     */
+    public abstract String build();
+
+    /**
+     * Returns a map representing a
+     * <a href="https://developer.apple.com/library/content/documentation/Miscellaneous/Reference/MobileDeviceManagementProtocolRef/1-Introduction/Introduction.html#//apple_ref/doc/uid/TP40017387-CH1-SW1">Mobile
+     * Device Management</a> "wake up" payload. Subclasses will generally serialize this map as a JSON string to produce
+     * an MDM payload.
+     *
+     * @param pushMagicValue the "push magic" string that the device sends to the MDM server in a {@code TokenUpdate}
+     * message
+     *
+     * @return a map representing an MDM "wake up" notification payload
+     *
+     * @since 0.14.0
+     */
+    protected Map<String, String> buildMdmPayloadMap(final String pushMagicValue) {
+        return Collections.singletonMap(MDM_KEY, pushMagicValue);
     }
 
     /**
@@ -817,9 +848,9 @@ public class ApnsPayloadBuilder {
      * @see <a href="https://developer.apple.com/library/content/documentation/Miscellaneous/Reference/MobileDeviceManagementProtocolRef/3-MDM_Protocol/MDM_Protocol.html#//apple_ref/doc/uid/TP40017387-CH3-SW2">Mobile
      * Device Management (MDM) Protocol</a>
      *
-     * @since 0.12
+     * @since 0.14.0
+     *
+     * @see #buildMdmPayloadMap(String)
      */
-    public static String buildMdmPayload(final String pushMagicValue) {
-        return JsonSerializer.writeJsonTextAsString(Collections.singletonMap(MDM_KEY, pushMagicValue));
-    }
+    public abstract String buildMdmPayload(final String pushMagicValue);
 }

@@ -38,13 +38,15 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-public class ApnsPayloadBuilderTest {
+public abstract class ApnsPayloadBuilderTest {
 
     private ApnsPayloadBuilder builder;
 
+    protected abstract ApnsPayloadBuilder getBuilder();
+
     @BeforeEach
     public void setUp() {
-        this.builder = new ApnsPayloadBuilder();
+        this.builder = getBuilder();
     }
 
     @Test
@@ -578,7 +580,7 @@ public class ApnsPayloadBuilderTest {
 
     @Test
     void testBuildMdmPayload() {
-        assertEquals("{\"mdm\":\"Magic!\"}", ApnsPayloadBuilder.buildMdmPayload("Magic!"));
+        assertEquals("{\"mdm\":\"Magic!\"}", builder.buildMdmPayload("Magic!"));
     }
 
     @SuppressWarnings("unchecked")

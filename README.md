@@ -82,7 +82,7 @@ Pushy's APNs clients maintain an internal pool of connections to the APNs server
 final SimpleApnsPushNotification pushNotification;
 
 {
-    final ApnsPayloadBuilder payloadBuilder = new ApnsPayloadBuilder();
+    final ApnsPayloadBuilder payloadBuilder = new SimpleApnsPayloadBuilder();
     payloadBuilder.setAlertBody("Example!");
 
     final String payload = payloadBuilder.build();
