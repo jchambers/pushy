@@ -22,24 +22,25 @@
 
 package com.eatthepath.pushy.apns.util;
 
-import com.eatthepath.json.JsonSerializer;
+import com.eatthepath.pushy.apns.util.gson.GsonApnsPayloadBuilder;
+import com.google.gson.GsonBuilder;
 
-/**
- * A simple APNs payload builder that serializes payloads using a {@link JsonSerializer}.
- *
- * @author <a href="https://github.com/jchambers">Jon Chambers</a>
- *
- * @since 0.14.0
- */
-public class SimpleApnsPayloadBuilder extends ApnsPayloadBuilder {
+import java.text.DateFormat;
 
-    @Override
-    public String build() {
-        return JsonSerializer.writeJsonTextAsString(this.buildPayloadMap());
-    }
+public class ExampleApp {
 
-    @Override
-    public String buildMdmPayload(final String pushMagicValue) {
-        return JsonSerializer.writeJsonTextAsString(this.buildMdmPayloadMap(pushMagicValue));
+    public static void main(final String... args) {
+        final ApnsPayloadBuilder gsonPayloadBuilder =
+                new GsonApnsPayloadBuilder();
+
+        gsonPayloadBuilder.setAlertBody("Hello from GSON!");
+
+        final String payload = gsonPayloadBuilder.build();
+
+        final ApnsPayloadBuilder customizedGsonPayloadBuilder =
+                new GsonApnsPayloadBuilder(new GsonBuilder()
+                        .disableHtmlEscaping()
+                        .setDateFormat(DateFormat.SHORT, DateFormat.MEDIUM)
+                        .create());
     }
 }

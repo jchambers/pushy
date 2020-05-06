@@ -92,6 +92,8 @@ final SimpleApnsPushNotification pushNotification;
 }
 ```
 
+Pushy includes a [`SimpleApnsPayloadBuilder`](https://pushy-apns.org/apidocs/0.14/com/eatthepath/pushy/apns/util/SimpleApnsPayloadBuilder.html), and payload builders based on [Gson](https://github.com/jchambers/pushy/tree/master/gson-payload-builder) and [Jackson](https://github.com/jchambers/pushy/tree/master/jackson-payload-builder) are available as separate modules. [APNs payloads are just JSON strings](https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification), and callers may produce payloads by the method of their choice; while Pushy's payload builders may be convenient, callers are _not_ obligated to use them.
+
 The process of sending a push notification is asynchronous; although the process of sending a notification and getting a reply from the server may take some time, the client will return a [`CompletableFuture`](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletableFuture.html) right away. You can use that `CompletableFuture` to track the progress and eventual outcome of the sending operation. Note that sending a notification returns a [`PushNotificationFuture`](https://pushy-apns.org/apidocs/0.13/com/eatthepath/pushy/apns/util/concurrent/PushNotificationFuture.html), which is a subclass of `CompletableFuture` that always holds a reference to the notification that was sent.
 
 ```java

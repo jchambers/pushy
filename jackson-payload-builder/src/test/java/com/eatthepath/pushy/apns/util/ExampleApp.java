@@ -22,24 +22,24 @@
 
 package com.eatthepath.pushy.apns.util;
 
-import com.eatthepath.json.JsonSerializer;
+import com.eatthepath.pushy.apns.util.jackson.JacksonApnsPayloadBuilder;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
-/**
- * A simple APNs payload builder that serializes payloads using a {@link JsonSerializer}.
- *
- * @author <a href="https://github.com/jchambers">Jon Chambers</a>
- *
- * @since 0.14.0
- */
-public class SimpleApnsPayloadBuilder extends ApnsPayloadBuilder {
+public class ExampleApp {
 
-    @Override
-    public String build() {
-        return JsonSerializer.writeJsonTextAsString(this.buildPayloadMap());
-    }
+    public static void main(final String... args) {
+        final ApnsPayloadBuilder jacksonPayloadBuilder =
+                new JacksonApnsPayloadBuilder();
 
-    @Override
-    public String buildMdmPayload(final String pushMagicValue) {
-        return JsonSerializer.writeJsonTextAsString(this.buildMdmPayloadMap(pushMagicValue));
+        jacksonPayloadBuilder.setAlertBody("Hello from Jackson!");
+
+        final String payload = jacksonPayloadBuilder.build();
+
+        final ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, true);
+
+        final ApnsPayloadBuilder customizedJacksonPayloadBuilder =
+                new JacksonApnsPayloadBuilder(objectMapper);
     }
 }
