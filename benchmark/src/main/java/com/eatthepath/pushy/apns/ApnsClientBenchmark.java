@@ -26,6 +26,7 @@ import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
 import com.eatthepath.pushy.apns.server.BenchmarkApnsServer;
 import com.eatthepath.pushy.apns.server.BenchmarkApnsServerBuilder;
 import com.eatthepath.pushy.apns.util.ApnsPayloadBuilder;
+import com.eatthepath.pushy.apns.util.SimpleApnsPayloadBuilder;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
@@ -101,7 +102,7 @@ public class ApnsClientBenchmark {
 
         this.pushNotifications = new ArrayList<>(this.notificationCount);
         {
-            final ApnsPayloadBuilder payloadBuilder = new ApnsPayloadBuilder();
+            final ApnsPayloadBuilder payloadBuilder = new SimpleApnsPayloadBuilder();
 
             for (int i = 0; i < this.notificationCount; i++) {
                 final String payload =

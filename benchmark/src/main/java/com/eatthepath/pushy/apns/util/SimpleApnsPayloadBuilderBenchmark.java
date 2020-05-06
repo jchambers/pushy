@@ -29,9 +29,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 @State(Scope.Thread)
-public class ApnsPayloadBuilderBenchmark {
+public class SimpleApnsPayloadBuilderBenchmark {
 
-    private ApnsPayloadBuilder apnsPayloadBuilder;
+    private SimpleApnsPayloadBuilder payloadBuilder;
 
     @Param({"512", "4096"})
     public int messageBodyLength;
@@ -43,7 +43,7 @@ public class ApnsPayloadBuilderBenchmark {
 
     @Setup
     public void setUp() {
-        this.apnsPayloadBuilder = new ApnsPayloadBuilder();
+        this.payloadBuilder = new SimpleApnsPayloadBuilder();
 
         final char[] messageBodyCharacters;
         {
@@ -68,7 +68,7 @@ public class ApnsPayloadBuilderBenchmark {
 
     @Benchmark
     public String testBuild() {
-        this.apnsPayloadBuilder.setAlertBody(this.messageBody);
-        return this.apnsPayloadBuilder.build();
+        this.payloadBuilder.setAlertBody(this.messageBody);
+        return this.payloadBuilder.build();
     }
 }
