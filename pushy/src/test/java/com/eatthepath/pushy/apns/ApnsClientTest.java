@@ -493,7 +493,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
 
             assertFalse(response.isAccepted());
             assertEquals("Unregistered", response.getRejectionReason());
-            assertEquals(expiration, response.getTokenInvalidationTimestamp());
+            assertEquals(expiration.toEpochMilli(), response.getTokenInvalidationTimestamp().toEpochMilli());
         } finally {
             client.close().get();
             server.shutdown().get();

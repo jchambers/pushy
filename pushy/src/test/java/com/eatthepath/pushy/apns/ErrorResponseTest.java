@@ -64,7 +64,7 @@ class ErrorResponseTest {
             final ErrorResponse errorResponse = ErrorResponse.fromMap(errorResponseMap);
 
             assertEquals(reason, errorResponse.getReason());
-            assertEquals(timestamp, errorResponse.getTimestamp());
+            assertEquals(timestamp.toEpochMilli(), errorResponse.getTimestamp().toEpochMilli());
         }
 
         {
