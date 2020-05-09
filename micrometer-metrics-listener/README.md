@@ -1,6 +1,6 @@
 # Micrometer Metrics listener for Pushy
 
-This module is an implementation of Pushy's [`ApnsClientMetricsListener`](http://relayrides.github.io/pushy/apidocs/0.13/com/relayrides/pushy/apns/ApnsClientMetricsListener.html) interface that uses the [Micrometer application monitoring library](http://micrometer.io/) to gather and report metrics. If you use [Maven](http://maven.apache.org/), you can add the listener to your project by adding the following dependency declaration to your POM:
+This module is an implementation of Pushy's [`ApnsClientMetricsListener`](https://pushy-apns.org/apidocs/0.13/com/eatthepath/pushy/apns/ApnsClientMetricsListener.html) interface that uses the [Micrometer application monitoring library](http://micrometer.io/) to gather and report metrics. If you use [Maven](http://maven.apache.org/), you can add the listener to your project by adding the following dependency declaration to your POM:
 
 ```xml
 <dependency>

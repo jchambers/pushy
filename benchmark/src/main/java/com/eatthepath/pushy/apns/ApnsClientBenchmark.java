@@ -62,7 +62,7 @@ public class ApnsClientBenchmark {
     private static final String SERVER_CERTIFICATES_FILENAME = "/server_certs.pem";
     private static final String SERVER_KEY_FILENAME = "/server_key.pem";
 
-    private static final String TOPIC = "com.relayrides.pushy";
+    private static final String TOPIC = "com.eatthepath.pushy";
     private static final String TEAM_ID = "benchmark.team";
     private static final String KEY_ID = "benchmark.key";
     private static final int TOKEN_LENGTH = 32;

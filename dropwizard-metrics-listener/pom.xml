@@ -62,8 +62,8 @@
                     <overview>${basedir}/src/main/java/overview.html</overview>
                     <show>public</show>
                     <links>
-                        <link>http://relayrides.github.io/pushy/apidocs/0.12/</link>
-                        <link>http://metrics.dropwizard.io/3.1.0/apidocs/</link>
+                        <link>https://pushy-apns.org/apidocs/0.14/</link>
+                        <link>https://metrics.dropwizard.io/3.1.0/apidocs/</link>
                     </links>
                 </configuration>
             </plugin>

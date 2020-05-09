@@ -353,7 +353,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
 
             metricsListener.waitForNonZeroAcceptedNotifications();
 
-            // See https://github.com/relayrides/pushy/issues/448
+            // See https://github.com/jchambers/pushy/issues/448
             assertEquals(1, metricsListener.getSentNotifications().size(),
                     "Re-sent notifications with expired tokens must not be double-counted.");
 
@@ -438,7 +438,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
         }
     }
 
-    // See https://github.com/relayrides/pushy/issues/256
+    // See https://github.com/jchambers/pushy/issues/256
     @ParameterizedTest
     @ValueSource(booleans = { true, false })
     void testRepeatedlySendSameNotification(final boolean useTokenAuthentication) throws Exception {

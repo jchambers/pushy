@@ -29,7 +29,7 @@
  * {@link com.eatthepath.pushy.apns.ApnsClientBuilder#setProxyHandlerFactory(ProxyHandlerFactory)} method. Proxy handler
  * factory implementations are provided for HTTP, SOCKS4, and SOCKS5 proxies.</p>
  *
- * @author <a href="mailto:jon@relayrides.com">Jon Chambers</a>
+ * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */
 package com.eatthepath.pushy.apns.proxy;
 

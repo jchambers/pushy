@@ -32,7 +32,7 @@
     <name>Pushy parent</name>
     <description>A Java library for sending push notifications</description>
     <inceptionYear>2013</inceptionYear>
-    <url>https://relayrides.github.io/pushy/</url>
+    <url>https://pushy-apns.org/</url>
 
     <licenses>
         <license>
@@ -43,11 +43,11 @@
     </licenses>
 
     <scm>
-        <connection>scm:git:https://github.com/relayrides/pushy.git</connection>
-        <developerConnection>scm:git:git@github.com:relayrides/pushy.git</developerConnection>
-        <url>https://github.com/relayrides/pushy</url>
-      <tag>HEAD</tag>
-  </scm>
+        <connection>scm:git:https://github.com/jchambers/pushy.git</connection>
+        <developerConnection>scm:git:git@github.com:jchambers/pushy.git</developerConnection>
+        <url>https://github.com/jchambers/pushy</url>
+        <tag>HEAD</tag>
+    </scm>
 
     <developers>
         <developer>

@@ -30,7 +30,7 @@
  * <p>The {@link com.eatthepath.pushy.apns.ApnsPushNotification} interface represents a single APNs push notification
  * sent to a single device. A simple concrete implementation of the {@code ApnsPushNotification} interface
  * ({@link com.eatthepath.pushy.apns.util.SimpleApnsPushNotification}) and tools for constructing push notification
- * payloads can be found in the {@code com.relayrides.pushy.apns.util} package.</p>
+ * payloads can be found in the {@code com.eatthepath.pushy.apns.util} package.</p>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */

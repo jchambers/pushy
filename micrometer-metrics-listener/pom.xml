@@ -61,7 +61,7 @@
                     <overview>${basedir}/src/main/java/overview.html</overview>
                     <show>public</show>
                     <links>
-                        <link>http://relayrides.github.io/pushy/apidocs/0.12/</link>
+                        <link>https://pushy-apns.org/apidocs/0.12/</link>
                     </links>
                 </configuration>
             </plugin>
