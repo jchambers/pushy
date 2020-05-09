@@ -158,6 +158,8 @@ public class JsonSerializer {
      * {@code Strings} (via their {@link Object#toString() toString} method) regardless of their actual type.
      *
      * @param map the map to return as a JSON text
+     *
+     * @return a JSON string representing the given map
      */
     public static String writeJsonTextAsString(final Map<?, ?> map) {
         final StringBuilder stringBuilder = new StringBuilder();
@@ -207,6 +209,8 @@ public class JsonSerializer {
      * Returns the given {@link Collection} as a JSON string.
      *
      * @param collection the collection to return as a JSON text
+     *
+     * @return a JSON string representing the given collection
      */
     public static String writeJsonTextAsString(final Collection<?> collection) {
         final StringBuilder stringBuilder = new StringBuilder();
@@ -250,6 +254,8 @@ public class JsonSerializer {
      * Returns the given array of {@code bytes} as a JSON string.
      *
      * @param array the array to return as a JSON text
+     *
+     * @return a JSON string representing the given array
      */
     public static String writeJsonTextAsString(final byte[] array) {
         final StringBuilder stringBuilder = new StringBuilder();
@@ -293,6 +299,8 @@ public class JsonSerializer {
      * Returns the given array of {@code shorts} as a JSON string.
      *
      * @param array the array to return as a JSON text
+     *
+     * @return a JSON string representing the given array
      */
     public static String writeJsonTextAsString(final short[] array) {
         final StringBuilder stringBuilder = new StringBuilder();
@@ -336,6 +344,8 @@ public class JsonSerializer {
      * Returns the given array of {@code ints} as a JSON string.
      *
      * @param array the array to return as a JSON text
+     *
+     * @return a JSON string representing the given array
      */
     public static String writeJsonTextAsString(final int[] array) {
         final StringBuilder stringBuilder = new StringBuilder();
@@ -379,6 +389,8 @@ public class JsonSerializer {
      * Returns the given array of {@code longs} as a JSON string.
      *
      * @param array the array to return as a JSON text
+     *
+     * @return a JSON string representing the given array
      */
     public static String writeJsonTextAsString(final long[] array) {
         final StringBuilder stringBuilder = new StringBuilder();
@@ -422,6 +434,8 @@ public class JsonSerializer {
      * Returns the given array of {@code floats} as a JSON string.
      *
      * @param array the array to return as a JSON text
+     *
+     * @return a JSON string representing the given array
      */
     public static String writeJsonTextAsString(final float[] array) {
         final StringBuilder stringBuilder = new StringBuilder();
@@ -465,6 +479,8 @@ public class JsonSerializer {
      * Returns the given array of {@code doubles} as a JSON string.
      *
      * @param array the array to return as a JSON text
+     *
+     * @return a JSON string representing the given array
      */
     public static String writeJsonTextAsString(final double[] array) {
         final StringBuilder stringBuilder = new StringBuilder();
@@ -508,6 +524,8 @@ public class JsonSerializer {
      * Returns the given array of {@code booleans} as a JSON string.
      *
      * @param array the array to return as a JSON text
+     *
+     * @return a JSON string representing the given array
      */
     public static String writeJsonTextAsString(final boolean[] array) {
         final StringBuilder stringBuilder = new StringBuilder();
@@ -551,6 +569,8 @@ public class JsonSerializer {
      * Returns the given array of {@code chars} as a JSON string.
      *
      * @param array the array to return as a JSON text
+     *
+     * @return a JSON string representing the given array
      */
     public static String writeJsonTextAsString(final char[] array) {
         final StringBuilder stringBuilder = new StringBuilder();
@@ -594,6 +614,8 @@ public class JsonSerializer {
      * Returns the given array of {@code Objects} as a JSON string.
      *
      * @param array the array to return as a JSON text
+     *
+     * @return a JSON string representing the given array
      */
     public static String writeJsonTextAsString(final Object[] array) {
         final StringBuilder stringBuilder = new StringBuilder();
