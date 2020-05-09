@@ -27,7 +27,7 @@
     <groupId>com.eatthepath</groupId>
     <artifactId>pushy-parent</artifactId>
     <packaging>pom</packaging>
-    <version>0.13.12-SNAPSHOT</version>
+    <version>0.13.12</version>
 
     <name>Pushy parent</name>
     <description>A Java library for sending push notifications</description>
@@ -46,7 +46,7 @@
         <connection>scm:git:https://github.com/relayrides/pushy.git</connection>
         <developerConnection>scm:git:git@github.com:relayrides/pushy.git</developerConnection>
         <url>https://github.com/relayrides/pushy</url>
-      <tag>HEAD</tag>
+      <tag>pushy-0.13.12</tag>
   </scm>
 
     <developers>
