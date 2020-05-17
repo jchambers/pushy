@@ -22,8 +22,7 @@
 
 package com.eatthepath.pushy.apns;
 
-import com.eatthepath.json.JsonDeserializer;
-import com.eatthepath.json.ParseException;
+import com.eatthepath.json.JsonParser;
 import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
 import com.eatthepath.uuid.FastUUID;
 import io.netty.buffer.ByteBuf;
@@ -48,6 +47,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.text.ParseException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
@@ -84,7 +84,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private static final IOException STREAM_CLOSED_BEFORE_REPLY_EXCEPTION =
             new IOException("Stream closed before a reply was received");
 
-    private final JsonDeserializer jsonDeserializer = new JsonDeserializer();
+    private final JsonParser jsonParser = new JsonParser();
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientHandler.class);
 
@@ -332,7 +332,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
                 try {
                     errorResponse = ErrorResponse.fromMap(
-                            jsonDeserializer.parseJsonObject(data.toString(StandardCharsets.UTF_8)));
+                            jsonParser.parseJsonObject(data.toString(StandardCharsets.UTF_8)));
                 } catch (final ParseException e) {
                     log.error("Failed to parse error response: {}", data.toString(StandardCharsets.UTF_8));
                     errorResponse = new ErrorResponse(null, null);

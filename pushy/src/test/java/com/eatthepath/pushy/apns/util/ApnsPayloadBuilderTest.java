@@ -22,14 +22,14 @@
 
 package com.eatthepath.pushy.apns.util;
 
-import com.eatthepath.json.JsonDeserializer;
-import com.eatthepath.json.ParseException;
+import com.eatthepath.json.JsonParser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -506,7 +506,7 @@ public abstract class ApnsPayloadBuilderTest {
 
         this.builder.addCustomProperty(customKey, customValue);
 
-        final Map<String, Object> payload = new JsonDeserializer().parseJsonObject(this.builder.build());
+        final Map<String, Object> payload = new JsonParser().parseJsonObject(this.builder.build());
 
         assertEquals(customValue, payload.get(customKey));
     }
@@ -588,9 +588,9 @@ public abstract class ApnsPayloadBuilderTest {
         final Map<String, Object> payload;
 
         try {
-            payload = new JsonDeserializer().parseJsonObject(payloadString);
+            payload = new JsonParser().parseJsonObject(payloadString);
         } catch (final ParseException e) {
-            throw new IllegalArgumentException("Failed to parse JSON", e);
+            throw new IllegalArgumentException("Failed to parse JSON: " + payloadString, e);
         }
 
         return (Map<String, Object>) payload.get("aps");
