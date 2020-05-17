@@ -22,9 +22,8 @@
 
 package com.eatthepath.pushy.apns.auth;
 
-import com.eatthepath.json.JsonDeserializer;
+import com.eatthepath.json.JsonParser;
 import com.eatthepath.json.JsonSerializer;
-import com.eatthepath.json.ParseException;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.base64.Base64;
@@ -36,6 +35,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.Signature;
 import java.security.SignatureException;
+import java.text.ParseException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -201,11 +201,11 @@ public class AuthenticationToken {
             throw new IllegalArgumentException();
         }
 
-        final JsonDeserializer jsonDeserializer = new JsonDeserializer();
+        final JsonParser jsonParser = new JsonParser();
 
         try {
             this.header = AuthenticationTokenHeader.fromMap(
-                    jsonDeserializer.parseJsonObject(
+                    jsonParser.parseJsonObject(
                             new String(decodeBase64UrlEncodedString(jwtSegments[0]), StandardCharsets.US_ASCII)));
         } catch (final ParseException e) {
             throw new IllegalArgumentException("Could not parse header as a JSON object: " +
@@ -214,7 +214,7 @@ public class AuthenticationToken {
 
         try {
             this.claims = AuthenticationTokenClaims.fromMap(
-                    jsonDeserializer.parseJsonObject(
+                    jsonParser.parseJsonObject(
                             new String(decodeBase64UrlEncodedString(jwtSegments[1]), StandardCharsets.US_ASCII)));
         } catch (final ParseException e) {
             throw new IllegalArgumentException("Could not parse claims as a JSON object: " +
