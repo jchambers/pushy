@@ -25,6 +25,7 @@ package com.eatthepath.pushy.apns;
 import com.eatthepath.uuid.FastUUID;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -68,8 +69,8 @@ class SimplePushNotificationResponse<T extends ApnsPushNotification> implements 
     }
 
     @Override
-    public Instant getTokenInvalidationTimestamp() {
-        return this.tokenExpirationTimestamp;
+    public Optional<Instant> getTokenInvalidationTimestamp() {
+        return Optional.ofNullable(this.tokenExpirationTimestamp);
     }
 
     @Override
