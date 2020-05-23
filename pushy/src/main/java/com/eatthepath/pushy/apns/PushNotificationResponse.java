@@ -23,6 +23,7 @@
 package com.eatthepath.pushy.apns;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -78,13 +79,13 @@ public interface PushNotificationResponse<T extends ApnsPushNotification> {
      * to send notifications to the expired token unless the token has been re-registered more recently than the
      * returned timestamp.
      *
-     * @return the time at which APNs confirmed the token was no longer valid for the given topic, or {@code null} if
-     * the push notification was either accepted or rejected for a reason other than token invalidation
+     * @return the time at which APNs confirmed the token was no longer valid for the given topic, or empty if the push
+     * notification was either accepted or rejected for a reason other than token invalidation
      *
      * @see <a href="https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/sending_notification_requests_to_apns#2947616">Sending
      * Notification Requests to APNs</a>
      *
      * @since 0.5
      */
-    Instant getTokenInvalidationTimestamp();
+    Optional<Instant> getTokenInvalidationTimestamp();
 }
