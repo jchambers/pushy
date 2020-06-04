@@ -332,7 +332,9 @@ public class ApnsClientTest extends AbstractClientServerTest {
     @Test
     void testSendNotificationWithExpiredAuthenticationToken() throws Exception {
         final PushNotificationHandlerFactory expireFirstTokenHandlerFactory =
-                sslSession -> new ExpireFirstTokenPushNotificationHandler();
+                sslSession -> (PushNotificationHandler) (headers, payload) -> {
+                    throw new RejectedNotificationException(RejectionReason.EXPIRED_PROVIDER_TOKEN);
+                };
 
         final MockApnsServer server = this.buildServer(expireFirstTokenHandlerFactory);
 
@@ -348,20 +350,8 @@ public class ApnsClientTest extends AbstractClientServerTest {
             final PushNotificationResponse<SimpleApnsPushNotification> response =
                     client.sendNotification(pushNotification).get();
 
-            assertTrue(response.isAccepted(),
-                    "Client should automatically re-send notifications with expired authentication tokens.");
-
-            metricsListener.waitForNonZeroAcceptedNotifications();
-
-            // See https://github.com/jchambers/pushy/issues/448
-            assertEquals(1, metricsListener.getSentNotifications().size(),
-                    "Re-sent notifications with expired tokens must not be double-counted.");
-
-            assertEquals(1, metricsListener.getAcceptedNotifications().size(),
-                    "Re-sent notifications should be counted as accepted exactly once.");
-
-            assertTrue(metricsListener.getRejectedNotifications().isEmpty(),
-                    "Notifications with expired authentication tokens should not count as rejections.");
+            assertFalse(response.isAccepted(),
+                    "Expired token failures should be fatal.");
         } finally {
             client.close().get();
             server.shutdown().get();
