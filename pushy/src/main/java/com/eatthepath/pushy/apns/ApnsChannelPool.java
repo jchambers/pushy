@@ -235,7 +235,8 @@ class ApnsChannelPool {
      * @return a {@code Future} that will be completed when all resources held by this pool have been released
      */
     public Future<Void> close() {
-        final Promise<Void> closeDonePromise = new DefaultPromise<>(this.executor);
+        final Promise<Void> closePromise = new DefaultPromise<>(this.executor);
+
         this.allChannels.close().addListener(allCloseFuture -> {
             ApnsChannelPool.this.isClosed = true;
 
@@ -257,9 +258,10 @@ class ApnsChannelPool {
                     acquisitionPromise.tryFailure(POOL_CLOSED_EXCEPTION);
                 }
 
-                closeDonePromise.setSuccess(null);
+                closePromise.setSuccess(null);
             });
         });
-        return closeDonePromise;
+
+        return closePromise;
     }
 }
