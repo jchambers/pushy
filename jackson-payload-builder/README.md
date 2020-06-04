@@ -6,7 +6,7 @@ This module provides an [`ApnsPayloadBuilder`](https://pushy-apns.org/apidocs/0.
 <dependency>
     <groupId>com.eatthepath</groupId>
     <artifactId>pushy-jackson-payload-builder</artifactId>
-    <version>0.14.0</version>
+    <version>0.14.1</version>
 </dependency>
 ```
 
