@@ -47,7 +47,6 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
     private final ApnsSigningKey signingKey;
 
     private AuthenticationToken authenticationToken;
-    private int mostRecentStreamWithNewToken = 0;
 
     private final Duration tokenExpiration;
     private ScheduledFuture<?> expireTokenFuture;
@@ -109,7 +108,6 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
                 log.debug("Generating new token for stream {}.", streamId);
 
                 this.authenticationToken = new AuthenticationToken(signingKey, Instant.now());
-                this.mostRecentStreamWithNewToken = streamId;
 
                 this.expireTokenFuture = context.executor().schedule(() -> {
                     log.debug("Proactively expiring authentication token.");
@@ -129,18 +127,14 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
 
     @Override
     protected void handleErrorResponse(final ChannelHandlerContext context, final int streamId, final Http2Headers headers, final ApnsPushNotification pushNotification, final ErrorResponse errorResponse) {
-        if (TokenAuthenticationApnsClientHandler.EXPIRED_AUTH_TOKEN_REASON.equals(errorResponse.getReason())) {
+        super.handleErrorResponse(context, streamId, headers, pushNotification, errorResponse);
+
+        if (EXPIRED_AUTH_TOKEN_REASON.equals(errorResponse.getReason())) {
             log.warn("APNs server reports token has expired.");
 
-            if (streamId >= this.mostRecentStreamWithNewToken) {
-                this.authenticationToken = null;
-            }
-
-            // Once we've invalidated an expired token, it's reasonable to expect that re-sending the notification might
-            // succeed.
-            this.retryPushNotificationFromStream(context, streamId);
-        } else {
-            super.handleErrorResponse(context, streamId, headers, pushNotification, errorResponse);
+            // Once the server thinks our token has expired, it will "wedge" the connection. There's no way to recover
+            // from this situation, and all we can do is close the connection and create a new one.
+            context.close();
         }
     }
 

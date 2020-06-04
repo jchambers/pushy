@@ -180,7 +180,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         }
     }
 
-    void retryPushNotificationFromStream(final ChannelHandlerContext context, final int streamId) {
+    private void retryPushNotificationFromStream(final ChannelHandlerContext context, final int streamId) {
         final Http2Stream stream = this.connection().stream(streamId);
 
         final PushNotificationFuture<?, ?> responseFuture = stream.removeProperty(this.responsePromisePropertyKey);
