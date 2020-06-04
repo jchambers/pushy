@@ -33,6 +33,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -240,15 +242,13 @@ public class ApnsChannelPoolTest {
 
     @SuppressWarnings("AnonymousInnerClassMayBeStatic")
     @Test
-    void testPendingCreateChannelFutureDuringPoolClosure() throws Exception {
-        final Promise<Void> createSuccess = new DefaultPromise<>(EVENT_EXECUTOR);
+    void testClosePendingCreateChannelFutureDuringPoolClosure() throws Exception {
+        final List<Promise<Channel>> createPromises = new ArrayList<>();
+
         final PooledObjectFactory<Channel> factory = new PooledObjectFactory<Channel>() {
             @Override
             public Future<Channel> create(final Promise<Channel> promise) {
-                EVENT_EXECUTOR.schedule(() -> {
-                    promise.trySuccess(new TestChannel(true));
-                    createSuccess.setSuccess(null);
-                }, 1, TimeUnit.SECONDS);
+                createPromises.add(promise);
                 return promise;
             }
 
@@ -261,8 +261,22 @@ public class ApnsChannelPoolTest {
 
         final ApnsChannelPool pool = new ApnsChannelPool(factory, 1, EVENT_EXECUTOR, this.metricsListener);
 
-        pool.acquire();
-        pool.close().await();
-        assertTrue(createSuccess.isSuccess());
+        final Future<Channel> acquireNewChannelFuture = pool.acquire();
+        final Future<Channel> acquireReturnedChannelFuture = pool.acquire();
+
+        final Future<Void> closeFuture = pool.close();
+
+        EVENT_EXECUTOR.submit(() -> {
+            final TestChannel channel = new TestChannel(true);
+            createPromises.forEach(channelPromise -> channelPromise.trySuccess(channel));
+        });
+
+        closeFuture.await();
+
+        assertTrue(acquireNewChannelFuture.await().isSuccess(),
+                "Futures waiting for new connections at pool closure should succeed.");
+
+        assertFalse(acquireReturnedChannelFuture.await().isSuccess(),
+                "Futures waiting for existing connections at pool closure should fail.");
     }
 }
