@@ -106,11 +106,11 @@ public class ExampleApp {
                 System.out.println("Notification rejected by the APNs gateway: " +
                         pushNotificationResponse.getRejectionReason());
 
-                if (pushNotificationResponse.getTokenInvalidationTimestamp() != null) {
+                pushNotificationResponse.getTokenInvalidationTimestamp().ifPresent(timestamp -> {
                     // If we have an invalidation timestamp, we should also stop
                     // trying to send notifications to the destination token (unless
                     // it's been renewed somehow since the expiration timestamp).
-                }
+                });
             }
         } catch (final ExecutionException e) {
             // Something went wrong when trying to send the notification to the
