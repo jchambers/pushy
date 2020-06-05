@@ -119,10 +119,9 @@ try {
         System.out.println("Notification rejected by the APNs gateway: " +
                 pushNotificationResponse.getRejectionReason());
 
-        if (pushNotificationResponse.getTokenInvalidationTimestamp() != null) {
-            System.out.println("\t…and the token is invalid as of " +
-                pushNotificationResponse.getTokenInvalidationTimestamp());
-        }
+        pushNotificationResponse.getTokenInvalidationTimestamp().ifPresent(timestamp -> {
+            System.out.println("\t…and the token is invalid as of " + timestamp);
+        });
     }
 } catch (final ExecutionException e) {
     System.err.println("Failed to send push notification.");
