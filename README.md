@@ -120,9 +120,9 @@ try {
         System.out.println("Notification rejected by the APNs gateway: " +
                 pushNotificationResponse.getRejectionReason());
 
-        if (pushNotificationResponse.getTokenInvalidationTimestamp() != null) {
+        if (pushNotificationResponse.getTokenInvalidationTimestamp().isPresent()) {
             System.out.println("\t…and the token is invalid as of " +
-                pushNotificationResponse.getTokenInvalidationTimestamp());
+                pushNotificationResponse.getTokenInvalidationTimestamp().get());
         }
     }
 } catch (final ExecutionException e) {
