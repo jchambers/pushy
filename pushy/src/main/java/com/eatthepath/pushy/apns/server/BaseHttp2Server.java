@@ -36,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLSession;
+import java.net.InetSocketAddress;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -109,20 +110,20 @@ abstract class BaseHttp2Server {
     /**
      * Starts this mock server and listens for traffic on the given port.
      *
-     * @param port the port to which this server should bind
+     * @param port the port to which this server should bind; callers may pass {@code 0} to bind to the first available
+     * port
      *
-     * @return a {@code Future} that will succeed when the server has bound to the given port and is ready to accept
-     * traffic
+     * @return a future that returns the bound port when the server has started and is ready to accept traffic
      */
-    public CompletableFuture<Void> start(final int port) {
+    public CompletableFuture<Integer> start(final int port) {
         final ChannelFuture channelFuture = this.bootstrap.bind(port);
         this.allChannels.add(channelFuture.channel());
 
-        final CompletableFuture<Void> startFuture = new CompletableFuture<>();
+        final CompletableFuture<Integer> startFuture = new CompletableFuture<>();
 
         channelFuture.addListener((future -> {
             if (future.isSuccess()) {
-                startFuture.complete(null);
+                startFuture.complete(((InetSocketAddress) channelFuture.channel().localAddress()).getPort());
             } else {
                 startFuture.completeExceptionally(future.cause());
             }

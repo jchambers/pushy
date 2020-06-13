@@ -92,7 +92,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
     void testStartAndShutdown() throws Exception {
         final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory());
 
-        assertDoesNotThrow(() -> server.start(PORT).get());
+        assertEquals(PORT, server.start(PORT).get());
         assertDoesNotThrow(() -> server.shutdown().get());
     }
 
