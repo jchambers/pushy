@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Generate a new, self-signed root CA
 openssl req -config openssl-custom.cnf -extensions v3_ca -new -x509 -days 36500 -nodes -subj "/CN=PushyTestRoot" -newkey rsa:2048 -sha512 -out ca.pem -keyout ca.key
