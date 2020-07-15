@@ -250,7 +250,7 @@ public class JsonParser {
                 if (stringBuilder.length() == 0) {
                     unescapedString = jsonString.substring(start, position);
                 } else {
-                    stringBuilder.append(jsonString, start, jsonString.length() - 1);
+                    stringBuilder.append(jsonString, start, position);
                     unescapedString = stringBuilder.toString();
                 }
 

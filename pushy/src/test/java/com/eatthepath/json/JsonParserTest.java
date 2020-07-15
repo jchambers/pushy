@@ -194,4 +194,13 @@ class JsonParserTest {
                 arguments("", 1),
                 arguments("test", 5));
     }
+
+    @Test
+    void testComplexParse() throws ParseException
+    {
+        final JsonParser jsonParser = new JsonParser();
+        final Map<String, Object> parsedMap = jsonParser.parseJsonObject("{\"key1\":\"value\\/1\",\"key2\":\"value\\/2\"}");
+        assertEquals("value/1", parsedMap.get("key1"));
+        assertEquals("value/2", parsedMap.get("key2"));
+    }
 }
