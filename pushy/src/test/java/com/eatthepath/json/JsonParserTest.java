@@ -124,13 +124,18 @@ class JsonParserTest {
         nestedMap.put("b", Collections.emptyList());
         nestedMap.put("c", false);
 
+        final Map<String, Object> multipleEscapeMap = new HashMap<>();
+        multipleEscapeMap.put("key1", "value/1");
+        multipleEscapeMap.put("key2", "value/2");
+
         return Stream.of(
                 arguments("{}", Collections.emptyMap()),
                 arguments("{\"moose\": 12}", Collections.singletonMap("moose", 12L)),
                 arguments("{\"moose\": 12, \"porcupine\": true}", multipleEntryMap),
                 arguments("{\"moose\": {\"porcupine\": true}}",
                         Collections.singletonMap("moose", Collections.singletonMap("porcupine", true))),
-                arguments("{\"a\": {}, \"b\": [], \"c\": false}", nestedMap));
+                arguments("{\"a\": {}, \"b\": [], \"c\": false}", nestedMap),
+                arguments("{\"key1\":\"value\\/1\",\"key2\":\"value\\/2\"}", multipleEscapeMap));
     }
 
     @ParameterizedTest
@@ -193,14 +198,5 @@ class JsonParserTest {
                 arguments("", 0),
                 arguments("", 1),
                 arguments("test", 5));
-    }
-
-    @Test
-    void testComplexParse() throws ParseException
-    {
-        final JsonParser jsonParser = new JsonParser();
-        final Map<String, Object> parsedMap = jsonParser.parseJsonObject("{\"key1\":\"value\\/1\",\"key2\":\"value\\/2\"}");
-        assertEquals("value/1", parsedMap.get("key1"));
-        assertEquals("value/2", parsedMap.get("key2"));
     }
 }
