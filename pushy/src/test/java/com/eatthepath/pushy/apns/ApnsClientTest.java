@@ -330,6 +330,42 @@ public class ApnsClientTest extends AbstractClientServerTest {
     }
 
     @Test
+    void testReproduce802() throws Exception {
+        final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory());
+        final ApnsClient apnsClient = this.buildTokenAuthenticationClient();
+
+        try {
+            server.start(PORT).get();
+
+            final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
+
+            final PushNotificationFuture<SimpleApnsPushNotification, PushNotificationResponse<SimpleApnsPushNotification>>
+                    future1 = apnsClient.sendNotification(pushNotification);
+            final PushNotificationFuture<SimpleApnsPushNotification, PushNotificationResponse<SimpleApnsPushNotification>>
+                    future2 = apnsClient.sendNotification(pushNotification);
+
+            final CountDownLatch countDownLatch = new CountDownLatch(2);
+
+            future1.whenComplete((response, cause) -> {
+                if (response != null) {
+                    countDownLatch.countDown();
+                }
+            });
+
+            future2.whenComplete((response, cause) -> {
+                if (response != null) {
+                    countDownLatch.countDown();
+                }
+            });
+
+            assertTrue(countDownLatch.await(5, TimeUnit.SECONDS));
+        } finally {
+            apnsClient.close().get();
+            server.shutdown().get();
+        }
+    }
+
+    @Test
     void testSendNotificationWithExpiredAuthenticationToken() throws Exception {
         final PushNotificationHandlerFactory expireFirstTokenHandlerFactory =
                 sslSession -> (PushNotificationHandler) (headers, payload) -> {
