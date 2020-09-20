@@ -38,8 +38,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Date;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -201,5 +200,11 @@ public class ApnsClientBuilderTest {
         when(expiredCertificate.getNotAfter()).thenReturn(new Date(now.minusSeconds(3600).toEpochMilli()));
 
         assertThrows(CertificateException.class, () -> new ApnsClientBuilder(clock).setTrustedServerCertificateChain(expiredCertificate));
+    }
+
+    @Test
+    void testGetGeoTrustGlobalCaRootCertificate() {
+        final X509Certificate geoTrustCertificate = assertDoesNotThrow(ApnsClientBuilder::getGeoTrustGlobalCaRootCertificate);
+        assertEquals("CN=GeoTrust Global CA, O=GeoTrust Inc., C=US", geoTrustCertificate.getIssuerDN().getName());
     }
 }

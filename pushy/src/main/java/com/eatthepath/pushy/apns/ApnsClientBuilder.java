@@ -125,6 +125,8 @@ public class ApnsClientBuilder {
      */
     public static final int ALTERNATE_APNS_PORT = 2197;
 
+    private static final String GEOTRUST_CA_CERTIFICATE_FILENAME = "GeoTrust_Global_CA.pem";
+
     private static final Logger log = LoggerFactory.getLogger(ApnsClientBuilder.class);
 
     public ApnsClientBuilder() {
@@ -520,6 +522,49 @@ public class ApnsClientBuilder {
     public ApnsClientBuilder setFrameLogger(final Http2FrameLogger frameLogger) {
         this.frameLogger = frameLogger;
         return this;
+    }
+
+    /**
+     * <p>Returns an instance of the GeoTrust Global CA root certificate. According to Apple's documentation:</p>
+     *
+     * <blockquote>Communication between your provider server and APNs must take place over a secure connection.
+     * Creating that connection requires installing a
+     * <a href="https://www.geotrust.com/resources/root_certificates/certificates/GeoTrust_Global_CA.pem">GeoTrust
+     * Global CA root certificate</a> on each of your provider servers. If your provider server runs macOS, this root
+     * certificate is in the keychain by default. On other systems, you might need to install this certificate yourself.
+     * You can download this certificate from the
+     * <a href="https://www.geotrust.com/resources/root-certificates/">GeoTrust Root Certificates</a>
+     * website.</blockquote>
+     *
+     * <p>Additionally, some operating systems, browsers, and recent JDK releases have removed GeoTrust's root
+     * certificate from their list of trusted certificates, and so callers may need to add the GeoTrust root certificate
+     * as a trusted certificate manually. This method is intended to provide an easy way for callers to trust the
+     * GeoTrust root certificate when communicating with APNs servers via Pushy without modifying system-wide trust
+     * stores. For example, callers can build {@code ApnsClient} instances that trust the GeoTrust root certificate by
+     * setting the certificate as a trusted certificate via
+     * {@link #setTrustedServerCertificateChain(X509Certificate...)}:</p>
+     *
+     * <p>{@code clientBuilder.setTrustedServerCertificateChain(ApnsClientBuilder.getGeoTrustGlobalCaRootCertificate());}</p>
+     *
+     * <p>The copy of the GeoTrust root certificate included in this version of Pushy expires on May 20, 2022. After
+     * that date, callers will need to either provide their own copy of the certificate or update to a newer version of
+     * Pushy that includes an updated certificate.</p>
+     *
+     * @return a new instance of the GeoTrust Global CA root certificate
+     *
+     * @throws CertificateException if the certificate has expired
+     *
+     * @see #setTrustedServerCertificateChain(X509Certificate...)
+     *
+     * @since 0.15
+     */
+    public static X509Certificate getGeoTrustGlobalCaRootCertificate() throws CertificateException {
+        try {
+            return X509CertificateReader.readCertificates(ApnsClientBuilder.class.getResourceAsStream(GEOTRUST_CA_CERTIFICATE_FILENAME))[0];
+        } catch (final IOException e) {
+            // This should never happen for a baked-in certificate
+            throw new RuntimeException("Failed to read certificate input stream", e);
+        }
     }
 
     /**
