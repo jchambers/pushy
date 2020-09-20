@@ -42,6 +42,7 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
 
@@ -64,8 +65,6 @@ public class ApnsClientBuilder {
     private ApnsSigningKey signingKey;
     private Duration tokenExpiration = Duration.ofMinutes(50);
 
-    private File trustedServerCertificatePemFile;
-    private InputStream trustedServerCertificateInputStream;
     private X509Certificate[] trustedServerCertificates;
 
     private EventLoopGroup eventLoopGroup;
@@ -312,14 +311,13 @@ public class ApnsClientBuilder {
      *
      * @return a reference to this builder
      *
+     * @throws CertificateException if a certificate in the given file could not be parsed
+     * @throws IOException if the given file could not be read for any reason
+     *
      * @since 0.8
      */
-    public ApnsClientBuilder setTrustedServerCertificateChain(final File certificatePemFile) {
-        this.trustedServerCertificatePemFile = certificatePemFile;
-        this.trustedServerCertificateInputStream = null;
-        this.trustedServerCertificates = null;
-
-        return this;
+    public ApnsClientBuilder setTrustedServerCertificateChain(final File certificatePemFile) throws CertificateException, IOException {
+        return this.setTrustedServerCertificateChain(X509CertificateReader.readCertificates(certificatePemFile));
     }
 
     /**
@@ -334,14 +332,13 @@ public class ApnsClientBuilder {
      *
      * @return a reference to this builder
      *
+     * @throws CertificateException if a certificate in the given input stream could not be parsed
+     * @throws IOException if the given input stream could not be read for any reason
+     *
      * @since 0.8
      */
-    public ApnsClientBuilder setTrustedServerCertificateChain(final InputStream certificateInputStream) {
-        this.trustedServerCertificatePemFile = null;
-        this.trustedServerCertificateInputStream = certificateInputStream;
-        this.trustedServerCertificates = null;
-
-        return this;
+    public ApnsClientBuilder setTrustedServerCertificateChain(final InputStream certificateInputStream) throws CertificateException, IOException {
+        return this.setTrustedServerCertificateChain(X509CertificateReader.readCertificates(certificateInputStream));
     }
 
     /**
@@ -359,8 +356,6 @@ public class ApnsClientBuilder {
      * @since 0.8
      */
     public ApnsClientBuilder setTrustedServerCertificateChain(final X509Certificate... certificates) {
-        this.trustedServerCertificatePemFile = null;
-        this.trustedServerCertificateInputStream = null;
         this.trustedServerCertificates = certificates;
 
         return this;
@@ -549,11 +544,7 @@ public class ApnsClientBuilder {
                 sslContextBuilder.keyManager(this.privateKey, this.privateKeyPassword, this.clientCertificate);
             }
 
-            if (this.trustedServerCertificatePemFile != null) {
-                sslContextBuilder.trustManager(this.trustedServerCertificatePemFile);
-            } else if (this.trustedServerCertificateInputStream != null) {
-                sslContextBuilder.trustManager(this.trustedServerCertificateInputStream);
-            } else if (this.trustedServerCertificates != null) {
+            if (this.trustedServerCertificates != null) {
                 sslContextBuilder.trustManager(this.trustedServerCertificates);
             }
 
