@@ -44,7 +44,9 @@ import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 
 /**
  * An {@code ApnsClientBuilder} constructs new {@link ApnsClient} instances. Callers must specify the APNs server to
@@ -56,6 +58,8 @@ import java.time.Duration;
  */
 @SuppressWarnings("unused")
 public class ApnsClientBuilder {
+    private final Clock clock;
+
     private InetSocketAddress apnsServerAddress;
 
     private X509Certificate clientCertificate;
@@ -122,6 +126,14 @@ public class ApnsClientBuilder {
     public static final int ALTERNATE_APNS_PORT = 2197;
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientBuilder.class);
+
+    public ApnsClientBuilder() {
+        this(Clock.systemUTC());
+    }
+
+    ApnsClientBuilder(final Clock clock) {
+        this.clock = clock;
+    }
 
     /**
      * Sets the hostname of the server to which the client under construction will connect. Apple provides a production
@@ -311,7 +323,7 @@ public class ApnsClientBuilder {
      *
      * @return a reference to this builder
      *
-     * @throws CertificateException if a certificate in the given file could not be parsed
+     * @throws CertificateException if a certificate in the given file could not be parsed or is expired
      * @throws IOException if the given file could not be read for any reason
      *
      * @since 0.8
@@ -332,7 +344,7 @@ public class ApnsClientBuilder {
      *
      * @return a reference to this builder
      *
-     * @throws CertificateException if a certificate in the given input stream could not be parsed
+     * @throws CertificateException if a certificate in the given input stream could not be parsed or is expired
      * @throws IOException if the given input stream could not be read for any reason
      *
      * @since 0.8
@@ -353,9 +365,19 @@ public class ApnsClientBuilder {
      *
      * @return a reference to this builder
      *
+     * @throws CertificateException if any of the given certificates are expired
+     *
      * @since 0.8
      */
-    public ApnsClientBuilder setTrustedServerCertificateChain(final X509Certificate... certificates) {
+    public ApnsClientBuilder setTrustedServerCertificateChain(final X509Certificate... certificates) throws CertificateException {
+        final Instant now = Instant.now(this.clock);
+
+        for (final X509Certificate certificate : certificates) {
+            if (now.isAfter(certificate.getNotAfter().toInstant())) {
+                throw new CertificateException("Certificate has expired");
+            }
+        }
+
         this.trustedServerCertificates = certificates;
 
         return this;
