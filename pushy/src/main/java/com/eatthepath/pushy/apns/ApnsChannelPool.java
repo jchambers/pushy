@@ -152,10 +152,12 @@ class ApnsChannelPool {
                         ApnsChannelPool.this.allChannels.add(channel);
                         ApnsChannelPool.this.metricsListener.handleConnectionAdded();
 
+                        log.debug("Created channel {}", channel);
                         acquirePromise.trySuccess(channel);
                     } else {
                         ApnsChannelPool.this.metricsListener.handleConnectionCreationFailed();
 
+                        log.warn("Failed to create channel", future.cause());
                         acquirePromise.tryFailure(future.cause());
 
                         // If we failed to open a connection, this is the end of the line for this acquisition
@@ -220,11 +222,12 @@ class ApnsChannelPool {
         this.idleChannels.remove(channel);
         this.allChannels.remove(channel);
 
+        log.debug("Discarded channel {}", channel);
         this.metricsListener.handleConnectionRemoved();
 
         this.channelFactory.destroy(channel, this.executor.newPromise()).addListener(destroyFuture -> {
             if (!destroyFuture.isSuccess()) {
-                log.warn("Failed to destroy channel.", destroyFuture.cause());
+                log.warn("Failed to destroy channel {}", channel, destroyFuture.cause());
             }
         });
     }
