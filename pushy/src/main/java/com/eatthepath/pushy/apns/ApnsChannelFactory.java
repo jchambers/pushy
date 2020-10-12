@@ -101,12 +101,14 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
 
             @Override
             protected void initChannel(final SocketChannel channel) {
-                final SslHandler sslHandler = sslContext.newHandler(channel.alloc());
+            	 
+            	final String authority = apnsServerAddress.getHostName();
+
+                final SslHandler sslHandler = sslContext.newHandler(channel.alloc(),authority,443);
 
                 final ApnsClientHandler apnsClientHandler;
                 {
-                    final String authority = apnsServerAddress.getHostName();
-
+                   
                     final ApnsClientHandler.ApnsClientHandlerBuilder clientHandlerBuilder;
 
                     if (signingKey != null) {
