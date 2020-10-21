@@ -105,17 +105,17 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
 
         if (this.authenticationToken == null) {
             try {
-                log.debug("Generating new token for stream {}.", streamId);
+                log.debug("Generating new token for stream {} on channel {}", streamId, context.channel());
 
                 this.authenticationToken = new AuthenticationToken(signingKey, Instant.now());
 
                 this.expireTokenFuture = context.executor().schedule(() -> {
-                    log.debug("Proactively expiring authentication token.");
+                    log.debug("Proactively expiring authentication token for channel {}", context.channel());
                     TokenAuthenticationApnsClientHandler.this.authenticationToken = null;
                 }, tokenExpiration.toMillis(), TimeUnit.MILLISECONDS);
             } catch (final NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
                 // This should never happen because we check the key/algorithm at signing key construction time.
-                log.error("Failed to generate authentication token.", e);
+                log.error("Failed to generate authentication token for channel {}", context.channel(), e);
                 throw new RuntimeException(e);
             }
         }
@@ -130,7 +130,7 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
         super.handleErrorResponse(context, streamId, headers, pushNotification, errorResponse);
 
         if (EXPIRED_AUTH_TOKEN_REASON.equals(errorResponse.getReason())) {
-            log.warn("APNs server reports token has expired.");
+            log.warn("APNs server reports token for channel {} has expired.", context.channel());
 
             // Once the server thinks our token has expired, it will "wedge" the connection. There's no way to recover
             // from this situation, and all we can do is close the connection and create a new one.
