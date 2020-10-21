@@ -139,8 +139,8 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
     }
 
     @Override
-    protected void handlerRemoved0(final ChannelHandlerContext context) throws Exception {
-        super.handlerRemoved0(context);
+    public void channelInactive(final ChannelHandlerContext context) throws Exception {
+        super.channelInactive(context);
 
         // Cancel the token expiration future if it's still "live" to avoid a reference cycle that could keep handlers
         // for closed connections in memory longer than expected.

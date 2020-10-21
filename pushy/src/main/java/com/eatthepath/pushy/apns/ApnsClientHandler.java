@@ -498,6 +498,10 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     public void channelInactive(final ChannelHandlerContext context) throws Exception {
         super.channelInactive(context);
 
+        if (this.pingTimeoutFuture != null) {
+            this.pingTimeoutFuture.cancel(false);
+        }
+
         for (final PushNotificationFuture<?, ?> future : this.unattachedResponsePromisesByStreamId.values()) {
             future.completeExceptionally(STREAM_CLOSED_BEFORE_REPLY_EXCEPTION);
         }
