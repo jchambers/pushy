@@ -84,6 +84,10 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private static final IOException STREAM_CLOSED_BEFORE_REPLY_EXCEPTION =
             new IOException("Stream closed before a reply was received");
 
+    private static final IOException STREAM_GOAWAY_RECEIVED_EXCEPTION =
+            new IOException("GOAWAY frame received before SETTINGS, cannot setup connection");
+
+    
     private final JsonParser jsonParser = new JsonParser();
 
     private static final Logger log = LoggerFactory.getLogger(ApnsClientHandler.class);
@@ -416,6 +420,14 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     @Override
     public void onGoAwayRead(final ChannelHandlerContext context, final int lastStreamId, final long errorCode, final ByteBuf debugData) {
         log.info("Received GOAWAY from APNs server: {}", debugData.toString(StandardCharsets.UTF_8));
+    }
+    
+    @Override
+    public ChannelFuture goAway(ChannelHandlerContext ctx, int lastStreamId, long errorCode, ByteBuf debugData,
+    		ChannelPromise promise) {
+    	log.error("GOAWAY Received, error code: {}.");
+    	getChannelReadyPromise(ctx.channel()).tryFailure(STREAM_GOAWAY_RECEIVED_EXCEPTION);
+    	return super.goAway(ctx, lastStreamId, errorCode, debugData, promise);
     }
 
     @Override
