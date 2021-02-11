@@ -163,10 +163,6 @@ Making the most of your system resources for high-throughput applications always
 - Use a flow control strategy to avoid enqueueing push notifications faster than the server can respond
 - Choose a number of threads and concurrent connections that balances CPU time and network throughput
 
-## System requirements
-
-Pushy requires Java 7 or newer. Under Java 7, Pushy depends on netty-tcnative as an SSL provider (it is included automatically by dependency management systems, but Java 7 users managing dependcies manually will need to make sure it's on their classpath). A native SSL provider is not required under Java 8 and newer, but users may still choose to include one for enhanced performance.
-
 ## Metrics
 
 Pushy includes an interface for monitoring metrics that provide insight into clients' behavior and performance. You can write your own implementation of the `ApnsClientMetricsListener` interface to record and report metrics. We also provide metrics listeners that gather and report metrics [using the Dropwizard Metrics library](https://github.com/jchambers/pushy/tree/master/dropwizard-metrics-listener) and [using the Micrometer application monitoring facade](https://github.com/jchambers/pushy/tree/master/micrometer-metrics-listener) as separate modules. To begin receiving metrics, set a listener when building a new client:
