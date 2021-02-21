@@ -79,11 +79,6 @@
         </dependency>
         <dependency>
             <groupId>io.netty</groupId>
-            <artifactId>netty-tcnative-boringssl-static</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.netty</groupId>
             <artifactId>netty-transport-native-epoll</artifactId>
             <classifier>linux-x86_64</classifier>
             <scope>test</scope>
@@ -95,6 +90,10 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <properties>
+        <surefireArgLine>-Dio.netty.transport.noNative=true -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -Dio.netty.leakDetection.level=paranoid -ea</surefireArgLine>
+    </properties>
 
     <build>
         <plugins>
@@ -144,7 +143,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>-Dorg.slf4j.simpleLogger.defaultLogLevel=warn -Dio.netty.leakDetection.level=paranoid -ea</argLine>
+                    <argLine>${surefireArgLine}</argLine>
                 </configuration>
             </plugin>
         </plugins>
@@ -152,30 +151,37 @@
 
     <profiles>
         <profile>
-            <id>test-with-jdk-ssl-provider</id>
+            <id>test-with-native-ssl-provider</id>
+
             <activation>
                 <property>
-                    <name>env.PUSHY_SSL_PROVIDER</name>
-                    <value>jdk</value>
+                    <name>env.PUSHY_TEST_SSL_PROVIDER</name>
+                    <value>native</value>
                 </property>
             </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <argLine>-Dio.netty.transport.noNative=true -Dorg.slf4j.simpleLogger.defaultLogLevel=warn -Dio.netty.leakDetection.level=paranoid -ea</argLine>
-                            <properties>
-                                <property>
-                                    <name>listener</name>
-                                    <value>com.eatthepath.pushy.apns.PrintTestNameRunListener</value>
-                                </property>
-                            </properties>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
+
+            <dependencies>
+                <dependency>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-tcnative-boringssl-static</artifactId>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <profile>
+            <id>test-with-native-transport</id>
+
+            <activation>
+                <property>
+                    <name>env.PUSHY_TEST_TRANSPORT</name>
+                    <value>native</value>
+                </property>
+            </activation>
+
+            <properties>
+                <surefireArgLine>-Dorg.slf4j.simpleLogger.defaultLogLevel=warn -Dio.netty.leakDetection.level=paranoid -ea</surefireArgLine>
+            </properties>
         </profile>
     </profiles>
 </project>
