@@ -26,10 +26,7 @@ import com.eatthepath.pushy.apns.auth.ApnsVerificationKey;
 import com.eatthepath.pushy.apns.auth.AuthenticationToken;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.AsciiString;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.security.SignatureException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
@@ -46,8 +43,6 @@ class TokenAuthenticationValidatingPushNotificationHandler extends ValidatingPus
     private static final AsciiString APNS_AUTHORIZATION_HEADER = new AsciiString("authorization");
 
     private static final Duration AUTHENTICATION_TOKEN_EXPIRATION_DURATION = Duration.ofHours(1);
-
-    private static final Logger log = LoggerFactory.getLogger(TokenAuthenticationValidatingPushNotificationHandler.class);
 
     TokenAuthenticationValidatingPushNotificationHandler(final Map<String, Set<String>> deviceTokensByTopic, final Map<String, Instant> expirationTimestampsByDeviceToken, final Map<String, ApnsVerificationKey> verificationKeysByKeyId, final Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey) {
         super(deviceTokensByTopic, expirationTimestampsByDeviceToken);
@@ -94,15 +89,8 @@ class TokenAuthenticationValidatingPushNotificationHandler extends ValidatingPus
             throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN);
         }
 
-        try {
-            if (!authenticationToken.verifySignature(verificationKey)) {
-                throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN);
-            }
-        } catch (final SignatureException e) {
-            // This should never happen (here, at least) because we check keys at construction time. If something's
-            // going to go wrong, it will go wrong before we ever get here.
-            log.error("Failed to verify authentication token signature.", e);
-            throw new RuntimeException(e);
+        if (!authenticationToken.verifySignature(verificationKey)) {
+            throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN);
         }
 
         // At this point, we've verified that the token is signed by somebody with the named team's private key. The
