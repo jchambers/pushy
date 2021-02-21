@@ -151,12 +151,9 @@ public class AuthenticationToken {
      * @param signingKey the signing key from which to derive metadata and with which to sign the token
      * @param issuedAt the time at which the token was issued
      *
-     * @throws NoSuchAlgorithmException if the JVM doesn't support the
-     * {@value com.eatthepath.pushy.apns.auth.ApnsKey#APNS_SIGNATURE_ALGORITHM} algorithm
-     * @throws InvalidKeyException if the given key was invalid for any reason
      * @throws SignatureException if the given key could not be used to sign the token
      */
-    public AuthenticationToken(final ApnsSigningKey signingKey, final Instant issuedAt) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
+    public AuthenticationToken(final ApnsSigningKey signingKey, final Instant issuedAt) throws SignatureException {
         this.header = new AuthenticationTokenHeader(signingKey.getKeyId());
         this.claims = new AuthenticationTokenClaims(signingKey.getTeamId(), issuedAt);
 
@@ -168,12 +165,16 @@ public class AuthenticationToken {
         payloadBuilder.append('.');
         payloadBuilder.append(encodeUnpaddedBase64UrlString(claimsJson.getBytes(StandardCharsets.US_ASCII)));
 
-        {
+        try {
             final Signature signature = Signature.getInstance(ApnsKey.APNS_SIGNATURE_ALGORITHM);
             signature.initSign(signingKey);
             signature.update(payloadBuilder.toString().getBytes(StandardCharsets.US_ASCII));
 
             this.signatureBytes = signature.sign();
+        } catch (final NoSuchAlgorithmException | InvalidKeyException e) {
+            // This should never happen because we've already verified that the JVM supports the signing algorithm and
+            // that they key is valid at signing key construction time.
+            throw new RuntimeException(e);
         }
 
         payloadBuilder.append('.');
@@ -258,12 +259,9 @@ public class AuthenticationToken {
      *
      * @return {@code true} if this token's signature was verified or {@code false} otherwise
      *
-     * @throws NoSuchAlgorithmException if the JVM doesn't support the
-     * {@value com.eatthepath.pushy.apns.auth.ApnsKey#APNS_SIGNATURE_ALGORITHM} algorithm
-     * @throws InvalidKeyException if the given key was invalid for any reason
      * @throws SignatureException if the given key could not be used to verify the token's signature
      */
-    public boolean verifySignature(final ApnsVerificationKey verificationKey) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
+    public boolean verifySignature(final ApnsVerificationKey verificationKey) throws SignatureException {
         if (!this.header.getKeyId().equals(verificationKey.getKeyId())) {
             return false;
         }
@@ -283,11 +281,17 @@ public class AuthenticationToken {
 
         headerAndClaimsBytes = encodedHeaderAndClaims.getBytes(StandardCharsets.US_ASCII);
 
-        final Signature signature = Signature.getInstance(ApnsKey.APNS_SIGNATURE_ALGORITHM);
-        signature.initVerify(verificationKey);
-        signature.update(headerAndClaimsBytes);
+        try {
+            final Signature signature = Signature.getInstance(ApnsKey.APNS_SIGNATURE_ALGORITHM);
+            signature.initVerify(verificationKey);
+            signature.update(headerAndClaimsBytes);
 
-        return signature.verify(this.signatureBytes);
+            return signature.verify(this.signatureBytes);
+        } catch (final NoSuchAlgorithmException | InvalidKeyException e) {
+            // This should never happen because we've already verified that the JVM supports the signing algorithm and
+            // that they key is valid at verification key construction time.
+            throw new RuntimeException(e);
+        }
     }
 
     /**

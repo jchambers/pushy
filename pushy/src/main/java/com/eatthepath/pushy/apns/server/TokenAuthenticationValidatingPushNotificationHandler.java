@@ -29,8 +29,6 @@ import io.netty.util.AsciiString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
 import java.time.Duration;
 import java.time.Instant;
@@ -100,7 +98,7 @@ class TokenAuthenticationValidatingPushNotificationHandler extends ValidatingPus
             if (!authenticationToken.verifySignature(verificationKey)) {
                 throw new RejectedNotificationException(RejectionReason.INVALID_PROVIDER_TOKEN);
             }
-        } catch (final NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
+        } catch (final SignatureException e) {
             // This should never happen (here, at least) because we check keys at construction time. If something's
             // going to go wrong, it will go wrong before we ever get here.
             log.error("Failed to verify authentication token signature.", e);
