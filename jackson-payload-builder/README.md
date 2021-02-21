@@ -10,7 +10,7 @@ This module provides an [`ApnsPayloadBuilder`](https://pushy-apns.org/apidocs/0.
 </dependency>
 ```
 
-If you don't use Maven, you can add the `.jar` file and its dependencies to your classpath by the method of your choice. The Jackson payload builder for Pushy depends on Pushy itself (obviously enough) and version 2.10 of the [Jackson databind library](https://github.com/FasterXML/jackson-databind).
+If you don't use Maven, you can add the `.jar` file and its dependencies to your classpath by the method of your choice. The Jackson payload builder for Pushy depends on Pushy itself (obviously enough) and version 2.12 of the [Jackson databind library](https://github.com/FasterXML/jackson-databind).
 
 ## Using the Jackson payload builder
 
