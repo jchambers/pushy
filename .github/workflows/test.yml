@@ -9,8 +9,10 @@ jobs:
       matrix:
         os: [ubuntu-20.04, macos-latest]
         java: [8, 11, 13, 15]
+        transport: [native, JDK]
+        tls: [native, JDK]
       fail-fast: false
-    name: Test JDK ${{ matrix.java }}, ${{ matrix.os }}
+    name: JDK ${{ matrix.java }}, ${{ matrix.os }}, ${{ matrix.transport }} transport, ${{ matrix.tls }} SSL provider
 
     steps:
     - uses: actions/checkout@v1
@@ -19,4 +21,7 @@ jobs:
       with:
         java-version: ${{ matrix.java }}
     - name: Test with Maven
+      env:
+        PUSHY_TEST_TRANSPORT: ${{ matrix.transport }}
+        PUSHY_TEST_SSL_PROVIDER: ${{ matrix.tls }}
       run: mvn test -B --file pom.xml
