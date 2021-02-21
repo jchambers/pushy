@@ -34,7 +34,6 @@ import io.netty.util.concurrent.ScheduledFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.security.SignatureException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
@@ -102,20 +101,14 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
         final Http2Headers headers = super.getHeadersForPushNotification(pushNotification, context, streamId);
 
         if (this.authenticationToken == null) {
-            try {
-                log.debug("Generating new token for stream {} on channel {}", streamId, context.channel());
+            log.debug("Generating new token for stream {} on channel {}", streamId, context.channel());
 
-                this.authenticationToken = new AuthenticationToken(signingKey, Instant.now());
+            this.authenticationToken = new AuthenticationToken(signingKey, Instant.now());
 
-                this.expireTokenFuture = context.executor().schedule(() -> {
-                    log.debug("Proactively expiring authentication token for channel {}", context.channel());
-                    TokenAuthenticationApnsClientHandler.this.authenticationToken = null;
-                }, tokenExpiration.toMillis(), TimeUnit.MILLISECONDS);
-            } catch (final SignatureException e) {
-                // This should never happen because we check the key/algorithm at signing key construction time.
-                log.error("Failed to generate authentication token for channel {}", context.channel(), e);
-                throw new RuntimeException(e);
-            }
+            this.expireTokenFuture = context.executor().schedule(() -> {
+                log.debug("Proactively expiring authentication token for channel {}", context.channel());
+                TokenAuthenticationApnsClientHandler.this.authenticationToken = null;
+            }, tokenExpiration.toMillis(), TimeUnit.MILLISECONDS);
         }
 
         headers.add(APNS_AUTHORIZATION_HEADER, this.authenticationToken.getAuthorizationHeader());

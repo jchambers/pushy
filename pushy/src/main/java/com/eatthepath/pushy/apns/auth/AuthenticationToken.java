@@ -150,10 +150,8 @@ public class AuthenticationToken {
      *
      * @param signingKey the signing key from which to derive metadata and with which to sign the token
      * @param issuedAt the time at which the token was issued
-     *
-     * @throws SignatureException if the given key could not be used to sign the token
      */
-    public AuthenticationToken(final ApnsSigningKey signingKey, final Instant issuedAt) throws SignatureException {
+    public AuthenticationToken(final ApnsSigningKey signingKey, final Instant issuedAt) {
         this.header = new AuthenticationTokenHeader(signingKey.getKeyId());
         this.claims = new AuthenticationTokenClaims(signingKey.getTeamId(), issuedAt);
 
@@ -165,6 +163,7 @@ public class AuthenticationToken {
         payloadBuilder.append('.');
         payloadBuilder.append(encodeUnpaddedBase64UrlString(claimsJson.getBytes(StandardCharsets.US_ASCII)));
 
+        //noinspection TryWithIdenticalCatches
         try {
             final Signature signature = Signature.getInstance(ApnsKey.APNS_SIGNATURE_ALGORITHM);
             signature.initSign(signingKey);
@@ -174,6 +173,12 @@ public class AuthenticationToken {
         } catch (final NoSuchAlgorithmException | InvalidKeyException e) {
             // This should never happen because we've already verified that the JVM supports the signing algorithm and
             // that they key is valid at signing key construction time.
+            throw new RuntimeException(e);
+        } catch (final SignatureException e) {
+            // Practically speaking, this should never happen either. Reading through the source, this mainly happens
+            // when the Signature object is in the wrong state (we didn't initialize it) or some extremely improbable
+            // alignment of random values beyond the caller's control happen. In no case does this (appear to) indicate
+            // any condition the caller can meaningfully plan for, control, or respond to.
             throw new RuntimeException(e);
         }
 
@@ -258,10 +263,8 @@ public class AuthenticationToken {
      * @param verificationKey the verification key (public key) to be used to verify this token's signature
      *
      * @return {@code true} if this token's signature was verified or {@code false} otherwise
-     *
-     * @throws SignatureException if the given key could not be used to verify the token's signature
      */
-    public boolean verifySignature(final ApnsVerificationKey verificationKey) throws SignatureException {
+    public boolean verifySignature(final ApnsVerificationKey verificationKey) {
         if (!this.header.getKeyId().equals(verificationKey.getKeyId())) {
             return false;
         }
@@ -281,6 +284,7 @@ public class AuthenticationToken {
 
         headerAndClaimsBytes = encodedHeaderAndClaims.getBytes(StandardCharsets.US_ASCII);
 
+        //noinspection TryWithIdenticalCatches
         try {
             final Signature signature = Signature.getInstance(ApnsKey.APNS_SIGNATURE_ALGORITHM);
             signature.initVerify(verificationKey);
@@ -290,6 +294,12 @@ public class AuthenticationToken {
         } catch (final NoSuchAlgorithmException | InvalidKeyException e) {
             // This should never happen because we've already verified that the JVM supports the signing algorithm and
             // that they key is valid at verification key construction time.
+            throw new RuntimeException(e);
+        } catch (final SignatureException e) {
+            // Practically speaking, this should never happen either. Reading through the source, this mainly happens
+            // when the Signature object is in the wrong state (we didn't initialize it) or some extremely improbable
+            // alignment of random values beyond the caller's control happen. In no case does this (appear to) indicate
+            // any condition the caller can meaningfully plan for, control, or respond to.
             throw new RuntimeException(e);
         }
     }
