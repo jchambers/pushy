@@ -34,8 +34,6 @@ import io.netty.util.concurrent.ScheduledFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
 import java.time.Duration;
 import java.time.Instant;
@@ -113,7 +111,7 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
                     log.debug("Proactively expiring authentication token for channel {}", context.channel());
                     TokenAuthenticationApnsClientHandler.this.authenticationToken = null;
                 }, tokenExpiration.toMillis(), TimeUnit.MILLISECONDS);
-            } catch (final NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
+            } catch (final SignatureException e) {
                 // This should never happen because we check the key/algorithm at signing key construction time.
                 log.error("Failed to generate authentication token for channel {}", context.channel(), e);
                 throw new RuntimeException(e);
