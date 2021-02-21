@@ -1,6 +1,5 @@
 # pushy
 
-[![Build Status](https://travis-ci.org/jchambers/pushy.svg?branch=master)](https://travis-ci.org/jchambers/pushy)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.eatthepath/pushy/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.eatthepath/pushy)
 
 Pushy is a Java library for sending [APNs](https://developer.apple.com/documentation/usernotifications) (iOS, macOS, and Safari) push notifications.
