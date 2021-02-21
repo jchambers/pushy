@@ -23,6 +23,7 @@
 package com.eatthepath.pushy.apns;
 
 import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
+import com.eatthepath.pushy.apns.auth.AuthenticationTokenProvider;
 import com.eatthepath.pushy.apns.proxy.ProxyHandlerFactory;
 import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
 import io.netty.channel.Channel;
@@ -31,7 +32,8 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.handler.codec.http2.Http2FrameLogger;
 import io.netty.handler.ssl.SslContext;
-import io.netty.util.concurrent.*;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,6 +86,8 @@ public class ApnsClient {
     private final EventLoopGroup eventLoopGroup;
     private final boolean shouldShutDownEventLoopGroup;
 
+    private final AuthenticationTokenProvider authenticationTokenProvider;
+
     private final ApnsChannelPool channelPool;
 
     private final ApnsClientMetricsListener metricsListener;
@@ -129,9 +133,9 @@ public class ApnsClient {
 
     protected ApnsClient(final InetSocketAddress apnsServerAddress, final SslContext sslContext,
                          final ApnsSigningKey signingKey, final Duration tokenExpiration,
-                         final ProxyHandlerFactory proxyHandlerFactory,  final Duration connectTimeout,
+                         final ProxyHandlerFactory proxyHandlerFactory, final Duration connectTimeout,
                          final Duration idlePingInterval, final Duration gracefulShutdownTimeout,
-                         final int concurrentConnections,  final ApnsClientMetricsListener metricsListener,
+                         final int concurrentConnections, final ApnsClientMetricsListener metricsListener,
                          final Http2FrameLogger frameLogger, final EventLoopGroup eventLoopGroup) {
 
         if (eventLoopGroup != null) {
@@ -142,9 +146,13 @@ public class ApnsClient {
             this.shouldShutDownEventLoopGroup = true;
         }
 
+        this.authenticationTokenProvider = signingKey != null ?
+                new AuthenticationTokenProvider(signingKey, tokenExpiration, this.eventLoopGroup) :
+                null;
+
         this.metricsListener = metricsListener != null ? metricsListener : new NoopApnsClientMetricsListener();
 
-        final ApnsChannelFactory channelFactory = new ApnsChannelFactory(sslContext, signingKey, tokenExpiration,
+        final ApnsChannelFactory channelFactory = new ApnsChannelFactory(sslContext, authenticationTokenProvider,
                 proxyHandlerFactory, connectTimeout, idlePingInterval, gracefulShutdownTimeout,
                 frameLogger, apnsServerAddress, this.eventLoopGroup);
 
@@ -256,6 +264,10 @@ public class ApnsClient {
         final CompletableFuture<Void> closeFuture;
 
         if (this.isClosed.compareAndSet(false, true)) {
+            if (this.authenticationTokenProvider != null) {
+                this.authenticationTokenProvider.close();
+            }
+
             closeFuture = new CompletableFuture<>();
 
             this.channelPool.close().addListener((GenericFutureListener<Future<Void>>) closePoolFuture -> {

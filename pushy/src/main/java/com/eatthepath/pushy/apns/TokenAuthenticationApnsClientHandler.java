@@ -22,31 +22,22 @@
 
 package com.eatthepath.pushy.apns;
 
-import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
-import com.eatthepath.pushy.apns.auth.AuthenticationToken;
+import com.eatthepath.pushy.apns.auth.AuthenticationTokenProvider;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http2.Http2ConnectionDecoder;
 import io.netty.handler.codec.http2.Http2ConnectionEncoder;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.util.AsciiString;
-import io.netty.util.concurrent.ScheduledFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 
 class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
 
-    private final ApnsSigningKey signingKey;
-
-    private AuthenticationToken authenticationToken;
-
-    private final Duration tokenExpiration;
-    private ScheduledFuture<?> expireTokenFuture;
+    private final AuthenticationTokenProvider authenticationTokenProvider;
 
     private static final AsciiString APNS_AUTHORIZATION_HEADER = new AsciiString("authorization");
 
@@ -55,65 +46,38 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
     private static final Logger log = LoggerFactory.getLogger(TokenAuthenticationApnsClientHandler.class);
 
     public static class TokenAuthenticationApnsClientHandlerBuilder extends ApnsClientHandlerBuilder {
-        private ApnsSigningKey signingKey;
-        private Duration tokenExpiration;
+        private AuthenticationTokenProvider authenticationTokenProvider;
 
-        public TokenAuthenticationApnsClientHandlerBuilder signingKey(final ApnsSigningKey signingKey) {
-            this.signingKey = signingKey;
+        public TokenAuthenticationApnsClientHandlerBuilder authenticationTokenProvider(final AuthenticationTokenProvider authenticationTokenProvider) {
+            this.authenticationTokenProvider = authenticationTokenProvider;
             return this;
         }
 
-        public ApnsSigningKey signingKey() {
-            return this.signingKey;
-        }
-
-        public TokenAuthenticationApnsClientHandlerBuilder tokenExpiration(final Duration tokenExpiration) {
-            this.tokenExpiration = tokenExpiration;
-            return this;
-        }
-
-        public Duration tokenExpiration() {
-            return this.tokenExpiration;
+        public AuthenticationTokenProvider authenticationTokenProvider() {
+            return this.authenticationTokenProvider;
         }
 
         @Override
         public ApnsClientHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
             Objects.requireNonNull(this.authority(), "Authority must be set before building a TokenAuthenticationApnsClientHandler.");
-            Objects.requireNonNull(this.signingKey(), "Signing key must be set before building a TokenAuthenticationApnsClientHandler.");
-            Objects.requireNonNull(this.tokenExpiration(), "Token expiration duration must be set before building a TokenAuthenticationApnsClientHandler.");
+            Objects.requireNonNull(this.authenticationTokenProvider(), "Authentication token provider must be set before building a TokenAuthenticationApnsClientHandler.");
 
-            final ApnsClientHandler handler = new TokenAuthenticationApnsClientHandler(decoder, encoder, initialSettings, this.authority(), this.idlePingInterval(), this.signingKey(), this.tokenExpiration());
+            final ApnsClientHandler handler = new TokenAuthenticationApnsClientHandler(decoder, encoder, initialSettings, this.authority(), this.idlePingInterval(), this.authenticationTokenProvider());
             this.frameListener(handler);
             return handler;
         }
     }
 
-    protected TokenAuthenticationApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final String authority, final Duration idlePingInterval, final ApnsSigningKey signingKey, final Duration tokenExpiration) {
+    protected TokenAuthenticationApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final String authority, final Duration idlePingInterval, final AuthenticationTokenProvider authenticationTokenProvider) {
         super(decoder, encoder, initialSettings, authority, idlePingInterval);
 
-        Objects.requireNonNull(signingKey, "Signing key must not be null for token-based client handlers.");
-        this.signingKey = signingKey;
-        this.tokenExpiration = tokenExpiration;
+        this.authenticationTokenProvider = Objects.requireNonNull(authenticationTokenProvider, "Authentication token provider must not be null for token-based client handlers.");
     }
 
     @Override
     protected Http2Headers getHeadersForPushNotification(final ApnsPushNotification pushNotification, final ChannelHandlerContext context, final int streamId) {
-        final Http2Headers headers = super.getHeadersForPushNotification(pushNotification, context, streamId);
-
-        if (this.authenticationToken == null) {
-            log.debug("Generating new token for stream {} on channel {}", streamId, context.channel());
-
-            this.authenticationToken = new AuthenticationToken(signingKey, Instant.now());
-
-            this.expireTokenFuture = context.executor().schedule(() -> {
-                log.debug("Proactively expiring authentication token for channel {}", context.channel());
-                TokenAuthenticationApnsClientHandler.this.authenticationToken = null;
-            }, tokenExpiration.toMillis(), TimeUnit.MILLISECONDS);
-        }
-
-        headers.add(APNS_AUTHORIZATION_HEADER, this.authenticationToken.getAuthorizationHeader());
-
-        return headers;
+        return super.getHeadersForPushNotification(pushNotification, context, streamId)
+                .add(APNS_AUTHORIZATION_HEADER, this.authenticationTokenProvider.getAuthenticationToken().getAuthorizationHeader());
     }
 
     @Override
@@ -126,17 +90,6 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
             // Once the server thinks our token has expired, it will "wedge" the connection. There's no way to recover
             // from this situation, and all we can do is close the connection and create a new one.
             context.close();
-        }
-    }
-
-    @Override
-    public void channelInactive(final ChannelHandlerContext context) throws Exception {
-        super.channelInactive(context);
-
-        // Cancel the token expiration future if it's still "live" to avoid a reference cycle that could keep handlers
-        // for closed connections in memory longer than expected.
-        if (expireTokenFuture != null) {
-            expireTokenFuture.cancel(false);
         }
     }
 }

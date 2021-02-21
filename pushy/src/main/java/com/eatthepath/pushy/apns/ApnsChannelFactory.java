@@ -22,7 +22,7 @@
 
 package com.eatthepath.pushy.apns;
 
-import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
+import com.eatthepath.pushy.apns.auth.AuthenticationTokenProvider;
 import com.eatthepath.pushy.apns.proxy.ProxyHandlerFactory;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
@@ -71,7 +71,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
     static final AttributeKey<Promise<Channel>> CHANNEL_READY_PROMISE_ATTRIBUTE_KEY =
             AttributeKey.valueOf(ApnsChannelFactory.class, "channelReadyPromise");
 
-    ApnsChannelFactory(final SslContext sslContext, final ApnsSigningKey signingKey, final Duration tokenExpiration,
+    ApnsChannelFactory(final SslContext sslContext, final AuthenticationTokenProvider authenticationTokenProvider,
                        final ProxyHandlerFactory proxyHandlerFactory, final Duration connectTimeout,
                        final Duration idlePingInterval, final Duration gracefulShutdownTimeout,
                        final Http2FrameLogger frameLogger, final InetSocketAddress apnsServerAddress,
@@ -108,10 +108,9 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
                 {
                     final ApnsClientHandler.ApnsClientHandlerBuilder clientHandlerBuilder;
 
-                    if (signingKey != null) {
+                    if (authenticationTokenProvider != null) {
                         clientHandlerBuilder = new TokenAuthenticationApnsClientHandler.TokenAuthenticationApnsClientHandlerBuilder()
-                                .signingKey(signingKey)
-                                .tokenExpiration(tokenExpiration)
+                                .authenticationTokenProvider(authenticationTokenProvider)
                                 .authority(authority)
                                 .idlePingInterval(idlePingInterval);
                     } else {
