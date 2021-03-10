@@ -240,6 +240,10 @@ public class ApnsClient {
         return responseFuture;
     }
 
+    AuthenticationTokenProvider getAuthenticationTokenProvider() {
+        return this.authenticationTokenProvider;
+    }
+
     /**
      * <p>Gracefully shuts down the client, closing all connections and releasing all persistent resources. The
      * disconnection process will wait until notifications that have been sent to the APNs server have been either

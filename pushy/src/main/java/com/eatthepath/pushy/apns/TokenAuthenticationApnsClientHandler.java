@@ -22,22 +22,25 @@
 
 package com.eatthepath.pushy.apns;
 
+import com.eatthepath.pushy.apns.auth.AuthenticationToken;
 import com.eatthepath.pushy.apns.auth.AuthenticationTokenProvider;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http2.Http2ConnectionDecoder;
-import io.netty.handler.codec.http2.Http2ConnectionEncoder;
-import io.netty.handler.codec.http2.Http2Headers;
-import io.netty.handler.codec.http2.Http2Settings;
+import io.netty.handler.codec.http2.*;
 import io.netty.util.AsciiString;
+import io.netty.util.collection.IntObjectHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.Objects;
 
 class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
 
     private final AuthenticationTokenProvider authenticationTokenProvider;
+
+    private final Http2Connection.PropertyKey authenticationTokenPropertyKey;
+    private final Map<Integer, AuthenticationToken> unattachedAuthenticationTokensByStreamId = new IntObjectHashMap<>();
 
     private static final AsciiString APNS_AUTHORIZATION_HEADER = new AsciiString("authorization");
 
@@ -72,12 +75,31 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
         super(decoder, encoder, initialSettings, authority, idlePingInterval);
 
         this.authenticationTokenProvider = Objects.requireNonNull(authenticationTokenProvider, "Authentication token provider must not be null for token-based client handlers.");
+        this.authenticationTokenPropertyKey = this.connection().newKey();
+    }
+
+    @Override
+    public void onStreamAdded(final Http2Stream stream) {
+        super.onStreamAdded(stream);
+
+        stream.setProperty(this.authenticationTokenPropertyKey, this.unattachedAuthenticationTokensByStreamId.remove(stream.id()));
+    }
+
+    @Override
+    public void onStreamRemoved(final Http2Stream stream) {
+        super.onStreamRemoved(stream);
+
+        stream.removeProperty(this.authenticationTokenPropertyKey);
     }
 
     @Override
     protected Http2Headers getHeadersForPushNotification(final ApnsPushNotification pushNotification, final ChannelHandlerContext context, final int streamId) {
+        final AuthenticationToken authenticationToken = this.authenticationTokenProvider.getAuthenticationToken();
+
+        this.unattachedAuthenticationTokensByStreamId.put(streamId, authenticationToken);
+
         return super.getHeadersForPushNotification(pushNotification, context, streamId)
-                .add(APNS_AUTHORIZATION_HEADER, this.authenticationTokenProvider.getAuthenticationToken().getAuthorizationHeader());
+                .add(APNS_AUTHORIZATION_HEADER, authenticationToken.getAuthorizationHeader());
     }
 
     @Override
@@ -87,9 +109,19 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
         if (EXPIRED_AUTH_TOKEN_REASON.equals(errorResponse.getReason())) {
             log.warn("APNs server reports token for channel {} has expired.", context.channel());
 
+            this.authenticationTokenProvider.expireAuthenticationToken(
+                    this.connection().stream(streamId).getProperty(this.authenticationTokenPropertyKey));
+
             // Once the server thinks our token has expired, it will "wedge" the connection. There's no way to recover
             // from this situation, and all we can do is close the connection and create a new one.
             context.close();
         }
+    }
+
+    @Override
+    public void channelInactive(final ChannelHandlerContext context) throws Exception {
+        super.channelInactive(context);
+
+        this.unattachedAuthenticationTokensByStreamId.clear();
     }
 }

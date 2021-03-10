@@ -45,6 +45,8 @@ class AuthenticationTokenProviderTest {
     private ScheduledExecutorService scheduledExecutorService;
     private SettableClock clock;
 
+    private ApnsSigningKey signingKey;
+
     private AuthenticationTokenProvider authenticationTokenProvider;
 
     private static final String KEY_ID = "TESTKEY123";
@@ -83,9 +85,9 @@ class AuthenticationTokenProviderTest {
         this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
         this.clock = new SettableClock(Instant.now());
 
-        final ApnsSigningKey signingKey = new ApnsSigningKey(KEY_ID, TEAM_ID, (ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate());
+        this.signingKey = new ApnsSigningKey(KEY_ID, TEAM_ID, (ECPrivateKey) KeyPairUtil.generateKeyPair().getPrivate());
 
-        this.authenticationTokenProvider = new AuthenticationTokenProvider(signingKey, Duration.ofMinutes(50), scheduledExecutorService, clock);
+        this.authenticationTokenProvider = new AuthenticationTokenProvider(this.signingKey, Duration.ofMinutes(50), scheduledExecutorService, clock);
     }
 
     @AfterEach
@@ -117,5 +119,20 @@ class AuthenticationTokenProviderTest {
         assertEquals(KEY_ID, authenticationToken.getKeyId());
         assertEquals(TEAM_ID, authenticationToken.getTeamId());
         assertEquals(clock.instant(), authenticationToken.getIssuedAt());
+    }
+
+    @Test
+    void testExpireAuthenticationToken() {
+        final AuthenticationToken initialToken = authenticationTokenProvider.getAuthenticationToken();
+
+        clock.setInstant(clock.instant().plus(Duration.ofMinutes(1)));
+
+        final AuthenticationToken differentToken = new AuthenticationToken(this.signingKey, initialToken.getIssuedAt().minus(Duration.ofMinutes(1)));
+
+        authenticationTokenProvider.expireAuthenticationToken(differentToken);
+        assertEquals(initialToken, authenticationTokenProvider.getAuthenticationToken());
+
+        authenticationTokenProvider.expireAuthenticationToken(initialToken);
+        assertNotEquals(initialToken, authenticationTokenProvider.getAuthenticationToken());
     }
 }

@@ -31,6 +31,7 @@ import java.time.Duration;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * An authentication token provider provides thread-safe, non-blocking access to a shared {@link AuthenticationToken}
@@ -41,7 +42,7 @@ public class AuthenticationTokenProvider implements Closeable {
     private final ApnsSigningKey signingKey;
     private final Clock clock;
 
-    private volatile AuthenticationToken token;
+    private final AtomicReference<AuthenticationToken> token;
 
     private final ScheduledFuture<?> refreshTokenFuture;
 
@@ -74,14 +75,14 @@ public class AuthenticationTokenProvider implements Closeable {
         this.signingKey = signingKey;
         this.clock = clock;
 
-        this.token = new AuthenticationToken(signingKey, clock.instant());
+        this.token = new AtomicReference<>(new AuthenticationToken(signingKey, clock.instant()));
 
         this.refreshTokenFuture = scheduledExecutorService.scheduleAtFixedRate(this::refreshToken, maxTokenAge.toMillis(), maxTokenAge.toMillis(), TimeUnit.MILLISECONDS);
     }
 
     void refreshToken() {
         log.debug("Refreshed authentication token");
-        this.token = new AuthenticationToken(signingKey, clock.instant());
+        this.token.set(new AuthenticationToken(signingKey, clock.instant()));
     }
 
     /**
@@ -92,7 +93,17 @@ public class AuthenticationTokenProvider implements Closeable {
      * @return a current authentication token
      */
     public AuthenticationToken getAuthenticationToken() {
-        return this.token;
+        return this.token.get();
+    }
+
+    /**
+     * Marks the given authentication token as "expired," guaranteeing that this provider will not return the given
+     * token in subsequent calls.
+     *
+     * @param expiredToken the token to mark as expired
+     */
+    public void expireAuthenticationToken(final AuthenticationToken expiredToken) {
+        this.token.compareAndSet(expiredToken, new AuthenticationToken(signingKey, clock.instant()));
     }
 
     /**
