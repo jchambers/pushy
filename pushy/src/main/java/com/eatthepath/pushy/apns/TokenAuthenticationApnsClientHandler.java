@@ -120,8 +120,8 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
 
     @Override
     public void channelInactive(final ChannelHandlerContext context) throws Exception {
-        super.channelInactive(context);
-
         this.unattachedAuthenticationTokensByStreamId.clear();
+
+        super.channelInactive(context);
     }
 }

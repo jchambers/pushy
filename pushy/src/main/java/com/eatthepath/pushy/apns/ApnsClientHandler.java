@@ -497,8 +497,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     @Override
     public void channelInactive(final ChannelHandlerContext context) throws Exception {
-        super.channelInactive(context);
-
         if (this.pingTimeoutFuture != null) {
             this.pingTimeoutFuture.cancel(false);
         }
@@ -512,6 +510,8 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         if (getChannelReadyPromise(context.channel()).tryFailure(STREAM_CLOSED_BEFORE_REPLY_EXCEPTION)) {
             log.debug("Channel became inactive before SETTINGS frame received");
         }
+
+        super.channelInactive(context);
     }
 
     public void exceptionCaught(final ChannelHandlerContext context, final Throwable cause) {
