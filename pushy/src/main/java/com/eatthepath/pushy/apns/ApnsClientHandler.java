@@ -416,6 +416,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     @Override
     public void onGoAwayRead(final ChannelHandlerContext context, final int lastStreamId, final long errorCode, final ByteBuf debugData) {
         log.info("Received GOAWAY from APNs server: {}", debugData.toString(StandardCharsets.UTF_8));
+        context.close();
     }
 
     @Override
