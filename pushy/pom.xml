@@ -119,6 +119,9 @@
                         <Import-Package>
                             <!-- Classes from the following packages are only loaded using Class.forName(), so BND can not detect they are required imports. -->
                             io.netty.channel.socket.nio,
+			    <!-- Avoid auto-import of exported packages -->
+			    !com.eatthepath.json,
+			    !com.eatthepath.pushy.*,
                             <!-- This tells BND to add all other required imports that it does detect, as normal. -->
                             *,
                         </Import-Package>
