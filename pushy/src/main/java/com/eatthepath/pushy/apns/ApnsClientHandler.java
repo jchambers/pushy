@@ -509,7 +509,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         this.unattachedResponsePromisesByStreamId.clear();
 
         if (getChannelReadyPromise(context.channel()).tryFailure(STREAM_CLOSED_BEFORE_REPLY_EXCEPTION)) {
-            log.debug("Failed to create channel due to inactivity");
+            log.debug("Channel became inactive before SETTINGS frame received");
         }
     }
 
