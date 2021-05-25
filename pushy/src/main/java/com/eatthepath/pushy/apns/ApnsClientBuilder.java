@@ -33,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLException;
+import javax.net.ssl.TrustManagerFactory;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -67,6 +68,8 @@ public class ApnsClientBuilder {
     private File trustedServerCertificatePemFile;
     private InputStream trustedServerCertificateInputStream;
     private X509Certificate[] trustedServerCertificates;
+
+    private TrustManagerFactory trustManagerFactory;
 
     private EventLoopGroup eventLoopGroup;
 
@@ -367,6 +370,23 @@ public class ApnsClientBuilder {
     }
 
     /**
+     * <p>Sets the trust manager for the client under construction. If not set (or {@code null}), the
+     * client will use the JVM's default trust manager.</p>
+     *
+     * <p>Callers will generally not need to set a trust manager in normal operation, but may wish
+     * to do so for overriding certificate validation policy
+     *
+     * @param trustManagerFactory trust manager factory
+     *
+     * @return a reference to this builder
+     *
+     */
+    public ApnsClientBuilder setTrustManagerFactory(final TrustManagerFactory trustManagerFactory) {
+        this.trustManagerFactory = trustManagerFactory;
+        return this;
+    }
+
+    /**
      * <p>Sets the event loop group to be used by the client under construction. If not set (or if {@code null}), the
      * client will create and manage its own event loop group.</p>
      *
@@ -549,7 +569,9 @@ public class ApnsClientBuilder {
                 sslContextBuilder.keyManager(this.privateKey, this.privateKeyPassword, this.clientCertificate);
             }
 
-            if (this.trustedServerCertificatePemFile != null) {
+            if(this.trustManagerFactory != null)
+                sslContextBuilder.trustManager(this.trustManagerFactory);
+            else if (this.trustedServerCertificatePemFile != null) {
                 sslContextBuilder.trustManager(this.trustedServerCertificatePemFile);
             } else if (this.trustedServerCertificateInputStream != null) {
                 sslContextBuilder.trustManager(this.trustedServerCertificateInputStream);
