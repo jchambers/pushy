@@ -62,6 +62,7 @@ public class ApnsClientBuilder {
     private String privateKeyPassword;
 
     private ApnsSigningKey signingKey;
+    private SslContext sslContext;
     private Duration tokenExpiration = Duration.ofMinutes(50);
 
     private File trustedServerCertificatePemFile;
@@ -280,6 +281,19 @@ public class ApnsClientBuilder {
 
         return this;
     }
+
+    /**
+     * <p>Sets externally managed SSL context for the client under construction. If not set, an instance of SSL context build using signing key or TLS
+     * parameters will be used</p>
+     * @param sslContext externally managed SSL context
+     * @return a reference to this builder
+     */
+    public ApnsClientBuilder setSslContext(final SslContext sslContext) {
+        this.sslContext = sslContext;
+
+        return this;
+    }
+
 
     /**
      * <p>Sets the duration after which authentication tokens should expire and be regenerated from the signing key for
@@ -522,42 +536,53 @@ public class ApnsClientBuilder {
             throw new IllegalStateException("No APNs server address specified.");
         }
 
-        if (this.clientCertificate == null && this.privateKey == null && this.signingKey == null) {
-            throw new IllegalStateException("No client credentials specified; either TLS credentials (a " +
-                    "certificate/private key) or an APNs signing key must be provided before building a client.");
-        } else if ((this.clientCertificate != null || this.privateKey != null) && this.signingKey != null) {
-            throw new IllegalStateException("Clients may not have both a signing key and TLS credentials.");
-        }
-
         final SslContext sslContext;
         {
-            final SslProvider sslProvider;
+            if(this.sslContext != null) {
+                if((this.clientCertificate != null && this.privateKey != null) ||
+                        this.trustedServerCertificatePemFile != null ||
+                        this.trustedServerCertificateInputStream != null ||
+                        this.trustedServerCertificates != null ) {
+                    throw new IllegalStateException("Should not set both SSL context and signing key / TLS credentials.");
+                }
 
-            if (OpenSsl.isAvailable()) {
-                log.info("Native SSL provider is available; will use native provider.");
-                sslProvider = SslProvider.OPENSSL_REFCNT;
+                sslContext = this.sslContext;
             } else {
-                log.info("Native SSL provider not available; will use JDK SSL provider.");
-                sslProvider = SslProvider.JDK;
+                if (this.clientCertificate == null && this.privateKey == null && this.signingKey == null) {
+                    throw new IllegalStateException("No client credentials specified; either TLS credentials (a " +
+                            "certificate/private key) or an APNs signing key must be provided before building a client.");
+                } else if ((this.clientCertificate != null || this.privateKey != null) && this.signingKey != null) {
+                    throw new IllegalStateException("Clients may not have both a signing key and TLS credentials.");
+                }
+
+                final SslProvider sslProvider;
+
+                if (OpenSsl.isAvailable()) {
+                    log.info("Native SSL provider is available; will use native provider.");
+                    sslProvider = SslProvider.OPENSSL_REFCNT;
+                } else {
+                    log.info("Native SSL provider not available; will use JDK SSL provider.");
+                    sslProvider = SslProvider.JDK;
+                }
+
+                final SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
+                        .sslProvider(sslProvider)
+                        .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE);
+
+                if (this.clientCertificate != null && this.privateKey != null) {
+                    sslContextBuilder.keyManager(this.privateKey, this.privateKeyPassword, this.clientCertificate);
+                }
+
+                if (this.trustedServerCertificatePemFile != null) {
+                    sslContextBuilder.trustManager(this.trustedServerCertificatePemFile);
+                } else if (this.trustedServerCertificateInputStream != null) {
+                    sslContextBuilder.trustManager(this.trustedServerCertificateInputStream);
+                } else if (this.trustedServerCertificates != null) {
+                    sslContextBuilder.trustManager(this.trustedServerCertificates);
+                }
+
+                sslContext = sslContextBuilder.build();
             }
-
-            final SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
-                    .sslProvider(sslProvider)
-                    .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE);
-
-            if (this.clientCertificate != null && this.privateKey != null) {
-                sslContextBuilder.keyManager(this.privateKey, this.privateKeyPassword, this.clientCertificate);
-            }
-
-            if (this.trustedServerCertificatePemFile != null) {
-                sslContextBuilder.trustManager(this.trustedServerCertificatePemFile);
-            } else if (this.trustedServerCertificateInputStream != null) {
-                sslContextBuilder.trustManager(this.trustedServerCertificateInputStream);
-            } else if (this.trustedServerCertificates != null) {
-                sslContextBuilder.trustManager(this.trustedServerCertificates);
-            }
-
-            sslContext = sslContextBuilder.build();
         }
 
         try {
@@ -566,7 +591,7 @@ public class ApnsClientBuilder {
                     this.gracefulShutdownTimeout, this.concurrentConnections,  this.metricsListener,
                     this.frameLogger, this.eventLoopGroup);
         } finally {
-            if (sslContext instanceof ReferenceCounted) {
+            if (this.sslContext == null && sslContext instanceof ReferenceCounted) {
                 ((ReferenceCounted) sslContext).release();
             }
         }
