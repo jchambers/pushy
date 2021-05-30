@@ -13,6 +13,7 @@ extendedKeyUsage = clientAuth
 basicConstraints = CA:FALSE
 keyUsage = critical, digitalSignature, keyEncipherment
 extendedKeyUsage = clientAuth, serverAuth
+subjectAltName = @alt_names
 
 [ apns_topics ]
 aps_topics.0 = UTF8String:com.eatthepath.pushy
@@ -21,3 +22,6 @@ aps_topics.2 = UTF8String:com.eatthepath.pushy.voip
 aps_topics.3 = SEQWRAP,UTF8String:voip
 aps_topics.4 = UTF8String:com.eatthepath.pushy.complication
 aps_topics.5 = SEQWRAP,UTF8String:complication
+
+[alt_names]
+DNS.1 = localhost
