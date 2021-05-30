@@ -65,7 +65,7 @@ public class AbstractClientServerTest {
 
     protected static final String TEAM_ID = "team-id";
     protected static final String KEY_ID = "key-id";
-    protected static final String TOPIC = "com.relayrides.pushy";
+    protected static final String TOPIC = "com.eatthepath.pushy";
     protected static final String DEVICE_TOKEN = generateRandomDeviceToken();
     protected static final String PAYLOAD = generateRandomPayload();
 
