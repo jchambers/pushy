@@ -42,6 +42,8 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
 import io.netty.util.concurrent.PromiseNotifier;
 
+import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLParameters;
 import java.io.Closeable;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -103,6 +105,13 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
             protected void initChannel(final SocketChannel channel) {
                 final String authority = apnsServerAddress.getHostName();
                 final SslHandler sslHandler = sslContext.newHandler(channel.alloc(), authority, apnsServerAddress.getPort());
+
+                {
+                    final SSLEngine sslEngine = sslHandler.engine();
+                    final SSLParameters sslParameters = sslEngine.getSSLParameters();
+                    sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
+                    sslEngine.setSSLParameters(sslParameters);
+                }
 
                 final ApnsClientHandler apnsClientHandler;
                 {

@@ -7,6 +7,10 @@ openssl req -config openssl-custom.cnf -extensions v3_ca -new -x509 -days 36500 
 openssl req -new -keyout server-key.pem -nodes -newkey rsa:2048 -subj "/CN=com.eatthepath.pushy" | \
     openssl x509 -extfile ./apns-extensions.cnf -extensions apns_server_extensions -req -CAkey ca.key -CA ca.pem -days 36500 -set_serial 1 -sha512 -out server-certs.pem
 
+# Generate a certificate/key for the server the does NOT have `localhost` as an alternative name
+openssl req -new -keyout server-key-no-alt.pem -nodes -newkey rsa:2048 -subj "/CN=com.eatthepath.pushy" | \
+    openssl x509 -extfile ./apns-extensions.cnf -extensions apns_server_extensions_no_alt -req -CAkey ca.key -CA ca.pem -days 36500 -set_serial 1 -sha512 -out server-certs-no-alt.pem
+
 # Generate certificates/keys for clients and sign them with the intermediate certificate
 openssl req -new -keyout single-topic-client.key -nodes -newkey rsa:2048 -subj "/CN=Apple Push Services: com.eatthepath.pushy/UID=com.eatthepath.pushy" | \
     openssl x509 -extfile ./apns-extensions.cnf -extensions apns_single_topic_client_extensions -req -CAkey ca.key -CA ca.pem -days 36500 -set_serial 1 -sha512 -out single-topic-client.pem
