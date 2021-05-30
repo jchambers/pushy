@@ -15,6 +15,11 @@ keyUsage = critical, digitalSignature, keyEncipherment
 extendedKeyUsage = clientAuth, serverAuth
 subjectAltName = @alt_names
 
+[ apns_server_extensions_no_alt ]
+basicConstraints = CA:FALSE
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = clientAuth, serverAuth
+
 [ apns_topics ]
 aps_topics.0 = UTF8String:com.eatthepath.pushy
 aps_topics.1 = SEQWRAP,UTF8String:app

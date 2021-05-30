@@ -56,6 +56,8 @@ public class AbstractClientServerTest {
     protected static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
     protected static final String SERVER_CERTIFICATES_FILENAME = "/server-certs.pem";
     protected static final String SERVER_KEY_FILENAME = "/server-key.pem";
+    protected static final String UNTRUSTED_HOSTNAME_SERVER_CERTIFICATES_FILENAME = "/server-certs-no-alt.pem";
+    protected static final String UNTRUSTED_HOSTNAME_SERVER_KEY_FILENAME = "/server-key-no-alt.pem";
 
     protected static final String MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME = "/multi-topic-client.p12";
     protected static final String KEYSTORE_PASSWORD = "pushy-test";

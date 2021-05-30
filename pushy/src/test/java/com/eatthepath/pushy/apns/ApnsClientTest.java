@@ -264,6 +264,43 @@ public class ApnsClientTest extends AbstractClientServerTest {
 
     @ParameterizedTest
     @ValueSource(booleans = { true, false })
+    void testSendNotificationToServerWithUntrustedHostname(final boolean useTokenAuthentication) throws Exception {
+        final MockApnsServer serverWithUntrustedHostname = new MockApnsServerBuilder()
+                .setServerCredentials(getClass().getResourceAsStream(UNTRUSTED_HOSTNAME_SERVER_CERTIFICATES_FILENAME), getClass().getResourceAsStream(UNTRUSTED_HOSTNAME_SERVER_KEY_FILENAME), null)
+                .setTrustedClientCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
+                .setEventLoopGroup(SERVER_EVENT_LOOP_GROUP)
+                .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
+                .build();
+
+        final ApnsClient client = useTokenAuthentication ?
+                this.buildTokenAuthenticationClient() : this.buildTlsAuthenticationClient();
+
+        try {
+            serverWithUntrustedHostname.start(PORT).get();
+
+            final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
+
+            final ExecutionException executionException =
+                    assertThrows(ExecutionException.class, () -> client.sendNotification(pushNotification).get());
+
+            boolean foundHandshakeException = false;
+
+            for (Throwable t = executionException; t != null; t = t.getCause()) {
+                if (t instanceof SSLHandshakeException) {
+                    foundHandshakeException = true;
+                    break;
+                }
+            }
+
+            assertTrue(foundHandshakeException);
+        } finally {
+            client.close().get();
+            serverWithUntrustedHostname.shutdown().get();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
     void testRepeatedClose(final boolean useTokenAuthentication) throws Exception {
         final ApnsClient client = useTokenAuthentication ?
                 this.buildTokenAuthenticationClient() : this.buildTlsAuthenticationClient();
