@@ -291,88 +291,25 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
         return this.apnsId;
     }
 
-    /* (non-Javadoc)
-     * @see java.lang.Object#hashCode()
-     */
     @Override
-    public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((this.invalidationTime == null) ? 0 : this.invalidationTime.hashCode());
-        result = prime * result + ((this.payload == null) ? 0 : this.payload.hashCode());
-        result = prime * result + ((this.priority == null) ? 0 : this.priority.hashCode());
-        result = prime * result + ((this.pushType == null) ? 0 : this.pushType.hashCode());
-        result = prime * result + ((this.token == null) ? 0 : this.token.hashCode());
-        result = prime * result + ((this.topic == null) ? 0 : this.topic.hashCode());
-        result = prime * result + ((this.collapseId == null) ? 0 : this.collapseId.hashCode());
-        result = prime * result + ((this.apnsId == null) ? 0 : this.apnsId.hashCode());
-        return result;
+    public boolean equals(final Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        final SimpleApnsPushNotification that = (SimpleApnsPushNotification) o;
+
+        return token.equals(that.token) &&
+                payload.equals(that.payload) &&
+                Objects.equals(invalidationTime, that.invalidationTime) &&
+                priority == that.priority &&
+                pushType == that.pushType &&
+                topic.equals(that.topic) &&
+                Objects.equals(collapseId, that.collapseId) &&
+                Objects.equals(apnsId, that.apnsId);
     }
 
-    /* (non-Javadoc)
-     * @see java.lang.Object#equals(java.lang.Object)
-     */
     @Override
-    public boolean equals(final Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (!(obj instanceof SimpleApnsPushNotification)) {
-            return false;
-        }
-        final SimpleApnsPushNotification other = (SimpleApnsPushNotification) obj;
-        if (this.invalidationTime == null) {
-            if (other.invalidationTime != null) {
-                return false;
-            }
-        } else if (!this.invalidationTime.equals(other.invalidationTime)) {
-            return false;
-        }
-        if (this.payload == null) {
-            if (other.payload != null) {
-                return false;
-            }
-        } else if (!this.payload.equals(other.payload)) {
-            return false;
-        }
-        if (this.priority != other.priority) {
-            return false;
-        }
-        if (this.pushType != other.pushType) {
-            return false;
-        }
-        if (this.token == null) {
-            if (other.token != null) {
-                return false;
-            }
-        } else if (!this.token.equals(other.token)) {
-            return false;
-        }
-        if (this.topic == null) {
-            if (other.topic != null) {
-                return false;
-            }
-        } else if (!this.topic.equals(other.topic)) {
-            return false;
-        }
-        if (Objects.equals(this.collapseId, null)) {
-            if (!Objects.equals(other.collapseId , null)) {
-                return false;
-            }
-        } else if (!this.collapseId.equals(other.collapseId)) {
-            return false;
-        }
-        if (Objects.equals(this.apnsId, null)) {
-            if (!Objects.equals(other.apnsId , null)) {
-                return false;
-            }
-        } else if (!this.apnsId.equals(other.apnsId)) {
-            return false;
-        }
-        return true;
+    public int hashCode() {
+        return Objects.hash(token, payload, invalidationTime, priority, pushType, topic, collapseId, apnsId);
     }
 
     /* (non-Javadoc)
