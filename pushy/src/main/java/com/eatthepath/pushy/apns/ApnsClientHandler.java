@@ -325,7 +325,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
         if (HttpResponseStatus.OK.equals(status)) {
             responseFuture.complete(new SimplePushNotificationResponse<>(responseFuture.getPushNotification(),
-                    true, getApnsIdFromHeaders(headers), null, null));
+                    true, getApnsIdFromHeaders(headers), status.code(), null, null));
         } else {
             if (data != null) {
                 ErrorResponse errorResponse;
@@ -352,8 +352,8 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
 
         responseFuture.complete(new SimplePushNotificationResponse<>(responseFuture.getPushNotification(),
-                HttpResponseStatus.OK.equals(status), getApnsIdFromHeaders(headers), errorResponse.getReason(),
-                errorResponse.getTimestamp()));
+                HttpResponseStatus.OK.equals(status), getApnsIdFromHeaders(headers), status.code(),
+                errorResponse.getReason(), errorResponse.getTimestamp()));
     }
 
     private static UUID getApnsIdFromHeaders(final Http2Headers headers) {

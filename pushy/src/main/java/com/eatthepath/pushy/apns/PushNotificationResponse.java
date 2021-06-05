@@ -63,6 +63,15 @@ public interface PushNotificationResponse<T extends ApnsPushNotification> {
     UUID getApnsId();
 
     /**
+     * Returns the HTTP status code reported by the APNs server.
+     *
+     * @return the HTTP status code reported by the APNs server
+     *
+     * @since 0.15.0
+     */
+    int getStatusCode();
+
+    /**
      * Returns the reason for rejection reported by the APNs gateway. If the notification was accepted, the rejection
      * reason will be {@code null}.
      *

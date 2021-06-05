@@ -37,13 +37,15 @@ class SimplePushNotificationResponse<T extends ApnsPushNotification> implements 
     private final T pushNotification;
     private final boolean success;
     private final UUID apnsId;
+    private final int statusCode;
     private final String rejectionReason;
     private final Instant tokenExpirationTimestamp;
 
-    SimplePushNotificationResponse(final T pushNotification, final boolean success, final UUID apnsId, final String rejectionReason, final Instant tokenExpirationTimestamp) {
+    SimplePushNotificationResponse(final T pushNotification, final boolean success, final UUID apnsId, final int statusCode, final String rejectionReason, final Instant tokenExpirationTimestamp) {
         this.pushNotification = pushNotification;
         this.success = success;
         this.apnsId = apnsId;
+        this.statusCode = statusCode;
         this.rejectionReason = rejectionReason;
         this.tokenExpirationTimestamp = tokenExpirationTimestamp;
     }
@@ -61,6 +63,11 @@ class SimplePushNotificationResponse<T extends ApnsPushNotification> implements 
     @Override
     public UUID getApnsId() {
         return this.apnsId;
+    }
+
+    @Override
+    public int getStatusCode() {
+        return this.statusCode;
     }
 
     @Override
