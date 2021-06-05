@@ -37,6 +37,7 @@ import java.io.InputStream;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -559,7 +560,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
                     client.sendNotification(pushNotification).get();
 
             assertFalse(response.isAccepted());
-            assertEquals("Unregistered", response.getRejectionReason());
+            assertEquals(Optional.of("Unregistered"), response.getRejectionReason());
             assertEquals(expiration.toEpochMilli(), response.getTokenInvalidationTimestamp().map(Instant::toEpochMilli).orElse(0L));
         } finally {
             client.close().get();

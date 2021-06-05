@@ -75,12 +75,11 @@ public interface PushNotificationResponse<T extends ApnsPushNotification> {
      * Returns the reason for rejection reported by the APNs gateway. If the notification was accepted, the rejection
      * reason will be {@code null}.
      *
-     * @return the reason for rejection reported by the APNs gateway, or {@code null} if the notification was not
-     * rejected
+     * @return the reason for rejection reported by the APNs gateway, or empty if the notification was not rejected
      *
      * @since 0.5
      */
-    String getRejectionReason();
+    Optional<String> getRejectionReason();
 
     /**
      * If the sent push notification was rejected because the destination token is no longer valid, returns "the time at
