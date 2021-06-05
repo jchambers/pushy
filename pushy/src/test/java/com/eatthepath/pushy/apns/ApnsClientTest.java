@@ -396,6 +396,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
                     "Clients must send notifications that conform to the APNs protocol specification.");
 
             assertNotNull(response.getApnsId());
+            assertEquals(200, response.getStatusCode());
         } finally {
             client.close().get();
             server.shutdown().get();
