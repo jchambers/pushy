@@ -299,6 +299,41 @@ public class ApnsClientTest extends AbstractClientServerTest {
         }
     }
 
+    @Test
+    void testSendNotificationToServerWithUntrustedHostnameAndVerificationDisabled() throws Exception {
+        final MockApnsServer serverWithUntrustedHostname = new MockApnsServerBuilder()
+                .setServerCredentials(getClass().getResourceAsStream(UNTRUSTED_HOSTNAME_SERVER_CERTIFICATES_FILENAME), getClass().getResourceAsStream(UNTRUSTED_HOSTNAME_SERVER_KEY_FILENAME), null)
+                .setTrustedClientCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
+                .setEventLoopGroup(SERVER_EVENT_LOOP_GROUP)
+                .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
+                .build();
+
+        final ApnsClient client = new ApnsClientBuilder()
+                .setApnsServer(HOST, PORT)
+                .setTrustedServerCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
+                .setSigningKey(this.signingKey)
+                .setEventLoopGroup(CLIENT_EVENT_LOOP_GROUP)
+                .setHostnameVerificationEnabled(false)
+                .build();
+
+        try {
+            serverWithUntrustedHostname.start(PORT).get();
+
+            final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
+
+            final PushNotificationResponse<SimpleApnsPushNotification> response =
+                    client.sendNotification(pushNotification).get();
+
+            assertTrue(response.isAccepted(),
+                    "Clients must send notifications that conform to the APNs protocol specification.");
+
+            assertNotNull(response.getApnsId());
+        } finally {
+            client.close().get();
+            serverWithUntrustedHostname.shutdown().get();
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = { true, false })
     void testRepeatedClose(final boolean useTokenAuthentication) throws Exception {
