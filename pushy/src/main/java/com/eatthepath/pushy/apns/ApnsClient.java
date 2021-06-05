@@ -132,11 +132,12 @@ public class ApnsClient {
     }
 
     protected ApnsClient(final InetSocketAddress apnsServerAddress, final SslContext sslContext,
-                         final ApnsSigningKey signingKey, final Duration tokenExpiration,
-                         final ProxyHandlerFactory proxyHandlerFactory, final Duration connectTimeout,
-                         final Duration idlePingInterval, final Duration gracefulShutdownTimeout,
-                         final int concurrentConnections, final ApnsClientMetricsListener metricsListener,
-                         final Http2FrameLogger frameLogger, final EventLoopGroup eventLoopGroup) {
+                         final boolean hostnameVerificationEnabled, final ApnsSigningKey signingKey,
+                         final Duration tokenExpiration, final ProxyHandlerFactory proxyHandlerFactory,
+                         final Duration connectTimeout, final Duration idlePingInterval,
+                         final Duration gracefulShutdownTimeout, final int concurrentConnections,
+                         final ApnsClientMetricsListener metricsListener, final Http2FrameLogger frameLogger,
+                         final EventLoopGroup eventLoopGroup) {
 
         if (eventLoopGroup != null) {
             this.eventLoopGroup = eventLoopGroup;
@@ -152,9 +153,9 @@ public class ApnsClient {
 
         this.metricsListener = metricsListener != null ? metricsListener : new NoopApnsClientMetricsListener();
 
-        final ApnsChannelFactory channelFactory = new ApnsChannelFactory(sslContext, authenticationTokenProvider,
-                proxyHandlerFactory, connectTimeout, idlePingInterval, gracefulShutdownTimeout,
-                frameLogger, apnsServerAddress, this.eventLoopGroup);
+        final ApnsChannelFactory channelFactory = new ApnsChannelFactory(sslContext, hostnameVerificationEnabled,
+                authenticationTokenProvider, proxyHandlerFactory, connectTimeout, idlePingInterval,
+                gracefulShutdownTimeout, frameLogger, apnsServerAddress, this.eventLoopGroup);
 
         final ApnsChannelPoolMetricsListener channelPoolMetricsListener = new ApnsChannelPoolMetricsListener() {
 

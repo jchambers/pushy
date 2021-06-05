@@ -73,7 +73,8 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
     static final AttributeKey<Promise<Channel>> CHANNEL_READY_PROMISE_ATTRIBUTE_KEY =
             AttributeKey.valueOf(ApnsChannelFactory.class, "channelReadyPromise");
 
-    ApnsChannelFactory(final SslContext sslContext, final AuthenticationTokenProvider authenticationTokenProvider,
+    ApnsChannelFactory(final SslContext sslContext, final boolean hostnameVerificationEnabled,
+                       final AuthenticationTokenProvider authenticationTokenProvider,
                        final ProxyHandlerFactory proxyHandlerFactory, final Duration connectTimeout,
                        final Duration idlePingInterval, final Duration gracefulShutdownTimeout,
                        final Http2FrameLogger frameLogger, final InetSocketAddress apnsServerAddress,
@@ -106,7 +107,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
                 final String authority = apnsServerAddress.getHostName();
                 final SslHandler sslHandler = sslContext.newHandler(channel.alloc(), authority, apnsServerAddress.getPort());
 
-                {
+                if (hostnameVerificationEnabled) {
                     final SSLEngine sslEngine = sslHandler.engine();
                     final SSLParameters sslParameters = sslEngine.getSSLParameters();
                     sslParameters.setEndpointIdentificationAlgorithm("HTTPS");

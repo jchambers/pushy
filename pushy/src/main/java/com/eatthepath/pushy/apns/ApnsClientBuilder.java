@@ -68,6 +68,8 @@ public class ApnsClientBuilder {
     private InputStream trustedServerCertificateInputStream;
     private X509Certificate[] trustedServerCertificates;
 
+    private boolean enableHostnameVerification = true;
+
     private EventLoopGroup eventLoopGroup;
 
     private int concurrentConnections = 1;
@@ -367,6 +369,25 @@ public class ApnsClientBuilder {
     }
 
     /**
+     * <p>Enables or disables hostname verification for the client under construction. When enabled, the client will
+     * verify that the name of the server to which it's connected matches the name in the certificate presented by the
+     * server. Hostname verification is enabled by default.</p>
+     *
+     * <p>Callers should almost never disable hostname verification. This method is provided only to facilitate uncommon
+     * testing and benchmarking use cases.</p>
+     *
+     * @param hostnameVerificationEnabled {@code true} to enable hostname verification or {@code false} otherwise
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.15.0
+     */
+    public ApnsClientBuilder setHostnameVerificationEnabled(final boolean hostnameVerificationEnabled) {
+        this.enableHostnameVerification = hostnameVerificationEnabled;
+        return this;
+    }
+
+    /**
      * <p>Sets the event loop group to be used by the client under construction. If not set (or if {@code null}), the
      * client will create and manage its own event loop group.</p>
      *
@@ -561,8 +582,8 @@ public class ApnsClientBuilder {
         }
 
         try {
-            return new ApnsClient(this.apnsServerAddress, sslContext, this.signingKey, this.tokenExpiration,
-                    this.proxyHandlerFactory, this.connectionTimeout, this.idlePingInterval,
+            return new ApnsClient(this.apnsServerAddress, sslContext, this.enableHostnameVerification, this.signingKey,
+                    this.tokenExpiration, this.proxyHandlerFactory, this.connectionTimeout, this.idlePingInterval,
                     this.gracefulShutdownTimeout, this.concurrentConnections,  this.metricsListener,
                     this.frameLogger, this.eventLoopGroup);
         } finally {
