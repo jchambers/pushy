@@ -493,6 +493,20 @@ public abstract class ApnsPayloadBuilderTest {
 
         assertEquals(argumentSummaryCount, ((Number) alert.get("summary-arg-count")).intValue());
     }
+    
+    @Test
+    void testSetInterruptionLevel() {
+    	final String argumentInterruptionLevel = ApnsPayloadBuilder.INTERRUPTION_LEVEL_TIME_SENSITIVE;
+    	
+        this.builder.setInterruptionLevel(argumentInterruptionLevel);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
+
+        @SuppressWarnings("unchecked")
+        final String interruptionLevel = (String) aps.get("interruption-level");
+
+        assertEquals(argumentInterruptionLevel, interruptionLevel);
+    }
 
     @Test
     void testSetSummaryArgumentCountNonPositive() {

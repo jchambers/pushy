@@ -72,6 +72,8 @@ public abstract class ApnsPayloadBuilder {
     private String summaryArgument = null;
     private Integer summaryArgumentCount = null;
 
+    private String interruptionLevel = null;
+
     private String[] urlArguments = null;
 
     private final HashMap<String, Object> customProperties = new HashMap<>();
@@ -90,6 +92,7 @@ public abstract class ApnsPayloadBuilder {
     private static final String SUMMARY_ARGUMENT_KEY = "summary-arg";
     private static final String SUMMARY_ARGUMENT_COUNT_KEY = "summary-arg-count";
     private static final String URL_ARGS_KEY = "url-args";
+    private static final String INTERRUPTION_LEVEL_KEY = "interruption-level";
 
     private static final String ALERT_TITLE_KEY = "title";
     private static final String ALERT_TITLE_LOC_KEY = "title-loc-key";
@@ -114,6 +117,26 @@ public abstract class ApnsPayloadBuilder {
      * @see ApnsPayloadBuilder#setSoundFileName(String)
      */
     public static final String DEFAULT_SOUND_FILENAME = "default";
+
+    /**
+     * The passive interruption level.
+     */
+    public static final String INTERRUPTION_LEVEL_PASSIVE = "passive";
+    
+    /**
+     * The active interruption level.
+     */
+    public static final String INTERRUPTION_LEVEL_ACTIVE = "active";
+    
+    /**
+     * The time sensitive interruption level.
+     */
+    public static final String INTERRUPTION_LEVEL_TIME_SENSITIVE = "time-sensitive";
+    
+    /**
+     * The critical interruption level.
+     */
+    public static final String INTERRUPTION_LEVEL_CRITICAL = "critical";
 
     /**
     /**
@@ -606,6 +629,26 @@ public abstract class ApnsPayloadBuilder {
     }
 
     /**
+     * <p>Sets the interruption level.</p>
+     *
+     * <p>Accepted values are {@link INTERRUPTION_LEVEL_PASSIVE}, {@link INTERRUPTION_LEVEL_ACTIVE}, {@link INTERRUPTION_LEVEL_TIME_SENSITIVE} and {@link INTERRUPTION_LEVEL_CRITICAL}.</p>
+     *
+     * @param interruptionLevel the interruption level.
+     *
+     * @return a reference to this payload builder.
+     *
+     * @see @see <a href="https://developer.apple.com/design/human-interface-guidelines/ios/system-capabilities/notifications/">Notifications</a>
+     *
+     * @since 0.14.3
+     */
+    public ApnsPayloadBuilder setInterruptionLevel(final String interruptionLevel) {
+        
+        this.interruptionLevel = interruptionLevel;
+
+        return this;
+    }
+
+    /**
      * <p>Sets the list of arguments to populate placeholders in the {@code urlFormatString} associated with a Safari
      * push notification. Has no effect for non-Safari notifications. According to the Notification Programming Guide
      * for Websites:</p>
@@ -727,6 +770,10 @@ public abstract class ApnsPayloadBuilder {
 
             if (this.urlArguments != null) {
                 aps.put(URL_ARGS_KEY, this.urlArguments);
+            }
+
+            if (this.interruptionLevel != null) {
+                aps.put(INTERRUPTION_LEVEL_KEY, this.interruptionLevel);
             }
 
             final Map<String, Object> alert = new HashMap<>();
