@@ -39,6 +39,42 @@ import java.util.*;
 @SuppressWarnings({"UnusedReturnValue", "unused"})
 public abstract class ApnsPayloadBuilder {
 
+    /**
+     * Interruption levels.
+     * 
+     * According to <a href="https://developer.apple.com/design/human-interface-guidelines/ios/system-capabilities/notifications/">Apple's Human Interface Guidelines</a>:
+     * {@code PASSIVE}. Information people can view at their leisure, like a restaurant recommendation.
+     * {@code ACTIVE}. Information people might appreciate knowing about when it arrives, like a score update on their favorite sports team.
+     * {@code TIME_SENSITIVE}. Information that directly impacts the user and requires their immediate attention, like an account security issue or a package delivery.
+     * {@code CRITICAL}. Urgent information about personal health and public safety that directly impacts the user and demands their immediate attention. Critical notifications are extremely rare and typically come from governmental and public agencies or healthcare apps. You must get an entitlement to use the Critical interruption level.
+     */
+    public enum InterruptionLevel {
+        PASSIVE {
+            @Override
+            public String toString() {
+                return "passive";
+            }
+        },
+        ACTIVE {
+            @Override
+            public String toString() {
+                return "active";
+            }
+        },
+        TIME_SENSITIVE {
+            @Override
+            public String toString() {
+                return "time-sensitive";
+            }
+        },
+        CRITICAL {
+            @Override
+            public String toString() {
+                return "critical";
+            }
+        }
+    }
+
     private String alertBody = null;
 
     private String localizedAlertKey = null;
@@ -72,7 +108,7 @@ public abstract class ApnsPayloadBuilder {
     private String summaryArgument = null;
     private Integer summaryArgumentCount = null;
 
-    private String interruptionLevel = null;
+    private InterruptionLevel interruptionLevel = null;
 
     private String[] urlArguments = null;
 
@@ -116,27 +152,7 @@ public abstract class ApnsPayloadBuilder {
      *
      * @see ApnsPayloadBuilder#setSoundFileName(String)
      */
-    public static final String DEFAULT_SOUND_FILENAME = "default";
-
-    /**
-     * The passive interruption level.
-     */
-    public static final String INTERRUPTION_LEVEL_PASSIVE = "passive";
-    
-    /**
-     * The active interruption level.
-     */
-    public static final String INTERRUPTION_LEVEL_ACTIVE = "active";
-    
-    /**
-     * The time sensitive interruption level.
-     */
-    public static final String INTERRUPTION_LEVEL_TIME_SENSITIVE = "time-sensitive";
-    
-    /**
-     * The critical interruption level.
-     */
-    public static final String INTERRUPTION_LEVEL_CRITICAL = "critical";
+    public static final String DEFAULT_SOUND_FILENAME = "default"; 
 
     /**
     /**
@@ -629,19 +645,15 @@ public abstract class ApnsPayloadBuilder {
     }
 
     /**
-     * <p>Sets the interruption level.</p>
-     *
-     * <p>Accepted values are {@link INTERRUPTION_LEVEL_PASSIVE}, {@link INTERRUPTION_LEVEL_ACTIVE}, {@link INTERRUPTION_LEVEL_TIME_SENSITIVE} and {@link INTERRUPTION_LEVEL_CRITICAL}.</p>
-     *
+     * <p>Sets the interruption level for the notification.</p>
+     * 
      * @param interruptionLevel the interruption level.
      *
-     * @return a reference to this payload builder.
-     *
-     * @see @see <a href="https://developer.apple.com/design/human-interface-guidelines/ios/system-capabilities/notifications/">Notifications</a>
-     *
-     * @since 0.14.3
+     * @see InterruptionLevel
+     * 
+     * @since 0.15
      */
-    public ApnsPayloadBuilder setInterruptionLevel(final String interruptionLevel) {
+    public ApnsPayloadBuilder setInterruptionLevel(final InterruptionLevel interruptionLevel) {
         
         this.interruptionLevel = interruptionLevel;
 
@@ -773,7 +785,7 @@ public abstract class ApnsPayloadBuilder {
             }
 
             if (this.interruptionLevel != null) {
-                aps.put(INTERRUPTION_LEVEL_KEY, this.interruptionLevel);
+                aps.put(INTERRUPTION_LEVEL_KEY, this.interruptionLevel.toString());
             }
 
             final Map<String, Object> alert = new HashMap<>();

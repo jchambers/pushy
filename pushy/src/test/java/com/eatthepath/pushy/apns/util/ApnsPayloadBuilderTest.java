@@ -496,7 +496,8 @@ public abstract class ApnsPayloadBuilderTest {
     
     @Test
     void testSetInterruptionLevel() {
-    	final String argumentInterruptionLevel = ApnsPayloadBuilder.INTERRUPTION_LEVEL_TIME_SENSITIVE;
+        
+    	final ApnsPayloadBuilder.InterruptionLevel argumentInterruptionLevel = ApnsPayloadBuilder.InterruptionLevel.TIME_SENSITIVE;
     	
         this.builder.setInterruptionLevel(argumentInterruptionLevel);
 
@@ -505,7 +506,7 @@ public abstract class ApnsPayloadBuilderTest {
         @SuppressWarnings("unchecked")
         final String interruptionLevel = (String) aps.get("interruption-level");
 
-        assertEquals(argumentInterruptionLevel, interruptionLevel);
+        assertEquals("time-sensitive", interruptionLevel);
     }
 
     @Test
