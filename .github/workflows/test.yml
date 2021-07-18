@@ -31,4 +31,4 @@ jobs:
       env:
         PUSHY_TEST_TRANSPORT: ${{ matrix.transport }}
         PUSHY_TEST_SSL_PROVIDER: ${{ matrix.tls }}
-      run: mvn test -B --file pom.xml
+      run: mvn verify -B --file pom.xml
