@@ -135,10 +135,8 @@ public abstract class ApnsPayloadBuilder {
     }
 
     /**
-     * <p>Sets the literal text of the alert message to be shown for the push notification. Clears any previously-set
-     * localized alert message key and arguments.</p>
-     *
-     * <p>By default, no message is shown.</p>
+     * Sets the literal text of the alert message to be shown for the push notification. By default, no message is
+     * shown.
      *
      * @param alertBody the literal message to be shown for this push notification
      *
@@ -148,17 +146,13 @@ public abstract class ApnsPayloadBuilder {
      */
     public ApnsPayloadBuilder setAlertBody(final String alertBody) {
         this.alertBody = alertBody;
-
-        this.localizedAlertKey = null;
-        this.localizedAlertArguments = null;
-
         return this;
     }
 
     /**
      * <p>Sets the key of a message in the receiving app's localized string list to be shown for the push notification.
      * The message in the app's string list may optionally have placeholders, which will be populated by values from the
-     * given {@code alertArguments}. Clears any previously-set literal alert body.</p>
+     * given {@code alertArguments}.</p>
      *
      * <p>By default, no message is shown.</p>
      *
@@ -173,15 +167,12 @@ public abstract class ApnsPayloadBuilder {
         this.localizedAlertKey = localizedAlertKey;
         this.localizedAlertArguments = (alertArguments != null && alertArguments.length > 0) ? alertArguments : null;
 
-        this.alertBody = null;
-
         return this;
     }
 
     /**
-     * <p>Sets a short description of the notification purpose. Clears any previously-set localized title key and
-     * arguments. The Apple Watch will display the title as part of the notification. According to Apple's
-     * documentation, this should be:</p>
+     * <p>Sets a short description of the notification purpose. The Apple Watch will display the title as part of the
+     * notification. According to Apple's documentation, this should be:</p>
      *
      * <blockquote>A short string describing the purpose of the notification. Apple Watch displays this string as part
      * of the notification interface. This string is displayed only briefly and should be crafted so that it can be
@@ -197,17 +188,13 @@ public abstract class ApnsPayloadBuilder {
      */
     public ApnsPayloadBuilder setAlertTitle(final String alertTitle) {
         this.alertTitle = alertTitle;
-
-        this.localizedAlertTitleKey = null;
-        this.localizedAlertTitleArguments = null;
-
         return this;
     }
 
     /**
      * <p>Sets the key of the title string in the receiving app's localized string list to be shown for the push
-     * notification. Clears any previously-set literal alert title. The message in the app's string list may optionally
-     * have placeholders, which will be populated by values from the given {@code alertArguments}.</p>
+     * notification. The message in the app's string list may optionally have placeholders, which will be populated by
+     * values from the given {@code alertArguments}.</p>
      *
      * @param localizedAlertTitleKey a key to a string in the receiving app's localized string list
      * @param alertTitleArguments arguments to populate placeholders in the localized alert string; may be {@code null}
@@ -218,15 +205,11 @@ public abstract class ApnsPayloadBuilder {
         this.localizedAlertTitleKey = localizedAlertTitleKey;
         this.localizedAlertTitleArguments = (alertTitleArguments != null && alertTitleArguments.length > 0) ? alertTitleArguments : null;
 
-        this.alertTitle = null;
-
         return this;
     }
 
     /**
-     * <p>Sets a subtitle for the notification. Clears any previously-set localized subtitle key and arguments.</p>
-     *
-     * <p>By default, no subtitle is included. Requires iOS 10 or newer.</p>
+     * <p>Sets a subtitle for the notification. By default, no subtitle is included. Requires iOS 10 or newer.
      *
      * @param alertSubtitle the subtitle for this push notification
      *
@@ -237,16 +220,13 @@ public abstract class ApnsPayloadBuilder {
     public ApnsPayloadBuilder setAlertSubtitle(final String alertSubtitle) {
         this.alertSubtitle = alertSubtitle;
 
-        this.localizedAlertSubtitleKey = null;
-        this.localizedAlertSubtitleArguments = null;
-
         return this;
     }
 
     /**
      * <p>Sets the key of the subtitle string in the receiving app's localized string list to be shown for the push
-     * notification. Clears any previously-set literal subtitle. The message in the app's string list may optionally
-     * have placeholders, which will be populated by values from the given {@code alertSubtitleArguments}.</p>
+     * notification. The message in the app's string list may optionally have placeholders, which will be populated by
+     * values from the given {@code alertSubtitleArguments}.</p>
      *
      * <p>By default, no subtitle is included. Requires iOS 10 or newer.</p>
      *
@@ -261,8 +241,6 @@ public abstract class ApnsPayloadBuilder {
     public ApnsPayloadBuilder setLocalizedAlertSubtitle(final String localizedAlertSubtitleKey, final String... alertSubtitleArguments) {
         this.localizedAlertSubtitleKey = localizedAlertSubtitleKey;
         this.localizedAlertSubtitleArguments = (alertSubtitleArguments != null && alertSubtitleArguments.length > 0) ? alertSubtitleArguments : null;
-
-        this.alertSubtitle = null;
 
         return this;
     }

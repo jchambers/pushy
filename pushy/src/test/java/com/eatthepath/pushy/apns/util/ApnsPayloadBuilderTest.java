@@ -53,18 +53,7 @@ public abstract class ApnsPayloadBuilderTest {
     void testSetAlertBody() {
         final String alertBody = "This is a test alert message.";
 
-        this.builder.setLocalizedAlertMessage("test.alert");
         this.builder.setAlertBody(alertBody);
-
-        {
-            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
-
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
-
-            assertEquals(alertBody, alert.get("body"));
-        }
-
         this.builder.setPreferStringRepresentationForAlerts(true);
 
         {
@@ -83,7 +72,7 @@ public abstract class ApnsPayloadBuilderTest {
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
             assertEquals(alertBody, alert.get("body"));
-            assertNull(alert.get("loc-key"));
+            assertEquals("test.alert", alert.get("loc-key"));
             assertNull(alert.get("loc-args"));
         }
     }
@@ -101,8 +90,6 @@ public abstract class ApnsPayloadBuilderTest {
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
             assertEquals(alertKey, alert.get("loc-key"));
-            assertNull(alert.get("loc-args"));
-            assertNull(alert.get("body"));
         }
 
         // We're happy here as long as nothing explodes
@@ -137,8 +124,6 @@ public abstract class ApnsPayloadBuilderTest {
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
             assertEquals(alertTitle, alert.get("title"));
-            assertNull(alert.get("title-loc-key"));
-            assertNull(alert.get("title-loc-args"));
         }
     }
 
@@ -156,8 +141,6 @@ public abstract class ApnsPayloadBuilderTest {
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
             assertEquals(localizedAlertTitleKey, alert.get("title-loc-key"));
-            assertNull(alert.get("title-loc-args"));
-            assertNull(alert.get("title"));
         }
 
         // We're happy here as long as nothing explodes
@@ -195,8 +178,6 @@ public abstract class ApnsPayloadBuilderTest {
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
             assertEquals(alertSubtitle, alert.get("subtitle"));
-            assertNull(alert.get("subtitle-loc-key"));
-            assertNull(alert.get("subtitle-loc-args"));
         }
     }
 
@@ -205,7 +186,6 @@ public abstract class ApnsPayloadBuilderTest {
     void testSetLocalizedAlertSubitle() {
         final String subtitleKey = "test.subtitle";
 
-        this.builder.setAlertSubtitle("Subtitle!");
         this.builder.setLocalizedAlertSubtitle(subtitleKey);
 
         {
