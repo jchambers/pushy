@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.text.ParseException;
 import java.util.ArrayList;
@@ -481,6 +482,32 @@ public abstract class ApnsPayloadBuilderTest {
         final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
         assertEquals("time-sensitive", aps.get("interruption-level"));
+    }
+
+    @Test
+    void testSetRelevanceScore() {
+        {
+            final double relevanceScore = 0.7;
+            this.builder.setRelevanceScore(relevanceScore);
+
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
+
+            assertEquals(relevanceScore, ((Number) aps.get("relevance-score")).doubleValue());
+        }
+
+        {
+            this.builder.setRelevanceScore(null);
+
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
+
+            assertFalse(aps.containsKey("relevance-score"));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(doubles = {-7, 1.1, Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY})
+    void testSetRelevanceScoreIllegalValue(final double illegalRelevanceScore) {
+        assertThrows(IllegalArgumentException.class, () -> this.builder.setRelevanceScore(illegalRelevanceScore));
     }
 
     @Test
