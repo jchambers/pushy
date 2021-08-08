@@ -74,6 +74,8 @@ public abstract class ApnsPayloadBuilder {
 
     private InterruptionLevel interruptionLevel = null;
 
+    private Double relevanceScore = null;
+
     private String[] urlArguments = null;
 
     private final HashMap<String, Object> customProperties = new HashMap<>();
@@ -93,6 +95,7 @@ public abstract class ApnsPayloadBuilder {
     private static final String SUMMARY_ARGUMENT_COUNT_KEY = "summary-arg-count";
     private static final String URL_ARGS_KEY = "url-args";
     private static final String INTERRUPTION_LEVEL_KEY = "interruption-level";
+    private static final String RELEVANCE_SCORE_KEY = "relevance-score";
 
     private static final String ALERT_TITLE_KEY = "title";
     private static final String ALERT_TITLE_LOC_KEY = "title-loc-key";
@@ -599,10 +602,35 @@ public abstract class ApnsPayloadBuilder {
      * @see <a href="https://developer.apple.com/design/human-interface-guidelines/ios/system-capabilities/notifications/">Human
      * Interface Guidelines: Notifications</a>
      *
-     * @since 0.15
+     * @since 0.15.0
      */
     public ApnsPayloadBuilder setInterruptionLevel(final InterruptionLevel interruptionLevel) {
         this.interruptionLevel = interruptionLevel;
+        return this;
+    }
+
+    /**
+     * <p>Sets the relevance score for this notification. By default, no relevance score is included.</p>
+     *
+     * <p>The relevance score is:</p>
+     *
+     * <blockquote>…a number between 0 and 1, that the system uses to sort the notifications from your app. The highest
+     * score gets featured in the notification summary.</blockquote>
+     *
+     * @param relevanceScore a relevance score between 0 and 1, inclusive, or {@code null} if no relevance score should
+     * be included in the notification
+     *
+     * @return a reference to this payload builder
+     *
+     * @since 0.15.0
+     */
+    public ApnsPayloadBuilder setRelevanceScore(final Double relevanceScore) {
+        if (relevanceScore != null && (relevanceScore < 0 || relevanceScore > 1 || relevanceScore.isNaN())) {
+            throw new IllegalArgumentException("Relevance score must be a number between 0 and 1, inclusive, but was actually " + relevanceScore);
+        }
+
+        this.relevanceScore = relevanceScore;
+
         return this;
     }
 
@@ -732,6 +760,10 @@ public abstract class ApnsPayloadBuilder {
 
             if (this.interruptionLevel != null) {
                 aps.put(INTERRUPTION_LEVEL_KEY, this.interruptionLevel.getValue());
+            }
+
+            if (this.relevanceScore != null) {
+                aps.put(RELEVANCE_SCORE_KEY, this.relevanceScore);
             }
 
             final Map<String, Object> alert = new HashMap<>();
