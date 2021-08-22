@@ -79,7 +79,7 @@ public class ApnsClientBuilder {
     private ProxyHandlerFactory proxyHandlerFactory;
 
     private Duration connectionTimeout;
-    private Duration idlePingInterval = DEFAULT_IDLE_PING_INTERVAL;
+    private Duration closeAfterIdleDuration = DEFAULT_CLOSE_AFTER_IDLE_DURATION;
     private Duration gracefulShutdownTimeout;
 
     private Http2FrameLogger frameLogger;
@@ -87,11 +87,11 @@ public class ApnsClientBuilder {
     private boolean useAlpn = false;
 
     /**
-     * The default idle time in milliseconds after which the client will send a PING frame to the APNs server.
+     * The default idle time after which the client will close a connection (which may be reopened later).
      *
      * @since 0.11
      */
-    public static final Duration DEFAULT_IDLE_PING_INTERVAL = Duration.ofMinutes(1);
+    public static final Duration DEFAULT_CLOSE_AFTER_IDLE_DURATION = Duration.ofMinutes(1);
 
     /**
      * The hostname for the production APNs gateway.
@@ -485,18 +485,18 @@ public class ApnsClientBuilder {
     }
 
     /**
-     * Sets the amount of idle time (in milliseconds) after which the client under construction will send a PING frame
-     * to the APNs server. By default, clients will send a PING frame after an idle period of
-     * {@link com.eatthepath.pushy.apns.ApnsClientBuilder#DEFAULT_IDLE_PING_INTERVAL}.
+     * Sets the amount of idle time after which the client under construction will close a connection (which may be
+     * reopened later). By default, clients will close connections after an idle time of
+     * {@link com.eatthepath.pushy.apns.ApnsClientBuilder#DEFAULT_CLOSE_AFTER_IDLE_DURATION}.
      *
-     * @param idlePingInterval the amount of idle time after which the client will send a PING frame
+     * @param closeAfterIdleDuration the amount of idle time after which the client will close a connection
      *
      * @return a reference to this builder
      *
-     * @since 0.10
+     * @since 0.16.0
      */
-    public ApnsClientBuilder setIdlePingInterval(final Duration idlePingInterval) {
-        this.idlePingInterval = idlePingInterval;
+    public ApnsClientBuilder setCloseAfterIdleDuration(final Duration closeAfterIdleDuration) {
+        this.closeAfterIdleDuration = closeAfterIdleDuration;
         return this;
     }
 
@@ -633,7 +633,7 @@ public class ApnsClientBuilder {
                             this.tokenExpiration,
                             this.proxyHandlerFactory,
                             this.connectionTimeout,
-                            this.idlePingInterval,
+                            this.closeAfterIdleDuration,
                             this.gracefulShutdownTimeout,
                             this.concurrentConnections,
                             this.metricsListener,
