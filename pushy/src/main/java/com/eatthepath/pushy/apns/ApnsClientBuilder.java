@@ -62,7 +62,7 @@ public class ApnsClientBuilder {
     private String privateKeyPassword;
 
     private ApnsSigningKey signingKey;
-    private Duration tokenExpiration = Duration.ofMinutes(50);
+    private Duration tokenExpiration;
 
     private File trustedServerCertificatePemFile;
     private InputStream trustedServerCertificateInputStream;
@@ -582,10 +582,21 @@ public class ApnsClientBuilder {
         }
 
         try {
-            return new ApnsClient(this.apnsServerAddress, sslContext, this.enableHostnameVerification, this.signingKey,
-                    this.tokenExpiration, this.proxyHandlerFactory, this.connectionTimeout, this.idlePingInterval,
-                    this.gracefulShutdownTimeout, this.concurrentConnections,  this.metricsListener,
-                    this.frameLogger, this.eventLoopGroup);
+            final ApnsClientConfiguration clientConfiguration =
+                    new ApnsClientConfiguration(this.apnsServerAddress,
+                            sslContext,
+                            this.enableHostnameVerification,
+                            this.signingKey,
+                            this.tokenExpiration,
+                            this.proxyHandlerFactory,
+                            this.connectionTimeout,
+                            this.idlePingInterval,
+                            this.gracefulShutdownTimeout,
+                            this.concurrentConnections,
+                            this.metricsListener,
+                            this.frameLogger);
+
+            return new ApnsClient(clientConfiguration, this.eventLoopGroup);
         } finally {
             if (sslContext instanceof ReferenceCounted) {
                 ((ReferenceCounted) sslContext).release();
