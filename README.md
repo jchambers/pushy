@@ -25,11 +25,11 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 <dependency>
     <groupId>com.eatthepath</groupId>
     <artifactId>pushy</artifactId>
-    <version>0.14.2</version>
+    <version>0.15.0</version>
 </dependency>
 ```
 
-If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/jchambers/pushy/releases/download/pushy-0.14.2/pushy-0.14.2.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
+If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/jchambers/pushy/releases/download/pushy-0.15.0/pushy-0.15.0.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
 - [netty 4.1.67](http://netty.io/)
 - [gson 2.6](https://github.com/google/gson)
@@ -57,7 +57,7 @@ Generally speaking, APNs clients must authenticate with the APNs server by some 
 
 In TLS-based authentication, clients present a TLS certificate to the server when connecting, and may send notifications to any "topic" named in the certificate. Generally, this means that a single client can only send push notifications to a single receiving app.
 
-Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an [`ApnsClient`](https://pushy-apns.org/apidocs/0.14/com/eatthepath/pushy/apns/ApnsClient.html). Clients using TLS authentication need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing). To create a client that will use TLS-based authentication:
+Once you've registered your app and have the requisite certificates, the first thing you'll need to do to start sending push notifications with Pushy is to create an [`ApnsClient`](https://pushy-apns.org/apidocs/0.15/com/eatthepath/pushy/apns/ApnsClient.html). Clients using TLS authentication need a certificate and private key to authenticate with the APNs server. The most common way to store the certificate and key is in a password-protected PKCS#12 file (you'll wind up with a password-protected .p12 file if you follow Apple's instructions at the time of this writing). To create a client that will use TLS-based authentication:
 
 ```java
 final ApnsClient apnsClient = new ApnsClientBuilder()
@@ -82,7 +82,7 @@ final ApnsClient apnsClient = new ApnsClientBuilder()
 
 ## Sending push notifications
 
-Pushy's APNs clients maintain an internal pool of connections to the APNs server and create new connections on demand. As a result, clients do not need to be started explicitly. Regardless of the authentication method you choose, once you've created a client, it's ready to start sending push notifications. At minimum, [push notifications](https://pushy-apns.org/apidocs/0.14/com/eatthepath/pushy/apns/ApnsPushNotification.html) need a device token (which identifies the notification's destination device and is a distinct idea from an authentication token), a topic, and a payload.
+Pushy's APNs clients maintain an internal pool of connections to the APNs server and create new connections on demand. As a result, clients do not need to be started explicitly. Regardless of the authentication method you choose, once you've created a client, it's ready to start sending push notifications. At minimum, [push notifications](https://pushy-apns.org/apidocs/0.15/com/eatthepath/pushy/apns/ApnsPushNotification.html) need a device token (which identifies the notification's destination device and is a distinct idea from an authentication token), a topic, and a payload.
 
 ```java
 final SimpleApnsPushNotification pushNotification;
@@ -98,9 +98,9 @@ final SimpleApnsPushNotification pushNotification;
 }
 ```
 
-Pushy includes a [`SimpleApnsPayloadBuilder`](https://pushy-apns.org/apidocs/0.14/com/eatthepath/pushy/apns/util/SimpleApnsPayloadBuilder.html), and payload builders based on [Gson](https://github.com/jchambers/pushy/tree/master/gson-payload-builder) and [Jackson](https://github.com/jchambers/pushy/tree/master/jackson-payload-builder) are available as separate modules. [APNs payloads are just JSON strings](https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification), and callers may produce payloads by the method of their choice; while Pushy's payload builders may be convenient, callers are _not_ obligated to use them.
+Pushy includes a [`SimpleApnsPayloadBuilder`](https://pushy-apns.org/apidocs/0.15/com/eatthepath/pushy/apns/util/SimpleApnsPayloadBuilder.html), and payload builders based on [Gson](https://github.com/jchambers/pushy/tree/master/gson-payload-builder) and [Jackson](https://github.com/jchambers/pushy/tree/master/jackson-payload-builder) are available as separate modules. [APNs payloads are just JSON strings](https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/generating_a_remote_notification), and callers may produce payloads by the method of their choice; while Pushy's payload builders may be convenient, callers are _not_ obligated to use them.
 
-The process of sending a push notification is asynchronous; although the process of sending a notification and getting a reply from the server may take some time, the client will return a [`CompletableFuture`](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletableFuture.html) right away. You can use that `CompletableFuture` to track the progress and eventual outcome of the sending operation. Note that sending a notification returns a [`PushNotificationFuture`](https://pushy-apns.org/apidocs/0.14/com/eatthepath/pushy/apns/util/concurrent/PushNotificationFuture.html), which is a subclass of `CompletableFuture` that always holds a reference to the notification that was sent.
+The process of sending a push notification is asynchronous; although the process of sending a notification and getting a reply from the server may take some time, the client will return a [`CompletableFuture`](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletableFuture.html) right away. You can use that `CompletableFuture` to track the progress and eventual outcome of the sending operation. Note that sending a notification returns a [`PushNotificationFuture`](https://pushy-apns.org/apidocs/0.15/com/eatthepath/pushy/apns/util/concurrent/PushNotificationFuture.html), which is a subclass of `CompletableFuture` that always holds a reference to the notification that was sent.
 
 ```java
 final PushNotificationFuture<SimpleApnsPushNotification, PushNotificationResponse<SimpleApnsPushNotification>>
@@ -186,7 +186,7 @@ Please note that the metric-handling methods in your listener implementation sho
 
 ## Using a proxy
 
-If you need to use a proxy for outbound connections, you may specify a [`ProxyHandlerFactory`](https://pushy-apns.org/apidocs/0.14/com/eatthepath/pushy/apns/proxy/ProxyHandlerFactory.html) when building your `ApnsClient` instance. Concrete implementations of `ProxyHandlerFactory` are provided for HTTP, SOCKS4, and SOCKS5 proxies.
+If you need to use a proxy for outbound connections, you may specify a [`ProxyHandlerFactory`](https://pushy-apns.org/apidocs/0.15/com/eatthepath/pushy/apns/proxy/ProxyHandlerFactory.html) when building your `ApnsClient` instance. Concrete implementations of `ProxyHandlerFactory` are provided for HTTP, SOCKS4, and SOCKS5 proxies.
 
 An example:
 
@@ -238,12 +238,12 @@ Pushy uses logging levels as follows:
 
 Pushy includes a mock APNs server that callers may use in integration tests and benchmarks. It is not necessary to use a mock server (or any related classes) in normal operation.
 
-To build a mock server, callers should use a [`MockApnsServerBuilder`](https://pushy-apns.org/apidocs/0.14/com/eatthepath/pushy/apns/server/MockApnsServerBuilder.html). All servers require a [`PushNotificationHandler`](https://pushy-apns.org/apidocs/0.14/com/eatthepath/pushy/apns/server/PushNotificationHandler.html) (built by a [`PushNotificationHandlerFactory`](https://pushy-apns.org/apidocs/0.14/com/eatthepath/pushy/apns/server/PushNotificationHandlerFactory.html) provided to the builder) that decides whether the mock server will accept or reject each incoming push notification. Pushy includes an `AcceptAllPushNotificationHandlerFactory` that is helpful for benchmarking and a `ValidatingPushNotificationHandlerFactory` that may be helpful for integration testing.
+To build a mock server, callers should use a [`MockApnsServerBuilder`](https://pushy-apns.org/apidocs/0.15/com/eatthepath/pushy/apns/server/MockApnsServerBuilder.html). All servers require a [`PushNotificationHandler`](https://pushy-apns.org/apidocs/0.15/com/eatthepath/pushy/apns/server/PushNotificationHandler.html) (built by a [`PushNotificationHandlerFactory`](https://pushy-apns.org/apidocs/0.15/com/eatthepath/pushy/apns/server/PushNotificationHandlerFactory.html) provided to the builder) that decides whether the mock server will accept or reject each incoming push notification. Pushy includes an `AcceptAllPushNotificationHandlerFactory` that is helpful for benchmarking and a `ValidatingPushNotificationHandlerFactory` that may be helpful for integration testing.
 
-Callers may also provide a [`MockApnsServerListener`](https://pushy-apns.org/apidocs/0.14/com/eatthepath/pushy/apns/server/MockApnsServerListener.html) when building a mock server; listeners are notified whenever the mock server accepts or rejects a notification from a client.
+Callers may also provide a [`MockApnsServerListener`](https://pushy-apns.org/apidocs/0.15/com/eatthepath/pushy/apns/server/MockApnsServerListener.html) when building a mock server; listeners are notified whenever the mock server accepts or rejects a notification from a client.
 
 ## License and status
 
 Pushy is available under the [MIT License](https://github.com/jchambers/pushy/blob/master/LICENSE.md).
 
-The current version of Pushy is 0.14.2. It's fully functional and widely used in production environments, but the public API may change significantly before a 1.0 release.
+The current version of Pushy is 0.15.0. It's fully functional and widely used in production environments, but the public API may change significantly before a 1.0 release.
