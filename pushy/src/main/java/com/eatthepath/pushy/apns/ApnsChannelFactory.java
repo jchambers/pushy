@@ -23,11 +23,9 @@
 package com.eatthepath.pushy.apns;
 
 import com.eatthepath.pushy.apns.auth.AuthenticationTokenProvider;
-import com.eatthepath.pushy.apns.proxy.ProxyHandlerFactory;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.codec.http2.Http2FrameLogger;
 import io.netty.handler.flush.FlushConsolidationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
@@ -45,9 +43,7 @@ import io.netty.util.concurrent.PromiseNotifier;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
 import java.io.Closeable;
-import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -73,41 +69,41 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
     static final AttributeKey<Promise<Channel>> CHANNEL_READY_PROMISE_ATTRIBUTE_KEY =
             AttributeKey.valueOf(ApnsChannelFactory.class, "channelReadyPromise");
 
-    ApnsChannelFactory(final SslContext sslContext, final boolean hostnameVerificationEnabled,
+    ApnsChannelFactory(final ApnsClientConfiguration clientConfiguration,
                        final AuthenticationTokenProvider authenticationTokenProvider,
-                       final ProxyHandlerFactory proxyHandlerFactory, final Duration connectTimeout,
-                       final Duration idlePingInterval, final Duration gracefulShutdownTimeout,
-                       final Http2FrameLogger frameLogger, final InetSocketAddress apnsServerAddress,
                        final EventLoopGroup eventLoopGroup) {
 
-        this.sslContext = sslContext;
+        this.sslContext = clientConfiguration.getSslContext();
 
         if (this.sslContext instanceof ReferenceCounted) {
             ((ReferenceCounted) this.sslContext).retain();
         }
 
-        this.addressResolverGroup = proxyHandlerFactory == null ?
-                new RoundRobinDnsAddressResolverGroup(ClientChannelClassUtil.getDatagramChannelClass(eventLoopGroup),
-                        DefaultDnsServerAddressStreamProvider.INSTANCE) : NoopAddressResolverGroup.INSTANCE;
+        if (clientConfiguration.getProxyHandlerFactory().isPresent()) {
+            this.addressResolverGroup = NoopAddressResolverGroup.INSTANCE;
+        } else {
+            this.addressResolverGroup = new RoundRobinDnsAddressResolverGroup(
+                    ClientChannelClassUtil.getDatagramChannelClass(eventLoopGroup),
+                    DefaultDnsServerAddressStreamProvider.INSTANCE);
+        }
 
         this.bootstrapTemplate = new Bootstrap();
         this.bootstrapTemplate.group(eventLoopGroup);
         this.bootstrapTemplate.option(ChannelOption.TCP_NODELAY, true);
-        this.bootstrapTemplate.remoteAddress(apnsServerAddress);
+        this.bootstrapTemplate.remoteAddress(clientConfiguration.getApnsServerAddress());
         this.bootstrapTemplate.resolver(this.addressResolverGroup);
 
-        if (connectTimeout != null) {
-            this.bootstrapTemplate.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) connectTimeout.toMillis());
-        }
+        clientConfiguration.getConnectionTimeout().ifPresent(timeout ->
+                this.bootstrapTemplate.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, (int) timeout.toMillis()));
 
         this.bootstrapTemplate.handler(new ChannelInitializer<SocketChannel>() {
 
             @Override
             protected void initChannel(final SocketChannel channel) {
-                final String authority = apnsServerAddress.getHostName();
-                final SslHandler sslHandler = sslContext.newHandler(channel.alloc(), authority, apnsServerAddress.getPort());
+                final String authority = clientConfiguration.getApnsServerAddress().getHostName();
+                final SslHandler sslHandler = sslContext.newHandler(channel.alloc(), authority, clientConfiguration.getApnsServerAddress().getPort());
 
-                if (hostnameVerificationEnabled) {
+                if (clientConfiguration.isHostnameVerificationEnabled()) {
                     final SSLEngine sslEngine = sslHandler.engine();
                     final SSLParameters sslParameters = sslEngine.getSSLParameters();
                     sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
@@ -122,33 +118,29 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
                         clientHandlerBuilder = new TokenAuthenticationApnsClientHandler.TokenAuthenticationApnsClientHandlerBuilder()
                                 .authenticationTokenProvider(authenticationTokenProvider)
                                 .authority(authority)
-                                .idlePingInterval(idlePingInterval);
+                                .idlePingInterval(clientConfiguration.getIdlePingInterval());
                     } else {
                         clientHandlerBuilder = new ApnsClientHandler.ApnsClientHandlerBuilder()
                                 .authority(authority)
-                                .idlePingInterval(idlePingInterval);
+                                .idlePingInterval(clientConfiguration.getIdlePingInterval());
                     }
 
-                    if (frameLogger != null) {
-                        clientHandlerBuilder.frameLogger(frameLogger);
-                    }
+                    clientConfiguration.getFrameLogger().ifPresent(clientHandlerBuilder::frameLogger);
 
                     apnsClientHandler = clientHandlerBuilder.build();
 
-                    if (gracefulShutdownTimeout != null) {
-                        apnsClientHandler.gracefulShutdownTimeoutMillis(gracefulShutdownTimeout.toMillis());
-                    }
+                    clientConfiguration.getGracefulShutdownTimeout().ifPresent(timeout ->
+                            apnsClientHandler.gracefulShutdownTimeoutMillis(timeout.toMillis()));
                 }
 
                 final ChannelPipeline pipeline = channel.pipeline();
 
-                if (proxyHandlerFactory != null) {
-                    pipeline.addFirst(proxyHandlerFactory.createProxyHandler());
-                }
+                clientConfiguration.getProxyHandlerFactory().ifPresent(proxyHandlerFactory ->
+                        pipeline.addFirst(proxyHandlerFactory.createProxyHandler()));
 
                 pipeline.addLast(sslHandler);
                 pipeline.addLast(new FlushConsolidationHandler(FlushConsolidationHandler.DEFAULT_EXPLICIT_FLUSH_AFTER_FLUSHES, true));
-                pipeline.addLast(new IdleStateHandler(idlePingInterval.toMillis(), 0, 0, TimeUnit.MILLISECONDS));
+                pipeline.addLast(new IdleStateHandler(clientConfiguration.getIdlePingInterval().toMillis(), 0, 0, TimeUnit.MILLISECONDS));
                 pipeline.addLast(apnsClientHandler);
             }
         });
