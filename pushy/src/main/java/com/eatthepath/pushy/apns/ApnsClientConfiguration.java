@@ -46,7 +46,7 @@ class ApnsClientConfiguration {
     private final Duration tokenExpiration;
     private final ProxyHandlerFactory proxyHandlerFactory;
     private final Duration connectionTimeout;
-    private final Duration idlePingInterval;
+    private final Duration closeAfterIdleDuration;
     private final Duration gracefulShutdownTimeout;
     private final int concurrentConnections;
     private final ApnsClientMetricsListener metricsListener;
@@ -59,7 +59,7 @@ class ApnsClientConfiguration {
                                    final Duration tokenExpiration,
                                    final ProxyHandlerFactory proxyHandlerFactory,
                                    final Duration connectionTimeout,
-                                   final Duration idlePingInterval,
+                                   final Duration closeAfterIdleDuration,
                                    final Duration gracefulShutdownTimeout,
                                    final int concurrentConnections,
                                    final ApnsClientMetricsListener metricsListener,
@@ -72,7 +72,7 @@ class ApnsClientConfiguration {
         this.tokenExpiration = tokenExpiration != null ? tokenExpiration : DEFAULT_TOKEN_EXPIRATION;
         this.proxyHandlerFactory = proxyHandlerFactory;
         this.connectionTimeout = connectionTimeout;
-        this.idlePingInterval = idlePingInterval;
+        this.closeAfterIdleDuration = closeAfterIdleDuration;
         this.gracefulShutdownTimeout = gracefulShutdownTimeout;
         this.concurrentConnections = concurrentConnections;
         this.metricsListener = metricsListener;
@@ -107,8 +107,8 @@ class ApnsClientConfiguration {
         return Optional.ofNullable(connectionTimeout);
     }
 
-    public Duration getIdlePingInterval() {
-        return idlePingInterval;
+    public Duration getCloseAfterIdleDuration() {
+        return closeAfterIdleDuration;
     }
 
     public Optional<Duration> getGracefulShutdownTimeout() {
