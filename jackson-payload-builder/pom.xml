@@ -26,14 +26,14 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>pushy-jackson-payload-builder</artifactId>
-    <version>0.14.3-SNAPSHOT</version>
+    <version>0.15.0</version>
     <name>Jackson APNs payload builder for Pushy</name>
     <description>A payload builder for Pushy that uses Jackson to serialize payloads.</description>
 
     <parent>
         <artifactId>pushy-parent</artifactId>
         <groupId>com.eatthepath</groupId>
-        <version>0.14.3-SNAPSHOT</version>
+        <version>0.15.0</version>
     </parent>
 
     <dependencies>
