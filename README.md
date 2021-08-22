@@ -5,11 +5,17 @@
 
 Pushy is a Java library for sending [APNs](https://developer.apple.com/documentation/usernotifications) (iOS, macOS, and Safari) push notifications.
 
-Pushy sends push notifications using Apple's HTTP/2-based APNs protocol and supports both TLS and token-based authentication. It distinguishes itself from other push notification libraries with a focus on [thorough documentation](https://pushy-apns.org/apidocs/0.14/index.html?overview-summary.html), asynchronous operation, and design for industrial-scale operation; with Pushy, it's easy and efficient to maintain multiple parallel connections to the APNs gateway to send large numbers of notifications to many different applications ("topics").
+Pushy sends push notifications using Apple's HTTP/2-based APNs protocol and supports both TLS and token-based authentication. It distinguishes itself from other push notification libraries with a focus on [thorough documentation](https://pushy-apns.org/apidocs/latest/), asynchronous operation, and design for industrial-scale operation. With Pushy, it's easy and efficient to maintain multiple parallel connections to the APNs gateway to send large numbers of notifications to many different applications ("topics").
 
-We believe that Pushy is already the best tool for sending APNs push notifications from Java applications, and we hope you'll help us make it even better via bug reports and pull requests. If you have questions about using Pushy, please join us on [the Pushy mailing list](https://groups.google.com/d/forum/pushy-apns) or take a look at [the wiki](https://github.com/jchambers/pushy/wiki). Thanks!
+We believe that Pushy is already the best tool for sending APNs push notifications from Java applications, and we hope you'll help us make it even better via bug reports and pull requests.
 
 If you need a simple GUI application for sending push notifications for development or testing purposes, you might also be interested in Pushy's sister project, [Pushy Console](https://github.com/jchambers/pushy-console).
+
+## Quick links
+
+- [API documentation](https://pushy-apns.org/apidocs/latest/)
+- [Discussions](https://github.com/jchambers/pushy/discussions) (for general support and questions)
+- [Issues](https://github.com/jchambers/pushy/issues) (for bug reports and feature requests)
 
 ## Getting Pushy
 
