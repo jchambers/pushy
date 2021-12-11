@@ -30,7 +30,7 @@
     <version>0.15.1-SNAPSHOT</version>
 
     <name>Pushy parent</name>
-    <description>A Java library for sending push notifications</description>
+    <description>A Java library for sending APNs (iOS/macOS/Safari) push notifications</description>
     <inceptionYear>2013</inceptionYear>
     <url>https://pushy-apns.org/</url>
 
