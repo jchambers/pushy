@@ -33,17 +33,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLException;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * An {@code ApnsClientBuilder} constructs new {@link ApnsClient} instances. Callers must specify the APNs server to
@@ -64,8 +66,6 @@ public class ApnsClientBuilder {
     private ApnsSigningKey signingKey;
     private Duration tokenExpiration;
 
-    private File trustedServerCertificatePemFile;
-    private InputStream trustedServerCertificateInputStream;
     private X509Certificate[] trustedServerCertificates;
 
     private boolean enableHostnameVerification = true;
@@ -314,12 +314,16 @@ public class ApnsClientBuilder {
      *
      * @return a reference to this builder
      *
+     * @throws CertificateException if certificates could not be loaded from the given file for any reason
+     *
      * @since 0.8
      */
-    public ApnsClientBuilder setTrustedServerCertificateChain(final File certificatePemFile) {
-        this.trustedServerCertificatePemFile = certificatePemFile;
-        this.trustedServerCertificateInputStream = null;
-        this.trustedServerCertificates = null;
+    public ApnsClientBuilder setTrustedServerCertificateChain(final File certificatePemFile) throws CertificateException {
+        try (final FileInputStream certificatePemInputStream = new FileInputStream(certificatePemFile)) {
+            this.setTrustedServerCertificateChain(certificatePemInputStream);
+        } catch (final IOException e) {
+            throw new CertificateException(e);
+        }
 
         return this;
     }
@@ -336,12 +340,20 @@ public class ApnsClientBuilder {
      *
      * @return a reference to this builder
      *
+     * @throws CertificateException if certificates could not be loaded from the given input stream for any reason
+     *
      * @since 0.8
      */
-    public ApnsClientBuilder setTrustedServerCertificateChain(final InputStream certificateInputStream) {
-        this.trustedServerCertificatePemFile = null;
-        this.trustedServerCertificateInputStream = certificateInputStream;
-        this.trustedServerCertificates = null;
+    public ApnsClientBuilder setTrustedServerCertificateChain(final InputStream certificateInputStream) throws CertificateException {
+        this.trustedServerCertificates = CertificateFactory.getInstance("X.509")
+                .generateCertificates(certificateInputStream)
+                .stream()
+                .map(certificate -> (X509Certificate) certificate)
+                .toArray(X509Certificate[]::new);
+
+        if (this.trustedServerCertificates.length == 0) {
+            log.warn("Trusted certificate chain has been set, but is empty");
+        }
 
         return this;
     }
@@ -361,10 +373,7 @@ public class ApnsClientBuilder {
      * @since 0.8
      */
     public ApnsClientBuilder setTrustedServerCertificateChain(final X509Certificate... certificates) {
-        this.trustedServerCertificatePemFile = null;
-        this.trustedServerCertificateInputStream = null;
         this.trustedServerCertificates = certificates;
-
         return this;
     }
 
@@ -570,11 +579,7 @@ public class ApnsClientBuilder {
                 sslContextBuilder.keyManager(this.privateKey, this.privateKeyPassword, this.clientCertificate);
             }
 
-            if (this.trustedServerCertificatePemFile != null) {
-                sslContextBuilder.trustManager(this.trustedServerCertificatePemFile);
-            } else if (this.trustedServerCertificateInputStream != null) {
-                sslContextBuilder.trustManager(this.trustedServerCertificateInputStream);
-            } else if (this.trustedServerCertificates != null) {
+            if (this.trustedServerCertificates != null) {
                 sslContextBuilder.trustManager(this.trustedServerCertificates);
             }
 

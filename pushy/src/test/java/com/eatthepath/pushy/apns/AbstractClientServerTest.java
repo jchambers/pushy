@@ -42,6 +42,7 @@ import javax.net.ssl.SSLException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.KeyPair;
+import java.security.cert.CertificateException;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.time.Instant;
@@ -110,11 +111,11 @@ public class AbstractClientServerTest {
         shutdownPromise.await();
     }
 
-    protected ApnsClient buildTlsAuthenticationClient() throws IOException {
+    protected ApnsClient buildTlsAuthenticationClient() throws IOException, CertificateException {
         return this.buildTlsAuthenticationClient(null);
     }
 
-    protected ApnsClient buildTlsAuthenticationClient(final ApnsClientMetricsListener metricsListener) throws IOException {
+    protected ApnsClient buildTlsAuthenticationClient(final ApnsClientMetricsListener metricsListener) throws IOException, CertificateException {
         try (final InputStream p12InputStream = getClass().getResourceAsStream(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
             return new ApnsClientBuilder()
                     .setApnsServer(HOST, PORT)
@@ -126,11 +127,11 @@ public class AbstractClientServerTest {
         }
     }
 
-    protected ApnsClient buildTokenAuthenticationClient() throws SSLException {
+    protected ApnsClient buildTokenAuthenticationClient() throws SSLException, CertificateException {
         return this.buildTokenAuthenticationClient(null);
     }
 
-    protected ApnsClient buildTokenAuthenticationClient(final ApnsClientMetricsListener metricsListener) throws SSLException {
+    protected ApnsClient buildTokenAuthenticationClient(final ApnsClientMetricsListener metricsListener) throws SSLException, CertificateException {
         return new ApnsClientBuilder()
                 .setApnsServer(HOST, PORT)
                 .setTrustedServerCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
