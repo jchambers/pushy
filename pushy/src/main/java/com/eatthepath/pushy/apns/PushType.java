@@ -123,7 +123,7 @@ public enum PushType {
      * If you set this push type, the apns-topic header field must use your app’s bundle ID with .location-query 
      * appended to the end</blockquote>
      *
-     * @since 0.15
+     * @since 0.15.1
      */
     LOCATION("location");
 
