@@ -114,6 +114,18 @@ public enum PushType {
      * @since 0.13.10
      */
     MDM("mdm");
+    
+    /**
+     * <p>Indicates that a push notification is intended to request a location from the receiving device to contact the issuers 
+     * server. According to Apple's documentation:</p>
+     *
+     * <blockquote>Use the {@code location} push type for notifications that request a user’s location. 
+     * If you set this push type, the apns-topic header field must use your app’s bundle ID with .location-query 
+     * appended to the end</blockquote>
+     *
+     * @since 0.15
+     */
+    LOCATION("location");
 
     private final String headerValue;
 
