@@ -22,7 +22,6 @@
 
 package com.eatthepath.pushy.apns;
 
-import com.eatthepath.pushy.apns.auth.AuthenticationToken;
 import com.eatthepath.pushy.apns.server.*;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
@@ -416,8 +415,6 @@ public class ApnsClientTest extends AbstractClientServerTest {
         final TestClientMetricsListener metricsListener = new TestClientMetricsListener();
         final ApnsClient client = this.buildTokenAuthenticationClient(metricsListener);
 
-        final AuthenticationToken initialToken = client.getAuthenticationTokenProvider().getAuthenticationToken();
-
         try {
             server.start(PORT).get();
 
@@ -432,8 +429,6 @@ public class ApnsClientTest extends AbstractClientServerTest {
             client.close().get();
             server.shutdown().get();
         }
-
-        assertNotEquals(initialToken, client.getAuthenticationTokenProvider().getAuthenticationToken());
     }
 
     @ParameterizedTest

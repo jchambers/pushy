@@ -22,7 +22,6 @@
 
 package com.eatthepath.pushy.apns;
 
-import com.eatthepath.pushy.apns.auth.AuthenticationTokenProvider;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
@@ -70,7 +69,6 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
             AttributeKey.valueOf(ApnsChannelFactory.class, "channelReadyPromise");
 
     ApnsChannelFactory(final ApnsClientConfiguration clientConfiguration,
-                       final AuthenticationTokenProvider authenticationTokenProvider,
                        final EventLoopGroup eventLoopGroup) {
 
         this.sslContext = clientConfiguration.getSslContext();
@@ -114,9 +112,10 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
                 {
                     final ApnsClientHandler.ApnsClientHandlerBuilder clientHandlerBuilder;
 
-                    if (authenticationTokenProvider != null) {
+                    if (clientConfiguration.getSigningKey().isPresent()) {
                         clientHandlerBuilder = new TokenAuthenticationApnsClientHandler.TokenAuthenticationApnsClientHandlerBuilder()
-                                .authenticationTokenProvider(authenticationTokenProvider)
+                                .signingKey(clientConfiguration.getSigningKey().get())
+                                .tokenExpiration(clientConfiguration.getTokenExpiration())
                                 .authority(authority)
                                 .idlePingInterval(clientConfiguration.getIdlePingInterval());
                     } else {
