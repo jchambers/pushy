@@ -22,6 +22,8 @@
 
 package com.eatthepath.pushy.apns;
 
+import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
+
 /**
  * An enumeration of push notification display types. Note that push notification display types are required in iOS 13
  * and later and watchOS 6 and later, but are ignored under earlier versions of either operating system.
@@ -116,14 +118,26 @@ public enum PushType {
     MDM("mdm"),
     
     /**
-     * <p>Indicates that a push notification is intended to request a location from the receiving device to contact the issuers 
-     * server. According to Apple's documentation:</p>
+     * <p>Indicates that a push notification is intended to query the destination device's location and activate a
+     * <a href="https://developer.apple.com/documentation/corelocation/cllocationmanager/creating_a_location_push_service_extension">Location
+     * Push Service Extension</a> on the destination device. According to Apple's documentation:</p>
      *
-     * <blockquote>Use the {@code location} push type for notifications that request a user’s location. 
-     * If you set this push type, the apns-topic header field must use your app’s bundle ID with .location-query 
-     * appended to the end</blockquote>
+     * <blockquote><p>Use the {@code location} push type for notifications that request a user’s location. If you set
+     * this push type, the {@code apns-topic} header field must use your app’s bundle ID with {@code .location-query}
+     * appended to the end.</p>
+     *
+     * <p>The location push type is recommended for iOS and iPadOS. It isn’t available on macOS, tvOS, and watchOS.</p>
+     *
+     * <p>If the location query requires an immediate response from the Location Push Service Extension, set
+     * notification {@code apns-priority} to 10 [{@link DeliveryPriority#IMMEDIATE}]; otherwise, use 5
+     * [{@link DeliveryPriority#CONSERVE_POWER}].</p>
+     *
+     * <p>The location push type supports only token-based authentication.</p></blockquote>
      *
      * @since 0.15.1
+     *
+     * @see ApnsClientBuilder#setSigningKey(ApnsSigningKey)
+     * @see DeliveryPriority
      */
     LOCATION("location");
 
