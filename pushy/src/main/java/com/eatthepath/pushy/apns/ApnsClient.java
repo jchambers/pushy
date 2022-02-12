@@ -22,7 +22,6 @@
 
 package com.eatthepath.pushy.apns;
 
-import com.eatthepath.pushy.apns.auth.AuthenticationTokenProvider;
 import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -80,8 +79,6 @@ public class ApnsClient {
     private final EventLoopGroup eventLoopGroup;
     private final boolean shouldShutDownEventLoopGroup;
 
-    private final AuthenticationTokenProvider authenticationTokenProvider;
-
     private final ApnsChannelPool channelPool;
 
     private final ApnsClientMetricsListener metricsListener;
@@ -135,15 +132,11 @@ public class ApnsClient {
             this.shouldShutDownEventLoopGroup = true;
         }
 
-        this.authenticationTokenProvider = clientConfiguration.getSigningKey()
-                .map(signingKey -> new AuthenticationTokenProvider(signingKey, clientConfiguration.getTokenExpiration(), this.eventLoopGroup))
-                .orElse(null);
-
         this.metricsListener = clientConfiguration.getMetricsListener()
                 .orElseGet(NoopApnsClientMetricsListener::new);
 
         final ApnsChannelFactory channelFactory =
-                new ApnsChannelFactory(clientConfiguration, this.authenticationTokenProvider, this.eventLoopGroup);
+                new ApnsChannelFactory(clientConfiguration, this.eventLoopGroup);
 
         final ApnsChannelPoolMetricsListener channelPoolMetricsListener = new ApnsChannelPoolMetricsListener() {
 
@@ -229,10 +222,6 @@ public class ApnsClient {
         return responseFuture;
     }
 
-    AuthenticationTokenProvider getAuthenticationTokenProvider() {
-        return this.authenticationTokenProvider;
-    }
-
     /**
      * <p>Gracefully shuts down the client, closing all connections and releasing all persistent resources. The
      * disconnection process will wait until notifications that have been sent to the APNs server have been either
@@ -257,10 +246,6 @@ public class ApnsClient {
         final CompletableFuture<Void> closeFuture;
 
         if (this.isClosed.compareAndSet(false, true)) {
-            if (this.authenticationTokenProvider != null) {
-                this.authenticationTokenProvider.close();
-            }
-
             closeFuture = new CompletableFuture<>();
 
             this.channelPool.close().addListener((GenericFutureListener<Future<Void>>) closePoolFuture -> {
