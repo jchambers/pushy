@@ -25,14 +25,14 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>pushy</artifactId>
-    <version>0.15.1-SNAPSHOT</version>
+    <version>0.15.1</version>
     <packaging>bundle</packaging>
     <name>Pushy</name>
 
     <parent>
         <groupId>com.eatthepath</groupId>
         <artifactId>pushy-parent</artifactId>
-        <version>0.15.1-SNAPSHOT</version>
+        <version>0.15.1</version>
     </parent>
 
     <dependencies>
