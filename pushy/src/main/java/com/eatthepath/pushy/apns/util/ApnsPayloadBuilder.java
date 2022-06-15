@@ -704,8 +704,13 @@ public abstract class ApnsPayloadBuilder {
      * @param value the value of the custom property
      *
      * @return a reference to this payload builder
+     *
+     * @throws IllegalArgumentException if the key equals to "aps"
      */
     public ApnsPayloadBuilder addCustomProperty(final String key, final Object value) {
+        if (APS_KEY.equals(key)) {
+            throw new IllegalArgumentException("Custom property key must not be aps");
+        }
         this.customProperties.put(key, value);
         return this;
     }
