@@ -32,6 +32,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -517,14 +518,25 @@ public abstract class ApnsPayloadBuilderTest {
 
     @Test
     void testAddCustomProperty() throws ParseException {
-        final String customKey = "string";
-        final String customValue = "Hello";
+        final String keyForStringValue = "string";
+        final String stringValue = "Hello";
 
-        this.builder.addCustomProperty(customKey, customValue);
+        final String keyForLongValue = "integer";
+        final long longValue = 12;
+
+        final String keyForMapValue = "map";
+        final Map<String, Boolean> mapValue = new HashMap<>();
+        mapValue.put("boolean", true);
+
+        this.builder.addCustomProperty(keyForStringValue, stringValue);
+        this.builder.addCustomProperty(keyForLongValue, longValue);
+        this.builder.addCustomProperty(keyForMapValue, mapValue);
 
         final Map<String, Object> payload = new JsonParser().parseJsonObject(this.builder.build());
 
-        assertEquals(customValue, payload.get(customKey));
+        assertEquals(stringValue, payload.get(keyForStringValue));
+        assertEquals(longValue, payload.get(keyForLongValue));
+        assertEquals(mapValue, payload.get(keyForMapValue));
     }
 
     @Test
