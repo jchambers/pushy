@@ -22,8 +22,6 @@
 
 package com.eatthepath.pushy.apns.util;
 
-import com.eatthepath.json.JsonSerializer;
-
 import java.util.*;
 
 /**
@@ -698,7 +696,8 @@ public abstract class ApnsPayloadBuilder {
      * identifying when the provider sent the notification. Any action associated with an alert message should not be
      * destructive—for example, it should not delete data on the device.</blockquote>
      *
-     * <p>The value for the property is serialized to JSON as described in {@link JsonSerializer}.</p>
+     * <p>The precise strategy for serializing the values of custom properties is defined by the specific
+     * {@code ApnsPayloadBuilder} implementation.</p>
      *
      * @param key the key of the custom property in the payload object
      * @param value the value of the custom property
@@ -711,6 +710,7 @@ public abstract class ApnsPayloadBuilder {
         if (APS_KEY.equals(key)) {
             throw new IllegalArgumentException("Custom property key must not be aps");
         }
+
         this.customProperties.put(key, value);
         return this;
     }
