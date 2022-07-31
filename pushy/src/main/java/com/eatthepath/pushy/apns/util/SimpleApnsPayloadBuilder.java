@@ -25,7 +25,8 @@ package com.eatthepath.pushy.apns.util;
 import com.eatthepath.json.JsonSerializer;
 
 /**
- * A simple APNs payload builder that serializes payloads using a {@link JsonSerializer}.
+ * A simple APNs payload builder that serializes payloads using a {@link JsonSerializer}. Please see the documentation
+ * for {@link JsonSerializer} for details about how this payload builder serializes custom properties.
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
