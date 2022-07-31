@@ -844,9 +844,7 @@ public abstract class ApnsPayloadBuilder {
             payload.put(APS_KEY, aps);
         }
 
-        for (final Map.Entry<String, Object> entry : this.customProperties.entrySet()) {
-            payload.put(entry.getKey(), entry.getValue());
-        }
+        payload.putAll(this.customProperties);
 
         return payload;
     }
