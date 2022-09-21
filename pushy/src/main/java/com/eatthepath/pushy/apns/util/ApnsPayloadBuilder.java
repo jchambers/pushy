@@ -78,6 +78,12 @@ public abstract class ApnsPayloadBuilder {
 
     private final HashMap<String, Object> customProperties = new HashMap<>();
 
+    private LiveActivityEvent liveActivityEvent = null;
+
+    private Long timestamp = null;
+
+    private final HashMap<String, Object> contentState = new HashMap<>();
+
     private boolean preferStringRepresentationForAlerts = false;
 
     private static final String APS_KEY = "aps";
@@ -94,7 +100,9 @@ public abstract class ApnsPayloadBuilder {
     private static final String URL_ARGS_KEY = "url-args";
     private static final String INTERRUPTION_LEVEL_KEY = "interruption-level";
     private static final String RELEVANCE_SCORE_KEY = "relevance-score";
-
+    private static final String TIMESTAMP_KEY = "timestamp";
+    private static final String EVENT_KEY = "event";
+    private static final String CONTENT_STATE_KEY = "content-state";
     private static final String ALERT_TITLE_KEY = "title";
     private static final String ALERT_TITLE_LOC_KEY = "title-loc-key";
     private static final String ALERT_TITLE_ARGS_KEY = "title-loc-args";
@@ -715,6 +723,21 @@ public abstract class ApnsPayloadBuilder {
         return this;
     }
 
+    public ApnsPayloadBuilder addContentStateProperty(final String key, final Object value) {
+        this.contentState.put(key, value);
+        return this;
+    }
+
+    public ApnsPayloadBuilder setLiveActivityEvent(final LiveActivityEvent liveActivityEvent) {
+        this.liveActivityEvent = liveActivityEvent;
+        return this;
+    }
+
+    public ApnsPayloadBuilder setTimestamp(final Long timestamp) {
+        this.timestamp = timestamp;
+        return this;
+    }
+
     /**
      * Returns a map representing the push notification payload under construction. Subclasses will generally serialize
      * this map as a JSON string to produce a push notification payload.
@@ -769,6 +792,18 @@ public abstract class ApnsPayloadBuilder {
 
             if (this.relevanceScore != null) {
                 aps.put(RELEVANCE_SCORE_KEY, this.relevanceScore);
+            }
+
+            if (this.timestamp != null) {
+                aps.put(TIMESTAMP_KEY, this.timestamp);
+            }
+
+            if (this.liveActivityEvent != null) {
+                aps.put(EVENT_KEY, this.liveActivityEvent.getValue());
+            }
+
+            if (!this.contentState.isEmpty()) {
+                aps.put(CONTENT_STATE_KEY, this.contentState);
             }
 
             final Map<String, Object> alert = new HashMap<>();
