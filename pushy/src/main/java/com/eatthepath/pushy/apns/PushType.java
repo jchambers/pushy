@@ -139,7 +139,22 @@ public enum PushType {
      * @see ApnsClientBuilder#setSigningKey(ApnsSigningKey)
      * @see DeliveryPriority
      */
-    LOCATION("location");
+    LOCATION("location"),
+
+    /**
+     * <p>Indicates that a push notification is intended to update a running Live Activity. According to Apple's
+     * documentation:</p>
+     *
+     * <blockquote><p>Set the apns-topic header field of the request you sent to APNs using the following format:
+     * {@code <your bundleID>.push-type.liveactivity.}</p>
+     *
+     * <p>To update a Live Activity, set the value for the payload’s event key to update. To end a Live Activity,
+     * set it to end. If you end a Live Activity, include the final content state to make sure the
+     * Live Activity displays the latest data after it ends.</p></blockquote>
+     *
+     * @since 0.15.2
+     */
+    LIVE_ACTIVITY("liveactivity");
 
     private final String headerValue;
 
