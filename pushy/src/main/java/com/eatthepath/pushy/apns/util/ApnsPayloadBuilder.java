@@ -78,10 +78,8 @@ public abstract class ApnsPayloadBuilder {
 
     private final HashMap<String, Object> customProperties = new HashMap<>();
 
-    private LiveActivityEvent liveActivityEvent = null;
-
+    private LiveActivityEvent event = null;
     private Long timestamp = null;
-
     private final HashMap<String, Object> contentState = new HashMap<>();
 
     private boolean preferStringRepresentationForAlerts = false;
@@ -723,16 +721,52 @@ public abstract class ApnsPayloadBuilder {
         return this;
     }
 
+    /**
+     * <p>Adds a custom property inside the content-state payload for Live Activities.</p>
+     *
+     * <p>The precise strategy for serializing the values of custom properties is defined by the specific
+     * {@code ApnsPayloadBuilder} implementation.</p>
+     *
+     * @param key the key of the custom property in the content-state object
+     * @param value the value of the custom property
+     *
+     * @return a reference to this payload builder
+     *
+     * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">
+     *      Updating and ending your Live Activity with remote push notifications</a>
+     */
     public ApnsPayloadBuilder addContentStateProperty(final String key, final Object value) {
         this.contentState.put(key, value);
         return this;
     }
 
-    public ApnsPayloadBuilder setLiveActivityEvent(final LiveActivityEvent liveActivityEvent) {
-        this.liveActivityEvent = liveActivityEvent;
+    /**
+     * <p>Sets whether the notification payload will be used for updating the Live Activity
+     * or for ending it.</p>
+     *
+     * @param event {@code LiveActivityEvent.UPDATE} to update the Live Activity or
+     * {@code LiveActivityEvent.END} to end it.
+     *
+     * @return a reference to this payload builder
+     *
+     * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">
+     *      Updating and ending your Live Activity with remote push notifications</a>
+     */
+    public ApnsPayloadBuilder setEvent(final LiveActivityEvent event) {
+        this.event = event;
         return this;
     }
 
+    /**
+     * <p>Sets a timestamp for the push notification payload.</p>
+     *
+     *  @param timestamp Timestamp
+     *
+     * @return a reference to this payload builder
+     *
+     * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">
+     *      Updating and ending your Live Activity with remote push notifications</a>
+     */
     public ApnsPayloadBuilder setTimestamp(final Long timestamp) {
         this.timestamp = timestamp;
         return this;
@@ -798,8 +832,8 @@ public abstract class ApnsPayloadBuilder {
                 aps.put(TIMESTAMP_KEY, this.timestamp);
             }
 
-            if (this.liveActivityEvent != null) {
-                aps.put(EVENT_KEY, this.liveActivityEvent.getValue());
+            if (this.event != null) {
+                aps.put(EVENT_KEY, this.event.getValue());
             }
 
             if (!this.contentState.isEmpty()) {
