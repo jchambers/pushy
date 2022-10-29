@@ -22,7 +22,9 @@
 
 package com.eatthepath.pushy.apns.util;
 
-import java.util.*;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * <p>A base utility class for constructing JSON payloads suitable for inclusion in APNs push notifications for Live
@@ -39,7 +41,8 @@ public abstract class LiveActivityApnsPayloadBuilder {
     private String alertTitle = null;
     private String soundFileName = null;
     private LiveActivityEvent event = null;
-    private Long timestamp = null;
+    private Instant timestamp = null;
+    private Instant dismissalDate = null;
     private final HashMap<String, Object> contentState = new HashMap<>();
 
 
@@ -47,6 +50,7 @@ public abstract class LiveActivityApnsPayloadBuilder {
     private static final String ALERT_KEY = "alert";
     private static final String SOUND_KEY = "sound";
     private static final String TIMESTAMP_KEY = "timestamp";
+    private static final String DISMISSAL_DATE_KEY = "dismissal-date";
     private static final String EVENT_KEY = "event";
     private static final String CONTENT_STATE_KEY = "content-state";
     private static final String ALERT_TITLE_KEY = "title";
@@ -170,8 +174,29 @@ public abstract class LiveActivityApnsPayloadBuilder {
      * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">
      *      Updating and ending your Live Activity with remote push notifications</a>
      */
-    public LiveActivityApnsPayloadBuilder setTimestamp(final Long timestamp) {
+    public LiveActivityApnsPayloadBuilder setTimestamp(final Instant timestamp) {
         this.timestamp = timestamp;
+        return this;
+    }
+
+    /**
+     * <p>Sets a timestamp for the push notification payload. The timestamp is used to discard older
+     * push notifications. According to Apple's documentation:</p>
+     *
+     * <blockquote>When you end a Live Activity, by default the Live Activity appears on the Lock Screen for up to
+     * four hours after it ends to allow the user to glance at their phone to see the latest information. To dismiss
+     * the Live Activity from the Lock Screen immediately after it ends, provide a date for "dismissal-date" that’s
+     * in the past. Alternatively, provide a date within a four-hour window to set a custom dismissal date.</blockquote>
+     *
+     *  @param dismissalDate Date when the Live Activity will be dismissed
+     *
+     * @return a reference to this payload builder
+     *
+     * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">
+     *      Updating and ending your Live Activity with remote push notifications</a>
+     */
+    public LiveActivityApnsPayloadBuilder setDismissalDate(final Instant dismissalDate) {
+        this.dismissalDate = dismissalDate;
         return this;
     }
 
@@ -190,7 +215,7 @@ public abstract class LiveActivityApnsPayloadBuilder {
             final Map<String, Object> aps = new HashMap<>();
 
             if (this.timestamp != null) {
-                aps.put(TIMESTAMP_KEY, this.timestamp);
+                aps.put(TIMESTAMP_KEY, this.timestamp.getEpochSecond());
             }
 
             if (this.event != null) {
@@ -199,6 +224,10 @@ public abstract class LiveActivityApnsPayloadBuilder {
 
             if (!this.contentState.isEmpty()) {
                 aps.put(CONTENT_STATE_KEY, this.contentState);
+            }
+
+            if (this.dismissalDate != null) {
+                aps.put(DISMISSAL_DATE_KEY, this.dismissalDate.getEpochSecond());
             }
 
             final Map<String, Object> alert = new HashMap<>();

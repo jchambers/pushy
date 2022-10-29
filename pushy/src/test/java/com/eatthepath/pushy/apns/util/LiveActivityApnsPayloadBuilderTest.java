@@ -30,6 +30,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.text.ParseException;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -112,12 +113,22 @@ public abstract class LiveActivityApnsPayloadBuilderTest {
 
     @Test
     void setTimestamp() {
-        final Long timestamp = System.currentTimeMillis();
+        final Instant timestamp = Instant.now();
         this.builder.setTimestamp(timestamp);
 
         final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
-        assertEquals(timestamp, aps.get("timestamp"));
+        assertEquals(timestamp.getEpochSecond(), aps.get("timestamp"));
+    }
+
+    @Test
+    void setDismissalDate() {
+        final Instant dismissalDate = Instant.now();
+        this.builder.setDismissalDate(dismissalDate);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
+
+        assertEquals(dismissalDate.getEpochSecond(), aps.get("dismissal-date"));
     }
 
     @ParameterizedTest
