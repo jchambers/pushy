@@ -67,13 +67,6 @@ public abstract class LiveActivityApnsPayloadBuilder {
     public static final String DEFAULT_SOUND_FILENAME = "default";
 
     /**
-     * The name of the value for silent Live Notification alert.
-     *
-     * @see LiveActivityApnsPayloadBuilder#setAlertSound(String)
-     */
-    public static final String SILENT_SOUND_FILENAME = "";
-
-    /**
      * Sets the literal text of the alert message. The expanded view of the Live Activity will be shown for a few
      * seconds if an alert body and alert title are sent. It is unclear if the actual text is used anywhere.
      *
@@ -110,17 +103,13 @@ public abstract class LiveActivityApnsPayloadBuilder {
      * <blockquote>The name of a sound file in your app’s main bundle or in the {@code Library/Sounds} folder of your
      * app’s container directory.</blockquote>
      *
-     * <p>By default, no sound is included in the push notification. However, the Live Activity will play the default
-     * alert tone if no sound is not set but alert title and alert body are set. In that case, you can use
-     * {@code LiveActivityApnsPayloadBuilder#SILENT_SOUND_FILENAME} to disable sound.</p>
+     * <p>By default, no sound is included in the push notification.</p>
      *
      * @param soundFileName the name of the sound file to play, or {@code null} to send no sound
      *
      * @return a reference to this payload builder
      *
      * @see LiveActivityApnsPayloadBuilder#DEFAULT_SOUND_FILENAME
-     * @see LiveActivityApnsPayloadBuilder#SILENT_SOUND_FILENAME
-     *
      */
     public LiveActivityApnsPayloadBuilder setAlertSound(final String soundFileName) {
         this.soundFileName = soundFileName;
