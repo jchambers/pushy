@@ -23,6 +23,7 @@
 package com.eatthepath.pushy.apns.util;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -38,7 +39,11 @@ import java.util.Map;
 public abstract class LiveActivityApnsPayloadBuilder {
 
     private String alertBody = null;
+    private String localizedAlertKey = null;
+    private String[] localizedAlertArguments = null;
     private String alertTitle = null;
+    private String localizedAlertTitleKey = null;
+    private String[] localizedAlertTitleArguments = null;
     private String soundFileName = null;
     private LiveActivityEvent event = null;
     private Instant timestamp = null;
@@ -54,8 +59,11 @@ public abstract class LiveActivityApnsPayloadBuilder {
     private static final String EVENT_KEY = "event";
     private static final String CONTENT_STATE_KEY = "content-state";
     private static final String ALERT_TITLE_KEY = "title";
-    private static final String ALERT_SUBTITLE_KEY = "subtitle";
+    private static final String ALERT_TITLE_LOC_KEY = "title-loc-key";
+    private static final String ALERT_TITLE_ARGS_KEY = "title-loc-args";
     private static final String ALERT_BODY_KEY = "body";
+    private static final String ALERT_LOC_KEY = "loc-key";
+    private static final String ALERT_ARGS_KEY = "loc-args";
 
     public static final String[] EMPTY_STRING_ARRAY = new String[0];
 
@@ -80,6 +88,30 @@ public abstract class LiveActivityApnsPayloadBuilder {
     }
 
     /**
+     * <p>Sets the key of a message in the receiving app's localized string list to be shown for the push notification.
+     * The message in the app's string list may optionally have placeholders, which will be populated by values from the
+     * given {@code alertArguments}.</p>
+     *
+     * <p>By default, no message is shown.</p>
+     *
+     * @param localizedAlertKey a key to a string in the receiving app's localized string list
+     * @param alertArguments arguments to populate placeholders in the localized alert string; may be {@code null}
+     *
+     * @return a reference to this payload builder
+     *
+     * @see LiveActivityApnsPayloadBuilder#setAlertBody(String)
+     */
+    public LiveActivityApnsPayloadBuilder setLocalizedAlertMessage(
+            final String localizedAlertKey,
+            final String... alertArguments
+    ) {
+        this.localizedAlertKey = localizedAlertKey;
+        this.localizedAlertArguments = (alertArguments != null && alertArguments.length > 0) ? alertArguments : null;
+
+        return this;
+    }
+
+    /**
      * <p>Sets a short description of the notification purpose. The expanded view of the Live Activity will be
      * shown for a few seconds if an alert body and alert title are sent. It is unclear if the actual text is
      * used anywhere.
@@ -93,6 +125,28 @@ public abstract class LiveActivityApnsPayloadBuilder {
      */
     public LiveActivityApnsPayloadBuilder setAlertTitle(final String alertTitle) {
         this.alertTitle = alertTitle;
+        return this;
+    }
+
+    /**
+     * <p>Sets the key of the title string in the receiving app's localized string list to be shown for the push
+     * notification. The message in the app's string list may optionally have placeholders, which will be populated by
+     * values from the given {@code alertArguments}.</p>
+     *
+     * @param localizedAlertTitleKey a key to a string in the receiving app's localized string list
+     * @param alertTitleArguments arguments to populate placeholders in the localized alert string; may be {@code null}
+     *
+     * @return a reference to this payload builder
+     *
+     * @see LiveActivityApnsPayloadBuilder#setAlertTitle(String)
+     */
+    public LiveActivityApnsPayloadBuilder setLocalizedAlertTitle(
+            final String localizedAlertTitleKey,
+            final String... alertTitleArguments
+    ) {
+        this.localizedAlertTitleKey = localizedAlertTitleKey;
+        this.localizedAlertTitleArguments = (alertTitleArguments != null && alertTitleArguments.length > 0) ? alertTitleArguments : null;
+
         return this;
     }
 
@@ -227,6 +281,22 @@ public abstract class LiveActivityApnsPayloadBuilder {
 
                 if (this.alertTitle != null) {
                     alert.put(ALERT_TITLE_KEY, this.alertTitle);
+                }
+
+                if (this.localizedAlertKey != null) {
+                    alert.put(ALERT_LOC_KEY, this.localizedAlertKey);
+
+                    if (this.localizedAlertArguments != null) {
+                        alert.put(ALERT_ARGS_KEY, Arrays.asList(this.localizedAlertArguments));
+                    }
+                }
+
+                if (this.localizedAlertTitleKey != null) {
+                    alert.put(ALERT_TITLE_LOC_KEY, this.localizedAlertTitleKey);
+
+                    if (this.localizedAlertTitleArguments != null) {
+                        alert.put(ALERT_TITLE_ARGS_KEY, Arrays.asList(this.localizedAlertTitleArguments));
+                    }
                 }
 
                 if (this.soundFileName != null) {

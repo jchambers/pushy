@@ -32,10 +32,12 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.text.ParseException;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 public abstract class LiveActivityApnsPayloadBuilderTest {
@@ -65,6 +67,39 @@ public abstract class LiveActivityApnsPayloadBuilderTest {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    @Test
+    void testSetLocalizedAlertBody() {
+        final String alertKey = "test.alert";
+
+        this.builder.setAlertBody("Alert body!");
+        this.builder.setLocalizedAlertMessage(alertKey);
+
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+            assertEquals(alertKey, alert.get("loc-key"));
+        }
+
+        // We're happy here as long as nothing explodes
+        this.builder.setLocalizedAlertMessage(alertKey, (String[]) null);
+
+        final String[] alertArgs = new String[] { "Moose", "helicopter" };
+        this.builder.setLocalizedAlertMessage(alertKey, alertArgs);
+
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+            assertEquals(alertKey, alert.get("loc-key"));
+
+            final List<Object> argsArray = (List<Object>) alert.get("loc-args");
+            assertEquals(alertArgs.length, argsArray.size());
+            assertTrue(argsArray.containsAll(java.util.Arrays.asList(alertArgs)));
+        }
+    }
+
     @Test
     void testSetAlertTitle() {
         final String alertTitle = "This is a test alert message.";
@@ -78,6 +113,43 @@ public abstract class LiveActivityApnsPayloadBuilderTest {
             final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
 
             assertEquals(alertTitle, alert.get("title"));
+        }
+    }
+
+    @Test
+    void testSetLocalizedAlertTitle() {
+        final String localizedAlertTitleKey = "alert.title";
+
+        this.builder.setAlertTitle("Alert title!");
+        this.builder.setLocalizedAlertTitle(localizedAlertTitleKey);
+
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
+
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+            assertEquals(localizedAlertTitleKey, alert.get("title-loc-key"));
+        }
+
+        // We're happy here as long as nothing explodes
+        this.builder.setLocalizedAlertTitle(localizedAlertTitleKey, (String[]) null);
+
+        final String[] alertArgs = new String[] { "Moose", "helicopter" };
+        this.builder.setLocalizedAlertTitle(localizedAlertTitleKey, alertArgs);
+
+        {
+            final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
+
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+            assertEquals(localizedAlertTitleKey, alert.get("title-loc-key"));
+
+            @SuppressWarnings("unchecked")
+            final List<Object> argsArray = (List<Object>) alert.get("title-loc-args");
+            assertEquals(alertArgs.length, argsArray.size());
+            assertTrue(argsArray.containsAll(java.util.Arrays.asList(alertArgs)));
         }
     }
 
