@@ -46,7 +46,7 @@ public enum LiveActivityEvent {
         this.value = value;
     }
 
-    public String getValue() {
+    String getValue() {
         return value;
     }
 }

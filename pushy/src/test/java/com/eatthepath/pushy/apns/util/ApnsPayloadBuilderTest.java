@@ -27,6 +27,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -646,7 +647,7 @@ public abstract class ApnsPayloadBuilderTest {
     }
 
     @ParameterizedTest
-    @MethodSource("argumentsForSetEvent")
+    @EnumSource(LiveActivityEvent.class)
     void setEvent(LiveActivityEvent event) {
         this.builder.setEvent(event);
 
@@ -680,13 +681,6 @@ public abstract class ApnsPayloadBuilderTest {
         assertEquals(longValue, serializedContentState.get(keyForLongValue));
         assertEquals(subMap, serializedContentState.get(keyForMapValue));
     }
-
-    private static Stream<Arguments> argumentsForSetEvent() {
-        return Stream.of(
-                arguments(LiveActivityEvent.UPDATE),
-                arguments(LiveActivityEvent.END));
-    }
-
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> extractApsObjectFromPayloadString(final String payloadString) {

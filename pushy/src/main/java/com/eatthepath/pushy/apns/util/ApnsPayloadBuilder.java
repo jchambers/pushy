@@ -730,7 +730,7 @@ public abstract class ApnsPayloadBuilder {
     }
 
     /**
-     * <p>Sets the provided content state object inside content-state payload for Live Activities.</p>
+     * <p>Sets the content state object inside content-state payload for Live Activities.</p>
      *
      * <p>The precise strategy for serializing the values of custom properties is defined by the specific
      * {@code ApnsPayloadBuilder} implementation.</p>
@@ -764,7 +764,7 @@ public abstract class ApnsPayloadBuilder {
     }
 
     /**
-     * <p>Sets a timestamp for the push notification payload.   </p>
+     * <p>Sets a timestamp for the push notification payload.</p>
      *
      * @param timestamp Timestamp
      *
@@ -787,7 +787,7 @@ public abstract class ApnsPayloadBuilder {
      * the Live Activity from the Lock Screen immediately after it ends, provide a date for "dismissal-date" that’s
      * in the past. Alternatively, provide a date within a four-hour window to set a custom dismissal date.</blockquote>
      *
-     * @param dismissalDate Date when the Live Activity will be dismissed
+     * @param dismissalDate Instant when the Live Activity will be dismissed
      *
      * @return a reference to this payload builder
      *
@@ -808,6 +808,8 @@ public abstract class ApnsPayloadBuilder {
      * @since 0.14.0
      */
     protected Map<String, Object> buildPayloadMap() {
+        final boolean isLiveActivityPayload = event != null;
+
         final Map<String, Object> payload = new HashMap<>();
 
         {
@@ -817,7 +819,7 @@ public abstract class ApnsPayloadBuilder {
                 aps.put(BADGE_KEY, this.badgeNumber);
             }
 
-            if (this.soundFileName != null && !isLiveActivityPayload()) {
+            if (this.soundFileName != null && !isLiveActivityPayload) {
                 aps.put(SOUND_KEY, this.soundFileName);
             } else if (this.soundForCriticalAlert != null) {
                 aps.put(SOUND_KEY, this.soundForCriticalAlert);
@@ -934,7 +936,9 @@ public abstract class ApnsPayloadBuilder {
                     alert.put(LAUNCH_IMAGE_KEY, this.launchImageFileName);
                 }
 
-                if (this.soundFileName != null && isLiveActivityPayload()) {
+                // In Live Activity push notifications, sounds key needs to be inside
+                // `$.aps.alert` while on regular push notifications is in `$.aps`.
+                if (this.soundFileName != null && isLiveActivityPayload) {
                     alert.put(SOUND_KEY, this.soundFileName);
                 }
             }
@@ -951,10 +955,6 @@ public abstract class ApnsPayloadBuilder {
         payload.putAll(this.customProperties);
 
         return payload;
-    }
-
-    private boolean isLiveActivityPayload() {
-        return event != null;
     }
 
     /**
