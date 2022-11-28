@@ -764,9 +764,9 @@ public abstract class ApnsPayloadBuilder {
     }
 
     /**
-     * <p>Sets a timestamp for the push notification payload.</p>
+     * <p>Sets the Live Activity timestamp for the push notification payload.</p>
      *
-     * @param timestamp Timestamp
+     * @param timestamp Instant at which the Live Activity event occurred
      *
      * @return a reference to this payload builder
      *
