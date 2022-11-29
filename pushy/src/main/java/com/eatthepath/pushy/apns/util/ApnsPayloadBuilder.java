@@ -22,6 +22,7 @@
 
 package com.eatthepath.pushy.apns.util;
 
+import java.time.Instant;
 import java.util.*;
 
 /**
@@ -80,6 +81,14 @@ public abstract class ApnsPayloadBuilder {
 
     private boolean preferStringRepresentationForAlerts = false;
 
+    private LiveActivityEvent event = null;
+
+    private Instant timestamp = null;
+
+    private Instant dismissalDate = null;
+
+    private Map<String, Object> contentState = null;
+
     private static final String APS_KEY = "aps";
     private static final String ALERT_KEY = "alert";
     private static final String BADGE_KEY = "badge";
@@ -109,6 +118,11 @@ public abstract class ApnsPayloadBuilder {
     private static final String LAUNCH_IMAGE_KEY = "launch-image";
 
     private static final String MDM_KEY = "mdm";
+
+    private static final String TIMESTAMP_KEY = "timestamp";
+    private static final String DISMISSAL_DATE_KEY = "dismissal-date";
+    private static final String EVENT_KEY = "event";
+    private static final String CONTENT_STATE_KEY = "content-state";
 
     public static final String[] EMPTY_STRING_ARRAY = new String[0];
 
@@ -716,6 +730,76 @@ public abstract class ApnsPayloadBuilder {
     }
 
     /**
+     * <p>Sets the content state object inside content-state payload for Live Activities.</p>
+     *
+     * <p>The precise strategy for serializing the values of custom properties is defined by the specific
+     * {@code ApnsPayloadBuilder} implementation.</p>
+     *
+     * @param contentState content-state object
+     *
+     * @return a reference to this payload builder
+     *
+     * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">
+     *      Updating and ending your Live Activity with remote push notifications</a>
+     */
+    public ApnsPayloadBuilder setContentState(final Map<String, Object> contentState) {
+        this.contentState = contentState;
+        return this;
+    }
+
+    /**
+     * <p>Sets whether the notification payload will be used for updating the Live Activity
+     * or for ending it.</p>
+     *
+     * @param event the type of update event to send to the destination activity
+     *
+     * @return a reference to this payload builder
+     *
+     * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">
+     *      Updating and ending your Live Activity with remote push notifications</a>
+     */
+    public ApnsPayloadBuilder setEvent(final LiveActivityEvent event) {
+        this.event = event;
+        return this;
+    }
+
+    /**
+     * <p>Sets the Live Activity timestamp for the push notification payload.</p>
+     *
+     * @param timestamp Instant at which the Live Activity event occurred
+     *
+     * @return a reference to this payload builder
+     *
+     * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">
+     *      Updating and ending your Live Activity with remote push notifications</a>
+     */
+    public ApnsPayloadBuilder setTimestamp(final Instant timestamp) {
+        this.timestamp = timestamp;
+        return this;
+    }
+
+    /**
+     * <p>Sets a timestamp for the push notification payload. The timestamp is used to discard older
+     * push notifications. According to Apple's documentation:</p>
+     *
+     * <blockquote>When you end a Live Activity, by default the Live Activity appears on the Lock Screen for up to
+     * four hours after it ends to allow the user to glance at their phone to see the latest information. To dismiss
+     * the Live Activity from the Lock Screen immediately after it ends, provide a date for "dismissal-date" that’s
+     * in the past. Alternatively, provide a date within a four-hour window to set a custom dismissal date.</blockquote>
+     *
+     * @param dismissalDate Instant when the Live Activity will be dismissed
+     *
+     * @return a reference to this payload builder
+     *
+     * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">
+     *      Updating and ending your Live Activity with remote push notifications</a>
+     */
+    public ApnsPayloadBuilder setDismissalDate(final Instant dismissalDate) {
+        this.dismissalDate = dismissalDate;
+        return this;
+    }
+
+    /**
      * Returns a map representing the push notification payload under construction. Subclasses will generally serialize
      * this map as a JSON string to produce a push notification payload.
      *
@@ -724,6 +808,8 @@ public abstract class ApnsPayloadBuilder {
      * @since 0.14.0
      */
     protected Map<String, Object> buildPayloadMap() {
+        final boolean isLiveActivityPayload = event != null;
+
         final Map<String, Object> payload = new HashMap<>();
 
         {
@@ -733,7 +819,7 @@ public abstract class ApnsPayloadBuilder {
                 aps.put(BADGE_KEY, this.badgeNumber);
             }
 
-            if (this.soundFileName != null) {
+            if (this.soundFileName != null && !isLiveActivityPayload) {
                 aps.put(SOUND_KEY, this.soundFileName);
             } else if (this.soundForCriticalAlert != null) {
                 aps.put(SOUND_KEY, this.soundForCriticalAlert);
@@ -769,6 +855,22 @@ public abstract class ApnsPayloadBuilder {
 
             if (this.relevanceScore != null) {
                 aps.put(RELEVANCE_SCORE_KEY, this.relevanceScore);
+            }
+
+            if (this.timestamp != null) {
+                aps.put(TIMESTAMP_KEY, this.timestamp.getEpochSecond());
+            }
+
+            if (this.event != null) {
+                aps.put(EVENT_KEY, this.event.getValue());
+            }
+
+            if (this.contentState != null) {
+                aps.put(CONTENT_STATE_KEY, this.contentState);
+            }
+
+            if (this.dismissalDate != null) {
+                aps.put(DISMISSAL_DATE_KEY, this.dismissalDate.getEpochSecond());
             }
 
             final Map<String, Object> alert = new HashMap<>();
@@ -832,6 +934,12 @@ public abstract class ApnsPayloadBuilder {
 
                 if (this.launchImageFileName != null) {
                     alert.put(LAUNCH_IMAGE_KEY, this.launchImageFileName);
+                }
+
+                // In Live Activity push notifications, sounds key needs to be inside
+                // `$.aps.alert` while on regular push notifications is in `$.aps`.
+                if (this.soundFileName != null && isLiveActivityPayload) {
+                    alert.put(SOUND_KEY, this.soundFileName);
                 }
             }
 

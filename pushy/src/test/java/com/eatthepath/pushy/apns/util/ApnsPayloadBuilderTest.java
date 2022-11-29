@@ -27,10 +27,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.text.ParseException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -609,6 +611,75 @@ public abstract class ApnsPayloadBuilderTest {
     @Test
     void testBuildMdmPayload() {
         assertEquals("{\"mdm\":\"Magic!\"}", builder.buildMdmPayload("Magic!"));
+    }
+
+
+    @Test
+    void testSetAlertSoundInLiveActivity() {
+        final String soundFileName = "dying-giraffe.aiff";
+        this.builder.setSound(soundFileName);
+        this.builder.setEvent(LiveActivityEvent.UPDATE);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
+        final Map<String, Object> alert = (Map<String, Object>) aps.get("alert");
+
+        assertEquals(soundFileName, alert.get("sound"));
+    }
+
+    @Test
+    void setTimestamp() {
+        final Instant timestamp = Instant.now();
+        this.builder.setTimestamp(timestamp);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
+
+        assertEquals(timestamp.getEpochSecond(), aps.get("timestamp"));
+    }
+
+    @Test
+    void setDismissalDate() {
+        final Instant dismissalDate = Instant.now();
+        this.builder.setDismissalDate(dismissalDate);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
+
+        assertEquals(dismissalDate.getEpochSecond(), aps.get("dismissal-date"));
+    }
+
+    @ParameterizedTest
+    @EnumSource(LiveActivityEvent.class)
+    void setEvent(LiveActivityEvent event) {
+        this.builder.setEvent(event);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
+
+        assertEquals(event.getValue(), aps.get("event"));
+    }
+
+    @Test
+    void testAddContentStateProperty() {
+        final String keyForStringValue = "string";
+        final String stringValue = "Hello";
+
+        final String keyForLongValue = "integer";
+        final long longValue = 12;
+
+        final String keyForMapValue = "map";
+        final Map<String, Object> contentState = new HashMap<>();
+        final Map<String, Object> subMap = new HashMap<>();
+        subMap.put("boolean", true);
+        contentState.put(keyForLongValue, longValue);
+        contentState.put(keyForStringValue, stringValue);
+        contentState.put(keyForMapValue, subMap);
+
+        this.builder.setContentState(contentState);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
+        final Map<String, Object> serializedContentState = (Map<String, Object>) aps.get("content-state");
+
+        assertEquals(stringValue, serializedContentState.get(keyForStringValue));
+        assertEquals(longValue, serializedContentState.get(keyForLongValue));
+        assertEquals(subMap, serializedContentState.get(keyForMapValue));
     }
 
     @SuppressWarnings("unchecked")

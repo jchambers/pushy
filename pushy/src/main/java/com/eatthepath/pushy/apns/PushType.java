@@ -23,6 +23,11 @@
 package com.eatthepath.pushy.apns;
 
 import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
+import com.eatthepath.pushy.apns.util.ApnsPayloadBuilder;
+import com.eatthepath.pushy.apns.util.LiveActivityEvent;
+
+import java.time.Instant;
+import java.util.Map;
 
 /**
  * An enumeration of push notification display types. Note that push notification display types are required in iOS 13
@@ -139,7 +144,20 @@ public enum PushType {
      * @see ApnsClientBuilder#setSigningKey(ApnsSigningKey)
      * @see DeliveryPriority
      */
-    LOCATION("location");
+    LOCATION("location"),
+
+    /**
+     * Indicates that a push notification is intended to update a running Live Activity. Note that Live Activity updates
+     * must be sent to a specific topic ({@code [base bundle ID].push-type.liveactivity}) and include specific payload
+     * keys (see {@link ApnsPayloadBuilder#setContentState(Map)}, {@link ApnsPayloadBuilder#setEvent(LiveActivityEvent)},
+     * {@link ApnsPayloadBuilder#setDismissalDate(Instant)}, and {@link ApnsPayloadBuilder#setTimestamp(Instant)}).
+     *
+     * @since 0.15.2
+     *
+     * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">
+     *     Updating and ending your Live Activity with remote push notifications</a>
+     */
+    LIVE_ACTIVITY("liveactivity");
 
     private final String headerValue;
 
