@@ -27,7 +27,7 @@
     <groupId>com.eatthepath</groupId>
     <artifactId>pushy-parent</artifactId>
     <packaging>pom</packaging>
-    <version>0.15.2-SNAPSHOT</version>
+    <version>0.15.3-SNAPSHOT</version>
 
     <name>Pushy parent</name>
     <description>A Java library for sending APNs (iOS/macOS/Safari) push notifications</description>

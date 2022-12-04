@@ -157,7 +157,19 @@ public enum PushType {
      * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">
      *     Updating and ending your Live Activity with remote push notifications</a>
      */
-    LIVE_ACTIVITY("liveactivity");
+    LIVE_ACTIVITY("liveactivity"),
+        /**
+     * Indicates that a push notification is intended to update a running push to talk. Note that push to talk
+     * must be sent to a specific topic ({@code [base bundle ID].push-type.pushtotalk}) and include specific payload
+     * keys (see {@link ApnsPayloadBuilder#setContentState(Map)}, {@link ApnsPayloadBuilder#setEvent(LiveActivityEvent)},
+     * {@link ApnsPayloadBuilder#setDismissalDate(Instant)}, and {@link ApnsPayloadBuilder#setTimestamp(Instant)}).
+     *
+     * @since 0.15.2
+     *
+     * @see <a href="https://developer.apple.com/documentation/pushtotalk/creating_a_push_to_talk_app">
+     *     Creating a Push to Talk app</a>
+     */
+    PUSH_TO_TALK("pushtotalk");
 
     private final String headerValue;
 
