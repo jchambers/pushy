@@ -164,7 +164,7 @@ public enum PushType {
      * keys (see {@link ApnsPayloadBuilder#setContentState(Map)}, {@link ApnsPayloadBuilder#setEvent(LiveActivityEvent)},
      * {@link ApnsPayloadBuilder#setDismissalDate(Instant)}, and {@link ApnsPayloadBuilder#setTimestamp(Instant)}).
      *
-     * @since 0.15.3
+     * @since 0.15.2
      *
      * @see <a href="https://developer.apple.com/documentation/pushtotalk/creating_a_push_to_talk_app">
      *     Creating a Push to Talk app</a>
