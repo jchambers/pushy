@@ -169,7 +169,7 @@ public enum PushType {
      * @see <a href="https://developer.apple.com/documentation/pushtotalk/creating_a_push_to_talk_app">
      *     Creating a Push to Talk app</a>
      */
-    PUSHTOTALK("pushtotalk");
+    PUSH_TO_TALK("pushtotalk");
 
     private final String headerValue;
 
