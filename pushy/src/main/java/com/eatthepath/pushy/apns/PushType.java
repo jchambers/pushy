@@ -121,7 +121,7 @@ public enum PushType {
      * @since 0.13.10
      */
     MDM("mdm"),
-    
+
     /**
      * <p>Indicates that a push notification is intended to query the destination device's location and activate a
      * <a href="https://developer.apple.com/documentation/corelocation/cllocationmanager/creating_a_location_push_service_extension">Location
@@ -158,6 +158,18 @@ public enum PushType {
      *     Updating and ending your Live Activity with remote push notifications</a>
      */
     LIVE_ACTIVITY("liveactivity");
+
+    /**
+     * Indicates that a push notification is intended to push to talk. Note that Receive audio notification
+     * must be sent to a specific topic ({@code [base bundle ID].voip-ptt}) and include specific payload
+     * ‘{”activeSpeaker”:”The name of the active speaker”}’
+     *
+     * @since 0.15.3
+     *
+     * @see <a href="https://developer.apple.com/documentation/pushtotalk/creating_a_push_to_talk_app">
+     *     Creating a Push to Talk app</a>
+     */
+    PUSH_TO_TALK ("pushtotalk") ;
 
     private final String headerValue;
 

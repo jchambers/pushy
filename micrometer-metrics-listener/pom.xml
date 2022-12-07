@@ -31,7 +31,7 @@
     <parent>
         <artifactId>pushy-parent</artifactId>
         <groupId>com.eatthepath</groupId>
-        <version>0.15.2-SNAPSHOT</version>
+        <version>0.15.3-SNAPSHOT</version>
     </parent>
 
     <dependencies>
