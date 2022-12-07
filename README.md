@@ -25,7 +25,7 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 <dependency>
     <groupId>com.eatthepath</groupId>
     <artifactId>pushy</artifactId>
-    <version>0.15.1</version>
+    <version>0.15.3</version>
 </dependency>
 ```
 
