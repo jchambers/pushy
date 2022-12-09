@@ -85,6 +85,11 @@ public class ApnsClientBuilder {
     private Http2FrameLogger frameLogger;
 
     /**
+     * @see #setUseAlpn
+     */
+    private boolean useAlpn = false;
+
+    /**
      * The default idle time in milliseconds after which the client will send a PING frame to the APNs server.
      *
      * @since 0.11
@@ -527,6 +532,21 @@ public class ApnsClientBuilder {
     }
 
     /**
+     * If true, negotiate the HTTP/2 protocol during TSL handshake (ALPN: application_layer_protocol_negotiation)
+     * <p>
+     * Default is 'false'.
+     * <p>
+     * The APNS communicates always via HTTP/2. So normally clients need not negotiate the HTTP/2
+     * protocol during TSL handshake (Prior Knowledge).
+     * But when a revers proxy is set between the application and the APNS, it may be necessary to
+     * negotiate HTTP/2 protocol with the revers proxy.
+     */
+    public ApnsClientBuilder setUseAlpn(boolean useAlpn) {
+        this.useAlpn = useAlpn;
+        return this;
+    }
+
+    /**
      * Constructs a new {@link ApnsClient} with the previously-set configuration.
      *
      * @return a new ApnsClient instance with the previously-set configuration
@@ -565,6 +585,17 @@ public class ApnsClientBuilder {
             final SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
                     .sslProvider(sslProvider)
                     .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE);
+
+            if (useAlpn) {
+                sslContextBuilder.applicationProtocolConfig(
+                        new ApplicationProtocolConfig(
+                                ApplicationProtocolConfig.Protocol.ALPN,
+                                // NO_ADVERTISE is currently the only mode supported by both OpenSsl and JDK providers.
+                                ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
+                                // ACCEPT is currently the only mode supported by both OpenSsl and JDK providers.
+                                ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+                                ApplicationProtocolNames.HTTP_2));
+            }
 
             if (this.clientCertificate != null && this.privateKey != null) {
                 sslContextBuilder.keyManager(this.privateKey, this.privateKeyPassword, this.clientCertificate);
