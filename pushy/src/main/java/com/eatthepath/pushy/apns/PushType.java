@@ -157,7 +157,24 @@ public enum PushType {
      * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">
      *     Updating and ending your Live Activity with remote push notifications</a>
      */
-    LIVE_ACTIVITY("liveactivity");
+    LIVE_ACTIVITY("liveactivity"),
+
+    /**
+     * <p>Indicates that a push notification is intended to notify the destination device that new push-to-talk audio is
+     * available. Note that push-to-talk notifications must be sent to a specific topic
+     * ({@code [base bundle ID].voip-ptt}) and a device token that, according to Apple's documentation:</p>
+     *
+     * <blockquote>…an app receives when joining a channel. A token is only active for the life of a channel, so an app
+     * receives a new token every time it joins a new channel.</blockquote>
+     *
+     * <p>Additionally, Apple recommends sending push-to-talk notifications with an
+     * {@linkplain DeliveryPriority#IMMEDIATE immediate delivery priority} (see {@link ApnsPushNotification#getPriority()}
+     * and an immediate expiration (see {@link ApnsPushNotification#getExpiration()}.</p>
+     *
+     * @see <a href="https://developer.apple.com/documentation/pushtotalk/creating_a_push_to_talk_app">Creating a Push
+     * to Talk app</a>
+     */
+    PUSH_TO_TALK("pushtotalk");
 
     private final String headerValue;
 
