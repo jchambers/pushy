@@ -6,7 +6,7 @@ This module is an implementation of Pushy's [`ApnsClientMetricsListener`](https:
 <dependency>
     <groupId>com.eatthepath</groupId>
     <artifactId>pushy-micrometer-metrics-listener</artifactId>
-    <version>0.14.1</version>
+    <version>0.15.2</version>
 </dependency>
 ```
 

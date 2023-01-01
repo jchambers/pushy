@@ -171,6 +171,8 @@ public enum PushType {
      * {@linkplain DeliveryPriority#IMMEDIATE immediate delivery priority} (see {@link ApnsPushNotification#getPriority()}
      * and an immediate expiration (see {@link ApnsPushNotification#getExpiration()}.</p>
      *
+     * @since 0.15.2
+     *
      * @see <a href="https://developer.apple.com/documentation/pushtotalk/creating_a_push_to_talk_app">Creating a Push
      * to Talk app</a>
      */
