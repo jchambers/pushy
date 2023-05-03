@@ -41,7 +41,7 @@ Pushy itself requires Java 8 or newer to build and run. While not required, user
 <dependency>
     <groupId>io.netty</groupId>
     <artifactId>netty-tcnative-boringssl-static</artifactId>
-    <version>2.0.54.Final</version>
+    <version>2.0.60.Final</version>
     <scope>runtime</scope>
 </dependency>
 ```
