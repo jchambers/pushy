@@ -37,7 +37,7 @@ import java.security.Signature;
 import java.security.SignatureException;
 import java.text.ParseException;
 import java.time.Instant;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -86,7 +86,7 @@ public class AuthenticationToken {
         }
 
         Map<String, Object> toMap() {
-            final Map<String, Object> headerMap = new HashMap<>(3, 1);
+            final Map<String, Object> headerMap = new LinkedHashMap<>(3, 1);
             headerMap.put("alg", "ES256");
             headerMap.put("typ", "JWT");
             headerMap.put("kid", this.keyId);
@@ -129,7 +129,7 @@ public class AuthenticationToken {
         }
 
         Map<String, Object> toMap() {
-            final Map<String, Object> headerMap = new HashMap<>(2, 1);
+            final Map<String, Object> headerMap = new LinkedHashMap<>(2, 1);
             headerMap.put("iss", this.issuer);
             headerMap.put("iat", this.issuedAt.getEpochSecond());
 
