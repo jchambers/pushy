@@ -163,7 +163,6 @@ public class AuthenticationToken {
         payloadBuilder.append('.');
         payloadBuilder.append(encodeUnpaddedBase64UrlString(claimsJson.getBytes(StandardCharsets.US_ASCII)));
 
-        //noinspection TryWithIdenticalCatches
         try {
             final Signature signature = Signature.getInstance(ApnsKey.APNS_SIGNATURE_ALGORITHM);
             signature.initSign(signingKey);
@@ -186,7 +185,7 @@ public class AuthenticationToken {
         payloadBuilder.append(encodeUnpaddedBase64UrlString(this.signatureBytes));
 
         this.base64EncodedToken = payloadBuilder.toString();
-        this.authorizationHeader = new AsciiString("bearer " + payloadBuilder.toString());
+        this.authorizationHeader = new AsciiString("bearer " + payloadBuilder);
     }
 
     /**
@@ -273,18 +272,9 @@ public class AuthenticationToken {
             return false;
         }
 
-        final byte[] headerAndClaimsBytes;
+        final byte[] headerAndClaimsBytes =
+            base64EncodedToken.substring(0, base64EncodedToken.lastIndexOf('.')).getBytes(StandardCharsets.UTF_8);
 
-        final String headerJson = JsonSerializer.writeJsonTextAsString(this.header.toMap());
-        final String claimsJson = JsonSerializer.writeJsonTextAsString(this.claims.toMap());
-
-        final String encodedHeaderAndClaims =
-                encodeUnpaddedBase64UrlString(headerJson.getBytes(StandardCharsets.US_ASCII)) + '.' +
-                encodeUnpaddedBase64UrlString(claimsJson.getBytes(StandardCharsets.US_ASCII));
-
-        headerAndClaimsBytes = encodedHeaderAndClaims.getBytes(StandardCharsets.US_ASCII);
-
-        //noinspection TryWithIdenticalCatches
         try {
             final Signature signature = Signature.getInstance(ApnsKey.APNS_SIGNATURE_ALGORITHM);
             signature.initVerify(verificationKey);
