@@ -138,8 +138,8 @@ public class AuthenticationToken {
     private final AuthenticationTokenClaims claims;
     private final byte[] signatureBytes;
 
-    private transient final String base64EncodedToken;
-    private transient final AsciiString authorizationHeader;
+    private final String base64EncodedToken;
+    private final AsciiString authorizationHeader;
 
     /**
      * Constructs a new authentication token using the given signing key (and associated metadata) issued at the given
