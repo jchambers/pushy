@@ -24,10 +24,6 @@ package com.eatthepath.pushy.apns.auth;
 
 import com.eatthepath.json.JsonParser;
 import com.eatthepath.json.JsonSerializer;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
-import io.netty.handler.codec.base64.Base64;
-import io.netty.handler.codec.base64.Base64Dialect;
 import io.netty.util.AsciiString;
 
 import java.nio.charset.StandardCharsets;
@@ -37,6 +33,7 @@ import java.security.Signature;
 import java.security.SignatureException;
 import java.text.ParseException;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -159,9 +156,9 @@ public class AuthenticationToken {
         final String claimsJson = JsonSerializer.writeJsonTextAsString(this.claims.toMap());
 
         final StringBuilder payloadBuilder = new StringBuilder();
-        payloadBuilder.append(encodeUnpaddedBase64UrlString(headerJson.getBytes(StandardCharsets.US_ASCII)));
+        payloadBuilder.append(Base64.getUrlEncoder().withoutPadding().encodeToString(headerJson.getBytes(StandardCharsets.US_ASCII)));
         payloadBuilder.append('.');
-        payloadBuilder.append(encodeUnpaddedBase64UrlString(claimsJson.getBytes(StandardCharsets.US_ASCII)));
+        payloadBuilder.append(Base64.getUrlEncoder().withoutPadding().encodeToString(claimsJson.getBytes(StandardCharsets.US_ASCII)));
 
         try {
             final Signature signature = Signature.getInstance(ApnsKey.APNS_SIGNATURE_ALGORITHM);
@@ -182,7 +179,7 @@ public class AuthenticationToken {
         }
 
         payloadBuilder.append('.');
-        payloadBuilder.append(encodeUnpaddedBase64UrlString(this.signatureBytes));
+        payloadBuilder.append(Base64.getUrlEncoder().withoutPadding().encodeToString(this.signatureBytes));
 
         this.base64EncodedToken = payloadBuilder.toString();
         this.authorizationHeader = new AsciiString("bearer " + payloadBuilder);
@@ -211,22 +208,22 @@ public class AuthenticationToken {
         try {
             this.header = AuthenticationTokenHeader.fromMap(
                     jsonParser.parseJsonObject(
-                            new String(decodeBase64UrlEncodedString(jwtSegments[0]), StandardCharsets.US_ASCII)));
+                            new String(Base64.getUrlDecoder().decode(jwtSegments[0]), StandardCharsets.US_ASCII)));
         } catch (final ParseException e) {
             throw new IllegalArgumentException("Could not parse header as a JSON object: " +
-                    new String(decodeBase64UrlEncodedString(jwtSegments[0]), StandardCharsets.US_ASCII));
+                    new String(Base64.getUrlDecoder().decode(jwtSegments[0]), StandardCharsets.US_ASCII));
         }
 
         try {
             this.claims = AuthenticationTokenClaims.fromMap(
                     jsonParser.parseJsonObject(
-                            new String(decodeBase64UrlEncodedString(jwtSegments[1]), StandardCharsets.US_ASCII)));
+                            new String(Base64.getUrlDecoder().decode(jwtSegments[1]), StandardCharsets.US_ASCII)));
         } catch (final ParseException e) {
             throw new IllegalArgumentException("Could not parse claims as a JSON object: " +
-                    new String(decodeBase64UrlEncodedString(jwtSegments[1]), StandardCharsets.US_ASCII));
+                    new String(Base64.getUrlDecoder().decode(jwtSegments[1]), StandardCharsets.US_ASCII));
         }
 
-        this.signatureBytes = decodeBase64UrlEncodedString(jwtSegments[2]);
+        this.signatureBytes = Base64.getUrlDecoder().decode(jwtSegments[2]);
     }
 
     /**
@@ -335,50 +332,5 @@ public class AuthenticationToken {
         } else {
             return this.base64EncodedToken.equals(other.base64EncodedToken);
         }
-    }
-
-    static String encodeUnpaddedBase64UrlString(final byte[] data) {
-        final ByteBuf wrappedString = Unpooled.wrappedBuffer(data);
-        final ByteBuf encodedString = Base64.encode(wrappedString, Base64Dialect.URL_SAFE);
-
-        final String encodedUnpaddedString = encodedString.toString(StandardCharsets.US_ASCII).replace("=", "");
-
-        wrappedString.release();
-        encodedString.release();
-
-        return encodedUnpaddedString;
-    }
-
-    static byte[] decodeBase64UrlEncodedString(final String base64UrlEncodedString) {
-        final String paddedBase64UrlEncodedString;
-
-        switch (base64UrlEncodedString.length() % 4) {
-            case 2: {
-                paddedBase64UrlEncodedString = base64UrlEncodedString + "==";
-                break;
-            }
-
-            case 3: {
-                paddedBase64UrlEncodedString = base64UrlEncodedString + "=";
-                break;
-            }
-
-            default: {
-                paddedBase64UrlEncodedString = base64UrlEncodedString;
-            }
-        }
-
-        final ByteBuf base64EncodedByteBuf =
-                Unpooled.wrappedBuffer(paddedBase64UrlEncodedString.getBytes(StandardCharsets.US_ASCII));
-
-        final ByteBuf decodedByteBuf = Base64.decode(base64EncodedByteBuf, Base64Dialect.URL_SAFE);
-        final byte[] decodedBytes = new byte[decodedByteBuf.readableBytes()];
-
-        decodedByteBuf.readBytes(decodedBytes);
-
-        base64EncodedByteBuf.release();
-        decodedByteBuf.release();
-
-        return decodedBytes;
     }
 }
