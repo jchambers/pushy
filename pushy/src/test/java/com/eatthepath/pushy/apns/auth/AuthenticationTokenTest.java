@@ -159,14 +159,14 @@ public class AuthenticationTokenTest {
     }
 
     @Test
-    void testAuthenticationTokenFromString() throws Exception {
+    void testAuthenticationTokenFromString() {
         final String base64EncodedToken = new AuthenticationToken(this.signingKey, Instant.now()).toString();
 
         assertDoesNotThrow(() -> new AuthenticationToken(base64EncodedToken));
     }
 
     @Test
-    void testGetIssuedAt() throws Exception {
+    void testGetIssuedAt() {
         final Instant now = Instant.now();
         final AuthenticationToken token = new AuthenticationToken(this.signingKey, now);
 
@@ -206,19 +206,9 @@ public class AuthenticationTokenTest {
     }
 
     @Test
-    void testToString() throws Exception {
+    void testToString() {
         final AuthenticationToken token = new AuthenticationToken(this.signingKey, Instant.now());
 
         assertTrue(Pattern.matches("^[a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9_\\-]+$", token.toString()));
-    }
-
-    @Test
-    void testEncodeDecodeBase64() {
-        final byte[] originalBytes =
-                "We expect to get these bytes back after encoding, then decoding as Base64.".getBytes();
-
-        final String encodedString = AuthenticationToken.encodeUnpaddedBase64UrlString(originalBytes);
-
-        assertArrayEquals(originalBytes, AuthenticationToken.decodeBase64UrlEncodedString(encodedString));
     }
 }
