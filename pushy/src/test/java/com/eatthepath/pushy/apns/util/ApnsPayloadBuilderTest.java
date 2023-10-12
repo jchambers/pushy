@@ -646,6 +646,16 @@ public abstract class ApnsPayloadBuilderTest {
         assertEquals(dismissalDate.getEpochSecond(), aps.get("dismissal-date"));
     }
 
+    @Test
+    void setStaleDate() {
+        final Instant staleDate = Instant.now();
+        this.builder.setStaleDate(staleDate);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
+
+        assertEquals(staleDate.getEpochSecond(), aps.get("stale-date"));
+    }
+
     @ParameterizedTest
     @EnumSource(LiveActivityEvent.class)
     void setEvent(LiveActivityEvent event) {
