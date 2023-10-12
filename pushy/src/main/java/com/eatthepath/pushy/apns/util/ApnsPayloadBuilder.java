@@ -87,6 +87,8 @@ public abstract class ApnsPayloadBuilder {
 
     private Instant dismissalDate = null;
 
+    private Instant staleDate = null;
+
     private Map<String, Object> contentState = null;
 
     private static final String APS_KEY = "aps";
@@ -121,6 +123,7 @@ public abstract class ApnsPayloadBuilder {
 
     private static final String TIMESTAMP_KEY = "timestamp";
     private static final String DISMISSAL_DATE_KEY = "dismissal-date";
+    private static final String STALE_DATE_KEY = "stale-date";
     private static final String EVENT_KEY = "event";
     private static final String CONTENT_STATE_KEY = "content-state";
 
@@ -131,7 +134,7 @@ public abstract class ApnsPayloadBuilder {
      *
      * @see ApnsPayloadBuilder#setSoundFileName(String)
      */
-    public static final String DEFAULT_SOUND_FILENAME = "default"; 
+    public static final String DEFAULT_SOUND_FILENAME = "default";
 
     /**
     /**
@@ -629,7 +632,7 @@ public abstract class ApnsPayloadBuilder {
      * <blockquote>…a number between 0 and 1, that the system uses to sort the notifications from your app. The highest
      * score gets featured in the notification summary.</blockquote>
      *
-     * @param relevanceScore a relevance score between 0 and 1, inclusive, or {@code null} if no relevance score should
+     * @param relevanceScore a relevance score, or {@code null} if no relevance score should
      * be included in the notification
      *
      * @return a reference to this payload builder
@@ -637,12 +640,35 @@ public abstract class ApnsPayloadBuilder {
      * @since 0.15.0
      */
     public ApnsPayloadBuilder setRelevanceScore(final Double relevanceScore) {
-        if (relevanceScore != null && (relevanceScore < 0 || relevanceScore > 1 || relevanceScore.isNaN())) {
-            throw new IllegalArgumentException("Relevance score must be a number between 0 and 1, inclusive, but was actually " + relevanceScore);
+        if (relevanceScore != null &&  relevanceScore.isNaN()) {
+            throw new IllegalArgumentException("Relevance score must be a number, but was actually " + relevanceScore);
         }
 
         this.relevanceScore = relevanceScore;
 
+        return this;
+    }
+
+    /**
+     * <p>Sets a timestamp for the push notification payload. To mark a Live Activity as outdated with an update,
+     * optionally set the stale-date. According to Apple's documentation:</p>
+     *
+     * <blockquote>To provide the best possible user experience and let the person know that the activity displays outdated information,
+     * add a timestamp in the optional stale-date field to provide the time when the system will consider the Live Activity to be stale.
+     * With each update to the Live Activity, you can advance this stale-date.
+     * When you can’t update the Live Activity for some time until it becomes stale, the activityState changes to ActivityState.stale
+     * at the specified date. Use the activityStateUpdates stream in your app to monitor the activity state and respond to outdated
+     * Live Activities that haven’t received updates</blockquote>
+     *
+     * @param staleDate Instant when the Live Activity will be considered stale
+     *
+     * @return a reference to this payload builder
+     *
+     * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">
+     *      Updating and ending your Live Activity with remote push notifications</a>
+     */
+    public ApnsPayloadBuilder setStaleDate(final Instant staleDate) {
+        this.staleDate = staleDate;
         return this;
     }
 
@@ -871,6 +897,10 @@ public abstract class ApnsPayloadBuilder {
 
             if (this.dismissalDate != null) {
                 aps.put(DISMISSAL_DATE_KEY, this.dismissalDate.getEpochSecond());
+            }
+
+            if (this.staleDate != null) {
+                aps.put(STALE_DATE_KEY, this.staleDate.getEpochSecond());
             }
 
             final Map<String, Object> alert = new HashMap<>();
