@@ -508,7 +508,7 @@ public abstract class ApnsPayloadBuilderTest {
     }
 
     @ParameterizedTest
-    @ValueSource(doubles = {-7, 1.1, Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY})
+    @ValueSource(doubles = {Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY})
     void testSetRelevanceScoreIllegalValue(final double illegalRelevanceScore) {
         assertThrows(IllegalArgumentException.class, () -> this.builder.setRelevanceScore(illegalRelevanceScore));
     }
