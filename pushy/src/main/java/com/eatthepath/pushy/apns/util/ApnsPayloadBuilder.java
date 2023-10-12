@@ -134,7 +134,7 @@ public abstract class ApnsPayloadBuilder {
      *
      * @see ApnsPayloadBuilder#setSoundFileName(String)
      */
-    public static final String DEFAULT_SOUND_FILENAME = "default"; 
+    public static final String DEFAULT_SOUND_FILENAME = "default";
 
     /**
     /**
@@ -664,8 +664,8 @@ public abstract class ApnsPayloadBuilder {
      *
      * @return a reference to this payload builder
      *
-     * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">
-     *      Updating and ending your Live Activity with remote push notifications</a>
+     * @see <a href="https://developer.apple.com/documentation/activitykit/updating-live-activities-with-activitykit-push-notifications#Mark-a-Live-Activity-as-outdated-by-setting-a-stale-date">
+     *      Mark a Live Activity as outdated by setting a stale date</a>
      */
     public ApnsPayloadBuilder setStaleDate(final Instant staleDate) {
         this.staleDate = staleDate;
