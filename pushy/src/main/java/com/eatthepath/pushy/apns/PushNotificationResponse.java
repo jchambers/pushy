@@ -62,6 +62,16 @@ public interface PushNotificationResponse<T extends ApnsPushNotification> {
      */
     UUID getApnsId();
 
+
+    /**
+     * Returns a unique ID only available in the development environment.
+     * Useful to query push information in Push Notifications Console.
+     * @return UUID The apns unique id
+     */
+    default Optional<UUID> getApnsUniqueId() {
+        return Optional.empty();
+    }
+
     /**
      * Returns the HTTP status code reported by the APNs server.
      *
