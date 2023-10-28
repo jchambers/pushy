@@ -25,10 +25,7 @@ package com.eatthepath.pushy.apns;
 import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
 import com.eatthepath.pushy.apns.auth.ApnsVerificationKey;
 import com.eatthepath.pushy.apns.auth.KeyPairUtil;
-import com.eatthepath.pushy.apns.server.MockApnsServer;
-import com.eatthepath.pushy.apns.server.MockApnsServerBuilder;
-import com.eatthepath.pushy.apns.server.MockApnsServerListener;
-import com.eatthepath.pushy.apns.server.PushNotificationHandlerFactory;
+import com.eatthepath.pushy.apns.server.*;
 import com.eatthepath.pushy.apns.util.ApnsPayloadBuilder;
 import com.eatthepath.pushy.apns.util.SimpleApnsPayloadBuilder;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -144,13 +141,22 @@ public class AbstractClientServerTest {
         return this.buildServer(handlerFactory, null);
     }
 
+    protected MockApnsServer buildServer(final ValidatingPushNotificationHandlerFactory handlerFactory, final boolean generateApnsUniqueId) throws SSLException {
+        return this.buildServer(handlerFactory, null, generateApnsUniqueId);
+    }
+
     protected MockApnsServer buildServer(final PushNotificationHandlerFactory handlerFactory, final MockApnsServerListener listener) throws SSLException {
+        return this.buildServer(handlerFactory, listener, false);
+    }
+
+    protected MockApnsServer buildServer(final PushNotificationHandlerFactory handlerFactory, final MockApnsServerListener listener, final boolean generateApnsUniqueId) throws SSLException {
         return new MockApnsServerBuilder()
                 .setServerCredentials(getClass().getResourceAsStream(SERVER_CERTIFICATES_FILENAME), getClass().getResourceAsStream(SERVER_KEY_FILENAME), null)
                 .setTrustedClientCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
                 .setEventLoopGroup(SERVER_EVENT_LOOP_GROUP)
                 .setHandlerFactory(handlerFactory)
                 .setListener(listener)
+                .generateApnsUniqueId(generateApnsUniqueId)
                 .build();
     }
 

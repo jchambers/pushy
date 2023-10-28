@@ -48,6 +48,7 @@ public class MockApnsServerBuilder extends BaseHttp2ServerBuilder<MockApnsServer
 
     private PushNotificationHandlerFactory handlerFactory;
     private MockApnsServerListener listener;
+    private boolean generateApnsUniqueId = false;
 
     @Override
     public MockApnsServerBuilder setServerCredentials(final File certificatePemFile, final File privateKeyPkcs8File, final String privateKeyPassword) {
@@ -133,6 +134,11 @@ public class MockApnsServerBuilder extends BaseHttp2ServerBuilder<MockApnsServer
         return this;
     }
 
+    public MockApnsServerBuilder generateApnsUniqueId(boolean generateApnsUniqueId) {
+        this.generateApnsUniqueId = generateApnsUniqueId;
+        return this;
+    }
+
     @Override
     public MockApnsServer build() throws SSLException {
         return super.build();
@@ -144,6 +150,6 @@ public class MockApnsServerBuilder extends BaseHttp2ServerBuilder<MockApnsServer
             throw new IllegalStateException("Must provide a push notification handler factory before building a mock server.");
         }
 
-        return new MockApnsServer(sslContext, this.eventLoopGroup, this.handlerFactory, this.listener, this.maxConcurrentStreams);
+        return new MockApnsServer(sslContext, this.eventLoopGroup, this.handlerFactory, this.listener, this.maxConcurrentStreams, generateApnsUniqueId);
     }
 }

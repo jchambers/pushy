@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 class MockApnsServerHandler extends Http2ConnectionHandler implements Http2FrameListener {
@@ -50,7 +51,11 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     private final Http2Connection.PropertyKey headersPropertyKey;
     private final Http2Connection.PropertyKey payloadPropertyKey;
 
+    private final boolean generateApnsUniqueId;
+
     private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
+
+    private static final AsciiString APNS_UNIQUE_ID_HEADER = new AsciiString("apns-unique-id");
 
     private static final int MAX_CONTENT_LENGTH = 4096;
 
@@ -60,6 +65,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
         private PushNotificationHandler pushNotificationHandler;
         private MockApnsServerListener listener;
+        private boolean generateApnsUniqueId = false;
 
         MockApnsServerHandlerBuilder pushNotificationHandler(final PushNotificationHandler pushNotificationHandler) {
             this.pushNotificationHandler = pushNotificationHandler;
@@ -76,9 +82,14 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             return super.initialSettings(initialSettings);
         }
 
+        public MockApnsServerHandlerBuilder generateApnsUniqueId(final boolean generateApnsUniqueId) {
+            this.generateApnsUniqueId = generateApnsUniqueId;
+            return this;
+        }
+
         @Override
         public MockApnsServerHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
-            final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, initialSettings, this.pushNotificationHandler, this.listener);
+            final MockApnsServerHandler handler = new MockApnsServerHandler(decoder, encoder, initialSettings, this.pushNotificationHandler, this.listener, generateApnsUniqueId);
             this.frameListener(handler);
             return handler;
         }
@@ -92,10 +103,12 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
     private static abstract class ApnsResponse {
         private final int streamId;
         private final UUID apnsId;
+        private final UUID apnsUniqueId;
 
-        private ApnsResponse(final int streamId, final UUID apnsId) {
+        private ApnsResponse(final int streamId, final UUID apnsId, UUID apnsUniqueId) {
             this.streamId = streamId;
             this.apnsId = apnsId;
+            this.apnsUniqueId = apnsUniqueId;
         }
 
         int getStreamId() {
@@ -105,11 +118,15 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         UUID getApnsId() {
             return apnsId;
         }
+
+        Optional<UUID> getApnsUniqueId() {
+            return Optional.ofNullable(apnsUniqueId);
+        }
     }
 
     private static class AcceptNotificationResponse extends ApnsResponse {
-        private AcceptNotificationResponse(final int streamId, final UUID apnsId) {
-            super(streamId, apnsId);
+        private AcceptNotificationResponse(final int streamId, final UUID apnsId, final UUID apnsUniqueId) {
+            super(streamId, apnsId, apnsUniqueId);
         }
     }
 
@@ -117,8 +134,8 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
         private final RejectionReason errorReason;
         private final Instant timestamp;
 
-        RejectNotificationResponse(final int streamId, final UUID apnsId, final RejectionReason errorReason, final Instant timestamp) {
-            super(streamId, apnsId);
+        RejectNotificationResponse(final int streamId, final UUID apnsId, final UUID apnsUniqueId, final RejectionReason errorReason, final Instant timestamp) {
+            super(streamId, apnsId, apnsUniqueId);
 
             this.errorReason = errorReason;
             this.timestamp = timestamp;
@@ -159,9 +176,11 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
                           final Http2ConnectionEncoder encoder,
                           final Http2Settings initialSettings,
                           final PushNotificationHandler pushNotificationHandler,
-                          final MockApnsServerListener listener) {
+                          final MockApnsServerListener listener,
+                          boolean generateApnsUniqueId) {
 
         super(decoder, encoder, initialSettings);
+        this.generateApnsUniqueId = generateApnsUniqueId;
 
         this.headersPropertyKey = this.connection().newKey();
         this.payloadPropertyKey = this.connection().newKey();
@@ -267,19 +286,21 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             apnsId = apnsIdFromHeaders;
         }
 
+        final UUID apnsUniqueId = generateApnsUniqueId ? UUID.randomUUID() : null;
+
         try {
             this.pushNotificationHandler.handlePushNotification(headers, payload);
 
-            this.write(context, new AcceptNotificationResponse(stream.id(), apnsId), writePromise);
+            this.write(context, new AcceptNotificationResponse(stream.id(), apnsId, apnsUniqueId), writePromise);
             this.listener.handlePushNotificationAccepted(headers, payload);
         } catch (final RejectedNotificationException e) {
             final Instant deviceTokenExpirationTimestamp = e instanceof UnregisteredDeviceTokenException ?
                     ((UnregisteredDeviceTokenException) e).getDeviceTokenExpirationTimestamp() : null;
 
-            this.write(context, new RejectNotificationResponse(stream.id(), apnsId, e.getRejectionReason(), deviceTokenExpirationTimestamp), writePromise);
+            this.write(context, new RejectNotificationResponse(stream.id(), apnsId, apnsUniqueId, e.getRejectionReason(), deviceTokenExpirationTimestamp), writePromise);
             this.listener.handlePushNotificationRejected(headers, payload, e.getRejectionReason(), deviceTokenExpirationTimestamp);
         } catch (final Exception e) {
-            this.write(context, new RejectNotificationResponse(stream.id(), apnsId, RejectionReason.INTERNAL_SERVER_ERROR, null), writePromise);
+            this.write(context, new RejectNotificationResponse(stream.id(), apnsId, apnsUniqueId, RejectionReason.INTERNAL_SERVER_ERROR, null), writePromise);
             this.listener.handlePushNotificationRejected(headers, payload, RejectionReason.INTERNAL_SERVER_ERROR, null);
         } finally {
             if (stream.getProperty(this.payloadPropertyKey) != null) {
@@ -299,6 +320,9 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
                     .status(HttpResponseStatus.OK.codeAsText())
                     .add(APNS_ID_HEADER, FastUUID.toString(acceptNotificationResponse.getApnsId()));
 
+            acceptNotificationResponse.getApnsUniqueId()
+                    .ifPresent(apnsUniqueId -> headers.add(APNS_UNIQUE_ID_HEADER, FastUUID.toString(apnsUniqueId)));
+
             this.encoder().writeHeaders(context, acceptNotificationResponse.getStreamId(), headers, 0, true, writePromise);
 
             log.trace("Accepted push notification on stream {}", acceptNotificationResponse.getStreamId());
@@ -309,6 +333,9 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
                     .status(rejectNotificationResponse.getErrorReason().getHttpResponseStatus().codeAsText())
                     .add(HttpHeaderNames.CONTENT_TYPE, "application/json")
                     .add(APNS_ID_HEADER, FastUUID.toString(rejectNotificationResponse.getApnsId()));
+
+            rejectNotificationResponse.getApnsUniqueId()
+                    .ifPresent(apnsUniqueId -> headers.add(APNS_UNIQUE_ID_HEADER, FastUUID.toString(apnsUniqueId)));
 
             final byte[] payloadBytes;
             {

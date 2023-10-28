@@ -328,6 +328,8 @@ public class ApnsClientTest extends AbstractClientServerTest {
                     "Clients must send notifications that conform to the APNs protocol specification.");
 
             assertNotNull(response.getApnsId());
+            assertNotNull(response.getApnsUniqueId());
+            assertFalse(response.getApnsUniqueId().isPresent());
         } finally {
             client.close().get();
             serverWithUntrustedHostname.shutdown().get();
@@ -397,6 +399,8 @@ public class ApnsClientTest extends AbstractClientServerTest {
 
             assertNotNull(response.getApnsId());
             assertEquals(200, response.getStatusCode());
+            assertNotNull(response.getApnsUniqueId());
+            assertFalse(response.getApnsUniqueId().isPresent());
         } finally {
             client.close().get();
             server.shutdown().get();
@@ -748,5 +752,37 @@ public class ApnsClientTest extends AbstractClientServerTest {
                 arguments(PushType.COMPLICATION),
                 arguments(PushType.FILEPROVIDER),
                 arguments(PushType.MDM));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void testSendNotificationWhenApnsUniqueIdIsGenerated(final boolean useTokenAuthentication) throws Exception {
+        final ValidatingPushNotificationHandlerFactory handlerFactory = new ValidatingPushNotificationHandlerFactory(
+                DEVICE_TOKENS_BY_TOPIC, EXPIRATION_TIMESTAMPS_BY_DEVICE_TOKEN, this.verificationKeysByKeyId,
+                this.topicsByVerificationKey);
+
+        final MockApnsServer server = this.buildServer(handlerFactory, true);
+        final ApnsClient client = useTokenAuthentication ?
+                this.buildTokenAuthenticationClient() : this.buildTlsAuthenticationClient();
+
+        try {
+            server.start(PORT).get();
+
+            final SimpleApnsPushNotification pushNotification = new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD);
+
+            final PushNotificationResponse<SimpleApnsPushNotification> response =
+                    client.sendNotification(pushNotification).get();
+
+            assertTrue(response.isAccepted(),
+                    "Clients must send notifications that conform to the APNs protocol specification.");
+
+            assertNotNull(response.getApnsId());
+            assertEquals(200, response.getStatusCode());
+            assertNotNull(response.getApnsUniqueId());
+            assertTrue(response.getApnsUniqueId().isPresent());
+        } finally {
+            client.close().get();
+            server.shutdown().get();
+        }
     }
 }
