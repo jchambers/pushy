@@ -529,14 +529,14 @@ public class ApnsClientBuilder {
     }
 
     /**
-     * Sets whether this client should perform application-layer protocol negotiation (ALPN) when connecting to an APNs
+     * <p>Sets whether this client should perform application-layer protocol negotiation (ALPN) when connecting to an APNs
      * server. APNs servers always use HTTP/2, and so protocol negotiation is generally not necessary (i.e. clients have
      * prior knowledge that the server supports HTTP/2). By default, clients will not use ALPN. Most callers will not
      * need to change this setting, and generally should not unless they have a specific reason to do so (e.g. when
-     * working with certain reverse proxies).
-     * <p/>
-     * Please note that ALPN support was added to OpenJDK in version 8u252, and prior versions do not include native
-     * ALPN support.
+     * working with certain reverse proxies).</p>
+     *
+     * <p>Please note that ALPN support was added to OpenJDK in version 8u252, and prior versions do not include native
+     * ALPN support.</p>
      *
      * @param useAlpn if {@code true}, then the client under construction will perform application-layer protocol
      * negotiation when connecting to the APNs server; otherwise, the client will start an HTTP/2 connecting with prior
