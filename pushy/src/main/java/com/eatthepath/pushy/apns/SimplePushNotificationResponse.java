@@ -37,14 +37,16 @@ class SimplePushNotificationResponse<T extends ApnsPushNotification> implements 
     private final T pushNotification;
     private final boolean success;
     private final UUID apnsId;
+    private final UUID apnsUniqueId;
     private final int statusCode;
     private final String rejectionReason;
     private final Instant tokenExpirationTimestamp;
 
-    SimplePushNotificationResponse(final T pushNotification, final boolean success, final UUID apnsId, final int statusCode, final String rejectionReason, final Instant tokenExpirationTimestamp) {
+    SimplePushNotificationResponse(final T pushNotification, final boolean success, final UUID apnsId, final UUID apnsUniqueId, final int statusCode, final String rejectionReason, final Instant tokenExpirationTimestamp) {
         this.pushNotification = pushNotification;
         this.success = success;
         this.apnsId = apnsId;
+        this.apnsUniqueId = apnsUniqueId;
         this.statusCode = statusCode;
         this.rejectionReason = rejectionReason;
         this.tokenExpirationTimestamp = tokenExpirationTimestamp;
@@ -63,6 +65,11 @@ class SimplePushNotificationResponse<T extends ApnsPushNotification> implements 
     @Override
     public UUID getApnsId() {
         return this.apnsId;
+    }
+
+    @Override
+    public Optional<UUID> getApnsUniqueId() {
+        return Optional.ofNullable(apnsUniqueId);
     }
 
     @Override
@@ -86,6 +93,7 @@ class SimplePushNotificationResponse<T extends ApnsPushNotification> implements 
                 "pushNotification=" + pushNotification +
                 ", success=" + success +
                 ", apnsId=" + (apnsId != null ? FastUUID.toString(apnsId) : null) +
+                ", apnsUniqueId=" + getApnsUniqueId().map(FastUUID::toString).orElse(null) +
                 ", rejectionReason='" + rejectionReason + '\'' +
                 ", tokenExpirationTimestamp=" + tokenExpirationTimestamp +
                 '}';

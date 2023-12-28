@@ -76,6 +76,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
     private static final AsciiString APNS_COLLAPSE_ID_HEADER = new AsciiString("apns-collapse-id");
     private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
+    private static final AsciiString APNS_UNIQUE_ID_HEADER = new AsciiString("apns-unique-id");
     private static final AsciiString APNS_PUSH_TYPE_HEADER = new AsciiString("apns-push-type");
 
     private static final IOException STREAMS_EXHAUSTED_EXCEPTION =
@@ -325,7 +326,8 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
         if (HttpResponseStatus.OK.equals(status)) {
             responseFuture.complete(new SimplePushNotificationResponse<>(responseFuture.getPushNotification(),
-                    true, getApnsIdFromHeaders(headers), status.code(), null, null));
+                    true, getApnsIdFromHeaders(headers), getApnsUniqueIdFromHeaders(headers),
+                    status.code(), null, null));
         } else {
             if (data != null) {
                 ErrorResponse errorResponse;
@@ -352,17 +354,26 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         final HttpResponseStatus status = HttpResponseStatus.parseLine(headers.status());
 
         responseFuture.complete(new SimplePushNotificationResponse<>(responseFuture.getPushNotification(),
-                HttpResponseStatus.OK.equals(status), getApnsIdFromHeaders(headers), status.code(),
+                HttpResponseStatus.OK.equals(status), getApnsIdFromHeaders(headers),
+                getApnsUniqueIdFromHeaders(headers), status.code(),
                 errorResponse.getReason(), errorResponse.getTimestamp()));
     }
 
     private static UUID getApnsIdFromHeaders(final Http2Headers headers) {
-        final CharSequence apnsIdSequence = headers.get(APNS_ID_HEADER);
+        return getUUIDFromHeaders(headers, APNS_ID_HEADER);
+    }
+
+    private static UUID getApnsUniqueIdFromHeaders(final Http2Headers headers) {
+        return getUUIDFromHeaders(headers, APNS_UNIQUE_ID_HEADER);
+    }
+
+    private static UUID getUUIDFromHeaders(final Http2Headers headers, final AsciiString header) {
+        final CharSequence apnsIdSequence = headers.get(header);
 
         try {
             return apnsIdSequence != null ? FastUUID.parseUUID(apnsIdSequence) : null;
         } catch (final IllegalArgumentException e) {
-            log.error("Failed to parse `apns-id` header: {}", apnsIdSequence, e);
+            log.error("Failed to parse `{}` header: {}", header, apnsIdSequence, e);
             return null;
         }
     }

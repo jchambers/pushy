@@ -23,6 +23,7 @@
 package com.eatthepath.pushy.apns.server;
 
 import com.eatthepath.pushy.apns.DeliveryPriority;
+import com.eatthepath.uuid.FastUUID;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.handler.codec.http.HttpMethod;
@@ -35,10 +36,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -53,6 +51,7 @@ public abstract class ValidatingPushNotificationHandlerTest {
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
     private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
     private static final AsciiString APNS_COLLAPSE_ID_HEADER = new AsciiString("apns-collapse-id");
+    private static final AsciiString APNS_UNIQUE_ID_HEADER = new AsciiString("apns-unique-id");
     private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
 
     protected static final Map<String, Set<String>> DEVICE_TOKENS_BY_TOPIC =
@@ -106,6 +105,22 @@ public abstract class ValidatingPushNotificationHandlerTest {
     @Test
     void testHandleNotificationWithCollapseId() throws Exception {
         this.headers.set(APNS_COLLAPSE_ID_HEADER, "Collapse ID!");
+
+        this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap())
+                .handlePushNotification(this.headers, this.payload);
+    }
+
+    @Test
+    void testHandleNotificationWithApnsUniqueId() throws Exception {
+        this.headers.set(APNS_UNIQUE_ID_HEADER, UUID.randomUUID().toString());
+
+        this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap())
+                .handlePushNotification(this.headers, this.payload);
+    }
+
+    @Test
+    void testHandleNotificationWithAnInvalidApnsUniqueId() throws Exception {
+        this.headers.set(APNS_UNIQUE_ID_HEADER, "It's no a valid UUID");
 
         this.getHandler(DEVICE_TOKENS_BY_TOPIC, Collections.emptyMap())
                 .handlePushNotification(this.headers, this.payload);
