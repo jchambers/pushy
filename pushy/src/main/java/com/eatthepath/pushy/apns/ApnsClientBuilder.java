@@ -84,9 +84,6 @@ public class ApnsClientBuilder {
 
     private Http2FrameLogger frameLogger;
 
-    /**
-     * @see #setUseAlpn
-     */
     private boolean useAlpn = false;
 
     /**
@@ -532,14 +529,22 @@ public class ApnsClientBuilder {
     }
 
     /**
-     * If true, negotiate the HTTP/2 protocol during TSL handshake (ALPN: application_layer_protocol_negotiation)
-     * <p>
-     * Default is 'false'.
-     * <p>
-     * The APNS communicates always via HTTP/2. So normally clients need not negotiate the HTTP/2
-     * protocol during TSL handshake (Prior Knowledge).
-     * But when a revers proxy is set between the application and the APNS, it may be necessary to
-     * negotiate HTTP/2 protocol with the revers proxy.
+     * Sets whether this client should perform application-layer protocol negotiation (ALPN) when connecting to an APNs
+     * server. APNs servers always use HTTP/2, and so protocol negotiation is generally not necessary (i.e. clients have
+     * prior knowledge that the server supports HTTP/2). By default, clients will not use ALPN. Most callers will not
+     * need to change this setting, and generally should not unless they have a specific reason to do so (e.g. when
+     * working with certain reverse proxies).
+     * <p/>
+     * Please note that ALPN support was added to OpenJDK in version 8u252, and prior versions do not include native
+     * ALPN support.
+     *
+     * @param useAlpn if {@code true}, then the client under construction will perform application-layer protocol
+     * negotiation when connecting to the APNs server; otherwise, the client will start an HTTP/2 connecting with prior
+     * knowledge
+     *
+     * @return a reference to this builder
+     *
+     * @see <a href="https://httpwg.org/specs/rfc7540.html#known-http">Hypertext Transfer Protocol Version 2 (HTTP/2) - Starting HTTP/2 with Prior Knowledge</a>
      */
     public ApnsClientBuilder setUseAlpn(boolean useAlpn) {
         this.useAlpn = useAlpn;
