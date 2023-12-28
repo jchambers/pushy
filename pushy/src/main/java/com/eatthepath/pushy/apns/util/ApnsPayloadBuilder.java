@@ -629,11 +629,11 @@ public abstract class ApnsPayloadBuilder {
      *
      * <p>The relevance score is:</p>
      *
-     * <blockquote>…a number between 0 and 1, that the system uses to sort the notifications from your app. The highest
-     * score gets featured in the notification summary.</blockquote>
+     * <blockquote>…a number… that the system uses to sort the notifications from your app. The highest score gets
+     * featured in the notification summary.</blockquote>
      *
-     * @param relevanceScore a relevance score, or {@code null} if no relevance score should
-     * be included in the notification
+     * @param relevanceScore a relevance score, or {@code null} if no relevance score should be included in the
+     * notification
      *
      * @return a reference to this payload builder
      *
@@ -650,15 +650,14 @@ public abstract class ApnsPayloadBuilder {
     }
 
     /**
-     * <p>Sets a timestamp for the push notification payload. To mark a Live Activity as outdated with an update,
-     * optionally set the stale-date. According to Apple's documentation:</p>
+     * <p>Sets a "stale" timestamp for Live Activity notification payloads. According to Apple's documentation:</p>
      *
-     * <blockquote>To provide the best possible user experience and let the person know that the activity displays outdated information,
-     * add a timestamp in the optional stale-date field to provide the time when the system will consider the Live Activity to be stale.
-     * With each update to the Live Activity, you can advance this stale-date.
-     * When you can’t update the Live Activity for some time until it becomes stale, the activityState changes to ActivityState.stale
-     * at the specified date. Use the activityStateUpdates stream in your app to monitor the activity state and respond to outdated
-     * Live Activities that haven’t received updates</blockquote>
+     * <blockquote>To provide the best possible user experience and let the person know that the activity displays
+     * outdated information, add a timestamp in the optional stale-date field to provide the time when the system will
+     * consider the Live Activity to be stale. With each update to the Live Activity, you can advance this stale-date.
+     * When you can’t update the Live Activity for some time until it becomes stale, the {@code activityState} changes
+     * to {@code ActivityState.stale} at the specified date. Use the {@code activityStateUpdates} stream in your app to
+     * monitor the activity state and respond to outdated Live Activities that haven’t received updates</blockquote>
      *
      * @param staleDate Instant when the Live Activity will be considered stale
      *
@@ -666,6 +665,8 @@ public abstract class ApnsPayloadBuilder {
      *
      * @see <a href="https://developer.apple.com/documentation/activitykit/updating-live-activities-with-activitykit-push-notifications#Mark-a-Live-Activity-as-outdated-by-setting-a-stale-date">
      *      Mark a Live Activity as outdated by setting a stale date</a>
+     *
+     * @since 0.15.3
      */
     public ApnsPayloadBuilder setStaleDate(final Instant staleDate) {
         this.staleDate = staleDate;
@@ -805,8 +806,7 @@ public abstract class ApnsPayloadBuilder {
     }
 
     /**
-     * <p>Sets a timestamp for the push notification payload. The timestamp is used to discard older
-     * push notifications. According to Apple's documentation:</p>
+     * <p>Sets a dismissal timestamp for Live Activity notifications. According to Apple's documentation:</p>
      *
      * <blockquote>When you end a Live Activity, by default the Live Activity appears on the Lock Screen for up to
      * four hours after it ends to allow the user to glance at their phone to see the latest information. To dismiss
