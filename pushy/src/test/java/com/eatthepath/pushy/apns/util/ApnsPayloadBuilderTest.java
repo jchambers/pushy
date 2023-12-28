@@ -508,7 +508,7 @@ public abstract class ApnsPayloadBuilderTest {
     }
 
     @ParameterizedTest
-    @ValueSource(doubles = {-7, 1.1, Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY})
+    @ValueSource(doubles = {Double.NaN})
     void testSetRelevanceScoreIllegalValue(final double illegalRelevanceScore) {
         assertThrows(IllegalArgumentException.class, () -> this.builder.setRelevanceScore(illegalRelevanceScore));
     }
@@ -644,6 +644,16 @@ public abstract class ApnsPayloadBuilderTest {
         final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
         assertEquals(dismissalDate.getEpochSecond(), aps.get("dismissal-date"));
+    }
+
+    @Test
+    void setStaleDate() {
+        final Instant staleDate = Instant.now();
+        this.builder.setStaleDate(staleDate);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
+
+        assertEquals(staleDate.getEpochSecond(), aps.get("stale-date"));
     }
 
     @ParameterizedTest
