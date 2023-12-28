@@ -64,9 +64,17 @@ public interface PushNotificationResponse<T extends ApnsPushNotification> {
 
 
     /**
-     * Returns a unique ID only available in the development environment.
-     * Useful to query push information in Push Notifications Console.
-     * @return UUID The apns unique id
+     * Returns a unique identifier set by the APNs server in development environments to facilitate testing
+     * notifications. Note that this identifier is distinct from the identifier returned by {@link #getApnsId()}.
+     *
+     * @return the unique identifier assigned by the APNs server to the sent notification if the server is in the APNs
+     * development environment or empty if the server is in the production environment and did not include a unique
+     * identifier
+     *
+     * @see ApnsClientBuilder#setApnsServer(String)
+     * @see ApnsClientBuilder#DEVELOPMENT_APNS_HOST
+     * @see <a href="https://developer.apple.com/documentation/usernotifications/setting_up_a_remote_notification_server/handling_notification_responses_from_apns#3394541">Handling notification responses from APNs - Interpret header responses</a>
+     * @see <a href="https://developer.apple.com/documentation/usernotifications/testing_notifications_using_the_push_notification_console">Testing notifications using the Push Notification Console</a>
      */
     default Optional<UUID> getApnsUniqueId() {
         return Optional.empty();

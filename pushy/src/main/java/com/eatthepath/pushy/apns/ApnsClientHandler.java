@@ -368,12 +368,12 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     }
 
     private static UUID getUUIDFromHeaders(final Http2Headers headers, final AsciiString header) {
-        final CharSequence apnsIdSequence = headers.get(header);
+        final CharSequence uuidSequence = headers.get(header);
 
         try {
-            return apnsIdSequence != null ? FastUUID.parseUUID(apnsIdSequence) : null;
+            return uuidSequence != null ? FastUUID.parseUUID(uuidSequence) : null;
         } catch (final IllegalArgumentException e) {
-            log.error("Failed to parse `{}` header: {}", header, apnsIdSequence, e);
+            log.error("Failed to parse `{}` header: {}", header, uuidSequence, e);
             return null;
         }
     }
