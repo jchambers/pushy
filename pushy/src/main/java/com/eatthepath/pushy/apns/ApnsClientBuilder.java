@@ -545,6 +545,8 @@ public class ApnsClientBuilder {
      * @return a reference to this builder
      *
      * @see <a href="https://httpwg.org/specs/rfc7540.html#known-http">Hypertext Transfer Protocol Version 2 (HTTP/2) - Starting HTTP/2 with Prior Knowledge</a>
+     *
+     * @since 0.15.3
      */
     public ApnsClientBuilder setUseAlpn(boolean useAlpn) {
         this.useAlpn = useAlpn;
