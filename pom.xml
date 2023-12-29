@@ -27,7 +27,7 @@
     <groupId>com.eatthepath</groupId>
     <artifactId>pushy-parent</artifactId>
     <packaging>pom</packaging>
-    <version>0.15.3</version>
+    <version>0.15.4-SNAPSHOT</version>
 
     <name>Pushy parent</name>
     <description>A Java library for sending APNs (iOS/macOS/Safari) push notifications</description>
@@ -46,7 +46,7 @@
         <connection>scm:git:https://github.com/jchambers/pushy.git</connection>
         <developerConnection>scm:git:git@github.com:jchambers/pushy.git</developerConnection>
         <url>https://github.com/jchambers/pushy</url>
-        <tag>pushy-0.15.3</tag>
+        <tag>HEAD</tag>
     </scm>
 
     <developers>
