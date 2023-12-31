@@ -23,11 +23,12 @@
 package com.eatthepath.pushy.apns;
 
 import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
+import com.eatthepath.pushy.apns.auth.CertificateAndPrivateKey;
 import com.eatthepath.pushy.apns.proxy.ProxyHandlerFactory;
 import io.netty.handler.codec.http2.Http2FrameLogger;
-import io.netty.handler.ssl.SslContext;
 
 import java.net.InetSocketAddress;
+import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
@@ -40,9 +41,11 @@ class ApnsClientConfiguration {
     private static final Duration DEFAULT_TOKEN_EXPIRATION = Duration.ofMinutes(50);
 
     private final InetSocketAddress apnsServerAddress;
-    private final SslContext sslContext;
     private final boolean hostnameVerificationEnabled;
+    private final CertificateAndPrivateKey certificateAndPrivateKey;
     private final ApnsSigningKey signingKey;
+    private final X509Certificate[] trustedServerCertificates;
+    private final boolean useAlpn;
     private final Duration tokenExpiration;
     private final ProxyHandlerFactory proxyHandlerFactory;
     private final Duration connectionTimeout;
@@ -53,9 +56,11 @@ class ApnsClientConfiguration {
     private final Http2FrameLogger frameLogger;
 
     public ApnsClientConfiguration(final InetSocketAddress apnsServerAddress,
-                                   final SslContext sslContext,
                                    final boolean hostnameVerificationEnabled,
                                    final ApnsSigningKey signingKey,
+                                   final CertificateAndPrivateKey certificateAndPrivateKey,
+                                   final X509Certificate[] trustedServerCertificates,
+                                   final boolean useAlpn,
                                    final Duration tokenExpiration,
                                    final ProxyHandlerFactory proxyHandlerFactory,
                                    final Duration connectionTimeout,
@@ -66,9 +71,11 @@ class ApnsClientConfiguration {
                                    final Http2FrameLogger frameLogger) {
 
         this.apnsServerAddress = Objects.requireNonNull(apnsServerAddress);
-        this.sslContext = Objects.requireNonNull(sslContext);
         this.hostnameVerificationEnabled = hostnameVerificationEnabled;
         this.signingKey = signingKey;
+        this.certificateAndPrivateKey = certificateAndPrivateKey;
+        this.trustedServerCertificates = trustedServerCertificates;
+        this.useAlpn = useAlpn;
         this.tokenExpiration = tokenExpiration != null ? tokenExpiration : DEFAULT_TOKEN_EXPIRATION;
         this.proxyHandlerFactory = proxyHandlerFactory;
         this.connectionTimeout = connectionTimeout;
@@ -83,16 +90,24 @@ class ApnsClientConfiguration {
         return apnsServerAddress;
     }
 
-    public SslContext getSslContext() {
-        return sslContext;
-    }
-
     public boolean isHostnameVerificationEnabled() {
         return hostnameVerificationEnabled;
     }
 
     public Optional<ApnsSigningKey> getSigningKey() {
         return Optional.ofNullable(signingKey);
+    }
+
+    public CertificateAndPrivateKey getCertificateAndPrivateKey() {
+        return certificateAndPrivateKey;
+    }
+
+    public X509Certificate[] getTrustedServerCertificates() {
+        return trustedServerCertificates;
+    }
+
+    public boolean getUseAlpn() {
+        return useAlpn;
     }
 
     public Duration getTokenExpiration() {

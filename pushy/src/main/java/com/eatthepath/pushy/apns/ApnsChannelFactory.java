@@ -25,9 +25,9 @@ package com.eatthepath.pushy.apns;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.flush.FlushConsolidationHandler;
-import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslHandler;
+import io.netty.handler.ssl.*;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.resolver.AddressResolverGroup;
 import io.netty.resolver.NoopAddressResolverGroup;
@@ -38,8 +38,11 @@ import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
 import io.netty.util.concurrent.PromiseNotifier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLParameters;
 import java.io.Closeable;
 import java.net.SocketAddress;
@@ -65,17 +68,54 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
     private static final long MIN_CONNECT_DELAY_SECONDS = 1;
     private static final long MAX_CONNECT_DELAY_SECONDS = 60;
 
+    private static final Logger log = LoggerFactory.getLogger(ApnsChannelFactory.class);
+
     static final AttributeKey<Promise<Channel>> CHANNEL_READY_PROMISE_ATTRIBUTE_KEY =
             AttributeKey.valueOf(ApnsChannelFactory.class, "channelReadyPromise");
 
     ApnsChannelFactory(final ApnsClientConfiguration clientConfiguration,
-                       final EventLoopGroup eventLoopGroup) {
+                       final EventLoopGroup eventLoopGroup) throws SSLException {
 
-        this.sslContext = clientConfiguration.getSslContext();
+        final SslProvider sslProvider;
 
-        if (this.sslContext instanceof ReferenceCounted) {
-            ((ReferenceCounted) this.sslContext).retain();
+        if (OpenSsl.isAvailable()) {
+            log.info("Native SSL provider is available; will use native provider.");
+            sslProvider = SslProvider.OPENSSL_REFCNT;
+        } else {
+            log.info("Native SSL provider not available; will use JDK SSL provider.");
+            sslProvider = SslProvider.JDK;
         }
+
+        final SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
+            .sslProvider(sslProvider)
+            .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE);
+
+        if (clientConfiguration.getUseAlpn()) {
+            sslContextBuilder.applicationProtocolConfig(
+                new ApplicationProtocolConfig(
+                    ApplicationProtocolConfig.Protocol.ALPN,
+                    // NO_ADVERTISE is currently the only mode supported by both OpenSsl and JDK providers.
+                    ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
+                    // ACCEPT is currently the only mode supported by both OpenSsl and JDK providers.
+                    ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+                    ApplicationProtocolNames.HTTP_2));
+        }
+
+        if (clientConfiguration.getCertificateAndPrivateKey() != null) {
+            sslContextBuilder.keyManager(clientConfiguration.getCertificateAndPrivateKey().getPrivateKey(),
+                clientConfiguration.getCertificateAndPrivateKey().getCertificate());
+        }
+
+        if (clientConfiguration.getTrustedServerCertificates() != null) {
+            sslContextBuilder.trustManager(clientConfiguration.getTrustedServerCertificates());
+        }
+
+        this.sslContext = sslContextBuilder.build();
+
+        // TODO Pretty sure this is no longer necessary
+        /*if (this.sslContext instanceof ReferenceCounted) {
+            ((ReferenceCounted) this.sslContext).retain();
+        }*/
 
         if (clientConfiguration.getProxyHandlerFactory().isPresent()) {
             this.addressResolverGroup = NoopAddressResolverGroup.INSTANCE;

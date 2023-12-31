@@ -32,6 +32,8 @@ import io.netty.util.concurrent.GenericFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.net.ssl.SSLException;
+import java.io.UncheckedIOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -135,8 +137,14 @@ public class ApnsClient {
         this.metricsListener = clientConfiguration.getMetricsListener()
                 .orElseGet(NoopApnsClientMetricsListener::new);
 
-        final ApnsChannelFactory channelFactory =
-                new ApnsChannelFactory(clientConfiguration, this.eventLoopGroup);
+        final ApnsChannelFactory channelFactory;
+
+        try {
+            channelFactory = new ApnsChannelFactory(clientConfiguration, this.eventLoopGroup);
+        } catch (final SSLException e) {
+            // TODO This is just temporary handling while the plumbing gets rearranged
+            throw new UncheckedIOException(e);
+        }
 
         final ApnsChannelPoolMetricsListener channelPoolMetricsListener = new ApnsChannelPoolMetricsListener() {
 

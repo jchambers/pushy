@@ -27,9 +27,6 @@ import com.eatthepath.pushy.apns.auth.CertificateAndPrivateKey;
 import com.eatthepath.pushy.apns.proxy.ProxyHandlerFactory;
 import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http2.Http2FrameLogger;
-import io.netty.handler.codec.http2.Http2SecurityUtil;
-import io.netty.handler.ssl.*;
-import io.netty.util.ReferenceCounted;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -578,64 +575,22 @@ public class ApnsClientBuilder {
             throw new IllegalStateException("Clients may not have both a signing key and TLS credentials.");
         }
 
-        final SslContext sslContext;
-        {
-            final SslProvider sslProvider;
+        final ApnsClientConfiguration clientConfiguration = new ApnsClientConfiguration(
+            this.apnsServerAddress,
+            this.enableHostnameVerification,
+            this.signingKey,
+            this.certificateAndPrivateKey,
+            this.trustedServerCertificates,
+            this.useAlpn,
+            this.tokenExpiration,
+            this.proxyHandlerFactory,
+            this.connectionTimeout,
+            this.closeAfterIdleDuration,
+            this.gracefulShutdownTimeout,
+            this.concurrentConnections,
+            this.metricsListener,
+            this.frameLogger);
 
-            if (OpenSsl.isAvailable()) {
-                log.info("Native SSL provider is available; will use native provider.");
-                sslProvider = SslProvider.OPENSSL_REFCNT;
-            } else {
-                log.info("Native SSL provider not available; will use JDK SSL provider.");
-                sslProvider = SslProvider.JDK;
-            }
-
-            final SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
-                    .sslProvider(sslProvider)
-                    .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE);
-
-            if (useAlpn) {
-                sslContextBuilder.applicationProtocolConfig(
-                        new ApplicationProtocolConfig(
-                                ApplicationProtocolConfig.Protocol.ALPN,
-                                // NO_ADVERTISE is currently the only mode supported by both OpenSsl and JDK providers.
-                                ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
-                                // ACCEPT is currently the only mode supported by both OpenSsl and JDK providers.
-                                ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
-                                ApplicationProtocolNames.HTTP_2));
-            }
-
-            if (this.certificateAndPrivateKey != null) {
-                sslContextBuilder.keyManager(this.certificateAndPrivateKey.getPrivateKey(), this.certificateAndPrivateKey.getCertificate());
-            }
-
-            if (this.trustedServerCertificates != null) {
-                sslContextBuilder.trustManager(this.trustedServerCertificates);
-            }
-
-            sslContext = sslContextBuilder.build();
-        }
-
-        try {
-            final ApnsClientConfiguration clientConfiguration =
-                    new ApnsClientConfiguration(this.apnsServerAddress,
-                            sslContext,
-                            this.enableHostnameVerification,
-                            this.signingKey,
-                            this.tokenExpiration,
-                            this.proxyHandlerFactory,
-                            this.connectionTimeout,
-                            this.closeAfterIdleDuration,
-                            this.gracefulShutdownTimeout,
-                            this.concurrentConnections,
-                            this.metricsListener,
-                            this.frameLogger);
-
-            return new ApnsClient(clientConfiguration, this.eventLoopGroup);
-        } finally {
-            if (sslContext instanceof ReferenceCounted) {
-                ((ReferenceCounted) sslContext).release();
-            }
-        }
+        return new ApnsClient(clientConfiguration, this.eventLoopGroup);
     }
 }
