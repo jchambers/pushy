@@ -18,8 +18,7 @@ Creating new Micrometer listeners is straightforward. To get started, construct 
 
 ```java
 final MicrometerApnsClientMetricsListener listener =
-        new MicrometerApnsClientMetricsListener(existingMeterRegistry,
-                "notifications", "apns", "pushy");
+        new MicrometerApnsClientMetricsListener(existingMeterRegistry);
 
 final ApnsClient apnsClient = new ApnsClientBuilder()
         .setApnsServer(ApnsClientBuilder.DEVELOPMENT_APNS_HOST)
@@ -29,7 +28,7 @@ final ApnsClient apnsClient = new ApnsClientBuilder()
         .build();
 ```
 
-Note that a `MicrometerApnsClientMetricsListener` is intended for use with only one `ApnsClient` at a time; if you're constructing multiple clients with the same builder, you'll need to specify a new listener for each client.
+Note that a `MicrometerApnsClientMetricsListener` is intended for use with only one `ApnsClient` at a time; if you're constructing multiple clients with the same builder, you'll need to specify a new listener for each client and should consider supplying identifying tags to each listener.
 
 ## License
 

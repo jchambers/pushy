@@ -42,79 +42,60 @@ package com.eatthepath.pushy.apns;
 public interface ApnsClientMetricsListener {
 
     /**
-     * Indicates that an attempt to send a push notification failed before the notification was processed by the APNs
-     * server. Write failures may be the first event in a sequence for a given notification ID (indicating that the
+     * Indicates that an attempt to send a push notification failed before the notification was acknowledged by the APNs
+     * server. Write failures may be the first event in a sequence for a given notification (indicating that the
      * notification was never written to the wire), but may also occur after a notification was sent if the connection
      * closed before the notification was acknowledged by the server.
      *
-     * @param apnsClient the client that sent the notification
-     * @param notificationId an opaque identifier for the push notification that can be used to correlate this event
-     * with other events related to the same notification
+     * @param topic the APNs topic to which the notification was sent
      *
-     * @since 0.6
+     * @since 0.16
      */
-    void handleWriteFailure(ApnsClient apnsClient, long notificationId);
+    void handleWriteFailure(String topic);
 
     /**
      * Indicates that a notification was sent to the APNs server. Note that a sent notification may still be either
      * accepted or rejected by the APNs server later; sending the notification doesn't imply anything about the ultimate
      * state of the notification.
      *
-     * @param apnsClient the client that sent the notification
-     * @param notificationId an opaque identifier for the push notification that can be used to correlate this event
-     * with other events related to the same notification
+     * @param topic the APNs topic to which the notification was sent
      *
-     * @since 0.6
+     * @since 0.16
      */
-    void handleNotificationSent(ApnsClient apnsClient, long notificationId);
+    void handleNotificationSent(String topic);
 
     /**
-     * Indicates that a notification that was previously sent to an APNs server was accepted by the server.
+     * Indicates that a notification that was previously sent to an APNs server was acknowledged (i.e. either accepted
+     * or rejected) by the server.
      *
-     * @param apnsClient the client that sent the notification
-     * @param notificationId an opaque identifier for the push notification that can be used to correlate this event
-     * with other events related to the same notification
+     * @param response the response from the server
+     * @param durationNanos the duration, measured in nanoseconds, between the time when
+     * {@link ApnsClient#sendNotification(ApnsPushNotification)} was called for the notification in question and when
+     * the server acknowledged the notification
      *
-     * @since 0.6
+     * @since 0.16
      */
-    void handleNotificationAccepted(ApnsClient apnsClient, long notificationId);
-
-    /**
-     * Indicates that a notification that was previously sent to an APNs server was rejected by the server.
-     *
-     * @param apnsClient the client that sent the notification
-     * @param notificationId an opaque identifier for the push notification that can be used to correlate this event
-     * with other events related to the same notification
-     *
-     * @since 0.6
-     */
-    void handleNotificationRejected(ApnsClient apnsClient, long notificationId);
+    void handleNotificationAcknowledged(PushNotificationResponse<?> response, long durationNanos);
 
     /**
      * Indicates that the client has successfully created a new connection to the APNs server in its internal
      * connection pool.
      *
-     * @param apnsClient the client that created the new connection
-     *
      * @since 0.11
      */
-    void handleConnectionAdded(ApnsClient apnsClient);
+    void handleConnectionAdded();
 
     /**
      * Indicates that the client has removed a previously-added connection from its internal connection pool.
      *
-     * @param apnsClient the client that removed the connection
-     *
      * @since 0.11
      */
-    void handleConnectionRemoved(ApnsClient apnsClient);
+    void handleConnectionRemoved();
 
     /**
      * Indicates that an attempt to create a new connection to the APNs server failed.
      *
-     * @param apnsClient the client that attempted to create a new connection
-     *
      * @since 0.11
      */
-    void handleConnectionCreationFailed(ApnsClient apnsClient);
+    void handleConnectionCreationFailed();
 }

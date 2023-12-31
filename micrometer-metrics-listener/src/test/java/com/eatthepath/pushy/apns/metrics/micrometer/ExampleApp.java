@@ -40,8 +40,7 @@ public class ExampleApp {
         // clients with the same builder, you'll need to specify a new listener
         // for each client.
         final MicrometerApnsClientMetricsListener listener =
-                new MicrometerApnsClientMetricsListener(existingMeterRegistry,
-                        "notifications", "apns", "pushy");
+                new MicrometerApnsClientMetricsListener(existingMeterRegistry);
 
         final ApnsClient apnsClient = new ApnsClientBuilder()
                 .setApnsServer(ApnsClientBuilder.DEVELOPMENT_APNS_HOST)

@@ -34,7 +34,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * <p>An APNs client sends push notifications to the APNs gateway. Clients authenticate themselves to APNs servers in
@@ -82,7 +81,6 @@ public class ApnsClient {
     private final ApnsChannelPool channelPool;
 
     private final ApnsClientMetricsListener metricsListener;
-    private final AtomicLong nextNotificationId = new AtomicLong(0);
 
     private final AtomicBoolean isClosed = new AtomicBoolean(false);
 
@@ -93,32 +91,29 @@ public class ApnsClient {
 
     private static class NoopApnsClientMetricsListener implements ApnsClientMetricsListener {
 
+
         @Override
-        public void handleWriteFailure(final ApnsClient apnsClient, final long notificationId) {
+        public void handleWriteFailure(final String topic) {
         }
 
         @Override
-        public void handleNotificationSent(final ApnsClient apnsClient, final long notificationId) {
+        public void handleNotificationSent(final String topic) {
         }
 
         @Override
-        public void handleNotificationAccepted(final ApnsClient apnsClient, final long notificationId) {
+        public void handleNotificationAcknowledged(final PushNotificationResponse<?> response, final long durationNanos) {
         }
 
         @Override
-        public void handleNotificationRejected(final ApnsClient apnsClient, final long notificationId) {
+        public void handleConnectionAdded() {
         }
 
         @Override
-        public void handleConnectionAdded(final ApnsClient apnsClient) {
+        public void handleConnectionRemoved() {
         }
 
         @Override
-        public void handleConnectionRemoved(final ApnsClient apnsClient) {
-        }
-
-        @Override
-        public void handleConnectionCreationFailed(final ApnsClient apnsClient) {
+        public void handleConnectionCreationFailed() {
         }
     }
 
@@ -142,17 +137,17 @@ public class ApnsClient {
 
             @Override
             public void handleConnectionAdded() {
-                ApnsClient.this.metricsListener.handleConnectionAdded(ApnsClient.this);
+                ApnsClient.this.metricsListener.handleConnectionAdded();
             }
 
             @Override
             public void handleConnectionRemoved() {
-                ApnsClient.this.metricsListener.handleConnectionRemoved(ApnsClient.this);
+                ApnsClient.this.metricsListener.handleConnectionRemoved();
             }
 
             @Override
             public void handleConnectionCreationFailed() {
-                ApnsClient.this.metricsListener.handleConnectionCreationFailed(ApnsClient.this);
+                ApnsClient.this.metricsListener.handleConnectionCreationFailed();
             }
         };
 
@@ -186,7 +181,7 @@ public class ApnsClient {
                 new PushNotificationFuture<>(notification);
 
         if (!this.isClosed.get()) {
-            final long notificationId = this.nextNotificationId.getAndIncrement();
+            final long start = System.nanoTime();
 
             this.channelPool.acquire().addListener((GenericFutureListener<Future<Channel>>) acquireFuture -> {
                 if (acquireFuture.isSuccess()) {
@@ -194,7 +189,7 @@ public class ApnsClient {
 
                     channel.writeAndFlush(responseFuture).addListener((GenericFutureListener<ChannelFuture>) future -> {
                         if (future.isSuccess()) {
-                            ApnsClient.this.metricsListener.handleNotificationSent(ApnsClient.this, notificationId);
+                            ApnsClient.this.metricsListener.handleNotificationSent(notification.getTopic());
                         }
                     });
 
@@ -205,14 +200,12 @@ public class ApnsClient {
             });
 
             responseFuture.whenComplete((response, cause) -> {
+                final long end = System.nanoTime();
+
                 if (response != null) {
-                    if (response.isAccepted()) {
-                        ApnsClient.this.metricsListener.handleNotificationAccepted(ApnsClient.this, notificationId);
-                    } else {
-                        ApnsClient.this.metricsListener.handleNotificationRejected(ApnsClient.this, notificationId);
-                    }
+                    ApnsClient.this.metricsListener.handleNotificationAcknowledged(response, end - start);
                 } else {
-                    ApnsClient.this.metricsListener.handleWriteFailure(ApnsClient.this, notificationId);
+                    ApnsClient.this.metricsListener.handleWriteFailure(notification.getTopic());
                 }
             });
         } else {
