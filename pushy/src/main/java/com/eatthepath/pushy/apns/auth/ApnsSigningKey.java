@@ -31,6 +31,8 @@ import java.security.Signature;
 import java.security.interfaces.ECPrivateKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * A private key used to sign authentication tokens. Signing keys are associated with a developer team (in Apple's
@@ -87,6 +89,21 @@ public class ApnsSigningKey extends ApnsKey implements ECPrivateKey {
     @Override
     public BigInteger getS() {
         return this.getKey().getS();
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) return true;
+        if (!(o instanceof ApnsSigningKey)) return false;
+        final ApnsSigningKey apnsSigningKey = (ApnsSigningKey) o;
+        return Objects.equals(getTeamId(), apnsSigningKey.getTeamId()) &&
+            Objects.equals(getKeyId(), apnsSigningKey.getKeyId()) &&
+            Arrays.equals(getEncoded(), apnsSigningKey.getEncoded());
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * Objects.hash(getTeamId(), getKey()) + Arrays.hashCode(getEncoded());
     }
 
     /**
