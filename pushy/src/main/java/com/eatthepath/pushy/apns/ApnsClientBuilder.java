@@ -23,6 +23,7 @@
 package com.eatthepath.pushy.apns;
 
 import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
+import com.eatthepath.pushy.apns.auth.CertificateAndPrivateKey;
 import com.eatthepath.pushy.apns.proxy.ProxyHandlerFactory;
 import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http2.Http2FrameLogger;
@@ -33,19 +34,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLException;
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetSocketAddress;
-import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.PrivateKey;
-import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * An {@code ApnsClientBuilder} constructs new {@link ApnsClient} instances. Callers must specify the APNs server to
@@ -59,10 +58,7 @@ import java.util.stream.Collectors;
 public class ApnsClientBuilder {
     private InetSocketAddress apnsServerAddress;
 
-    private X509Certificate clientCertificate;
-    private PrivateKey privateKey;
-    private String privateKeyPassword;
-
+    private CertificateAndPrivateKey certificateAndPrivateKey;
     private ApnsSigningKey signingKey;
     private Duration tokenExpiration;
 
@@ -184,8 +180,6 @@ public class ApnsClientBuilder {
      * @param p12Password the password to be used to decrypt the contents of the given PKCS#12 file; passwords may be
      * blank (i.e. {@code ""}), but must not be {@code null}
      *
-     * @throws SSLException if the given PKCS#12 file could not be loaded or if any other SSL-related problem arises
-     * when constructing the context
      * @throws IOException if any IO problem occurred while attempting to read the given PKCS#12 file, or the PKCS#12
      * file could not be found
      *
@@ -193,10 +187,9 @@ public class ApnsClientBuilder {
      *
      * @since 0.8
      */
-    public ApnsClientBuilder setClientCredentials(final File p12File, final String p12Password) throws SSLException, IOException {
-        try (final InputStream p12InputStream = new FileInputStream(p12File)) {
-            return this.setClientCredentials(p12InputStream, p12Password);
-        }
+    public ApnsClientBuilder setClientCredentials(final File p12File, final String p12Password) throws IOException, KeyStoreException {
+        this.certificateAndPrivateKey = CertificateAndPrivateKey.fromP12File(p12File, p12Password);
+        return this;
     }
 
     /**
@@ -211,34 +204,15 @@ public class ApnsClientBuilder {
      * @param p12Password the password to be used to decrypt the contents of the given PKCS#12 file; passwords may be
      * blank (i.e. {@code ""}), but must not be {@code null}
      *
-     * @throws SSLException if the given PKCS#12 file could not be loaded or if any other SSL-related problem arises
-     * when constructing the context
      * @throws IOException if any IO problem occurred while attempting to read the given PKCS#12 input stream
      *
      * @return a reference to this builder
      *
      * @since 0.8
      */
-    public ApnsClientBuilder setClientCredentials(final InputStream p12InputStream, final String p12Password) throws SSLException, IOException {
-        final X509Certificate x509Certificate;
-        final PrivateKey privateKey;
-
-        try {
-            final KeyStore.PrivateKeyEntry privateKeyEntry = P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, p12Password);
-
-            final Certificate certificate = privateKeyEntry.getCertificate();
-
-            if (!(certificate instanceof X509Certificate)) {
-                throw new KeyStoreException("Found a certificate in the provided PKCS#12 file, but it was not an X.509 certificate.");
-            }
-
-            x509Certificate = (X509Certificate) certificate;
-            privateKey = privateKeyEntry.getPrivateKey();
-        } catch (final KeyStoreException e) {
-            throw new SSLException(e);
-        }
-
-        return this.setClientCredentials(x509Certificate, privateKey, p12Password);
+    public ApnsClientBuilder setClientCredentials(final InputStream p12InputStream, final String p12Password) throws IOException, KeyStoreException {
+        this.certificateAndPrivateKey = CertificateAndPrivateKey.fromP12InputStream(p12InputStream, p12Password);
+        return this;
     }
 
     /**
@@ -255,12 +229,30 @@ public class ApnsClientBuilder {
      * @return a reference to this builder
      *
      * @since 0.8
+     *
+     * @deprecated Please use {@link #setClientCredentials(X509Certificate, PrivateKey)} instead; generally, there is no
+     * need to provide a password when providing an already-loaded {@code PrivateKey}
      */
+    @Deprecated
     public ApnsClientBuilder setClientCredentials(final X509Certificate clientCertificate, final PrivateKey privateKey, final String privateKeyPassword) {
-        this.clientCertificate = clientCertificate;
-        this.privateKey = privateKey;
-        this.privateKeyPassword = privateKeyPassword;
+        return this.setClientCredentials(clientCertificate, privateKey);
+    }
 
+    /**
+     * <p>Sets the TLS credentials for the client under construction. Clients constructed with TLS credentials will use
+     * TLS-based authentication when sending push notifications.</p>
+     *
+     * <p>Clients may not have both TLS credentials and a signing key.</p>
+     *
+     * @param clientCertificate the certificate to be used to identify the client to the APNs server
+     * @param privateKey the private key for the client certificate
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.16
+     */
+    public ApnsClientBuilder setClientCredentials(final X509Certificate clientCertificate, final PrivateKey privateKey) {
+        this.certificateAndPrivateKey = new CertificateAndPrivateKey(clientCertificate, privateKey);
         return this;
     }
 
@@ -579,10 +571,10 @@ public class ApnsClientBuilder {
             throw new IllegalStateException("No APNs server address specified.");
         }
 
-        if (this.clientCertificate == null && this.privateKey == null && this.signingKey == null) {
+        if (this.certificateAndPrivateKey == null && this.signingKey == null) {
             throw new IllegalStateException("No client credentials specified; either TLS credentials (a " +
                     "certificate/private key) or an APNs signing key must be provided before building a client.");
-        } else if ((this.clientCertificate != null || this.privateKey != null) && this.signingKey != null) {
+        } else if (this.certificateAndPrivateKey != null && this.signingKey != null) {
             throw new IllegalStateException("Clients may not have both a signing key and TLS credentials.");
         }
 
@@ -613,8 +605,8 @@ public class ApnsClientBuilder {
                                 ApplicationProtocolNames.HTTP_2));
             }
 
-            if (this.clientCertificate != null && this.privateKey != null) {
-                sslContextBuilder.keyManager(this.privateKey, this.privateKeyPassword, this.clientCertificate);
+            if (this.certificateAndPrivateKey != null) {
+                sslContextBuilder.keyManager(this.certificateAndPrivateKey.getPrivateKey(), this.certificateAndPrivateKey.getCertificate());
             }
 
             if (this.trustedServerCertificates != null) {

@@ -39,6 +39,7 @@ import javax.net.ssl.SSLException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.KeyPair;
+import java.security.KeyStoreException;
 import java.security.cert.CertificateException;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
@@ -108,11 +109,11 @@ public class AbstractClientServerTest {
         shutdownPromise.await();
     }
 
-    protected ApnsClient buildTlsAuthenticationClient() throws IOException, CertificateException {
+    protected ApnsClient buildTlsAuthenticationClient() throws IOException, CertificateException, KeyStoreException {
         return this.buildTlsAuthenticationClient(null);
     }
 
-    protected ApnsClient buildTlsAuthenticationClient(final ApnsClientMetricsListener metricsListener) throws IOException, CertificateException {
+    protected ApnsClient buildTlsAuthenticationClient(final ApnsClientMetricsListener metricsListener) throws IOException, CertificateException, KeyStoreException {
         try (final InputStream p12InputStream = getClass().getResourceAsStream(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
             return new ApnsClientBuilder()
                     .setApnsServer(HOST, PORT)

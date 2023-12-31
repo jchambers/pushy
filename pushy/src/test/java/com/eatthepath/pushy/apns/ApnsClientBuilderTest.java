@@ -23,6 +23,7 @@
 package com.eatthepath.pushy.apns;
 
 import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
+import com.eatthepath.pushy.apns.auth.CertificateAndPrivateKey;
 import io.netty.channel.nio.NioEventLoopGroup;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -30,9 +31,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.InputStream;
-import java.security.KeyStore.PrivateKeyEntry;
-import java.security.cert.X509Certificate;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class ApnsClientBuilderTest {
@@ -92,18 +92,19 @@ public class ApnsClientBuilderTest {
 
     @Test
     void testBuildClientWithCertificateAndPasswordProtectedKey() throws Exception {
-        // We're happy here as long as nothing throws an exception
         try (final InputStream p12InputStream = this.getClass().getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            final PrivateKeyEntry privateKeyEntry =
-                    P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
+            final CertificateAndPrivateKey certificateAndPrivateKey =
+                CertificateAndPrivateKey.fromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
 
-            final ApnsClient client = new ApnsClientBuilder()
+            assertDoesNotThrow(() -> {
+                final ApnsClient client = new ApnsClientBuilder()
                     .setApnsServer(ApnsClientBuilder.PRODUCTION_APNS_HOST)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .setClientCredentials((X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey(), KEYSTORE_PASSWORD)
+                    .setClientCredentials(certificateAndPrivateKey.getCertificate(), certificateAndPrivateKey.getPrivateKey())
                     .build();
 
-            client.close().get();
+                client.close().get();
+            });
         }
     }
 
@@ -111,14 +112,13 @@ public class ApnsClientBuilderTest {
     void testBuildClientWithCertificateAndUnprotectedKey() throws Exception {
         // We DO need a password to unlock the keystore, but the key itself should be unprotected
         try (final InputStream p12InputStream = this.getClass().getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_UNPROTECTED_FILENAME)) {
-
-            final PrivateKeyEntry privateKeyEntry =
-                    P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
+            final CertificateAndPrivateKey certificateAndPrivateKey =
+                CertificateAndPrivateKey.fromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
 
             final ApnsClient client = new ApnsClientBuilder()
                     .setApnsServer(ApnsClientBuilder.PRODUCTION_APNS_HOST)
                     .setEventLoopGroup(EVENT_LOOP_GROUP)
-                    .setClientCredentials((X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey(), null)
+                    .setClientCredentials(certificateAndPrivateKey.getCertificate(), certificateAndPrivateKey.getPrivateKey(), null)
                     .build();
 
             client.close().get();
@@ -152,18 +152,16 @@ public class ApnsClientBuilderTest {
     @Test
     void testBuildWithClientCredentialsAndSigningCertificate() throws Exception {
         try (final InputStream p12InputStream = this.getClass().getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_UNPROTECTED_FILENAME)) {
-
-            final PrivateKeyEntry privateKeyEntry =
-                    P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
+            final CertificateAndPrivateKey certificateAndPrivateKey =
+                CertificateAndPrivateKey.fromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
 
             try (final InputStream p8InputStream = this.getClass().getResourceAsStream(SIGNING_KEY_FILENAME)) {
-
                 final ApnsSigningKey signingKey = ApnsSigningKey.loadFromInputStream(p8InputStream, "TEAM_ID", "KEY_ID");
 
                 assertThrows(IllegalStateException.class, () ->
                         new ApnsClientBuilder()
                                 .setEventLoopGroup(EVENT_LOOP_GROUP)
-                                .setClientCredentials((X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey(), null)
+                                .setClientCredentials(certificateAndPrivateKey.getCertificate(), certificateAndPrivateKey.getPrivateKey())
                                 .setSigningKey(signingKey)
                                 .build());
             }

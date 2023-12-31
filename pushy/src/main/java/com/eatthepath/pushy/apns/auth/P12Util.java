@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package com.eatthepath.pushy.apns;
+package com.eatthepath.pushy.apns.auth;
 
 import java.io.IOException;
 import java.io.InputStream;

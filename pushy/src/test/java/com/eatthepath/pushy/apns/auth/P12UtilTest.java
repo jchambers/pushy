@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package com.eatthepath.pushy.apns;
+package com.eatthepath.pushy.apns.auth;
 
 import org.junit.jupiter.api.Test;
 
