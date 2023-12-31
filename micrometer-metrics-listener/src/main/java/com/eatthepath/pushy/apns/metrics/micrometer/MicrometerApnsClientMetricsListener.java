@@ -24,130 +24,144 @@ package com.eatthepath.pushy.apns.metrics.micrometer;
 
 import com.eatthepath.pushy.apns.ApnsClient;
 import com.eatthepath.pushy.apns.ApnsClientMetricsListener;
+import com.eatthepath.pushy.apns.PushNotificationResponse;
 import io.micrometer.core.instrument.*;
 
-import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * <p>An {@link ApnsClientMetricsListener} implementation that gathers and reports metrics
- * using the <a href="http://micrometer.io/">Micrometer application monitoring library</a>. A
- * {@code MicrometerApnsClientMetricsListener} is intended to be used with a single
- * {@link ApnsClient} instance; to gather metrics from multiple clients, callers should create
- * multiple listeners.</p>
+ * <p>An {@link ApnsClientMetricsListener} implementation that gathers and reports metrics using the
+ * <a href="http://micrometer.io/">Micrometer application monitoring library</a>. A
+ * {@code MicrometerApnsClientMetricsListener} is intended to be used with a single {@link ApnsClient} instance; to
+ * gather metrics from multiple clients, callers should create multiple listeners and should consider providing separate
+ * sets of identifying tags to each listener.</p>
  *
  * <p>Callers provide a {@link io.micrometer.core.instrument.MeterRegistry} to the
  * {@code MicrometerApnsClientMetricsListener} at construction time, and the listener populates the registry with the
  * following metrics:</p>
  *
  * <dl>
- *  <dt>{@value #NOTIFICATION_TIMER_NAME}</dt>
- *  <dd>A {@link io.micrometer.core.instrument.Timer} that measures the time between sending notifications and receiving
- *  a reply (whether accepted or rejected) from the APNs server.</dd>
- *
  *  <dt>{@value #WRITE_FAILURES_COUNTER_NAME}</dt>
- *  <dd>A {@link io.micrometer.core.instrument.Counter} that measures the number and rate of failures to send notifications to the
- *  APNs server.</dd>
+ *  <dd>A {@link io.micrometer.core.instrument.Counter} that measures the number of failures to send notifications to
+ *  the APNs server. In addition to the tags provided at listener construction time, this counter will also be tagged
+ *  with:
+ *
+ *  <dl>
+ *    <dt>{@value #TOPIC_TAG_NAME}</dt>
+ *    <dd>The APNs topic to which each notification was sent</dd>
+ *  </dl>
+ *  </dd>
  *
  *  <dt>{@value #SENT_NOTIFICATIONS_COUNTER_NAME}</dt>
- *  <dd>A {@link io.micrometer.core.instrument.Counter} that measures the number and rate of notifications successfully sent to the
- *  APNs server.</dd>
+ *  <dd>A {@link io.micrometer.core.instrument.Counter} that measures the number of notifications successfully sent to
+ *  the APNs server. In addition to the tags provided at listener construction time, this counter will also be tagged
+ *  with:
  *
- *  <dt>{@value #ACCEPTED_NOTIFICATIONS_COUNTER_NAME}</dt>
- *  <dd>A {@link io.micrometer.core.instrument.Counter} that measures the number and rate of notifications accepted by the APNs
- *  server.</dd>
+ *  <dl>
+ *    <dt>{@value #TOPIC_TAG_NAME}</dt>
+ *    <dd>The APNs topic to which each notification was sent</dd>
+ *  </dl>
+ *  </dd>
  *
- *  <dt>{@value #REJECTED_NOTIFICATIONS_COUNTER_NAME}</dt>
- *  <dd>A {@link io.micrometer.core.instrument.Counter} that measures the number and rate of notifications rejected by the APNs
- *  server.</dd>
+ *  <dt>{@value #ACKNOWLEDGED_NOTIFICATIONS_TIMER_NAME}</dt>
+ *  <dd>A {@link io.micrometer.core.instrument.Timer} that measures the time between sending notifications and receiving
+ *  a reply (whether accepted or rejected) from the APNs server. In addition to the tags provided at listener
+ *  construction time, this counter will also be tagged with:
+ *
+ *  <dl>
+ *    <dt>{@value #TOPIC_TAG_NAME}</dt>
+ *    <dd>The APNs topic to which each notification was sent</dd>
+ *
+ *    <dt>{@value #ACCEPTED_TAG_NAME}</dt>
+ *    <dd>"true" if the notification was accepted by the APNs server or "false" if the notification was rejected</dd>
+ *
+ *    <dt>{@value #STATUS_TAG_NAME}</dt>
+ *    <dd>The HTTP status code returned by the APNs server</dd>
+ *
+ *    <dt>{@value REASON_TAG_NAME}</dt>
+ *    <dd>The rejection reason provided by the APNs server if the notification was rejected; not set if the notification
+ *    was accepted</dd>
+ *  </dl>
+ *  </dd>
  *
  *  <dt>{@value #OPEN_CONNECTIONS_GAUGE_NAME}</dt>
  *  <dd>A {@link io.micrometer.core.instrument.Gauge} that indicates number of open connections.</dd>
  *
  *  <dt>{@value #CONNECTION_FAILURES_COUNTER_NAME}</dt>
- *  <dd>A {@link io.micrometer.core.instrument.Counter} that measures the number and rate of failed attempts to connect to the APNs
- *  server.</dd>
+ *  <dd>A {@link io.micrometer.core.instrument.Counter} that measures the number of failed attempts to connect to the
+ *  APNs server.</dd>
  * </dl>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  */
 public class MicrometerApnsClientMetricsListener implements ApnsClientMetricsListener {
 
-    private final Timer notificationTimer;
-    private final ConcurrentMap<Long, Long> notificationStartTimes;
-
-    private final Counter writeFailures;
-    private final Counter sentNotifications;
-    private final Counter acceptedNotifications;
-    private final Counter rejectedNotifications;
+    private final MeterRegistry meterRegistry;
+    private final Tags tags;
 
     private final AtomicInteger openConnections = new AtomicInteger(0);
     private final Counter connectionFailures;
-
-    private static final String[] EMPTY_STRING_ARRAY = new String[0];
-
-    /**
-     * The name of a {@link io.micrometer.core.instrument.Timer} that measures round-trip time when sending
-     * notifications.
-     */
-    public static final String NOTIFICATION_TIMER_NAME = "notifications.sent.timer";
 
     /**
      * The name of a {@link io.micrometer.core.instrument.Counter} that measures the number of write failures when
      * sending notifications.
      */
-    public static final String WRITE_FAILURES_COUNTER_NAME = "notifications.failed";
+    public static final String WRITE_FAILURES_COUNTER_NAME = "pushy.notifications.failed";
 
     /**
      * The name of a {@link io.micrometer.core.instrument.Counter} that measures the number of notifications sent
      * (regardless of whether they're accepted or rejected by the server).
      */
-    public static final String SENT_NOTIFICATIONS_COUNTER_NAME = "notifications.sent";
+    public static final String SENT_NOTIFICATIONS_COUNTER_NAME = "pushy.notifications.sent";
 
     /**
-     * The name of a {@link io.micrometer.core.instrument.Counter} that measures the number of notifications accepted by
-     * the APNs server.
+     * The name of a {@link io.micrometer.core.instrument.Timer} that measures round-trip time when sending
+     * notifications.
      */
-    public static final String ACCEPTED_NOTIFICATIONS_COUNTER_NAME = "notifications.accepted";
-
-    /**
-     * The name of a {@link io.micrometer.core.instrument.Counter} that measures the number of notifications rejected by
-     * the APNs server.
-     */
-    public static final String REJECTED_NOTIFICATIONS_COUNTER_NAME = "notifications.rejected";
+    public static final String ACKNOWLEDGED_NOTIFICATIONS_TIMER_NAME = "pushy.notifications.acknowledged";
 
     /**
      * The name of a {@link io.micrometer.core.instrument.Gauge} that measures the number of open connections in an APNs
      * client's internal connection pool.
      */
-    public static final String OPEN_CONNECTIONS_GAUGE_NAME = "connections.open";
+    public static final String OPEN_CONNECTIONS_GAUGE_NAME = "pushy.connections.open";
 
     /**
      * The name of a {@link io.micrometer.core.instrument.Counter} that measures the number of a client's failed
      * connection attempts.
      */
-    public static final String CONNECTION_FAILURES_COUNTER_NAME = "connections.failed";
+    public static final String CONNECTION_FAILURES_COUNTER_NAME = "pushy.connections.failed";
 
     /**
-     * Constructs a new Micrometer metrics listener that adds metrics to the given registry with the given list of tags.
-     *
-     * @param meterRegistry the registry to which to add metrics
-     * @param tags an optional list of tags to attach to metrics; may be {@code null} or empty, in which case no tags
-     * are added
+     * The name of a tag attached to most metrics that indicates the APNs topic to which a notification was sent.
      */
-    public MicrometerApnsClientMetricsListener(final MeterRegistry meterRegistry, final List<String> tags) {
-        this(meterRegistry, tags != null ? tags.toArray(EMPTY_STRING_ARRAY) : null);
-    }
+    public static final String TOPIC_TAG_NAME = "topic";
+
+    /**
+     * The name of a tag attached to the {@value #ACKNOWLEDGED_NOTIFICATIONS_TIMER_NAME} timer indicating if a
+     * notification was accepted by the APNs server.
+     */
+    public static final String ACCEPTED_TAG_NAME = "accepted";
+
+    /**
+     * The name of a tag attached to the {@value #ACKNOWLEDGED_NOTIFICATIONS_TIMER_NAME} timer indicating the reason why
+     * a notification was rejected by the APNs server.
+     */
+    public static final String REASON_TAG_NAME = "reason";
+
+    /**
+     * The name of a tag attached to the {@value #ACKNOWLEDGED_NOTIFICATIONS_TIMER_NAME} timer indicating the HTTP
+     * status code reported by the APNs server.
+     */
+    public static final String STATUS_TAG_NAME = "status";
 
     /**
      * Constructs a new Micrometer metrics listener that adds metrics to the given registry with the given list of tags.
      *
      * @param meterRegistry the registry to which to add metrics
-     * @param tagKeysAndValues an optional list of tag keys/values to attach to metrics; must be an even number of
-     * strings representing alternating key/value pairs
+     * @param tagKeysAndValues an optional list of tag keys/values to attach to all metrics produced by this listener;
+     * must be an even number of strings representing alternating key/value pairs
      */
     public MicrometerApnsClientMetricsListener(final MeterRegistry meterRegistry, final String... tagKeysAndValues) {
         this(meterRegistry, Tags.of(tagKeysAndValues));
@@ -157,113 +171,82 @@ public class MicrometerApnsClientMetricsListener implements ApnsClientMetricsLis
      * Constructs a new Micrometer metrics listener that adds metrics to the given registry with the given list of tags.
      *
      * @param meterRegistry the registry to which to add metrics
-     * @param tags an optional collection of tags to attach to metrics; may be empty
+     * @param tags an optional collection of tags to attach to all metrics produced by this listener; may be empty
+     * or {@code null}
      */
     public MicrometerApnsClientMetricsListener(final MeterRegistry meterRegistry, final Iterable<Tag> tags) {
-        this.notificationStartTimes = new ConcurrentHashMap<>();
-        this.notificationTimer = meterRegistry.timer(NOTIFICATION_TIMER_NAME, tags);
+        this.meterRegistry = meterRegistry;
+        this.tags = Tags.of(tags);
 
-        this.writeFailures = meterRegistry.counter(WRITE_FAILURES_COUNTER_NAME, tags);
-        this.sentNotifications = meterRegistry.counter(SENT_NOTIFICATIONS_COUNTER_NAME, tags);
-        this.acceptedNotifications = meterRegistry.counter(ACCEPTED_NOTIFICATIONS_COUNTER_NAME, tags);
-        this.rejectedNotifications = meterRegistry.counter(REJECTED_NOTIFICATIONS_COUNTER_NAME, tags);
-
-        this.connectionFailures = meterRegistry.counter(CONNECTION_FAILURES_COUNTER_NAME, tags);
-
-        meterRegistry.gauge(OPEN_CONNECTIONS_GAUGE_NAME, tags, openConnections);
+        this.connectionFailures = meterRegistry.counter(CONNECTION_FAILURES_COUNTER_NAME, this.tags);
+        meterRegistry.gauge(OPEN_CONNECTIONS_GAUGE_NAME, this.tags, openConnections);
     }
 
     /**
      * Records a failed attempt to send a notification and updates metrics accordingly.
      *
-     * @param apnsClient the client that failed to write the notification; note that this is ignored by
-     * {@code MicrometerApnsClientMetricsListener} instances, which should always be used for exactly one client
-     * @param notificationId an opaque, unique identifier for the notification that could not be written
+     * @param topic the APNs topic to which the notification was sent
      */
     @Override
-    public void handleWriteFailure(final ApnsClient apnsClient, final long notificationId) {
-        this.notificationStartTimes.remove(notificationId);
-        this.writeFailures.increment();
+    public void handleWriteFailure(final String topic) {
+        this.meterRegistry.counter(WRITE_FAILURES_COUNTER_NAME, this.tags.and(TOPIC_TAG_NAME, topic)).increment();
     }
 
     /**
      * Records a successful attempt to send a notification and updates metrics accordingly.
      *
-     * @param apnsClient the client that sent the notification; note that this is ignored by
-     * {@code MicrometerApnsClientMetricsListener} instances, which should always be used for exactly one client
-     * @param notificationId an opaque, unique identifier for the notification that was sent
+     * @param topic the APNs topic to which the notification was sent
      */
     @Override
-    public void handleNotificationSent(final ApnsClient apnsClient, final long notificationId) {
-        this.notificationStartTimes.put(notificationId, System.nanoTime());
-        this.sentNotifications.increment();
+    public void handleNotificationSent(final String topic) {
+        this.meterRegistry.counter(SENT_NOTIFICATIONS_COUNTER_NAME, this.tags.and(TOPIC_TAG_NAME, topic)).increment();
     }
 
     /**
-     * Records that the APNs server accepted a previously-sent notification and updates metrics accordingly.
+     * Records that the APNs server accepted or rejected a previously-sent notification and updates metrics accordingly.
      *
-     * @param apnsClient the client that sent the accepted notification; note that this is ignored by
-     * {@code MicrometerApnsClientMetricsListener} instances, which should always be used for exactly one client
-     * @param notificationId an opaque, unique identifier for the notification that was accepted
+     * @param response the response from the APNs server
+     * @param durationNanos the duration, in nanoseconds, between the time the notification was initially sent and when
+     * it was acknowledged by the APNs server
      */
     @Override
-    public void handleNotificationAccepted(final ApnsClient apnsClient, final long notificationId) {
-        this.recordEndTimeForNotification(notificationId);
-        this.acceptedNotifications.increment();
-    }
+    public void handleNotificationAcknowledged(final PushNotificationResponse<?> response, final long durationNanos) {
+        Tags tags = this.tags.and(
+            TOPIC_TAG_NAME, response.getPushNotification().getTopic(),
+            ACCEPTED_TAG_NAME, String.valueOf(response.isAccepted()),
+            STATUS_TAG_NAME, String.valueOf(response.getStatusCode())
+        );
 
-    /**
-     * Records that the APNs server rejected a previously-sent notification and updates metrics accordingly.
-     *
-     * @param apnsClient the client that sent the rejected notification; note that this is ignored by
-     * {@code MicrometerApnsClientMetricsListener} instances, which should always be used for exactly one client
-     * @param notificationId an opaque, unique identifier for the notification that was rejected
-     */
-    @Override
-    public void handleNotificationRejected(final ApnsClient apnsClient, final long notificationId) {
-        this.recordEndTimeForNotification(notificationId);
-        this.rejectedNotifications.increment();
-    }
-
-    private void recordEndTimeForNotification(final long notificationId) {
-        final long endTime = System.nanoTime();
-        final Long startTime = this.notificationStartTimes.remove(notificationId);
-
-        if (startTime != null) {
-            this.notificationTimer.record(endTime - startTime, TimeUnit.NANOSECONDS);
+        if (!response.isAccepted()) {
+            tags = tags.and(REASON_TAG_NAME, response.getRejectionReason().orElse("unknown"));
         }
+
+        this.meterRegistry.timer(ACKNOWLEDGED_NOTIFICATIONS_TIMER_NAME, tags).record(durationNanos, TimeUnit.NANOSECONDS);
     }
 
     /**
      * Records that the APNs server added a new connection to its internal connection pool and updates metrics
      * accordingly.
-     *
-     * @param apnsClient the client that added the new connection
      */
     @Override
-    public void handleConnectionAdded(final ApnsClient apnsClient) {
+    public void handleConnectionAdded() {
         this.openConnections.incrementAndGet();
     }
 
     /**
      * Records that the APNs server removed a connection from its internal connection pool and updates metrics
      * accordingly.
-     *
-     * @param apnsClient the client that removed the connection
      */
     @Override
-    public void handleConnectionRemoved(final ApnsClient apnsClient) {
+    public void handleConnectionRemoved() {
         this.openConnections.decrementAndGet();
     }
 
     /**
      * Records that a previously-started attempt to connect to the APNs server failed and updates metrics accordingly.
-     *
-     * @param apnsClient the client that failed to connect; note that this is ignored by
-     * {@code MicrometerApnsClientMetricsListener} instances, which should always be used for exactly one client
      */
     @Override
-    public void handleConnectionCreationFailed(final ApnsClient apnsClient) {
+    public void handleConnectionCreationFailed() {
         this.connectionFailures.increment();
     }
 }

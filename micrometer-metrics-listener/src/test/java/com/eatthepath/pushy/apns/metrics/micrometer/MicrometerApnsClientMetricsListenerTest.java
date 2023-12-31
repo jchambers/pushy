@@ -22,16 +22,20 @@
 
 package com.eatthepath.pushy.apns.metrics.micrometer;
 
+import com.eatthepath.pushy.apns.ApnsPushNotification;
+import com.eatthepath.pushy.apns.PushNotificationResponse;
+import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import io.micrometer.core.instrument.*;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.Collections;
+import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 
 public class MicrometerApnsClientMetricsListenerTest {
@@ -46,91 +50,113 @@ public class MicrometerApnsClientMetricsListenerTest {
     }
 
     @Test
-    public void testMicrometerApnsClientMetricsListenerNoTags() {
-        for (final Meter meter : this.meterRegistry.getMeters()) {
-            assertTrue(meter.getId().getTags().isEmpty());
-        }
-    }
-
-    @Test
-    public void testMicrometerApnsClientMetricsListenerVariadicTags() {
-        final MeterRegistry taggedMeterRegistry = new SimpleMeterRegistry();
-        new MicrometerApnsClientMetricsListener(taggedMeterRegistry, "key", "value");
-
-        final List<Tag> expectedTags = Collections.singletonList(Tag.of("key", "value"));
-
-        for (final Meter meter : taggedMeterRegistry.getMeters()) {
-            assertEquals(expectedTags, meter.getId().getTags());
-        }
-    }
-
-    @Test
-    public void testMicrometerApnsClientMetricsListenerIterableTags() {
-        final MeterRegistry taggedMeterRegistry = new SimpleMeterRegistry();
-        final List<Tag> tags = Collections.singletonList(Tag.of("key", "value"));
-
-        new MicrometerApnsClientMetricsListener(taggedMeterRegistry, tags);
-
-        for (final Meter meter : taggedMeterRegistry.getMeters()) {
-            assertEquals(tags, meter.getId().getTags());
-        }
+    public void testMicrometerApnsClientMetricsListener() {
+        assertDoesNotThrow(() -> new MicrometerApnsClientMetricsListener(new SimpleMeterRegistry()));
+        assertDoesNotThrow(() -> new MicrometerApnsClientMetricsListener(new SimpleMeterRegistry(), "tag", "value"));
+        assertDoesNotThrow(() -> new MicrometerApnsClientMetricsListener(new SimpleMeterRegistry(), Tags.of("tag", "value")));
+        assertDoesNotThrow(() -> new MicrometerApnsClientMetricsListener(new SimpleMeterRegistry(), (List<Tag>) null));
     }
 
     @Test
     public void testHandleWriteFailure() {
-        final Counter writeFailures = this.meterRegistry.get(MicrometerApnsClientMetricsListener.WRITE_FAILURES_COUNTER_NAME).counter();
-        assertEquals(0, (int) writeFailures.count());
-
-        this.listener.handleWriteFailure(null, 1);
-        assertEquals(1, (int) writeFailures.count());
+        this.listener.handleWriteFailure("com.example.topic");
+        assertEquals(1, (int) this.meterRegistry.get(MicrometerApnsClientMetricsListener.WRITE_FAILURES_COUNTER_NAME).counter().count());
     }
 
     @Test
     public void testHandleNotificationSent() {
-        final Counter sentNotifications = this.meterRegistry.get(MicrometerApnsClientMetricsListener.SENT_NOTIFICATIONS_COUNTER_NAME).counter();
-        assertEquals(0, (int) sentNotifications.count());
-
-        this.listener.handleNotificationSent(null, 1);
-        assertEquals(1, (int) sentNotifications.count());
+        this.listener.handleNotificationSent("com.example.topic");
+        assertEquals(1, (int) this.meterRegistry.get(MicrometerApnsClientMetricsListener.SENT_NOTIFICATIONS_COUNTER_NAME).counter().count());
     }
 
     @Test
     public void testHandleNotificationAccepted() {
-        final Counter acceptedNotifications = this.meterRegistry.get(MicrometerApnsClientMetricsListener.ACCEPTED_NOTIFICATIONS_COUNTER_NAME).counter();
-        assertEquals(0, (int) acceptedNotifications.count());
+        final String topic = "com.example.topic";
+        final int status = 200;
 
-        this.listener.handleNotificationAccepted(null, 1);
-        assertEquals(1, (int) acceptedNotifications.count());
+        this.listener.handleNotificationAcknowledged(buildPushNotificationResponse(topic, true, status, null), 1);
+
+        final Timer acknowledgedNotifications = this.meterRegistry
+            .get(MicrometerApnsClientMetricsListener.ACKNOWLEDGED_NOTIFICATIONS_TIMER_NAME)
+            .tags(MicrometerApnsClientMetricsListener.TOPIC_TAG_NAME, topic,
+                MicrometerApnsClientMetricsListener.ACCEPTED_TAG_NAME, String.valueOf(true),
+                MicrometerApnsClientMetricsListener.STATUS_TAG_NAME, String.valueOf(status))
+            .timer();
+
+        assertEquals(1, (int) acknowledgedNotifications.count());
     }
 
     @Test
     public void testHandleNotificationRejected() {
-        final Counter rejectedNotifications = this.meterRegistry.get(MicrometerApnsClientMetricsListener.REJECTED_NOTIFICATIONS_COUNTER_NAME).counter();
-        assertEquals(0, (int) rejectedNotifications.count());
+        final String topic = "com.example.topic";
+        final int status = 400;
+        final String rejectionReason = "BadDeviceToken";
 
-        this.listener.handleNotificationRejected(null, 1);
-        assertEquals(1, (int) rejectedNotifications.count());
+        this.listener.handleNotificationAcknowledged(buildPushNotificationResponse(topic, false, status, rejectionReason), 1);
+
+        final Timer acknowledgedNotifications = this.meterRegistry
+            .get(MicrometerApnsClientMetricsListener.ACKNOWLEDGED_NOTIFICATIONS_TIMER_NAME)
+            .tags(MicrometerApnsClientMetricsListener.TOPIC_TAG_NAME, topic,
+                MicrometerApnsClientMetricsListener.ACCEPTED_TAG_NAME, String.valueOf(false),
+                MicrometerApnsClientMetricsListener.STATUS_TAG_NAME, String.valueOf(status),
+                MicrometerApnsClientMetricsListener.REASON_TAG_NAME, rejectionReason)
+            .timer();
+
+        assertEquals(1, (int) acknowledgedNotifications.count());
     }
 
     @Test
     public void testHandleConnectionAddedAndRemoved() {
-        final Gauge openConnectionGauge = this.meterRegistry.get(MicrometerApnsClientMetricsListener.OPEN_CONNECTIONS_GAUGE_NAME).gauge();
+        this.listener.handleConnectionAdded();
 
-        this.listener.handleConnectionAdded(null);
+        assertEquals(1, (int) this.meterRegistry.get(MicrometerApnsClientMetricsListener.OPEN_CONNECTIONS_GAUGE_NAME).gauge().value());
 
-        assertEquals(1, (int) openConnectionGauge.value());
+        this.listener.handleConnectionRemoved();
 
-        this.listener.handleConnectionRemoved(null);
-
-        assertEquals(0, (int) openConnectionGauge.value());
+        assertEquals(0, (int) this.meterRegistry.get(MicrometerApnsClientMetricsListener.OPEN_CONNECTIONS_GAUGE_NAME).gauge().value());
     }
 
     @Test
     public void testHandleConnectionCreationFailed() {
-        final Counter connectionFailures = this.meterRegistry.get(MicrometerApnsClientMetricsListener.CONNECTION_FAILURES_COUNTER_NAME).counter();
-        assertEquals(0, (int) connectionFailures.count());
+        this.listener.handleConnectionCreationFailed();
+        assertEquals(1, (int) this.meterRegistry.get(MicrometerApnsClientMetricsListener.CONNECTION_FAILURES_COUNTER_NAME).counter().count());
+    }
 
-        this.listener.handleConnectionCreationFailed(null);
-        assertEquals(1, (int) connectionFailures.count());
+    private static PushNotificationResponse<?> buildPushNotificationResponse(final String topic,
+                                                                             final boolean accepted,
+                                                                             final int status,
+                                                                             final String rejectionReason) {
+
+        return new PushNotificationResponse<ApnsPushNotification>() {
+            @Override
+            public ApnsPushNotification getPushNotification() {
+                return new SimpleApnsPushNotification("device-token", topic, "{}");
+            }
+
+            @Override
+            public boolean isAccepted() {
+                return accepted;
+            }
+
+            @Override
+            public UUID getApnsId() {
+                return null;
+            }
+
+            @Override
+            public int getStatusCode() {
+                return status;
+            }
+
+            @Override
+            public Optional<String> getRejectionReason() {
+                return Optional.ofNullable(rejectionReason);
+            }
+
+            @Override
+            public Optional<Instant> getTokenInvalidationTimestamp() {
+                return Optional.empty();
+            }
+        };
     }
 }

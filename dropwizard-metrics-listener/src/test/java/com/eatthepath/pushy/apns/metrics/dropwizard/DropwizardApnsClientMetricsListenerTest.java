@@ -26,10 +26,15 @@ import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.Metric;
 import com.codahale.metrics.Timer;
+import com.eatthepath.pushy.apns.ApnsPushNotification;
+import com.eatthepath.pushy.apns.PushNotificationResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -48,7 +53,7 @@ public class DropwizardApnsClientMetricsListenerTest {
         final Meter writeFailures = (Meter) this.listener.getMetrics().get(DropwizardApnsClientMetricsListener.WRITE_FAILURES_METER_NAME);
         assertEquals(0, writeFailures.getCount());
 
-        this.listener.handleWriteFailure(null, 1);
+        this.listener.handleWriteFailure("com.example.topic");
         assertEquals(1, writeFailures.getCount());
     }
 
@@ -57,7 +62,7 @@ public class DropwizardApnsClientMetricsListenerTest {
         final Meter sentNotifications = (Meter) this.listener.getMetrics().get(DropwizardApnsClientMetricsListener.SENT_NOTIFICATIONS_METER_NAME);
         assertEquals(0, sentNotifications.getCount());
 
-        this.listener.handleNotificationSent(null, 1);
+        this.listener.handleNotificationSent("com.example.topic");
         assertEquals(1, sentNotifications.getCount());
     }
 
@@ -66,7 +71,7 @@ public class DropwizardApnsClientMetricsListenerTest {
         final Meter acceptedNotifications = (Meter) this.listener.getMetrics().get(DropwizardApnsClientMetricsListener.ACCEPTED_NOTIFICATIONS_METER_NAME);
         assertEquals(0, acceptedNotifications.getCount());
 
-        this.listener.handleNotificationAccepted(null, 1);
+        this.listener.handleNotificationAcknowledged(buildPushNotificationResponse(true), 1);
         assertEquals(1, acceptedNotifications.getCount());
     }
 
@@ -75,7 +80,7 @@ public class DropwizardApnsClientMetricsListenerTest {
         final Meter rejectedNotifications = (Meter) this.listener.getMetrics().get(DropwizardApnsClientMetricsListener.REJECTED_NOTIFICATIONS_METER_NAME);
         assertEquals(0, rejectedNotifications.getCount());
 
-        this.listener.handleNotificationRejected(null, 1);
+        this.listener.handleNotificationAcknowledged(buildPushNotificationResponse(false), 1);
         assertEquals(1, rejectedNotifications.getCount());
     }
 
@@ -84,11 +89,11 @@ public class DropwizardApnsClientMetricsListenerTest {
         @SuppressWarnings("unchecked")
         final Gauge<Integer> openConnectionGauge = (Gauge<Integer>) this.listener.getMetrics().get(DropwizardApnsClientMetricsListener.OPEN_CONNECTIONS_GAUGE_NAME);
 
-        this.listener.handleConnectionAdded(null);
+        this.listener.handleConnectionAdded();
 
         assertEquals(1, (long) openConnectionGauge.getValue());
 
-        this.listener.handleConnectionRemoved(null);
+        this.listener.handleConnectionRemoved();
 
         assertEquals(0, (long) openConnectionGauge.getValue());
     }
@@ -98,7 +103,7 @@ public class DropwizardApnsClientMetricsListenerTest {
         final Meter connectionFailures = (Meter) this.listener.getMetrics().get(DropwizardApnsClientMetricsListener.CONNECTION_FAILURES_METER_NAME);
         assertEquals(0, connectionFailures.getCount());
 
-        this.listener.handleConnectionCreationFailed(null);
+        this.listener.handleConnectionCreationFailed();
         assertEquals(1, connectionFailures.getCount());
     }
 
@@ -115,5 +120,39 @@ public class DropwizardApnsClientMetricsListenerTest {
 
         assertTrue(metrics.get(DropwizardApnsClientMetricsListener.OPEN_CONNECTIONS_GAUGE_NAME) instanceof Gauge);
         assertTrue(metrics.get(DropwizardApnsClientMetricsListener.CONNECTION_FAILURES_METER_NAME) instanceof Meter);
+    }
+
+    private static PushNotificationResponse<?> buildPushNotificationResponse(final boolean accepted) {
+        return new PushNotificationResponse<ApnsPushNotification>() {
+            @Override
+            public ApnsPushNotification getPushNotification() {
+                return null;
+            }
+
+            @Override
+            public boolean isAccepted() {
+                return accepted;
+            }
+
+            @Override
+            public UUID getApnsId() {
+                return null;
+            }
+
+            @Override
+            public int getStatusCode() {
+                return 0;
+            }
+
+            @Override
+            public Optional<String> getRejectionReason() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<Instant> getTokenInvalidationTimestamp() {
+                return Optional.empty();
+            }
+        };
     }
 }
