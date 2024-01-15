@@ -25,11 +25,16 @@ package com.eatthepath.pushy.apns.util;
 /**
  * An enumeration of accepted actions for Live Activity notification payloads.
  *
- * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">Updating and ending your Live Activity with remote push notifications</a>
+ * @see <a href="https://developer.apple.com/documentation/activitykit/starting-and-updating-live-activities-with-activitykit-push-notifications#Construct-the-payload-that-starts-a-Live-Activity">Starting and updating Live Activities with ActivityKit push notifications</a>
  *
  * @since 0.15.2
 */
 public enum LiveActivityEvent {
+    /**
+     * Used to start a Live Activity.
+     */
+    START("start"),
+
     /**
      * Used to update a Live Activity.
      */
