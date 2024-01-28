@@ -89,6 +89,9 @@ public abstract class ApnsPayloadBuilder {
 
     private Instant staleDate = null;
 
+    private String attributesType = null;
+    private Map<String, Object> attributes = null;
+
     private Map<String, Object> contentState = null;
 
     private static final String APS_KEY = "aps";
@@ -125,6 +128,8 @@ public abstract class ApnsPayloadBuilder {
     private static final String DISMISSAL_DATE_KEY = "dismissal-date";
     private static final String STALE_DATE_KEY = "stale-date";
     private static final String EVENT_KEY = "event";
+    private static final String ATTRIBUTES_TYPE_KEY = "attributes-type";
+    private static final String ATTRIBUTES_KEY = "attributes";
     private static final String CONTENT_STATE_KEY = "content-state";
 
     public static final String[] EMPTY_STRING_ARRAY = new String[0];
@@ -757,6 +762,46 @@ public abstract class ApnsPayloadBuilder {
     }
 
     /**
+     * Sets the type of iOS {@code ActivityAttributes} used for a Live Activity. Must be set for a notification that
+     * starts a live activity.
+     *
+     * @param attributesType the type of {@code ActivityAttributes} used for a Live Activity
+     *
+     * @return a reference to this payload builder
+     *
+     * @see #setAttributes(Map) 
+     * @see <a href="https://developer.apple.com/documentation/activitykit/starting-and-updating-live-activities-with-activitykit-push-notifications#Construct-the-payload-that-starts-a-Live-Activity">
+     *      Construct the payload that starts a Live Activity</a>
+     * @see <a href="https://developer.apple.com/documentation/activitykit/activityattributes">ActivityKit - ActivityAttributes</a>
+     *
+     * @since 0.15.4
+     */
+    public ApnsPayloadBuilder setAttributesType(final String attributesType) {
+        this.attributesType = attributesType;
+        return this;
+    }
+
+    /**
+     * Sets the values of iOS {@code ContentState} attributes when starting a Live Activity. Must be set for a
+     * notification that starts a live activity.
+     *
+     * @param attributes the attributes used to populate the {@code ContentState} for the newly-started live activity
+     *
+     * @return a reference to this payload builder
+     *
+     * @see #setAttributesType(String) 
+     * @see <a href="https://developer.apple.com/documentation/activitykit/starting-and-updating-live-activities-with-activitykit-push-notifications#Construct-the-payload-that-starts-a-Live-Activity">
+     *      Construct the payload that starts a Live Activity</a>
+     * @see <a href="https://developer.apple.com/documentation/activitykit/activityattributes/contentstate">ActivityKit - ContentState</a>
+     *
+     * @since 0.15.4
+     */
+    public ApnsPayloadBuilder setAttributes(final Map<String, Object> attributes) {
+        this.attributes = attributes;
+        return this;
+    }
+
+    /**
      * <p>Sets the content state object inside content-state payload for Live Activities.</p>
      *
      * <p>The precise strategy for serializing the values of custom properties is defined by the specific
@@ -897,6 +942,14 @@ public abstract class ApnsPayloadBuilder {
 
             if (this.event != null) {
                 aps.put(EVENT_KEY, this.event.getValue());
+            }
+
+            if (this.attributesType != null) {
+                aps.put(ATTRIBUTES_TYPE_KEY, this.attributesType);
+            }
+
+            if (this.attributes != null) {
+                aps.put(ATTRIBUTES_KEY, this.attributes);
             }
 
             if (this.contentState != null) {

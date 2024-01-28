@@ -29,7 +29,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 import java.text.ParseException;
 import java.time.Instant;
@@ -663,6 +662,42 @@ public abstract class ApnsPayloadBuilderTest {
         final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 
         assertEquals(event.getValue(), aps.get("event"));
+    }
+
+    @Test
+    void testSetAttributesType() {
+        final String attributesType = "TestAttributes";
+        this.builder.setAttributesType(attributesType);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
+
+        assertEquals(attributesType, aps.get("attributes-type"));
+    }
+
+    @Test
+    void testSetAttributes() {
+        final String keyForStringValue = "string";
+        final String stringValue = "Hello";
+
+        final String keyForLongValue = "integer";
+        final long longValue = 12;
+
+        final String keyForMapValue = "map";
+        final Map<String, Object> attributes = new HashMap<>();
+        final Map<String, Object> subMap = new HashMap<>();
+        subMap.put("boolean", true);
+        attributes.put(keyForLongValue, longValue);
+        attributes.put(keyForStringValue, stringValue);
+        attributes.put(keyForMapValue, subMap);
+
+        this.builder.setAttributes(attributes);
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
+        final Map<String, Object> serializedAttributes = (Map<String, Object>) aps.get("attributes");
+
+        assertEquals(stringValue, serializedAttributes.get(keyForStringValue));
+        assertEquals(longValue, serializedAttributes.get(keyForLongValue));
+        assertEquals(subMap, serializedAttributes.get(keyForMapValue));
     }
 
     @Test
