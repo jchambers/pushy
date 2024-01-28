@@ -768,6 +768,8 @@ public abstract class ApnsPayloadBuilder {
      *
      * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">
      *      Updating and ending your Live Activity with remote push notifications</a>
+     *
+     * @since 0.15.2
      */
     public ApnsPayloadBuilder setContentState(final Map<String, Object> contentState) {
         this.contentState = contentState;
@@ -784,6 +786,8 @@ public abstract class ApnsPayloadBuilder {
      *
      * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">
      *      Updating and ending your Live Activity with remote push notifications</a>
+     *
+     * @since 0.15.2
      */
     public ApnsPayloadBuilder setEvent(final LiveActivityEvent event) {
         this.event = event;
@@ -799,6 +803,8 @@ public abstract class ApnsPayloadBuilder {
      *
      * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">
      *      Updating and ending your Live Activity with remote push notifications</a>
+     *
+     * @since 0.15.2
      */
     public ApnsPayloadBuilder setTimestamp(final Instant timestamp) {
         this.timestamp = timestamp;
@@ -819,6 +825,8 @@ public abstract class ApnsPayloadBuilder {
      *
      * @see <a href="https://developer.apple.com/documentation/activitykit/update-and-end-your-live-activity-with-remote-push-notifications">
      *      Updating and ending your Live Activity with remote push notifications</a>
+     *
+     * @since 0.15.2
      */
     public ApnsPayloadBuilder setDismissalDate(final Instant dismissalDate) {
         this.dismissalDate = dismissalDate;
