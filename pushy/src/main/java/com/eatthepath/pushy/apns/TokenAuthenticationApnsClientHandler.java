@@ -81,14 +81,14 @@ class TokenAuthenticationApnsClientHandler extends ApnsClientHandler {
             Objects.requireNonNull(this.signingKey(), "Signing key must be set before building a TokenAuthenticationApnsClientHandler.");
             Objects.requireNonNull(this.tokenExpiration(), "Token expiration duration must be set before building a TokenAuthenticationApnsClientHandler.");
 
-            final ApnsClientHandler handler = new TokenAuthenticationApnsClientHandler(decoder, encoder, initialSettings, this.authority(), this.idlePingInterval(), this.signingKey(), this.tokenExpiration());
+            final ApnsClientHandler handler = new TokenAuthenticationApnsClientHandler(decoder, encoder, initialSettings, this.authority(), this.signingKey(), this.tokenExpiration());
             this.frameListener(handler);
             return handler;
         }
     }
 
-    protected TokenAuthenticationApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final String authority, final Duration idlePingInterval, final ApnsSigningKey signingKey, final Duration tokenExpiration) {
-        super(decoder, encoder, initialSettings, authority, idlePingInterval);
+    protected TokenAuthenticationApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final String authority, final ApnsSigningKey signingKey, final Duration tokenExpiration) {
+        super(decoder, encoder, initialSettings, authority);
 
         this.signingKey = Objects.requireNonNull(signingKey, "Signing key must not be null for token-based client handlers.");
         this.tokenExpiration = Objects.requireNonNull(tokenExpiration, "Token expiration must not be null for token-based client handlers");
