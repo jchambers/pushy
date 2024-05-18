@@ -267,4 +267,9 @@ class ApnsChannelPool {
 
         return closePromise;
     }
+
+    // Visible for testing
+    int getPendingCreateChannelFutureCount() {
+        return pendingCreateChannelFutures.size();
+    }
 }

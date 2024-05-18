@@ -261,4 +261,9 @@ public class ApnsClient {
 
         return closeFuture;
     }
+
+    // Visible for testing
+    int getPendingCreateChannelFutureCount() {
+        return channelPool.getPendingCreateChannelFutureCount();
+    }
 }

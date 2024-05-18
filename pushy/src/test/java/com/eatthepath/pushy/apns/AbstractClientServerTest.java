@@ -44,7 +44,7 @@ import java.security.interfaces.ECPublicKey;
 import java.time.Instant;
 import java.util.*;
 
-@Timeout(10)
+@Timeout(30)
 public class AbstractClientServerTest {
 
     protected static NioEventLoopGroup CLIENT_EVENT_LOOP_GROUP;

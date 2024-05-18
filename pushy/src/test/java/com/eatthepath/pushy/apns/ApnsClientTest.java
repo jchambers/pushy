@@ -25,6 +25,11 @@ package com.eatthepath.pushy.apns;
 import com.eatthepath.pushy.apns.server.*;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -32,15 +37,13 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.net.ssl.SSLHandshakeException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
@@ -783,6 +786,34 @@ public class ApnsClientTest extends AbstractClientServerTest {
         } finally {
             client.close().get();
             server.shutdown().get();
+        }
+    }
+
+    @Test
+    void testSslTimeout() throws InterruptedException, IOException {
+        // Create a "do-nothing" server that will always time out when clients attempt to perform TLS handshakes
+        final Channel serverChannel = new ServerBootstrap()
+            .group(SERVER_EVENT_LOOP_GROUP)
+            .channel(NioServerSocketChannel.class)
+            .childHandler(new ChannelInitializer<SocketChannel>() {
+                @Override
+                protected void initChannel(final SocketChannel channel) {
+                }
+            })
+            .bind(PORT)
+            .await()
+            .channel();
+
+        final ApnsClient client = this.buildTlsAuthenticationClient();
+
+        try {
+            assertThrows(CompletionException.class,
+                () -> client.sendNotification(new SimpleApnsPushNotification(DEVICE_TOKEN, TOPIC, PAYLOAD)).join());
+
+            assertEquals(0, client.getPendingCreateChannelFutureCount());
+        } finally {
+            client.close().join();
+            serverChannel.close().await();
         }
     }
 }
