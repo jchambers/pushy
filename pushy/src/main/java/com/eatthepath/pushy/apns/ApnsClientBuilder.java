@@ -24,7 +24,6 @@ package com.eatthepath.pushy.apns;
 
 import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
 import com.eatthepath.pushy.apns.proxy.ProxyHandlerFactory;
-import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http2.Http2FrameLogger;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.ssl.*;
@@ -70,7 +69,7 @@ public class ApnsClientBuilder {
 
     private boolean enableHostnameVerification = true;
 
-    private EventLoopGroup eventLoopGroup;
+    private ApnsClientResources apnsClientResources;
 
     private int concurrentConnections = 1;
 
@@ -408,24 +407,30 @@ public class ApnsClientBuilder {
     }
 
     /**
-     * <p>Sets the event loop group to be used by the client under construction. If not set (or if {@code null}), the
-     * client will create and manage its own event loop group.</p>
+     * <p>Sets the client resources to be used by the client under construction. If not set (or if {@code null}), the
+     * client will manage its own resources.</p>
      *
-     * <p>Generally speaking, callers don't need to set event loop groups for clients, but it may be useful to specify
-     * an event loop group under certain circumstances. In particular, specifying an event loop group that is shared
-     * among multiple {@code ApnsClient} instances can keep thread counts manageable. Regardless of the number of
-     * concurrent {@code ApnsClient} instances, callers may also wish to specify an event loop group to take advantage
-     * of certain platform-specific optimizations (e.g. {@code epoll} or {@code KQueue} event loop groups).</p>
+     * <p>Callers generally don't need to specify resources groups for clients if they only expect to have a single
+     * {@code ApnsClient} instance, but may benefit from specifying a shared set of {@code ApnsClientResources} if they
+     * expect to have multiple concurrent clients. Specifying an event loop group that is shared among multiple
+     * {@code ApnsClient} instances can keep thread counts in check because each client will not need to create its own
+     * thread pool. Regardless of the number of concurrent {@code ApnsClient} instances, callers may also wish to
+     * specify an event loop group to take advantage of certain platform-specific optimizations (e.g. {@code epoll} or
+     * {@code KQueue} event loop groups).</p>
      *
-     * @param eventLoopGroup the event loop group to use for this client, or {@code null} to let the client manage its
-     * own event loop group
+     * <p>Callers that expect to have multiple concurrent {@code ApnsClient} instances will also benefit from sharing an
+     * {@code ApnsClientResources} instance between clients because resource sets contain a shared DNS resolver,
+     * eliminating the need for each client to manage its own DNS connections.</p>
+     *
+     * @param apnsClientResources the client resources to use for this client, or {@code null} to let the client manage
+     * its own resources
      *
      * @return a reference to this builder
      *
-     * @since 0.8
+     * @since 0.16
      */
-    public ApnsClientBuilder setEventLoopGroup(final EventLoopGroup eventLoopGroup) {
-        this.eventLoopGroup = eventLoopGroup;
+    public ApnsClientBuilder setApnsClientResources(final ApnsClientResources apnsClientResources) {
+        this.apnsClientResources = apnsClientResources;
         return this;
     }
 
@@ -652,7 +657,7 @@ public class ApnsClientBuilder {
                             this.metricsListener,
                             this.frameLogger);
 
-            return new ApnsClient(clientConfiguration, this.eventLoopGroup);
+            return new ApnsClient(clientConfiguration, this.apnsClientResources);
         } finally {
             if (sslContext instanceof ReferenceCounted) {
                 ((ReferenceCounted) sslContext).release();

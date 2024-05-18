@@ -225,14 +225,14 @@ public class ApnsClientTest extends AbstractClientServerTest {
             cautiousClient = new ApnsClientBuilder()
                     .setApnsServer(HOST, PORT)
                     .setSigningKey(this.signingKey)
-                    .setEventLoopGroup(CLIENT_EVENT_LOOP_GROUP)
+                    .setApnsClientResources(CLIENT_RESOURCES)
                     .build();
         } else {
             try (final InputStream p12InputStream = getClass().getResourceAsStream(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
                 cautiousClient = new ApnsClientBuilder()
                         .setApnsServer(HOST, PORT)
                         .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                        .setEventLoopGroup(CLIENT_EVENT_LOOP_GROUP)
+                        .setApnsClientResources(CLIENT_RESOURCES)
                         .build();
             }
         }
@@ -314,7 +314,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
                 .setApnsServer(HOST, PORT)
                 .setTrustedServerCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
                 .setSigningKey(this.signingKey)
-                .setEventLoopGroup(CLIENT_EVENT_LOOP_GROUP)
+                .setApnsClientResources(CLIENT_RESOURCES)
                 .setHostnameVerificationEnabled(false)
                 .build();
 
