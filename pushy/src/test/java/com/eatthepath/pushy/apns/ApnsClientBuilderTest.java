@@ -44,16 +44,16 @@ public class ApnsClientBuilderTest {
 
     private static final String KEYSTORE_PASSWORD = "pushy-test";
 
-    private static NioEventLoopGroup EVENT_LOOP_GROUP;
+    private static ApnsClientResources CLIENT_RESOURCES;
 
     @BeforeAll
     public static void setUpBeforeClass() {
-        EVENT_LOOP_GROUP = new NioEventLoopGroup(1);
+        CLIENT_RESOURCES = new ApnsClientResources(new NioEventLoopGroup(1));
     }
 
     @AfterAll
     public static void tearDownAfterClass() throws Exception {
-        EVENT_LOOP_GROUP.shutdownGracefully().await();
+        CLIENT_RESOURCES.shutdownGracefully().await();
     }
 
     @Test
@@ -61,7 +61,7 @@ public class ApnsClientBuilderTest {
         // We're happy here as long as nothing throws an exception
         final ApnsClient client = new ApnsClientBuilder()
                 .setApnsServer(ApnsClientBuilder.PRODUCTION_APNS_HOST)
-                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .setApnsClientResources(CLIENT_RESOURCES)
                 .setClientCredentials(new File(this.getClass().getResource(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME).toURI()), KEYSTORE_PASSWORD)
                 .build();
 
@@ -74,7 +74,7 @@ public class ApnsClientBuilderTest {
         try (final InputStream p12InputStream = this.getClass().getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
             final ApnsClient client = new ApnsClientBuilder()
                     .setApnsServer(ApnsClientBuilder.PRODUCTION_APNS_HOST)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
+                    .setApnsClientResources(CLIENT_RESOURCES)
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .build();
 
@@ -85,7 +85,7 @@ public class ApnsClientBuilderTest {
     @Test
     void testBuildClientWithNullPassword() {
         assertThrows(NullPointerException.class, () -> new ApnsClientBuilder()
-                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .setApnsClientResources(CLIENT_RESOURCES)
                 .setClientCredentials(new File(this.getClass().getResource(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME).toURI()), null)
                 .build());
     }
@@ -99,7 +99,7 @@ public class ApnsClientBuilderTest {
 
             final ApnsClient client = new ApnsClientBuilder()
                     .setApnsServer(ApnsClientBuilder.PRODUCTION_APNS_HOST)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
+                    .setApnsClientResources(CLIENT_RESOURCES)
                     .setClientCredentials((X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey(), KEYSTORE_PASSWORD)
                     .build();
 
@@ -117,7 +117,7 @@ public class ApnsClientBuilderTest {
 
             final ApnsClient client = new ApnsClientBuilder()
                     .setApnsServer(ApnsClientBuilder.PRODUCTION_APNS_HOST)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
+                    .setApnsClientResources(CLIENT_RESOURCES)
                     .setClientCredentials((X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey(), null)
                     .build();
 
@@ -133,7 +133,7 @@ public class ApnsClientBuilderTest {
             // We're happy here as long as nothing explodes
             final ApnsClient client = new ApnsClientBuilder()
                     .setApnsServer(ApnsClientBuilder.PRODUCTION_APNS_HOST)
-                    .setEventLoopGroup(EVENT_LOOP_GROUP)
+                    .setApnsClientResources(CLIENT_RESOURCES)
                     .setSigningKey(signingKey)
                     .build();
 
@@ -145,7 +145,7 @@ public class ApnsClientBuilderTest {
     void testBuildWithoutClientCredentials() {
         assertThrows(IllegalStateException.class, () ->
                 new ApnsClientBuilder()
-                        .setEventLoopGroup(EVENT_LOOP_GROUP)
+                        .setApnsClientResources(CLIENT_RESOURCES)
                         .build());
     }
 
@@ -162,7 +162,7 @@ public class ApnsClientBuilderTest {
 
                 assertThrows(IllegalStateException.class, () ->
                         new ApnsClientBuilder()
-                                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                                .setApnsClientResources(CLIENT_RESOURCES)
                                 .setClientCredentials((X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey(), null)
                                 .setSigningKey(signingKey)
                                 .build());
@@ -174,7 +174,7 @@ public class ApnsClientBuilderTest {
     void testBuildWithoutApnsServerAddress() {
         assertThrows(IllegalStateException.class, () ->
                 new ApnsClientBuilder()
-                        .setEventLoopGroup(EVENT_LOOP_GROUP)
+                        .setApnsClientResources(CLIENT_RESOURCES)
                         .setClientCredentials(new File(this.getClass().getResource(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME).toURI()), KEYSTORE_PASSWORD)
                         .build());
     }

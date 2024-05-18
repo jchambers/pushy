@@ -47,7 +47,7 @@ import java.util.*;
 @Timeout(10)
 public class AbstractClientServerTest {
 
-    protected static NioEventLoopGroup CLIENT_EVENT_LOOP_GROUP;
+    protected static ApnsClientResources CLIENT_RESOURCES;
     protected static NioEventLoopGroup SERVER_EVENT_LOOP_GROUP;
 
     protected static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
@@ -81,7 +81,7 @@ public class AbstractClientServerTest {
 
     @BeforeAll
     public static void setUpBeforeClass() {
-        CLIENT_EVENT_LOOP_GROUP = new NioEventLoopGroup(2);
+        CLIENT_RESOURCES = new ApnsClientResources(new NioEventLoopGroup(2));
         SERVER_EVENT_LOOP_GROUP = new NioEventLoopGroup(2);
     }
 
@@ -100,7 +100,7 @@ public class AbstractClientServerTest {
     @AfterAll
     public static void tearDownAfterClass() throws Exception {
         final PromiseCombiner combiner = new PromiseCombiner(ImmediateEventExecutor.INSTANCE);
-        combiner.addAll(CLIENT_EVENT_LOOP_GROUP.shutdownGracefully(), SERVER_EVENT_LOOP_GROUP.shutdownGracefully());
+        combiner.addAll(CLIENT_RESOURCES.shutdownGracefully(), SERVER_EVENT_LOOP_GROUP.shutdownGracefully());
 
         final Promise<Void> shutdownPromise = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
         combiner.finish(shutdownPromise);
@@ -117,7 +117,7 @@ public class AbstractClientServerTest {
                     .setApnsServer(HOST, PORT)
                     .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
                     .setTrustedServerCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
-                    .setEventLoopGroup(CLIENT_EVENT_LOOP_GROUP)
+                    .setApnsClientResources(CLIENT_RESOURCES)
                     .setMetricsListener(metricsListener)
                     .build();
         }
@@ -132,7 +132,7 @@ public class AbstractClientServerTest {
                 .setApnsServer(HOST, PORT)
                 .setTrustedServerCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
                 .setSigningKey(this.signingKey)
-                .setEventLoopGroup(CLIENT_EVENT_LOOP_GROUP)
+                .setApnsClientResources(CLIENT_RESOURCES)
                 .setMetricsListener(metricsListener)
                 .build();
     }

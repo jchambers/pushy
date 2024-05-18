@@ -44,7 +44,7 @@ import java.util.concurrent.CountDownLatch;
 @State(Scope.Thread)
 public class ApnsClientBenchmark {
 
-    private NioEventLoopGroup clientEventLoopGroup;
+    private ApnsClientResources clientResources;
     private NioEventLoopGroup serverEventLoopGroup;
 
     private ApnsClient client;
@@ -75,7 +75,7 @@ public class ApnsClientBenchmark {
 
     @Setup
     public void setUp() throws Exception {
-        this.clientEventLoopGroup = new NioEventLoopGroup(this.concurrentConnections);
+        this.clientResources = new ApnsClientResources(new NioEventLoopGroup(this.concurrentConnections));
         this.serverEventLoopGroup = new NioEventLoopGroup(this.concurrentConnections);
 
         final ApnsSigningKey signingKey;
@@ -91,7 +91,7 @@ public class ApnsClientBenchmark {
                 .setConcurrentConnections(this.concurrentConnections)
                 .setSigningKey(signingKey)
                 .setTrustedServerCertificateChain(ApnsClientBenchmark.class.getResourceAsStream(CA_CERTIFICATE_FILENAME))
-                .setEventLoopGroup(this.clientEventLoopGroup)
+                .setApnsClientResources(this.clientResources)
                 .build();
 
         this.server = new BenchmarkApnsServerBuilder()
@@ -136,7 +136,7 @@ public class ApnsClientBenchmark {
         this.client.close().get();
         this.server.shutdown().get();
 
-        final Future<?> clientShutdownFuture = this.clientEventLoopGroup.shutdownGracefully();
+        final Future<?> clientShutdownFuture = this.clientResources.shutdownGracefully();
         final Future<?> serverShutdownFuture = this.serverEventLoopGroup.shutdownGracefully();
 
         clientShutdownFuture.await();

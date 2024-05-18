@@ -76,8 +76,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * @since 0.5
  */
 public class ApnsClient {
-    private final EventLoopGroup eventLoopGroup;
-    private final boolean shouldShutDownEventLoopGroup;
+    private final ApnsClientResources clientResources;
+    private final boolean shouldShutDownClientResources;
 
     private final ApnsChannelPool channelPool;
 
@@ -122,21 +122,20 @@ public class ApnsClient {
         }
     }
 
-    protected ApnsClient(final ApnsClientConfiguration clientConfiguration, final EventLoopGroup eventLoopGroup) {
+    ApnsClient(final ApnsClientConfiguration clientConfiguration, final ApnsClientResources clientResources) {
 
-        if (eventLoopGroup != null) {
-            this.eventLoopGroup = eventLoopGroup;
-            this.shouldShutDownEventLoopGroup = false;
+        if (clientResources != null) {
+            this.clientResources = clientResources;
+            this.shouldShutDownClientResources = false;
         } else {
-            this.eventLoopGroup = new NioEventLoopGroup(1);
-            this.shouldShutDownEventLoopGroup = true;
+            this.clientResources = new ApnsClientResources(new NioEventLoopGroup(1));
+            this.shouldShutDownClientResources = true;
         }
 
         this.metricsListener = clientConfiguration.getMetricsListener()
                 .orElseGet(NoopApnsClientMetricsListener::new);
 
-        final ApnsChannelFactory channelFactory =
-                new ApnsChannelFactory(clientConfiguration, this.eventLoopGroup);
+        final ApnsChannelFactory channelFactory = new ApnsChannelFactory(clientConfiguration, this.clientResources);
 
         final ApnsChannelPoolMetricsListener channelPoolMetricsListener = new ApnsChannelPoolMetricsListener() {
 
@@ -156,7 +155,10 @@ public class ApnsClient {
             }
         };
 
-        this.channelPool = new ApnsChannelPool(channelFactory, clientConfiguration.getConcurrentConnections(), this.eventLoopGroup.next(), channelPoolMetricsListener);
+        this.channelPool = new ApnsChannelPool(channelFactory,
+            clientConfiguration.getConcurrentConnections(),
+            this.clientResources.getEventLoopGroup().next(),
+            channelPoolMetricsListener);
     }
 
     /**
@@ -249,8 +251,8 @@ public class ApnsClient {
             closeFuture = new CompletableFuture<>();
 
             this.channelPool.close().addListener((GenericFutureListener<Future<Void>>) closePoolFuture -> {
-                if (ApnsClient.this.shouldShutDownEventLoopGroup) {
-                    ApnsClient.this.eventLoopGroup.shutdownGracefully().addListener(future -> closeFuture.complete(null));
+                if (ApnsClient.this.shouldShutDownClientResources) {
+                    ApnsClient.this.clientResources.shutdownGracefully().addListener(future -> closeFuture.complete(null));
                 } else {
                     closeFuture.complete(null);
                 }

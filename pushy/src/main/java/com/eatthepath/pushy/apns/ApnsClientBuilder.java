@@ -24,7 +24,6 @@ package com.eatthepath.pushy.apns;
 
 import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
 import com.eatthepath.pushy.apns.proxy.ProxyHandlerFactory;
-import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.http2.Http2FrameLogger;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.ssl.*;
@@ -70,7 +69,7 @@ public class ApnsClientBuilder {
 
     private boolean enableHostnameVerification = true;
 
-    private EventLoopGroup eventLoopGroup;
+    private ApnsClientResources apnsClientResources;
 
     private int concurrentConnections = 1;
 
@@ -399,15 +398,15 @@ public class ApnsClientBuilder {
      * concurrent {@code ApnsClient} instances, callers may also wish to specify an event loop group to take advantage
      * of certain platform-specific optimizations (e.g. {@code epoll} or {@code KQueue} event loop groups).</p>
      *
-     * @param eventLoopGroup the event loop group to use for this client, or {@code null} to let the client manage its
+     * @param apnsClientResources the event loop group to use for this client, or {@code null} to let the client manage its
      * own event loop group
      *
      * @return a reference to this builder
      *
      * @since 0.8
      */
-    public ApnsClientBuilder setEventLoopGroup(final EventLoopGroup eventLoopGroup) {
-        this.eventLoopGroup = eventLoopGroup;
+    public ApnsClientBuilder setApnsClientResources(final ApnsClientResources apnsClientResources) {
+        this.apnsClientResources = apnsClientResources;
         return this;
     }
 
@@ -634,7 +633,7 @@ public class ApnsClientBuilder {
                             this.metricsListener,
                             this.frameLogger);
 
-            return new ApnsClient(clientConfiguration, this.eventLoopGroup);
+            return new ApnsClient(clientConfiguration, this.apnsClientResources);
         } finally {
             if (sslContext instanceof ReferenceCounted) {
                 ((ReferenceCounted) sslContext).release();
