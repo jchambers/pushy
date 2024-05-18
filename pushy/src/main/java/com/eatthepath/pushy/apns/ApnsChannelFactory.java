@@ -31,8 +31,6 @@ import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.resolver.AddressResolverGroup;
 import io.netty.resolver.NoopAddressResolverGroup;
-import io.netty.resolver.dns.DefaultDnsServerAddressStreamProvider;
-import io.netty.resolver.dns.RoundRobinDnsAddressResolverGroup;
 import io.netty.util.AttributeKey;
 import io.netty.util.ReferenceCounted;
 import io.netty.util.concurrent.Future;
@@ -69,7 +67,7 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
             AttributeKey.valueOf(ApnsChannelFactory.class, "channelReadyPromise");
 
     ApnsChannelFactory(final ApnsClientConfiguration clientConfiguration,
-                       final EventLoopGroup eventLoopGroup) {
+                       final ApnsClientResources clientResources) {
 
         this.sslContext = clientConfiguration.getSslContext();
 
@@ -77,16 +75,12 @@ class ApnsChannelFactory implements PooledObjectFactory<Channel>, Closeable {
             ((ReferenceCounted) this.sslContext).retain();
         }
 
-        if (clientConfiguration.getProxyHandlerFactory().isPresent()) {
-            this.addressResolverGroup = NoopAddressResolverGroup.INSTANCE;
-        } else {
-            this.addressResolverGroup = new RoundRobinDnsAddressResolverGroup(
-                    ClientChannelClassUtil.getDatagramChannelClass(eventLoopGroup),
-                    DefaultDnsServerAddressStreamProvider.INSTANCE);
-        }
+        this.addressResolverGroup = clientConfiguration.getProxyHandlerFactory().isPresent()
+            ? NoopAddressResolverGroup.INSTANCE
+            : clientResources.getRoundRobinDnsAddressResolverGroup();
 
         this.bootstrapTemplate = new Bootstrap();
-        this.bootstrapTemplate.group(eventLoopGroup);
+        this.bootstrapTemplate.group(clientResources.getEventLoopGroup());
         this.bootstrapTemplate.option(ChannelOption.TCP_NODELAY, true);
         this.bootstrapTemplate.remoteAddress(clientConfiguration.getApnsServerAddress());
         this.bootstrapTemplate.resolver(this.addressResolverGroup);

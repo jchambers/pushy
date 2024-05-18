@@ -25,7 +25,6 @@ package com.eatthepath.pushy.apns;
 import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
@@ -45,12 +44,12 @@ import java.util.concurrent.atomic.AtomicLong;
  * <a href="https://developer.apple.com/documentation/usernotifications">UserNotifications Framework documentation</a>
  * for a detailed discussion of the APNs protocol, topics, and certificate/key provisioning.</p>
  *
- * <p>Clients are constructed using an {@link ApnsClientBuilder}. Callers may
- * optionally specify an {@link EventLoopGroup} when constructing a new client. If no event loop group is specified,
- * clients will create and manage their own single-thread event loop group. If many clients are operating in parallel,
- * specifying a shared event loop group serves as a mechanism to keep the total number of threads in check. Callers may
- * also want to provide a specific event loop group to take advantage of platform-specific features (i.e.
- * {@code epoll} or {@code KQueue}).</p>
+ * <p>Clients are constructed using an {@link ApnsClientBuilder}. Callers may optionally specify a set of
+ * {@link ApnsClientResources} when constructing a new client. If no client resources are specified,
+ * clients will create and manage their own resources with a single-thread event loop group. If many clients are
+ * operating in parallel, specifying a shared ser of resources serves as a mechanism to keep the total number of threads
+ * in check. Callers may also want to provide a specific event loop group to take advantage of platform-specific
+ * features (i.e. {@code epoll} or {@code KQueue}).</p>
  *
  * <p>Callers must either provide an SSL context with the client's certificate or a signing key at client construction
  * time. If a signing key is provided, the client will use token authentication when sending notifications; otherwise,
@@ -67,17 +66,17 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * <p>APNs clients are intended to be long-lived, persistent resources. They are also inherently thread-safe and can be
  * shared across many threads in a complex application. Callers must shut them down via the {@link ApnsClient#close()}
- * method when they are no longer needed (i.e. when shutting down the entire application). If an event loop group was
- * specified at construction time, callers should shut down that event loop group when all clients using that group have
- * been disconnected.</p>
+ * method when they are no longer needed (i.e. when shutting down the entire application). If a set of client resources
+ * was provided at construction time, callers should shut down that resource set when all clients using that group have
+ * been disconnected (see {@link ApnsClientResources#shutdownGracefully()}).</p>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
  * @since 0.5
  */
 public class ApnsClient {
-    private final EventLoopGroup eventLoopGroup;
-    private final boolean shouldShutDownEventLoopGroup;
+    private final ApnsClientResources clientResources;
+    private final boolean shouldShutDownClientResources;
 
     private final ApnsChannelPool channelPool;
 
@@ -122,21 +121,20 @@ public class ApnsClient {
         }
     }
 
-    protected ApnsClient(final ApnsClientConfiguration clientConfiguration, final EventLoopGroup eventLoopGroup) {
+    ApnsClient(final ApnsClientConfiguration clientConfiguration, final ApnsClientResources clientResources) {
 
-        if (eventLoopGroup != null) {
-            this.eventLoopGroup = eventLoopGroup;
-            this.shouldShutDownEventLoopGroup = false;
+        if (clientResources != null) {
+            this.clientResources = clientResources;
+            this.shouldShutDownClientResources = false;
         } else {
-            this.eventLoopGroup = new NioEventLoopGroup(1);
-            this.shouldShutDownEventLoopGroup = true;
+            this.clientResources = new ApnsClientResources(new NioEventLoopGroup(1));
+            this.shouldShutDownClientResources = true;
         }
 
         this.metricsListener = clientConfiguration.getMetricsListener()
                 .orElseGet(NoopApnsClientMetricsListener::new);
 
-        final ApnsChannelFactory channelFactory =
-                new ApnsChannelFactory(clientConfiguration, this.eventLoopGroup);
+        final ApnsChannelFactory channelFactory = new ApnsChannelFactory(clientConfiguration, this.clientResources);
 
         final ApnsChannelPoolMetricsListener channelPoolMetricsListener = new ApnsChannelPoolMetricsListener() {
 
@@ -156,7 +154,10 @@ public class ApnsClient {
             }
         };
 
-        this.channelPool = new ApnsChannelPool(channelFactory, clientConfiguration.getConcurrentConnections(), this.eventLoopGroup.next(), channelPoolMetricsListener);
+        this.channelPool = new ApnsChannelPool(channelFactory,
+            clientConfiguration.getConcurrentConnections(),
+            this.clientResources.getEventLoopGroup().next(),
+            channelPoolMetricsListener);
     }
 
     /**
@@ -230,7 +231,7 @@ public class ApnsClient {
      * shutdown process begins; the {@code Futures} associated with those notifications will fail.</p>
      *
      * <p>The returned {@code Future} will be marked as complete when all connections in this client's pool have closed
-     * completely and (if no {@code EventLoopGroup} was provided at construction time) the client's event loop group has
+     * completely and (if no {@code ApnsClientResources} were provided at construction time) the client's resources have
      * shut down. If the client has already shut down, the returned {@code Future} will be marked as complete
      * immediately.</p>
      *
@@ -249,8 +250,8 @@ public class ApnsClient {
             closeFuture = new CompletableFuture<>();
 
             this.channelPool.close().addListener((GenericFutureListener<Future<Void>>) closePoolFuture -> {
-                if (ApnsClient.this.shouldShutDownEventLoopGroup) {
-                    ApnsClient.this.eventLoopGroup.shutdownGracefully().addListener(future -> closeFuture.complete(null));
+                if (ApnsClient.this.shouldShutDownClientResources) {
+                    ApnsClient.this.clientResources.shutdownGracefully().addListener(future -> closeFuture.complete(null));
                 } else {
                     closeFuture.complete(null);
                 }
