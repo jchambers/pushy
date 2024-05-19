@@ -7,10 +7,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-22.04, macos-latest]
+        os: [ubuntu-22.04, macos-13, macos-latest]
         java: [8, 17, 21]
         transport: [native, JDK]
         tls: [native, JDK]
+        # The macos-14 (and presumably newer) runners are using arm64, and Temurin doesn't support Java 8 on arm64
+        exclude:
+          - os: macos-latest
+            java: 8
       fail-fast: false
     name: JDK ${{ matrix.java }}, ${{ matrix.os }}, ${{ matrix.transport }} transport, ${{ matrix.tls }} SSL provider
 
