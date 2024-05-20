@@ -38,22 +38,18 @@ import io.netty.handler.codec.http2.*;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.AsciiString;
 import io.netty.util.collection.IntObjectHashMap;
-import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
 import io.netty.util.concurrent.PromiseCombiner;
-import io.netty.util.concurrent.ScheduledFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
-import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameListener, Http2Connection.Listener {
 
@@ -64,9 +60,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private final Http2Connection.PropertyKey streamErrorCausePropertyKey;
 
     private final String authority;
-
-    private final Duration pingTimeout;
-    private ScheduledFuture<?> pingTimeoutFuture;
 
     private Throwable connectionErrorCause;
 
@@ -92,7 +85,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     public static class ApnsClientHandlerBuilder extends AbstractHttp2ConnectionHandlerBuilder<ApnsClientHandler, ApnsClientHandlerBuilder> {
 
         private String authority;
-        private Duration idlePingInterval;
 
         ApnsClientHandlerBuilder authority(final String authority) {
             this.authority = authority;
@@ -101,15 +93,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
         String authority() {
             return this.authority;
-        }
-
-        Duration idlePingInterval() {
-            return idlePingInterval;
-        }
-
-        ApnsClientHandlerBuilder idlePingInterval(final Duration idlePingIntervalMillis) {
-            this.idlePingInterval = idlePingIntervalMillis;
-            return this;
         }
 
         @Override
@@ -136,7 +119,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         public ApnsClientHandler build(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings) {
             Objects.requireNonNull(this.authority(), "Authority must be set before building an ApnsClientHandler.");
 
-            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, initialSettings, this.authority(), this.idlePingInterval());
+            final ApnsClientHandler handler = new ApnsClientHandler(decoder, encoder, initialSettings, this.authority());
             this.frameListener(handler);
             return handler;
         }
@@ -147,7 +130,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         }
     }
 
-    ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final String authority, final Duration idlePingInterval) {
+    ApnsClientHandler(final Http2ConnectionDecoder decoder, final Http2ConnectionEncoder encoder, final Http2Settings initialSettings, final String authority) {
         super(decoder, encoder, initialSettings);
 
         this.authority = authority;
@@ -157,8 +140,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         this.streamErrorCausePropertyKey = this.connection().newKey();
 
         this.connection().addListener(this);
-
-        this.pingTimeout = idlePingInterval.dividedBy(2);
     }
 
     @Override
@@ -264,22 +245,8 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     @Override
     public void userEventTriggered(final ChannelHandlerContext context, final Object event) throws Exception {
         if (event instanceof IdleStateEvent) {
-            log.trace("Sending ping due to inactivity.");
-
-            this.encoder().writePing(context, false, System.currentTimeMillis(), context.newPromise()).addListener(
-                    (GenericFutureListener<ChannelFuture>) future -> {
-                        if (!future.isSuccess()) {
-                            log.debug("Failed to write PING frame.", future.cause());
-                            future.channel().close();
-                        }
-                    });
-
-            this.pingTimeoutFuture = context.channel().eventLoop().schedule(() -> {
-                log.debug("Closing channel due to ping timeout.");
-                context.channel().close();
-            }, pingTimeout.toMillis(), TimeUnit.MILLISECONDS);
-
-            this.flush(context);
+            log.debug("Closing idle channel.");
+            context.close();
         }
 
         super.userEventTriggered(context, event);
@@ -413,11 +380,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     @Override
     public void onPingAckRead(final ChannelHandlerContext context, final long pingData) {
-        if (this.pingTimeoutFuture != null) {
-            this.pingTimeoutFuture.cancel(false);
-        } else {
-            log.error("Received PING ACK, but no corresponding outbound PING found.");
-        }
     }
 
     @Override
@@ -508,10 +470,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
     @Override
     public void channelInactive(final ChannelHandlerContext context) throws Exception {
-        if (this.pingTimeoutFuture != null) {
-            this.pingTimeoutFuture.cancel(false);
-        }
-
         for (final PushNotificationFuture<?, ?> future : this.unattachedResponsePromisesByStreamId.values()) {
             future.completeExceptionally(STREAM_CLOSED_BEFORE_REPLY_EXCEPTION);
         }
