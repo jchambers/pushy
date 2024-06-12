@@ -25,10 +25,10 @@ package com.eatthepath.pushy.apns.metrics.dropwizard;
 import com.codahale.metrics.*;
 import com.eatthepath.pushy.apns.ApnsClient;
 import com.eatthepath.pushy.apns.ApnsClientMetricsListener;
+import com.eatthepath.pushy.apns.PushNotificationResponse;
 
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -78,7 +78,6 @@ public class DropwizardApnsClientMetricsListener implements ApnsClientMetricsLis
     private final MetricRegistry metrics;
 
     private final Timer notificationTimer;
-    private final ConcurrentMap<Long, Timer.Context> notificationTimerContexts;
 
     private final Meter writeFailures;
     private final Meter sentNotifications;
@@ -145,7 +144,6 @@ public class DropwizardApnsClientMetricsListener implements ApnsClientMetricsLis
         this.metrics = new MetricRegistry();
 
         this.notificationTimer = this.metrics.timer(NOTIFICATION_TIMER_NAME);
-        this.notificationTimerContexts = new ConcurrentHashMap<>();
 
         this.writeFailures = this.metrics.meter(WRITE_FAILURES_METER_NAME);
         this.sentNotifications = this.metrics.meter(SENT_NOTIFICATIONS_METER_NAME);
@@ -161,94 +159,65 @@ public class DropwizardApnsClientMetricsListener implements ApnsClientMetricsLis
     /**
      * Records a failed attempt to send a notification and updates metrics accordingly.
      *
-     * @param apnsClient the client that failed to write the notification; note that this is ignored by
-     * {@code DropwizardApnsClientMetricsListener} instances, which should always be used for exactly one client
-     * @param notificationId an opaque, unique identifier for the notification that could not be written
+     * @param topic the APNs topic to which the notification was sent
      */
     @Override
-    public void handleWriteFailure(final ApnsClient apnsClient, final long notificationId) {
-        this.stopTimerForNotification(notificationId);
+    public void handleWriteFailure(final String topic) {
         this.writeFailures.mark();
     }
 
     /**
      * Records a successful attempt to send a notification and updates metrics accordingly.
      *
-     * @param apnsClient the client that sent the notification; note that this is ignored by
-     * {@code DropwizardApnsClientMetricsListener} instances, which should always be used for exactly one client
-     * @param notificationId an opaque, unique identifier for the notification that was sent
+     * @param topic the APNs topic to which the notification was sent
      */
     @Override
-    public void handleNotificationSent(final ApnsClient apnsClient, final long notificationId) {
+    public void handleNotificationSent(final String topic) {
         this.sentNotifications.mark();
-        this.notificationTimerContexts.put(notificationId, this.notificationTimer.time());
     }
 
     /**
-     * Records that the APNs server accepted a previously-sent notification and updates metrics accordingly.
+     * Records that the APNs server acknowledged a previously-sent notification and updates metrics accordingly.
      *
-     * @param apnsClient the client that sent the accepted notification; note that this is ignored by
-     * {@code DropwizardApnsClientMetricsListener} instances, which should always be used for exactly one client
-     * @param notificationId an opaque, unique identifier for the notification that was accepted
+     * @param response the response from the APNs server
+     * @param durationNanos the duration, in nanoseconds, between the time the notification was initially sent and when
+     * it was acknowledged by the APNs server
      */
     @Override
-    public void handleNotificationAccepted(final ApnsClient apnsClient, final long notificationId) {
-        this.stopTimerForNotification(notificationId);
-        this.acceptedNotifications.mark();
-    }
+    public void handleNotificationAcknowledged(final PushNotificationResponse<?> response, final long durationNanos) {
+        if (response.isAccepted()) {
+            this.acceptedNotifications.mark();
+        } else {
+            this.rejectedNotifications.mark();
+        }
 
-    /**
-     * Records that the APNs server rejected a previously-sent notification and updates metrics accordingly.
-     *
-     * @param apnsClient the client that sent the rejected notification; note that this is ignored by
-     * {@code DropwizardApnsClientMetricsListener} instances, which should always be used for exactly one client
-     * @param notificationId an opaque, unique identifier for the notification that was rejected
-     */
-    @Override
-    public void handleNotificationRejected(final ApnsClient apnsClient, final long notificationId) {
-        this.stopTimerForNotification(notificationId);
-        this.rejectedNotifications.mark();
+        this.notificationTimer.update(durationNanos, TimeUnit.NANOSECONDS);
     }
 
     /**
      * Records that the APNs server added a new connection to its internal connection pool and updates metrics
      * accordingly.
-     *
-     * @param apnsClient the client that added the new connection
      */
     @Override
-    public void handleConnectionAdded(final ApnsClient apnsClient) {
+    public void handleConnectionAdded() {
         this.openConnections.incrementAndGet();
     }
 
     /**
      * Records that the APNs server removed a connection from its internal connection pool and updates metrics
      * accordingly.
-     *
-     * @param apnsClient the client that removed the connection
      */
     @Override
-    public void handleConnectionRemoved(final ApnsClient apnsClient) {
+    public void handleConnectionRemoved() {
         this.openConnections.decrementAndGet();
     }
 
     /**
      * Records that a previously-started attempt to connect to the APNs server failed and updates metrics accordingly.
-     *
-     * @param apnsClient the client that failed to connect; note that this is ignored by
-     * {@code DropwizardApnsClientMetricsListener} instances, which should always be used for exactly one client
      */
     @Override
-    public void handleConnectionCreationFailed(final ApnsClient apnsClient) {
+    public void handleConnectionCreationFailed() {
         this.connectionFailures.mark();
-    }
-
-    private void stopTimerForNotification(final long notificationId) {
-        final Timer.Context timerContext = this.notificationTimerContexts.remove(notificationId);
-
-        if (timerContext != null) {
-            timerContext.stop();
-        }
     }
 
     /**
