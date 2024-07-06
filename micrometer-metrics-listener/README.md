@@ -6,11 +6,11 @@ This module is an implementation of Pushy's [`ApnsClientMetricsListener`](https:
 <dependency>
     <groupId>com.eatthepath</groupId>
     <artifactId>pushy-micrometer-metrics-listener</artifactId>
-    <version>0.15.2</version>
+    <version>0.16.0</version>
 </dependency>
 ```
 
-If you don't use Maven, you can add the `.jar` file and its dependencies to your classpath by the method of your choice. The Micrometer listener for Pushy depends on Pushy itself (obviously enough) and version 1.0 of the [Micrometer application monitoring library](http://micrometer.io/). Please note that while Pushy itself works with Java 7 and newer, **the Micrometer metrics listener requires Java 8 or newer.**
+If you don't use Maven, you can add the `.jar` file and its dependencies to your classpath by the method of your choice. The Micrometer listener for Pushy depends on Pushy itself (obviously enough) and version 1.13.1 of the [Micrometer application monitoring library](http://micrometer.io/).
 
 ## Using the Micrometer Metrics listener
 
