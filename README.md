@@ -241,6 +241,28 @@ To build a mock server, callers should use a [`MockApnsServerBuilder`](https://p
 
 Callers may also provide a [`MockApnsServerListener`](https://pushy-apns.org/apidocs/0.15/com/eatthepath/pushy/apns/server/MockApnsServerListener.html) when building a mock server; listeners are notified whenever the mock server accepts or rejects a notification from a client.
 
+## Building Pushy
+
+Pushy uses [Maven](https://maven.apache.org/) as its build system. To build Pushy from source:
+
+```shell
+./mvnw clean package
+```
+
+…or to run tests:
+
+```shell
+./mvnw clean test
+```
+
+### For IntelliJ IDEA users
+
+Note that IntelliJ IDEA struggles with multi-module projects that set their versions on the fly (like Pushy). Please see [IDEA-187928](https://youtrack.jetbrains.com/issue/IDEA-187928/Jgitver-not-working-at-all-for-a-multimodule-project) for background and discussion, but in short, IntelliJ users are likely to encounter an error something like:
+
+> Could not find artifact com.eatthepath:pushy:jar:tests:0.15.5-SNAPSHOT
+
+To work around the issue, IntelliJ users can navigate to Settings → Build, Execution, Deployment → Build Tools → Maven → Importing and add `-Djgitver.skip=true` to "VM options for importer."
+
 ## License and status
 
 Pushy is available under the [MIT License](https://github.com/jchambers/pushy/blob/master/LICENSE.md).
