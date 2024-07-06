@@ -10,7 +10,7 @@ This module is an implementation of Pushy's [`ApnsClientMetricsListener`](https:
 </dependency>
 ```
 
-If you don't use Maven, you can add the `.jar` file and its dependencies to your classpath by the method of your choice. The Dropwizard Metrics listener for Pushy depends on Pushy itself (obviously enough) and version 3.2.6 of the [Dropwizard Metrics library](http://metrics.dropwizard.io/).
+If you don't use Maven, you can add the `.jar` file and its dependencies to your classpath by the method of your choice. The Dropwizard Metrics listener for Pushy depends on Pushy itself (obviously enough) and version 4.2.26 of the [Dropwizard Metrics library](http://metrics.dropwizard.io/).
 
 ## Using the Dropwizard Metrics listener
 
