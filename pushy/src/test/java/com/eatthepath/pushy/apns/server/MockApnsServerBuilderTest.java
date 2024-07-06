@@ -78,7 +78,7 @@ public class MockApnsServerBuilderTest {
 
             // We're happy here as long as nothing explodes
             new MockApnsServerBuilder()
-                .setServerCredentials(new X509Certificate[] { (X509Certificate) privateKeyEntry.getCertificate() }, privateKeyEntry.getPrivateKey(), null)
+                .setServerCredentials(new X509Certificate[] { (X509Certificate) privateKeyEntry.getCertificate() }, privateKeyEntry.getPrivateKey())
                     .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
                 .build();
         }

@@ -126,6 +126,21 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
     }
 
     /**
+     * <p>Sets the credentials for the server under construction. This method assumes that the given private key does
+     * not require a password.</p>
+     *
+     * @param certificates a certificate chain including the server's own certificate
+     * @param privateKey the private key for the server's certificate
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.16
+     */
+    public BaseHttp2ServerBuilder<T> setServerCredentials(final X509Certificate[] certificates, final PrivateKey privateKey) {
+        return this.setServerCredentials(certificates, privateKey, null);
+    }
+
+    /**
      * <p>Sets the credentials for the server under construction.</p>
      *
      * @param certificates a certificate chain including the server's own certificate

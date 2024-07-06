@@ -63,6 +63,12 @@ public class MockApnsServerBuilder extends BaseHttp2ServerBuilder<MockApnsServer
     }
 
     @Override
+    public MockApnsServerBuilder setServerCredentials(final X509Certificate[] certificates, final PrivateKey privateKey) {
+        super.setServerCredentials(certificates, privateKey);
+        return this;
+    }
+
+    @Override
     public MockApnsServerBuilder setServerCredentials(final X509Certificate[] certificates, final PrivateKey privateKey, final String privateKeyPassword) {
         super.setServerCredentials(certificates, privateKey, privateKeyPassword);
         return this;
