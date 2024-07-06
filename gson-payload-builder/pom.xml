@@ -26,7 +26,6 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>pushy-gson-payload-builder</artifactId>
-    <version>0.15.5-SNAPSHOT</version>
     <name>Gson APNs payload builder for Pushy</name>
     <description>A payload builder for Pushy that uses Gson to serialize payloads.</description>
 
