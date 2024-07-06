@@ -108,6 +108,24 @@ public class ApnsClientBuilderTest {
     }
 
     @Test
+    void testBuildClientWithCertificateAndUnprotectedKeyNoPassword() throws Exception {
+        // We DO need a password to unlock the keystore, but the key itself should be unprotected
+        try (final InputStream p12InputStream = this.getClass().getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_UNPROTECTED_FILENAME)) {
+
+            final PrivateKeyEntry privateKeyEntry =
+                P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
+
+            final ApnsClient client = new ApnsClientBuilder()
+                .setApnsServer(ApnsClientBuilder.PRODUCTION_APNS_HOST)
+                .setEventLoopGroup(EVENT_LOOP_GROUP)
+                .setClientCredentials((X509Certificate) privateKeyEntry.getCertificate(), privateKeyEntry.getPrivateKey())
+                .build();
+
+            client.close().get();
+        }
+    }
+
+    @Test
     void testBuildClientWithCertificateAndUnprotectedKey() throws Exception {
         // We DO need a password to unlock the keystore, but the key itself should be unprotected
         try (final InputStream p12InputStream = this.getClass().getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_UNPROTECTED_FILENAME)) {

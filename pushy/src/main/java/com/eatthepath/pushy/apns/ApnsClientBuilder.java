@@ -243,6 +243,24 @@ public class ApnsClientBuilder {
 
     /**
      * <p>Sets the TLS credentials for the client under construction. Clients constructed with TLS credentials will use
+     * TLS-based authentication when sending push notifications. This method assumes that the given private key does
+     * not require a password.</p>
+     *
+     * <p>Clients may not have both TLS credentials and a signing key.</p>
+     *
+     * @param clientCertificate the certificate to be used to identify the client to the APNs server
+     * @param privateKey the private key for the client certificate
+     *
+     * @return a reference to this builder
+     *
+     * @since 0.16
+     */
+    public ApnsClientBuilder setClientCredentials(final X509Certificate clientCertificate, final PrivateKey privateKey) {
+        return this.setClientCredentials(clientCertificate, privateKey, null);
+    }
+
+    /**
+     * <p>Sets the TLS credentials for the client under construction. Clients constructed with TLS credentials will use
      * TLS-based authentication when sending push notifications.</p>
      *
      * <p>Clients may not have both TLS credentials and a signing key.</p>
