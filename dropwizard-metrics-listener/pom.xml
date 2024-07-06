@@ -31,7 +31,7 @@
     <parent>
         <groupId>com.eatthepath</groupId>
         <artifactId>pushy-parent</artifactId>
-        <version>0.15.5-SNAPSHOT</version>
+        <version>JGITVER</version>
     </parent>
 
     <dependencies>
