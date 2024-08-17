@@ -82,6 +82,7 @@ public abstract class ApnsPayloadBuilder {
     private boolean preferStringRepresentationForAlerts = false;
 
     private LiveActivityEvent event = null;
+    private Integer inputPushToken = null;
 
     private Instant timestamp = null;
 
@@ -131,6 +132,7 @@ public abstract class ApnsPayloadBuilder {
     private static final String ATTRIBUTES_TYPE_KEY = "attributes-type";
     private static final String ATTRIBUTES_KEY = "attributes";
     private static final String CONTENT_STATE_KEY = "content-state";
+    private static final String INPUT_PUSH_TOKEN_KEY = "input-push-token";
 
     public static final String[] EMPTY_STRING_ARRAY = new String[0];
 
@@ -769,7 +771,7 @@ public abstract class ApnsPayloadBuilder {
      *
      * @return a reference to this payload builder
      *
-     * @see #setAttributes(Map) 
+     * @see #setAttributes(Map)
      * @see <a href="https://developer.apple.com/documentation/activitykit/starting-and-updating-live-activities-with-activitykit-push-notifications#Construct-the-payload-that-starts-a-Live-Activity">
      *      Construct the payload that starts a Live Activity</a>
      * @see <a href="https://developer.apple.com/documentation/activitykit/activityattributes">ActivityKit - ActivityAttributes</a>
@@ -789,7 +791,7 @@ public abstract class ApnsPayloadBuilder {
      *
      * @return a reference to this payload builder
      *
-     * @see #setAttributesType(String) 
+     * @see #setAttributesType(String)
      * @see <a href="https://developer.apple.com/documentation/activitykit/starting-and-updating-live-activities-with-activitykit-push-notifications#Construct-the-payload-that-starts-a-Live-Activity">
      *      Construct the payload that starts a Live Activity</a>
      * @see <a href="https://developer.apple.com/documentation/activitykit/activityattributes/contentstate">ActivityKit - ContentState</a>
@@ -853,6 +855,19 @@ public abstract class ApnsPayloadBuilder {
      */
     public ApnsPayloadBuilder setTimestamp(final Instant timestamp) {
         this.timestamp = timestamp;
+        return this;
+    }
+
+    /**
+     * <p>Sets the flag to wake up the app and receive a push token to send updates to the started Live Activity.</p>
+     *
+     * @return a reference to this payload builder
+     *
+     * @see <a href="https://developer.apple.com/documentation/activitykit/starting-and-updating-live-activities-with-activitykit-push-notifications">
+     *      Starting and updating Live Activities with ActivityKit push notifications</a>
+     */
+    public ApnsPayloadBuilder setInputPushToken() {
+        this.inputPushToken = 1;
         return this;
     }
 
@@ -962,6 +977,10 @@ public abstract class ApnsPayloadBuilder {
 
             if (this.staleDate != null) {
                 aps.put(STALE_DATE_KEY, this.staleDate.getEpochSecond());
+            }
+
+            if (this.inputPushToken != null) {
+                aps.put(INPUT_PUSH_TOKEN_KEY, this.inputPushToken);
             }
 
             final Map<String, Object> alert = new HashMap<>();

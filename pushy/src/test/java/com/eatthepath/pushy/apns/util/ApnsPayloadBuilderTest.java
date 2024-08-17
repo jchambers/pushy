@@ -726,6 +726,15 @@ public abstract class ApnsPayloadBuilderTest {
         assertEquals(subMap, serializedContentState.get(keyForMapValue));
     }
 
+    @Test
+    void setInputPushToken() {
+        this.builder.setInputPushToken();
+
+        final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
+
+        assertEquals(1L, aps.get("input-push-token"));
+    }
+
     @SuppressWarnings("unchecked")
     private Map<String, Object> extractApsObjectFromPayloadString(final String payloadString) {
         final Map<String, Object> payload;
