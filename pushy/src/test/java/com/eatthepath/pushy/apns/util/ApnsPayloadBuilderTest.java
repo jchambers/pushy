@@ -728,7 +728,7 @@ public abstract class ApnsPayloadBuilderTest {
 
     @Test
     void setInputPushToken() {
-        this.builder.setInputPushToken();
+        this.builder.setInputPushToken(true);
 
         final Map<String, Object> aps = this.extractApsObjectFromPayloadString(this.builder.build());
 

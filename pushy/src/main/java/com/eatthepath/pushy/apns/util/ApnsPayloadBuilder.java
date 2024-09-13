@@ -82,7 +82,7 @@ public abstract class ApnsPayloadBuilder {
     private boolean preferStringRepresentationForAlerts = false;
 
     private LiveActivityEvent event = null;
-    private Integer inputPushToken = null;
+    private Boolean inputPushToken = null;
 
     private Instant timestamp = null;
 
@@ -866,8 +866,8 @@ public abstract class ApnsPayloadBuilder {
      * @see <a href="https://developer.apple.com/documentation/activitykit/starting-and-updating-live-activities-with-activitykit-push-notifications">
      *      Starting and updating Live Activities with ActivityKit push notifications</a>
      */
-    public ApnsPayloadBuilder setInputPushToken() {
-        this.inputPushToken = 1;
+    public ApnsPayloadBuilder setInputPushToken(final boolean inputPushToken) {
+        this.inputPushToken = inputPushToken;
         return this;
     }
 
@@ -980,7 +980,7 @@ public abstract class ApnsPayloadBuilder {
             }
 
             if (this.inputPushToken != null) {
-                aps.put(INPUT_PUSH_TOKEN_KEY, this.inputPushToken);
+                aps.put(INPUT_PUSH_TOKEN_KEY, this.inputPushToken ? 1 : 0);
             }
 
             final Map<String, Object> alert = new HashMap<>();
