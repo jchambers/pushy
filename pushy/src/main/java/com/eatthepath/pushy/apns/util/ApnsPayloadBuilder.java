@@ -859,8 +859,12 @@ public abstract class ApnsPayloadBuilder {
     }
 
     /**
-     * <p>Sets the flag to wake up the app and receive a push token to send updates to the started Live Activity.</p>
-     *
+     * Sets the flag to control whether the OS wakes up the app and delivers a push token to send updates to the
+     * started Live Activity. It is only respected in iOS 18 and later. Older versions provide a new push token
+     * by default.
+
+     * @param inputPushToken Flag to decide whether the app is provided a push token to update the Live Activity
+
      * @return a reference to this payload builder
      *
      * @see <a href="https://developer.apple.com/documentation/activitykit/starting-and-updating-live-activities-with-activitykit-push-notifications">
