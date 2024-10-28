@@ -85,6 +85,8 @@ public class ApnsClientBuilder {
 
     private boolean useAlpn = false;
 
+    private SslContext sslContext;
+
     /**
      * The default idle time after which the client will close a connection (which may be reopened later).
      *
@@ -577,6 +579,26 @@ public class ApnsClientBuilder {
     }
 
     /**
+     * <p>Sets custom SslContext instance.</p>
+     * <p>this property is mutually exclusive with SslContext is set using Overrides effect of {@link #trustedServerCertificatePemFile}, {@link #trustedServerCertificateInputStream},
+     * {@link #trustedServerCertificates}, {@link #clientCertificate}, {@link #privateKey}, {@link #privateKeyPassword}
+     * and {@link #useAlpn}</p>
+     *
+     * @param sslContext fully initialized SslContext or null.
+     * @return a reference to this builder
+     */
+    public ApnsClientBuilder setSslContext(SslContext sslContext) {
+        if (this.sslContext instanceof ReferenceCounted) {
+            ((ReferenceCounted) this.sslContext).release();
+        }
+        this.sslContext = sslContext;
+        if (sslContext instanceof ReferenceCounted) {
+            ((ReferenceCounted) sslContext).retain();
+        }
+        return this;
+    }
+
+    /**
      * Constructs a new {@link ApnsClient} with the previously-set configuration.
      *
      * @return a new ApnsClient instance with the previously-set configuration
@@ -593,15 +615,27 @@ public class ApnsClientBuilder {
             throw new IllegalStateException("No APNs server address specified.");
         }
 
-        if (this.clientCertificate == null && this.privateKey == null && this.signingKey == null) {
-            throw new IllegalStateException("No client credentials specified; either TLS credentials (a " +
-                    "certificate/private key) or an APNs signing key must be provided before building a client.");
-        } else if ((this.clientCertificate != null || this.privateKey != null) && this.signingKey != null) {
-            throw new IllegalStateException("Clients may not have both a signing key and TLS credentials.");
-        }
-
         final SslContext sslContext;
-        {
+        if (this.sslContext != null) {
+            if (this.clientCertificate != null || this.privateKey != null) {
+                throw new IllegalStateException("TLS credentials and custom SslContext are mutually exclusive options.");
+            }
+            if (this.trustedServerCertificatePemFile != null || this.trustedServerCertificateInputStream != null
+                || this.trustedServerCertificates != null) {
+                throw new IllegalStateException("Trusted certificate properties and SslContext are mutually exclusive options.");
+            }
+            if (this.useAlpn) {
+                throw new IllegalStateException("\"useAlpn\" and SslContext are mutually exclusive options.");
+            }
+            sslContext = this.sslContext;
+        } else {
+            if (this.clientCertificate == null && this.privateKey == null && this.signingKey == null) {
+                throw new IllegalStateException("No client credentials specified; either TLS credentials (a " +
+                    "certificate/private key) or an APNs signing key must be provided before building a client.");
+            } else if ((this.clientCertificate != null || this.privateKey != null) && this.signingKey != null) {
+                throw new IllegalStateException("Clients may not have both a signing key and TLS credentials.");
+            }
+
             final SslProvider sslProvider;
 
             if (OpenSsl.isAvailable()) {
