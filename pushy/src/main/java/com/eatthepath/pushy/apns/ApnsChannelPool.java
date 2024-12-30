@@ -62,6 +62,7 @@ class ApnsChannelPool {
 
     private final Set<Future<Channel>> pendingCreateChannelFutures = new HashSet<>();
     private final Queue<Promise<Channel>> pendingAcquisitionPromises = new ArrayDeque<>();
+    private final int maxPendingAcquisition;
 
     private boolean isClosed = false;
 
@@ -91,12 +92,14 @@ class ApnsChannelPool {
      *
      * @param channelFactory the factory to be used to create new channels
      * @param capacity the maximum number of channels that may be held in this pool
+     * @param maxPendingAcquisition the maximum number of pending acquisition promises
      * @param executor the executor on which listeners for acquisition/release promises will be called
      * @param metricsListener an optional listener for metrics describing the performance and behavior of the pool
      */
-    ApnsChannelPool(final PooledObjectFactory<Channel> channelFactory, final int capacity, final OrderedEventExecutor executor, final ApnsChannelPoolMetricsListener metricsListener) {
+    ApnsChannelPool(final PooledObjectFactory<Channel> channelFactory, final int capacity, final int maxPendingAcquisition, final OrderedEventExecutor executor, final ApnsChannelPoolMetricsListener metricsListener) {
         this.channelFactory = channelFactory;
         this.capacity = capacity;
+        this.maxPendingAcquisition = maxPendingAcquisition;
         this.executor = executor;
 
         this.metricsListener = metricsListener != null ? metricsListener : new NoopChannelPoolMetricsListener();
@@ -180,7 +183,11 @@ class ApnsChannelPool {
                 } else {
                     // We don't have any connections ready to go, and don't have any more capacity to create new
                     // channels. Add this acquisition to the queue waiting for channels to become available.
-                    pendingAcquisitionPromises.add(acquirePromise);
+                    if (pendingAcquisitionPromises.size() < maxPendingAcquisition) {
+                        pendingAcquisitionPromises.add(acquirePromise);
+                    } else {
+                        acquirePromise.tryFailure(new RejectedAcquisitionException(maxPendingAcquisition));
+                    }
                 }
             }
         } else {

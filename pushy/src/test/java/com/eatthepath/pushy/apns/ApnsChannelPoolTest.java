@@ -134,7 +134,7 @@ public class ApnsChannelPoolTest {
     @BeforeEach
     public void setUp() {
         this.metricsListener = new TestChannelPoolMetricListener();
-        this.pool = new ApnsChannelPool(new TestChannelFactory(), 1, EVENT_EXECUTOR, this.metricsListener);
+        this.pool = new ApnsChannelPool(new TestChannelFactory(), 1, Integer.MAX_VALUE, EVENT_EXECUTOR, this.metricsListener);
     }
 
     @AfterAll
@@ -183,7 +183,7 @@ public class ApnsChannelPoolTest {
             }
         };
 
-        final ApnsChannelPool pool = new ApnsChannelPool(factory, 1, EVENT_EXECUTOR, this.metricsListener);
+        final ApnsChannelPool pool = new ApnsChannelPool(factory, 1, Integer.MAX_VALUE, EVENT_EXECUTOR, this.metricsListener);
 
         assertFalse(pool.acquire().await().isSuccess());
 
@@ -259,7 +259,7 @@ public class ApnsChannelPoolTest {
             }
         };
 
-        final ApnsChannelPool pool = new ApnsChannelPool(factory, 1, EVENT_EXECUTOR, this.metricsListener);
+        final ApnsChannelPool pool = new ApnsChannelPool(factory, 1, Integer.MAX_VALUE, EVENT_EXECUTOR, this.metricsListener);
 
         final Future<Channel> acquireNewChannelFuture = pool.acquire();
         final Future<Channel> acquireReturnedChannelFuture = pool.acquire();

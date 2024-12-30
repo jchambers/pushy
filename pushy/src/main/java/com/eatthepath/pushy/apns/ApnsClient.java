@@ -151,6 +151,7 @@ public class ApnsClient {
 
         this.channelPool = new ApnsChannelPool(channelFactory,
             clientConfiguration.getConcurrentConnections(),
+            clientConfiguration.getMaxPendingAcquisition(),
             this.clientResources.getEventLoopGroup().next(),
             channelPoolMetricsListener);
     }

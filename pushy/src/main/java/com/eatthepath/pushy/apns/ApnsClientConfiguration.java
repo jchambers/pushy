@@ -49,6 +49,7 @@ class ApnsClientConfiguration {
     private final Duration closeAfterIdleDuration;
     private final Duration gracefulShutdownTimeout;
     private final int concurrentConnections;
+    private final int maxPendingAcquisition;
     private final ApnsClientMetricsListener metricsListener;
     private final Http2FrameLogger frameLogger;
 
@@ -62,6 +63,7 @@ class ApnsClientConfiguration {
                                    final Duration closeAfterIdleDuration,
                                    final Duration gracefulShutdownTimeout,
                                    final int concurrentConnections,
+                                   final int maxPendingAcquisition,
                                    final ApnsClientMetricsListener metricsListener,
                                    final Http2FrameLogger frameLogger) {
 
@@ -75,6 +77,7 @@ class ApnsClientConfiguration {
         this.closeAfterIdleDuration = closeAfterIdleDuration;
         this.gracefulShutdownTimeout = gracefulShutdownTimeout;
         this.concurrentConnections = concurrentConnections;
+        this.maxPendingAcquisition = maxPendingAcquisition;
         this.metricsListener = metricsListener;
         this.frameLogger = frameLogger;
     }
@@ -117,6 +120,10 @@ class ApnsClientConfiguration {
 
     public int getConcurrentConnections() {
         return concurrentConnections;
+    }
+
+    public int getMaxPendingAcquisition() {
+        return maxPendingAcquisition;
     }
 
     public Optional<ApnsClientMetricsListener> getMetricsListener() {

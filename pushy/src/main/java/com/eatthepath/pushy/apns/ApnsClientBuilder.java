@@ -72,6 +72,7 @@ public class ApnsClientBuilder {
     private ApnsClientResources apnsClientResources;
 
     private int concurrentConnections = 1;
+    private int maxPendingAcquisition = Integer.MAX_VALUE;
 
     private ApnsClientMetricsListener metricsListener;
 
@@ -451,6 +452,22 @@ public class ApnsClientBuilder {
     }
 
     /**
+     * <p>Sets the maximum number of the pending acquisition promises.
+     * Under certain conditions, the pending acquisition queue may continue to expand and cause memory overflow.
+     *
+     * <p>By default, clients will not attempt to check the size of the pending acquisition queue.
+     * Provide an appropriate value to avoid memory overflow.
+     *
+     * @param maxPendingAcquisition the maximum number of pending acquisition promises
+     *
+     * @return a reference to this builder
+     */
+    public ApnsClientBuilder setMaxPendingAcquisition(final int maxPendingAcquisition) {
+        this.maxPendingAcquisition = maxPendingAcquisition;
+        return this;
+    }
+
+    /**
      * Sets the metrics listener for the client under construction. Metrics listeners gather information that describes
      * the performance and behavior of a client, and are completely optional.
      *
@@ -654,6 +671,7 @@ public class ApnsClientBuilder {
                             this.closeAfterIdleDuration,
                             this.gracefulShutdownTimeout,
                             this.concurrentConnections,
+                            this.maxPendingAcquisition,
                             this.metricsListener,
                             this.frameLogger);
 
