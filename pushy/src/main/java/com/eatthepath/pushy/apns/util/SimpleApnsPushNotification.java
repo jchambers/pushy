@@ -125,7 +125,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
     }
 
     /**
-     * Constructs a new push notification with the given token, topic, payload, delivery expiration time, delivery
+     * Constructs a new push notification with the given channelId, bundleId, payload, delivery expiration time, delivery
      * priority, and push notification type.
      *
      * @param payload the payload to include in this push notification
