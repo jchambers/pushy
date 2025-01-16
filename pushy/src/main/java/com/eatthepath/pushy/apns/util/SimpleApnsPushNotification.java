@@ -49,6 +49,8 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
     private final String topic;
     private final String collapseId;
     private final UUID apnsId;
+    private final String channelId;
+    private final String bundleId;
 
     /**
      * The default expiration period for push notifications (one day).
@@ -120,6 +122,22 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
      */
     public SimpleApnsPushNotification(final String token, final String topic, final String payload, final Instant invalidationTime, final DeliveryPriority priority, final PushType pushType) {
         this(token, topic, payload, invalidationTime, priority, pushType, null, null);
+    }
+
+    /**
+     * Constructs a new push notification with the given token, topic, payload, delivery expiration time, delivery
+     * priority, and push notification type.
+     *
+     * @param payload the payload to include in this push notification
+     * @param invalidationTime the time at which Apple's servers should stop trying to deliver this message; if
+     * {@code null}, no delivery attempts beyond the first will be made
+     * @param pushType the type of notification to be sent
+     * @param priority the priority with which this notification should be delivered to the receiving device
+     * @param channelId the identifier for the channel to which this notification should be sent
+     * @param bundleId the identifier for the app to which this notification should be sent
+     */
+    public SimpleApnsPushNotification(final String payload, final Instant invalidationTime, final DeliveryPriority priority, final PushType pushType, final String channelId, final String bundleId) {
+        this(payload, invalidationTime, priority, pushType, null, null, channelId, bundleId);
     }
 
     /**
@@ -201,6 +219,37 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
         this.pushType = pushType;
         this.collapseId = collapseId;
         this.apnsId = apnsId;
+        this.channelId = null;
+        this.bundleId = null;
+    }
+
+    /**
+     * Constructs a new broadcast push notification with the given channelId, bundleId, payload, delivery expiration time, delivery
+     * priority, "collapse identifier," and unique push notification identifier.
+     *
+     * @param payload the payload to include in this push notification; must not be {@code null}
+     * @param invalidationTime the time at which Apple's servers should stop trying to deliver this message; if
+     * {@code null}, no delivery attempts beyond the first will be made
+     * @param priority the priority with which this notification should be delivered to the receiving device
+     * @param pushType the type of push notification to be delivered
+     * @param collapseId the "collapse identifier" for this notification, which allows it to supersede or be superseded
+     * by other notifications with the same collapse identifier
+     * @param apnsId the unique identifier for this notification; may be {@code null}, in which case the APNs server
+     * @param channelId the identifier for the channel to which this notification should be sent
+     * @param bundleId the identifier for the app to which this notification should be sent
+     * will assign a unique identifier automatically
+     */
+    public SimpleApnsPushNotification(final String payload, final Instant invalidationTime, final DeliveryPriority priority, final PushType pushType, final String collapseId, final UUID apnsId, final String channelId, final String bundleId) {
+        this.token = null;
+        this.topic = null;
+        this.payload = Objects.requireNonNull(payload, "Payload must not be null.");
+        this.invalidationTime = invalidationTime;
+        this.priority = priority;
+        this.pushType = pushType;
+        this.collapseId = collapseId;
+        this.apnsId = apnsId;
+        this.channelId = Objects.requireNonNull(channelId, "Destination channel must not be null.");
+        this.bundleId = Objects.requireNonNull(bundleId, "Destination bundleId must not be null.");
     }
 
     /**
@@ -291,6 +340,30 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
         return this.apnsId;
     }
 
+    /**
+     * Returns an identifier for this notification that allows this notification to be sent as a broadcast live activity
+     * notification on a channel for an App with this identifier as channelId.
+     *
+     * @return an identifier for this notification; may be {@code null}
+     *
+     */
+    @Override
+    public String getChannelId() {
+        return this.channelId;
+    }
+
+    /**
+     * Returns an identifier for this notification that allows this notification to be sent as a broadcast live activity
+     * notification on a channel for an App with this identifier as bundle ID.
+     *
+     * @return an identifier for this notification; may be {@code null}
+     *
+     */
+    @Override
+    public String getBundleId() {
+        return this.bundleId;
+    }
+
     @Override
     public boolean equals(final Object o) {
         if (this == o) return true;
@@ -304,12 +377,14 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
                 pushType == that.pushType &&
                 topic.equals(that.topic) &&
                 Objects.equals(collapseId, that.collapseId) &&
-                Objects.equals(apnsId, that.apnsId);
+                Objects.equals(apnsId, that.apnsId) &&
+                Objects.equals(channelId, that.channelId) &&
+                Objects.equals(bundleId, that.bundleId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(token, payload, invalidationTime, priority, pushType, topic, collapseId, apnsId);
+        return Objects.hash(token, payload, invalidationTime, priority, pushType, topic, collapseId, apnsId, channelId, bundleId);
     }
 
     /* (non-Javadoc)
@@ -326,6 +401,8 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
                 ", topic='" + topic + '\'' +
                 ", collapseId='" + collapseId + '\'' +
                 ", apnsId=" + (apnsId != null ? FastUUID.toString(apnsId) : null) +
+                ", channelId='" + channelId + '\'' +
+                ", bundleId='" + bundleId + '\'' +
                 '}';
     }
 }

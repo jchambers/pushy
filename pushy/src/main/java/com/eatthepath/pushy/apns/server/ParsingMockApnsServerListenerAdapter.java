@@ -111,6 +111,16 @@ public abstract class ParsingMockApnsServerListenerAdapter implements MockApnsSe
         public UUID getApnsId() {
             return apnsId;
         }
+
+        @Override
+        public String getChannelId() {
+            return null;
+        }
+
+        @Override
+        public String getBundleId() {
+            return null;
+        }
     }
 
     private static final String APNS_PATH_PREFIX = "/3/device/";

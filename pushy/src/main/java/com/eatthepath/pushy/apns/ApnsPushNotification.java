@@ -125,4 +125,22 @@ public interface ApnsPushNotification {
      * an identifier automatically
      */
     UUID getApnsId();
+
+    /**
+     * Returns an identifier for this notification that allows this notification to be sent as a broadcast live activity
+     * notification on a channel for an App with this identifier as channel ID.
+     *
+     * @return an identifier for this notification; may be {@code null}
+     *
+     */
+    String getChannelId();
+
+    /**
+     * Returns an identifier for this notification that allows this notification to be sent as a broadcast live activity
+     * notification on a channel for an App with this identifier as bundle ID.
+     *
+     * @return an identifier for this notification; may be {@code null}
+     *
+     */
+    String getBundleId();
 }

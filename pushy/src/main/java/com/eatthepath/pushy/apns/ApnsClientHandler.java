@@ -64,6 +64,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private Throwable connectionErrorCause;
 
     private static final AsciiString APNS_PATH_PREFIX = new AsciiString("/3/device/");
+    private static final AsciiString APNS_BROADCAST_PATH_PREFIX = new AsciiString("/4/broadcasts/apps/");
     private static final AsciiString APNS_EXPIRATION_HEADER = new AsciiString("apns-expiration");
     private static final AsciiString APNS_TOPIC_HEADER = new AsciiString("apns-topic");
     private static final AsciiString APNS_PRIORITY_HEADER = new AsciiString("apns-priority");
@@ -71,6 +72,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
     private static final AsciiString APNS_UNIQUE_ID_HEADER = new AsciiString("apns-unique-id");
     private static final AsciiString APNS_PUSH_TYPE_HEADER = new AsciiString("apns-push-type");
+    private static final AsciiString APNS_CHANNEL_ID_HEADER = new AsciiString("apns-channel-id");
 
     private static final IOException STREAMS_EXHAUSTED_EXCEPTION =
             new IOException("HTTP/2 streams exhausted; closing connection.");
@@ -212,10 +214,20 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     }
 
     protected Http2Headers getHeadersForPushNotification(final ApnsPushNotification pushNotification, final ChannelHandlerContext context, final int streamId) {
+
+        CharSequence path;
+        if (pushNotification.getToken() != null) {
+            path = APNS_PATH_PREFIX.concat(pushNotification.getToken());
+        } else if (pushNotification.getBundleId() != null) {
+            path = APNS_BROADCAST_PATH_PREFIX.concat(pushNotification.getBundleId());
+        } else {
+            throw new IllegalArgumentException("Push notification must have either a token or a bundle ID.");
+        }
+
         final Http2Headers headers = new DefaultHttp2Headers()
                 .method(HttpMethod.POST.asciiName())
                 .authority(this.authority)
-                .path(APNS_PATH_PREFIX.concat(pushNotification.getToken()))
+                .path(path)
                 .scheme(HttpScheme.HTTPS.name())
                 .addInt(APNS_EXPIRATION_HEADER, pushNotification.getExpiration() == null ? 0 : (int) pushNotification.getExpiration().getEpochSecond());
 
@@ -237,6 +249,10 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
 
         if (pushNotification.getApnsId() != null) {
             headers.add(APNS_ID_HEADER, FastUUID.toString(pushNotification.getApnsId()));
+        }
+
+        if (pushNotification.getChannelId() != null) {
+            headers.add(APNS_CHANNEL_ID_HEADER, pushNotification.getChannelId());
         }
 
         return headers;
