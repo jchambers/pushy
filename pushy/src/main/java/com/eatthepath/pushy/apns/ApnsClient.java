@@ -129,7 +129,7 @@ public class ApnsClient {
         this.metricsListener = clientConfiguration.getMetricsListener()
                 .orElseGet(NoopApnsClientMetricsListener::new);
 
-        final ApnsChannelFactory channelFactory = new ApnsChannelFactory(clientConfiguration, this.clientResources);
+        final ApnsNotificationChannelFactory channelFactory = new ApnsNotificationChannelFactory(clientConfiguration, this.clientResources);
 
         final ApnsChannelPoolMetricsListener channelPoolMetricsListener = new ApnsChannelPoolMetricsListener() {
 

@@ -490,6 +490,6 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
     }
 
     private Promise<Channel> getChannelReadyPromise(final Channel channel) {
-        return channel.attr(ApnsChannelFactory.CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).get();
+        return channel.attr(ApnsNotificationChannelFactory.CHANNEL_READY_PROMISE_ATTRIBUTE_KEY).get();
     }
 }
