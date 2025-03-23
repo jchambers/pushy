@@ -48,7 +48,13 @@ public enum DeliveryPriority {
      * <p>Indicates that the APNs server should attempt to deliver a notification "at a time that conserves power on
      * the device receiving it."</p>
      */
-    CONSERVE_POWER(5);
+    CONSERVE_POWER(5),
+
+    /**
+     * Indicates that the APNs should "prioritize the device’s power considerations over all other factors for delivery,
+     * and prevent awakening the device."
+     */
+    DO_NOT_AWAKEN(1);
 
     private final int code;
 
