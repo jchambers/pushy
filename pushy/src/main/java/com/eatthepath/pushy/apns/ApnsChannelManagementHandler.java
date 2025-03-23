@@ -24,13 +24,11 @@ package com.eatthepath.pushy.apns;
 
 import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
 import com.eatthepath.pushy.apns.auth.AuthenticationToken;
-import com.eatthepath.uuid.FastUUID;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.HttpScheme;
@@ -48,7 +46,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -71,7 +68,7 @@ class ApnsChannelManagementHandler extends Http2ConnectionHandler implements Htt
 
   private Throwable connectionErrorCause;
 
-  private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
+  static final AsciiString APNS_REQUEST_ID_HEADER = new AsciiString("apns-request-id");
   private static final AsciiString APNS_AUTHORIZATION_HEADER = new AsciiString("authorization");
 
   private static final IOException STREAMS_EXHAUSTED_EXCEPTION =
@@ -207,20 +204,24 @@ class ApnsChannelManagementHandler extends Http2ConnectionHandler implements Htt
 
         final Http2Headers headers = getHeadersForRequest(request, context, streamId);
 
-        final ChannelPromise headersPromise = context.newPromise();
-        this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
-        log.trace("Wrote headers on stream {}: {}", streamId, headers);
+        if (request.getPayload() == null) {
+          this.encoder().writeHeaders(context, streamId, headers, 0, true, writePromise);
+          log.trace("Wrote headers on stream {}: {}", streamId, headers);
+        } else {
+          final ChannelPromise headersPromise = context.newPromise();
+          this.encoder().writeHeaders(context, streamId, headers, 0, false, headersPromise);
+          log.trace("Wrote headers on stream {}: {}", streamId, headers);
 
-        final ByteBuf payloadBuffer =
-            Unpooled.wrappedBuffer(request.getPayload().getBytes(StandardCharsets.UTF_8));
+          final ByteBuf payloadBuffer = Unpooled.wrappedBuffer(request.getPayload().getBytes(StandardCharsets.UTF_8));
 
-        final ChannelPromise dataPromise = context.newPromise();
-        this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
-        log.trace("Wrote payload on stream {}: {}", streamId, request.getPayload());
+          final ChannelPromise dataPromise = context.newPromise();
+          this.encoder().writeData(context, streamId, payloadBuffer, 0, true, dataPromise);
+          log.trace("Wrote payload on stream {}: {}", streamId, request.getPayload());
 
-        final PromiseCombiner promiseCombiner = new PromiseCombiner(context.executor());
-        promiseCombiner.addAll((ChannelFuture) headersPromise, dataPromise);
-        promiseCombiner.finish(writePromise);
+          final PromiseCombiner promiseCombiner = new PromiseCombiner(context.executor());
+          promiseCombiner.addAll(headersPromise, dataPromise);
+          promiseCombiner.finish(writePromise);
+        }
       } else {
         // This is very unlikely, but in the event that we run out of stream IDs, we need to open a new
         // connection. Just closing the context should be enough; automatic reconnection should take things
@@ -239,6 +240,10 @@ class ApnsChannelManagementHandler extends Http2ConnectionHandler implements Htt
         .authority(this.authority)
         .method(request.getMethod().asciiName())
         .path(request.getPath());
+
+    if (request.getApnsRequestId() != null) {
+      headers.add(APNS_REQUEST_ID_HEADER, request.getApnsRequestId().toString());
+    }
 
     if (this.authenticationToken == null) {
       log.debug("Generated a new authentication token for channel {} at stream {}", context.channel(), streamId);
@@ -261,8 +266,7 @@ class ApnsChannelManagementHandler extends Http2ConnectionHandler implements Htt
 
     final Http2Stream stream = this.connection().stream(streamId);
 
-    // TODO Retain?
-    ((CompositeByteBuf) stream.getProperty(this.responseDataPropertyKey)).addComponent(data);
+    ((CompositeByteBuf) stream.getProperty(this.responseDataPropertyKey)).addComponent(true, data.retain());
 
     if (endOfStream) {
       this.handleEndOfStream(stream);
@@ -287,26 +291,10 @@ class ApnsChannelManagementHandler extends Http2ConnectionHandler implements Htt
   }
 
   private void handleEndOfStream(final Http2Stream stream) {
-
     final ApnsChannelManagementRequest request = stream.getProperty(this.requestPropertyKey);
 
     request.getResponseFuture().complete(new Http2Response(stream.getProperty(this.responseHeadersPropertyKey),
         ByteBufUtil.getBytes(stream.getProperty(this.responseDataPropertyKey))));
-  }
-
-  private static UUID getApnsIdFromHeaders(final Http2Headers headers) {
-    return getUUIDFromHeaders(headers, APNS_ID_HEADER);
-  }
-
-  private static UUID getUUIDFromHeaders(final Http2Headers headers, final AsciiString header) {
-    final CharSequence uuidSequence = headers.get(header);
-
-    try {
-      return uuidSequence != null ? FastUUID.parseUUID(uuidSequence) : null;
-    } catch (final IllegalArgumentException e) {
-      log.error("Failed to parse `{}` header: {}", header, uuidSequence, e);
-      return null;
-    }
   }
 
   @Override

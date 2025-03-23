@@ -31,6 +31,7 @@ import io.netty.util.concurrent.GenericFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -58,10 +59,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * result, clients do <em>not</em> need to be "started" explicitly, and are ready to begin sending notifications as soon
  * as they're constructed.</p>
  *
- * <p>Notifications sent by a client to an APNs server are sent asynchronously. A
- * {@link CompletableFuture} is returned immediately when a notification is sent, but will not complete until the
- * attempt to send the notification has failed, the notification has been accepted by the APNs server, or the
- * notification has been rejected by the APNs server.</p>
+ * <p>Notifications sent by a client to an APNs server are sent asynchronously. A {@link CompletableFuture} is returned
+ * immediately when a notification is sent, but will not complete until the attempt to send the notification has failed,
+ * the notification has been accepted by the APNs server, or the notification has been rejected by the APNs server.</p>
+ *
+ * <p>APNs clients also allow for management of broadcast push notification channels. Channel management requests use
+ * the same credentials and client resources as requests to send push notifications.</p>
  *
  * <p>APNs clients are intended to be long-lived, persistent resources. They are also inherently thread-safe and can be
  * shared across many threads in a complex application. Callers must shut them down via the {@link ApnsClient#close()}
@@ -79,6 +82,8 @@ public class ApnsClient {
 
     private final ApnsChannelPool channelPool;
 
+    private final ApnsChannelManagementClient channelManagementClient;
+
     private final ApnsClientMetricsListener metricsListener;
 
     private final AtomicBoolean isClosed = new AtomicBoolean(false);
@@ -89,7 +94,6 @@ public class ApnsClient {
     private static final Logger log = LoggerFactory.getLogger(ApnsClient.class);
 
     private static class NoopApnsClientMetricsListener implements ApnsClientMetricsListener {
-
 
         @Override
         public void handleWriteFailure(final String topic) {
@@ -153,6 +157,8 @@ public class ApnsClient {
             clientConfiguration.getConcurrentConnections(),
             this.clientResources.getEventLoopGroup().next(),
             channelPoolMetricsListener);
+
+        this.channelManagementClient = new ApnsChannelManagementClient(clientConfiguration, this.clientResources);
     }
 
     /**
@@ -217,6 +223,92 @@ public class ApnsClient {
     }
 
     /**
+     * Creates a new channel for broadcast push notifications. Note that APNs allows a maximum of 10,000 active channels
+     * per bundle ID. As the APNs documentation explains:
+     *
+     * <blockquote>In order to support several simultaneous events, you can maintain up to 10,000 channels for your app
+     * in the development and production environment, respectively. Once the Live Activity event is complete, and you no
+     * longer plan to use the channel for any subsequent updates, delete the channel to avoid going over the allocated
+     * channel limit.</blockquote>
+     *
+     * @param bundleId the bundle ID for the app for which to create a new channel
+     * @param messageStoragePolicy the message storage policy for the new channel
+     * @param apnsRequestId a unique identifier for this request; may be {@code null}, in which case the remote server
+     * will generate a unique ID for this request
+     *
+     * @return a future that completes when the channel has been created
+     *
+     * @see <a href="https://developer.apple.com/documentation/usernotifications/sending-channel-management-requests-to-apns">Sending channel management requests to APN</a>
+     *
+     * @since 0.16
+     */
+    public CompletableFuture<CreateChannelResponse> createChannel(final String bundleId,
+                                                                         final MessageStoragePolicy messageStoragePolicy,
+                                                                         final UUID apnsRequestId) {
+
+        return channelManagementClient.createChannel(bundleId, messageStoragePolicy, apnsRequestId);
+    }
+
+    /**
+     * Retrieves the configuration for a given broadcast notification channel.
+     *
+     * @param bundleId the bundle ID for the app with which the channel is associated
+     * @param channelId the channel ID for which to retrieve configuration details
+     * @param apnsRequestId a unique identifier for this request; may be {@code null}, in which case the remote server
+     * will generate a unique ID for this request
+     *
+     * @return a future that yields configuration details for the given channel
+     *
+     * @see <a href="https://developer.apple.com/documentation/usernotifications/sending-channel-management-requests-to-apns">Sending channel management requests to APN</a>
+     *
+     * @since 0.16
+     */
+    public CompletableFuture<GetChannelConfigurationResponse> getChannelConfiguration(final String bundleId,
+                                                                                      final String channelId,
+                                                                                      final UUID apnsRequestId) {
+
+        return channelManagementClient.getChannelConfiguration(bundleId, channelId, apnsRequestId);
+    }
+
+    /**
+     * Deletes a broadcast notification channel.
+     *
+     * @param bundleId the bundle ID for the app with which the channel is associated
+     * @param channelId the ID of the channel to delete
+     * @param apnsRequestId a unique identifier for this request; may be {@code null}, in which case the remote server
+     * will generate a unique ID for this request
+     *
+     * @return a future that completes when the given channel has been deleted
+     *
+     * @see <a href="https://developer.apple.com/documentation/usernotifications/sending-channel-management-requests-to-apns">Sending channel management requests to APN</a>
+     *
+     * @since 0.16
+     */
+    public CompletableFuture<DeleteChannelResponse> deleteChannel(final String bundleId,
+                                                                  final String channelId,
+                                                                  final UUID apnsRequestId) {
+
+        return channelManagementClient.deleteChannel(bundleId, channelId, apnsRequestId);
+    }
+
+    /**
+     * Retrieves a list of all broadcast notification channel IDs associated with the given bundle ID.
+     *
+     * @param bundleId the bundle ID for the app for which to retrieve a list of broadcast notification channel IDs
+     * @param apnsRequestId a unique identifier for this request; may be {@code null}, in which case the remote server
+     * will generate a unique ID for this request
+     *
+     * @return a future that yields a list of all broadcast notification channel IDs for the given bundle ID
+     *
+     * @see <a href="https://developer.apple.com/documentation/usernotifications/sending-channel-management-requests-to-apns">Sending channel management requests to APN</a>
+     *
+     * @since 0.16
+     */
+    public CompletableFuture<GetChannelIdsResponse> getChannelIds(final String bundleId, final UUID apnsRequestId) {
+        return channelManagementClient.getChannelIds(bundleId, apnsRequestId);
+    }
+
+    /**
      * <p>Gracefully shuts down the client, closing all connections and releasing all persistent resources. The
      * disconnection process will wait until notifications that have been sent to the APNs server have been either
      * accepted or rejected. Note that some notifications passed to
@@ -242,13 +334,14 @@ public class ApnsClient {
         if (this.isClosed.compareAndSet(false, true)) {
             closeFuture = new CompletableFuture<>();
 
-            this.channelPool.close().addListener((GenericFutureListener<Future<Void>>) closePoolFuture -> {
-                if (ApnsClient.this.shouldShutDownClientResources) {
-                    ApnsClient.this.clientResources.shutdownGracefully().addListener(future -> closeFuture.complete(null));
-                } else {
-                    closeFuture.complete(null);
-                }
-            });
+            this.channelManagementClient.close().addListener(closeChannelManagementClientFuture ->
+                this.channelPool.close().addListener((GenericFutureListener<Future<Void>>) closePoolFuture -> {
+                    if (ApnsClient.this.shouldShutDownClientResources) {
+                        ApnsClient.this.clientResources.shutdownGracefully().addListener(future -> closeFuture.complete(null));
+                    } else {
+                        closeFuture.complete(null);
+                    }
+                }));
         } else {
             closeFuture = CompletableFuture.completedFuture(null);
         }

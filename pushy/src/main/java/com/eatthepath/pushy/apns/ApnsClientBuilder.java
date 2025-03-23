@@ -576,26 +576,14 @@ public class ApnsClientBuilder {
         return this;
     }
 
-    /**
-     * Constructs a new {@link ApnsClient} with the previously-set configuration.
-     *
-     * @return a new ApnsClient instance with the previously-set configuration
-     *
-     * @throws SSLException if an SSL context could not be created for the new client for any reason
-     * @throws IllegalStateException if this method is called without specifying an APNs server address, if this method
-     * is called without providing TLS credentials or a signing key, or if this method is called with both TLS
-     * credentials and a signing key
-     *
-     * @since 0.8
-     */
-    public ApnsClient build() throws SSLException {
+    ApnsClientConfiguration buildClientConfiguration() throws SSLException {
         if (this.apnsServerAddress == null) {
             throw new IllegalStateException("No APNs server address specified.");
         }
 
         if (this.clientCertificate == null && this.privateKey == null && this.signingKey == null) {
             throw new IllegalStateException("No client credentials specified; either TLS credentials (a " +
-                    "certificate/private key) or an APNs signing key must be provided before building a client.");
+                "certificate/private key) or an APNs signing key must be provided before building a client.");
         } else if ((this.clientCertificate != null || this.privateKey != null) && this.signingKey != null) {
             throw new IllegalStateException("Clients may not have both a signing key and TLS credentials.");
         }
@@ -613,18 +601,18 @@ public class ApnsClientBuilder {
             }
 
             final SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
-                    .sslProvider(sslProvider)
-                    .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE);
+                .sslProvider(sslProvider)
+                .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE);
 
             if (useAlpn) {
                 sslContextBuilder.applicationProtocolConfig(
-                        new ApplicationProtocolConfig(
-                                ApplicationProtocolConfig.Protocol.ALPN,
-                                // NO_ADVERTISE is currently the only mode supported by both OpenSsl and JDK providers.
-                                ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
-                                // ACCEPT is currently the only mode supported by both OpenSsl and JDK providers.
-                                ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
-                                ApplicationProtocolNames.HTTP_2));
+                    new ApplicationProtocolConfig(
+                        ApplicationProtocolConfig.Protocol.ALPN,
+                        // NO_ADVERTISE is currently the only mode supported by both OpenSsl and JDK providers.
+                        ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
+                        // ACCEPT is currently the only mode supported by both OpenSsl and JDK providers.
+                        ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+                        ApplicationProtocolNames.HTTP_2));
             }
 
             if (this.clientCertificate != null && this.privateKey != null) {
@@ -643,25 +631,38 @@ public class ApnsClientBuilder {
         }
 
         try {
-            final ApnsClientConfiguration clientConfiguration =
-                    new ApnsClientConfiguration(this.apnsServerAddress,
-                            sslContext,
-                            this.enableHostnameVerification,
-                            this.signingKey,
-                            this.tokenExpiration,
-                            this.proxyHandlerFactory,
-                            this.connectionTimeout,
-                            this.closeAfterIdleDuration,
-                            this.gracefulShutdownTimeout,
-                            this.concurrentConnections,
-                            this.metricsListener,
-                            this.frameLogger);
-
-            return new ApnsClient(clientConfiguration, this.apnsClientResources);
+            return new ApnsClientConfiguration(this.apnsServerAddress,
+                sslContext,
+                this.enableHostnameVerification,
+                this.signingKey,
+                this.tokenExpiration,
+                this.proxyHandlerFactory,
+                this.connectionTimeout,
+                this.closeAfterIdleDuration,
+                this.gracefulShutdownTimeout,
+                this.concurrentConnections,
+                this.metricsListener,
+                this.frameLogger);
         } finally {
             if (sslContext instanceof ReferenceCounted) {
                 ((ReferenceCounted) sslContext).release();
             }
         }
+    }
+
+    /**
+     * Constructs a new {@link ApnsClient} with the previously-set configuration.
+     *
+     * @return a new ApnsClient instance with the previously-set configuration
+     *
+     * @throws SSLException if an SSL context could not be created for the new client for any reason
+     * @throws IllegalStateException if this method is called without specifying an APNs server address, if this method
+     * is called without providing TLS credentials or a signing key, or if this method is called with both TLS
+     * credentials and a signing key
+     *
+     * @since 0.8
+     */
+    public ApnsClient build() throws SSLException {
+        return new ApnsClient(buildClientConfiguration(), this.apnsClientResources);
     }
 }
