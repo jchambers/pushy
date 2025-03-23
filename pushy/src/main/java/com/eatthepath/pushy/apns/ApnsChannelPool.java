@@ -36,7 +36,7 @@ import java.util.Queue;
 import java.util.Set;
 
 /**
- * <p>A pool of channels connected to an APNs server. Channel pools use a {@link ApnsChannelFactory} to create
+ * <p>A pool of channels connected to an APNs server. Channel pools use a {@link ApnsNotificationChannelFactory} to create
  * connections (up to a given maximum capacity) on demand.</p>
  *
  * <p>Callers acquire channels from the pool via the {@link ApnsChannelPool#acquire()} method, and must return them to
