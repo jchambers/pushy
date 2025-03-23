@@ -71,7 +71,7 @@ class ApnsChannelManagementHandler extends Http2ConnectionHandler implements Htt
 
   private Throwable connectionErrorCause;
 
-  private static final AsciiString APNS_ID_HEADER = new AsciiString("apns-id");
+  static final AsciiString APNS_REQUEST_ID_HEADER = new AsciiString("apns-request-id");
   private static final AsciiString APNS_AUTHORIZATION_HEADER = new AsciiString("authorization");
 
   private static final IOException STREAMS_EXHAUSTED_EXCEPTION =
@@ -240,6 +240,10 @@ class ApnsChannelManagementHandler extends Http2ConnectionHandler implements Htt
         .method(request.getMethod().asciiName())
         .path(request.getPath());
 
+    if (request.getApnsRequestId() != null) {
+      headers.add(APNS_REQUEST_ID_HEADER, request.getApnsRequestId().toString());
+    }
+
     if (this.authenticationToken == null) {
       log.debug("Generated a new authentication token for channel {} at stream {}", context.channel(), streamId);
       this.authenticationToken = new AuthenticationToken(this.signingKey, Instant.now());
@@ -292,21 +296,6 @@ class ApnsChannelManagementHandler extends Http2ConnectionHandler implements Htt
 
     request.getResponseFuture().complete(new Http2Response(stream.getProperty(this.responseHeadersPropertyKey),
         ByteBufUtil.getBytes(stream.getProperty(this.responseDataPropertyKey))));
-  }
-
-  private static UUID getApnsIdFromHeaders(final Http2Headers headers) {
-    return getUUIDFromHeaders(headers, APNS_ID_HEADER);
-  }
-
-  private static UUID getUUIDFromHeaders(final Http2Headers headers, final AsciiString header) {
-    final CharSequence uuidSequence = headers.get(header);
-
-    try {
-      return uuidSequence != null ? FastUUID.parseUUID(uuidSequence) : null;
-    } catch (final IllegalArgumentException e) {
-      log.error("Failed to parse `{}` header: {}", header, uuidSequence, e);
-      return null;
-    }
   }
 
   @Override

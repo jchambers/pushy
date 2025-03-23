@@ -79,6 +79,8 @@ public class ApnsClient {
 
     private final ApnsChannelPool channelPool;
 
+    private final ApnsChannelManagementClient channelManagementClient;
+
     private final ApnsClientMetricsListener metricsListener;
 
     private final AtomicBoolean isClosed = new AtomicBoolean(false);
@@ -153,6 +155,8 @@ public class ApnsClient {
             clientConfiguration.getConcurrentConnections(),
             this.clientResources.getEventLoopGroup().next(),
             channelPoolMetricsListener);
+
+        this.channelManagementClient = new ApnsChannelManagementClient(clientConfiguration, this.clientResources);
     }
 
     /**
@@ -242,13 +246,14 @@ public class ApnsClient {
         if (this.isClosed.compareAndSet(false, true)) {
             closeFuture = new CompletableFuture<>();
 
-            this.channelPool.close().addListener((GenericFutureListener<Future<Void>>) closePoolFuture -> {
-                if (ApnsClient.this.shouldShutDownClientResources) {
-                    ApnsClient.this.clientResources.shutdownGracefully().addListener(future -> closeFuture.complete(null));
-                } else {
-                    closeFuture.complete(null);
-                }
-            });
+            this.channelManagementClient.close().addListener(closeChannelManagementClientFuture ->
+                this.channelPool.close().addListener((GenericFutureListener<Future<Void>>) closePoolFuture -> {
+                    if (ApnsClient.this.shouldShutDownClientResources) {
+                        ApnsClient.this.clientResources.shutdownGracefully().addListener(future -> closeFuture.complete(null));
+                    } else {
+                        closeFuture.complete(null);
+                    }
+                }));
         } else {
             closeFuture = CompletableFuture.completedFuture(null);
         }

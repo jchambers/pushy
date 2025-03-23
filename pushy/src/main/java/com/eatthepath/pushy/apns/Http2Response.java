@@ -10,4 +10,12 @@ class Http2Response {
     this.headers = headers;
     this.data = data;
   }
+
+  public Http2Headers getHeaders() {
+    return headers;
+  }
+
+  public byte[] getData() {
+    return data;
+  }
 }
