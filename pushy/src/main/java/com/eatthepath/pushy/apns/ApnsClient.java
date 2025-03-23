@@ -79,6 +79,8 @@ public class ApnsClient {
 
     private final ApnsChannelPool channelPool;
 
+    private final ApnsChannelManagementClient channelManagementClient;
+
     private final ApnsClientMetricsListener metricsListener;
 
     private final AtomicBoolean isClosed = new AtomicBoolean(false);
@@ -129,7 +131,7 @@ public class ApnsClient {
         this.metricsListener = clientConfiguration.getMetricsListener()
                 .orElseGet(NoopApnsClientMetricsListener::new);
 
-        final ApnsChannelFactory channelFactory = new ApnsChannelFactory(clientConfiguration, this.clientResources);
+        final ApnsNotificationChannelFactory channelFactory = new ApnsNotificationChannelFactory(clientConfiguration, this.clientResources);
 
         final ApnsChannelPoolMetricsListener channelPoolMetricsListener = new ApnsChannelPoolMetricsListener() {
 
@@ -153,6 +155,8 @@ public class ApnsClient {
             clientConfiguration.getConcurrentConnections(),
             this.clientResources.getEventLoopGroup().next(),
             channelPoolMetricsListener);
+
+        this.channelManagementClient = new ApnsChannelManagementClient(clientConfiguration, this.clientResources);
     }
 
     /**
@@ -242,13 +246,14 @@ public class ApnsClient {
         if (this.isClosed.compareAndSet(false, true)) {
             closeFuture = new CompletableFuture<>();
 
-            this.channelPool.close().addListener((GenericFutureListener<Future<Void>>) closePoolFuture -> {
-                if (ApnsClient.this.shouldShutDownClientResources) {
-                    ApnsClient.this.clientResources.shutdownGracefully().addListener(future -> closeFuture.complete(null));
-                } else {
-                    closeFuture.complete(null);
-                }
-            });
+            this.channelManagementClient.close().addListener(closeChannelManagementClientFuture ->
+                this.channelPool.close().addListener((GenericFutureListener<Future<Void>>) closePoolFuture -> {
+                    if (ApnsClient.this.shouldShutDownClientResources) {
+                        ApnsClient.this.clientResources.shutdownGracefully().addListener(future -> closeFuture.complete(null));
+                    } else {
+                        closeFuture.complete(null);
+                    }
+                }));
         } else {
             closeFuture = CompletableFuture.completedFuture(null);
         }
