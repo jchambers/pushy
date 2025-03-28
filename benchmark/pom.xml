@@ -27,11 +27,10 @@
     <parent>
         <artifactId>pushy-parent</artifactId>
         <groupId>com.eatthepath</groupId>
-        <version>0.15.5-SNAPSHOT</version>
+        <version>JGITVER</version>
     </parent>
 
     <artifactId>pushy-benchmark</artifactId>
-    <version>0.15.5-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>Pushy benchmarks</name>
