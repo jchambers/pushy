@@ -62,7 +62,6 @@ public interface PushNotificationResponse<T extends ApnsPushNotification> {
      */
     UUID getApnsId();
 
-
     /**
      * Returns a unique identifier set by the APNs server in development environments to facilitate testing
      * notifications. Note that this identifier is distinct from the identifier returned by {@link #getApnsId()}.
