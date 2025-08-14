@@ -184,7 +184,8 @@ public class ApnsClient {
         if (!this.isClosed.get()) {
             final long start = System.nanoTime();
 
-            this.channelPool.acquire().addListener((GenericFutureListener<Future<Channel>>) acquireFuture -> {
+            Future<Channel> acquirePromise = this.channelPool.acquire();
+            acquirePromise.addListener((GenericFutureListener<Future<Channel>>) acquireFuture -> {
                 if (acquireFuture.isSuccess()) {
                     final Channel channel = acquireFuture.getNow();
 
@@ -207,6 +208,12 @@ public class ApnsClient {
                     ApnsClient.this.metricsListener.handleNotificationAcknowledged(response, end - start);
                 } else {
                     ApnsClient.this.metricsListener.handleWriteFailure(notification.getTopic());
+
+                    // Try cancel acquirePromise if responseFuture fails (e.g. TimeoutException)
+                    // before acquirePromise gets resolved.
+                    if (acquirePromise.isCancellable()) {
+                        acquirePromise.cancel(true);
+                    }
                 }
             });
         } else {
