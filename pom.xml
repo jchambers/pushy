@@ -75,12 +75,16 @@
         <module>micrometer-metrics-listener</module>
     </modules>
 
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
-                <version>4.1.133.Final</version>
+                <version>4.2.14.Final</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -111,10 +115,6 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
-
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
 
     <build>
         <pluginManagement>
