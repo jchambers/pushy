@@ -32,7 +32,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.net.ssl.SSLHandshakeException;
-import java.io.InputStream;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -228,13 +227,12 @@ public class ApnsClientTest extends AbstractClientServerTest {
                     .setApnsClientResources(CLIENT_RESOURCES)
                     .build();
         } else {
-            try (final InputStream p12InputStream = getClass().getResourceAsStream(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-                cautiousClient = new ApnsClientBuilder()
-                        .setApnsServer(HOST, PORT)
-                        .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                        .setApnsClientResources(CLIENT_RESOURCES)
-                        .build();
-            }
+            cautiousClient = new ApnsClientBuilder()
+                    .setApnsServer(HOST, PORT)
+                    .setClientCredentials(TEST_CERTIFICATES.getMultiTopicClientCertificateBundle().getCertificate(),
+                        TEST_CERTIFICATES.getMultiTopicClientCertificateBundle().getKeyPair().getPrivate())
+                    .setApnsClientResources(CLIENT_RESOURCES)
+                    .build();
         }
 
         final MockApnsServer server = this.buildServer(new AcceptAllPushNotificationHandlerFactory());
@@ -268,8 +266,9 @@ public class ApnsClientTest extends AbstractClientServerTest {
     @ValueSource(booleans = { true, false })
     void testSendNotificationToServerWithUntrustedHostname(final boolean useTokenAuthentication) throws Exception {
         final MockApnsServer serverWithUntrustedHostname = new MockApnsServerBuilder()
-                .setServerCredentials(getClass().getResourceAsStream(UNTRUSTED_HOSTNAME_SERVER_CERTIFICATES_FILENAME), getClass().getResourceAsStream(UNTRUSTED_HOSTNAME_SERVER_KEY_FILENAME), null)
-                .setTrustedClientCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
+                .setServerCredentials(TEST_CERTIFICATES.getUntrustedServerCertificateBundle().getCertificatePathWithRoot(),
+                    TEST_CERTIFICATES.getUntrustedServerCertificateBundle().getKeyPair().getPrivate())
+                .setTrustedClientCertificateChain(TEST_CERTIFICATES.getCaBundle().getCertificate())
                 .setEventLoopGroup(SERVER_EVENT_LOOP_GROUP)
                 .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
                 .build();
@@ -304,15 +303,16 @@ public class ApnsClientTest extends AbstractClientServerTest {
     @Test
     void testSendNotificationToServerWithUntrustedHostnameAndVerificationDisabled() throws Exception {
         final MockApnsServer serverWithUntrustedHostname = new MockApnsServerBuilder()
-                .setServerCredentials(getClass().getResourceAsStream(UNTRUSTED_HOSTNAME_SERVER_CERTIFICATES_FILENAME), getClass().getResourceAsStream(UNTRUSTED_HOSTNAME_SERVER_KEY_FILENAME), null)
-                .setTrustedClientCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
+                .setServerCredentials(TEST_CERTIFICATES.getUntrustedServerCertificateBundle().getCertificatePathWithRoot(),
+                    TEST_CERTIFICATES.getUntrustedServerCertificateBundle().getKeyPair().getPrivate())
+                .setTrustedClientCertificateChain(TEST_CERTIFICATES.getCaBundle().getCertificate())
                 .setEventLoopGroup(SERVER_EVENT_LOOP_GROUP)
                 .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
                 .build();
 
         final ApnsClient client = new ApnsClientBuilder()
                 .setApnsServer(HOST, PORT)
-                .setTrustedServerCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
+                .setTrustedServerCertificateChain(TEST_CERTIFICATES.getCaBundle().getCertificate())
                 .setSigningKey(this.signingKey)
                 .setApnsClientResources(CLIENT_RESOURCES)
                 .setHostnameVerificationEnabled(false)

@@ -31,6 +31,7 @@ import java.security.Signature;
 import java.security.interfaces.ECPrivateKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Base64;
 
 /**
  * A private key used to sign authentication tokens. Signing keys are associated with a developer team (in Apple's
@@ -154,7 +155,7 @@ public class ApnsSigningKey extends ApnsKey implements ECPrivateKey {
                 base64EncodedPrivateKey = privateKeyBuilder.toString();
             }
 
-            final byte[] keyBytes = decodeBase64EncodedString(base64EncodedPrivateKey);
+            final byte[] keyBytes = Base64.getDecoder().decode(base64EncodedPrivateKey);
 
             final PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
             final KeyFactory keyFactory = KeyFactory.getInstance("EC");

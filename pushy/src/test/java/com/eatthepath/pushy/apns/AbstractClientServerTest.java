@@ -22,6 +22,7 @@
 
 package com.eatthepath.pushy.apns;
 
+import com.eatthepath.ApnsTestCertificates;
 import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
 import com.eatthepath.pushy.apns.auth.ApnsVerificationKey;
 import com.eatthepath.pushy.apns.auth.KeyPairUtil;
@@ -36,7 +37,6 @@ import org.junit.jupiter.api.Timeout;
 
 import javax.net.ssl.SSLException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.security.KeyPair;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
@@ -48,15 +48,7 @@ public class AbstractClientServerTest {
 
     protected static ApnsClientResources CLIENT_RESOURCES;
     protected static NioEventLoopGroup SERVER_EVENT_LOOP_GROUP;
-
-    protected static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
-    protected static final String SERVER_CERTIFICATES_FILENAME = "/server-certs.pem";
-    protected static final String SERVER_KEY_FILENAME = "/server-key.pem";
-    protected static final String UNTRUSTED_HOSTNAME_SERVER_CERTIFICATES_FILENAME = "/server-certs-no-alt.pem";
-    protected static final String UNTRUSTED_HOSTNAME_SERVER_KEY_FILENAME = "/server-key-no-alt.pem";
-
-    protected static final String MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME = "/multi-topic-client.p12";
-    protected static final String KEYSTORE_PASSWORD = "pushy-test";
+    protected static ApnsTestCertificates TEST_CERTIFICATES;
 
     protected static final String HOST = "localhost";
     protected static final int PORT = 8443;
@@ -79,9 +71,11 @@ public class AbstractClientServerTest {
     protected Map<ApnsVerificationKey, Set<String>> topicsByVerificationKey;
 
     @BeforeAll
-    public static void setUpBeforeClass() {
+    public static void setUpBeforeClass() throws Exception {
         CLIENT_RESOURCES = new ApnsClientResources(new NioEventLoopGroup(2));
         SERVER_EVENT_LOOP_GROUP = new NioEventLoopGroup(2);
+
+        TEST_CERTIFICATES = new ApnsTestCertificates();
     }
 
     @BeforeEach
@@ -111,15 +105,14 @@ public class AbstractClientServerTest {
     }
 
     protected ApnsClient buildTlsAuthenticationClient(final ApnsClientMetricsListener metricsListener) throws IOException {
-        try (final InputStream p12InputStream = getClass().getResourceAsStream(MULTI_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
-            return new ApnsClientBuilder()
-                    .setApnsServer(HOST, PORT)
-                    .setClientCredentials(p12InputStream, KEYSTORE_PASSWORD)
-                    .setTrustedServerCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
-                    .setApnsClientResources(CLIENT_RESOURCES)
-                    .setMetricsListener(metricsListener)
-                    .build();
-        }
+        return new ApnsClientBuilder()
+            .setApnsServer(HOST, PORT)
+            .setClientCredentials(TEST_CERTIFICATES.getMultiTopicClientCertificateBundle().getCertificate(),
+                TEST_CERTIFICATES.getMultiTopicClientCertificateBundle().getKeyPair().getPrivate())
+            .setTrustedServerCertificateChain(TEST_CERTIFICATES.getCaBundle().getCertificate())
+            .setApnsClientResources(CLIENT_RESOURCES)
+            .setMetricsListener(metricsListener)
+            .build();
     }
 
     protected ApnsClient buildTokenAuthenticationClient() throws SSLException {
@@ -129,7 +122,7 @@ public class AbstractClientServerTest {
     protected ApnsClient buildTokenAuthenticationClient(final ApnsClientMetricsListener metricsListener) throws SSLException {
         return new ApnsClientBuilder()
                 .setApnsServer(HOST, PORT)
-                .setTrustedServerCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
+                .setTrustedServerCertificateChain(TEST_CERTIFICATES.getCaBundle().getCertificate())
                 .setSigningKey(this.signingKey)
                 .setApnsClientResources(CLIENT_RESOURCES)
                 .setMetricsListener(metricsListener)
@@ -150,8 +143,9 @@ public class AbstractClientServerTest {
 
     protected MockApnsServer buildServer(final PushNotificationHandlerFactory handlerFactory, final MockApnsServerListener listener, final boolean generateApnsUniqueId) throws SSLException {
         return new MockApnsServerBuilder()
-                .setServerCredentials(getClass().getResourceAsStream(SERVER_CERTIFICATES_FILENAME), getClass().getResourceAsStream(SERVER_KEY_FILENAME), null)
-                .setTrustedClientCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
+                .setServerCredentials(TEST_CERTIFICATES.getTrustedServerCertificateBundle().getCertificatePathWithRoot(),
+                    TEST_CERTIFICATES.getTrustedServerCertificateBundle().getKeyPair().getPrivate())
+                .setTrustedClientCertificateChain(TEST_CERTIFICATES.getCaBundle().getCertificate())
                 .setEventLoopGroup(SERVER_EVENT_LOOP_GROUP)
                 .setHandlerFactory(handlerFactory)
                 .setListener(listener)

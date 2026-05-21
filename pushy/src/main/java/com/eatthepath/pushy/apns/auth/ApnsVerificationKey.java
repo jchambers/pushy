@@ -33,6 +33,7 @@ import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECPoint;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
 
 /**
  * <p>A public key used to verify authentication tokens. Signing keys are associated with a developer team (in Apple's
@@ -161,7 +162,7 @@ public class ApnsVerificationKey extends ApnsKey implements ECPublicKey {
                 base64EncodedPublicKey = publicKeyBuilder.toString();
             }
 
-            final byte[] keyBytes = decodeBase64EncodedString(base64EncodedPublicKey);
+            final byte[] keyBytes = Base64.getDecoder().decode(base64EncodedPublicKey);
 
             final X509EncodedKeySpec keySpec = new X509EncodedKeySpec(keyBytes);
             final KeyFactory keyFactory = KeyFactory.getInstance("EC");

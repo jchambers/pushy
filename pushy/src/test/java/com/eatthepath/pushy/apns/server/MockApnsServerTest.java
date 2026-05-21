@@ -110,7 +110,8 @@ public class MockApnsServerTest extends AbstractClientServerTest {
         try {
 
             final MockApnsServer providedGroupServer = new MockApnsServerBuilder()
-                    .setServerCredentials(getClass().getResourceAsStream(SERVER_CERTIFICATES_FILENAME), getClass().getResourceAsStream(SERVER_KEY_FILENAME), null)
+                .setServerCredentials(TEST_CERTIFICATES.getTrustedServerCertificateBundle().getCertificatePathWithRoot(),
+                    TEST_CERTIFICATES.getTrustedServerCertificateBundle().getKeyPair().getPrivate())
                     .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
                     .setEventLoopGroup(eventLoopGroup)
                     .build();
@@ -140,10 +141,11 @@ public class MockApnsServerTest extends AbstractClientServerTest {
 
         try {
             final MockApnsServer providedGroupServer = new MockApnsServerBuilder()
-                    .setServerCredentials(getClass().getResourceAsStream(SERVER_CERTIFICATES_FILENAME), getClass().getResourceAsStream(SERVER_KEY_FILENAME), null)
-                    .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
-                    .setEventLoopGroup(eventLoopGroup)
-                    .build();
+                .setServerCredentials(TEST_CERTIFICATES.getTrustedServerCertificateBundle().getCertificatePathWithRoot(),
+                    TEST_CERTIFICATES.getTrustedServerCertificateBundle().getKeyPair().getPrivate())
+                .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
+                .setEventLoopGroup(eventLoopGroup)
+                .build();
 
             assertDoesNotThrow(() -> providedGroupServer.start(PORT).get());
             assertDoesNotThrow(() -> providedGroupServer.shutdown().get());

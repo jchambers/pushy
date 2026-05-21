@@ -22,26 +22,32 @@
 
 package com.eatthepath.pushy.apns;
 
+import io.netty.pkitesting.CertificateBuilder;
+import io.netty.pkitesting.X509Bundle;
 import org.junit.jupiter.api.Test;
 
-import java.io.InputStream;
+import java.io.*;
+import java.nio.file.Files;
+import java.security.KeyStore;
 import java.security.KeyStore.PrivateKeyEntry;
 import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import java.time.Duration;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class P12UtilTest {
 
-    private static final String SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME = "/single-topic-client.p12";
-    private static final String MULTIPLE_KEY_KEYSTORE_FILENAME = "/multiple-keys.p12";
-    private static final String NO_KEY_KEYSTORE_FILENAME = "/no-keys.p12";
-
     private static final String KEYSTORE_PASSWORD = "pushy-test";
 
     @Test
     void testGetPrivateKeyEntryFromP12InputStream() throws Exception {
-        try (final InputStream p12InputStream = P12UtilTest.class.getResourceAsStream(SINGLE_TOPIC_CLIENT_KEYSTORE_FILENAME)) {
+        final File keyStoreFile = writeTemporaryKeyStore(1);
+
+        try (final InputStream p12InputStream = Files.newInputStream(keyStoreFile.toPath())) {
             final PrivateKeyEntry privateKeyEntry =
                     P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
 
@@ -51,7 +57,9 @@ public class P12UtilTest {
 
     @Test
     void testGetPrivateKeyEntryFromP12InputStreamWithMultipleKeys() throws Exception {
-        try (final InputStream p12InputStream = P12UtilTest.class.getResourceAsStream(MULTIPLE_KEY_KEYSTORE_FILENAME)) {
+        final File keyStoreFile = writeTemporaryKeyStore(4);
+
+        try (final InputStream p12InputStream = Files.newInputStream(keyStoreFile.toPath())) {
             final PrivateKeyEntry privateKeyEntry =
                     P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD);
 
@@ -61,9 +69,53 @@ public class P12UtilTest {
 
     @Test
     void testGetPrivateKeyEntryFromP12InputStreamWithNoKeys() throws Exception {
-        try (final InputStream p12InputStream = P12UtilTest.class.getResourceAsStream(NO_KEY_KEYSTORE_FILENAME)) {
+        final File keyStoreFile = writeTemporaryKeyStore(0);
+
+        try (final InputStream p12InputStream = Files.newInputStream(keyStoreFile.toPath())) {
             assertThrows(KeyStoreException.class,
                     () -> P12Util.getFirstPrivateKeyEntryFromP12InputStream(p12InputStream, KEYSTORE_PASSWORD));
         }
+    }
+
+    private static File writeTemporaryKeyStore(final int keyCount) throws KeyStoreException, IOException, CertificateException, NoSuchAlgorithmException {
+        final KeyStore keyStore;
+
+        try {
+            keyStore = KeyStore.getInstance("PKCS12");
+        } catch (final KeyStoreException e) {
+            throw new AssertionError("Every implementation of the Java platform is required to support PKCS12");
+        }
+
+        // Keystores must be initialized before we can add any entries
+        keyStore.load(null);
+
+        for (int i = 0; i < keyCount; i++) {
+            final String alias = "test-key-" + i;
+
+          final X509Bundle x509Bundle;
+
+          try {
+            x509Bundle = new CertificateBuilder()
+                .notBefore(Instant.now())
+                .notAfter(Instant.now().plus(Duration.ofHours(1)))
+                .subject("CN=" + alias)
+                .setKeyUsage(true, CertificateBuilder.KeyUsage.digitalSignature, CertificateBuilder.KeyUsage.keyCertSign)
+                .setIsCertificateAuthority(true)
+                .buildSelfSigned();
+          } catch (final Exception e) {
+            throw new AssertionError("Failed to build in-memory, self-signed certificate", e);
+          }
+
+          keyStore.setKeyEntry(alias, x509Bundle.getKeyPair().getPrivate(), KEYSTORE_PASSWORD.toCharArray(), x509Bundle.getCertificatePath());
+        }
+
+        final File keystoreFile = File.createTempFile("pushy-test", ".p12");
+        keystoreFile.deleteOnExit();
+
+        try (final OutputStream outputStream = Files.newOutputStream(keystoreFile.toPath())) {
+            keyStore.store(outputStream, KEYSTORE_PASSWORD.toCharArray());
+        }
+
+        return keystoreFile;
     }
 }

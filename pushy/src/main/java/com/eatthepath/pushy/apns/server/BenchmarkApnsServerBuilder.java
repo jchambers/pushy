@@ -82,8 +82,8 @@ public class BenchmarkApnsServerBuilder extends BaseHttp2ServerBuilder<Benchmark
     }
 
     @Override
-    public BenchmarkApnsServerBuilder setTrustedServerCertificateChain(final X509Certificate... certificates) {
-        super.setTrustedServerCertificateChain(certificates);
+    public BenchmarkApnsServerBuilder setTrustedClientCertificateChain(final X509Certificate... certificates) {
+        super.setTrustedClientCertificateChain(certificates);
         return this;
     }
 

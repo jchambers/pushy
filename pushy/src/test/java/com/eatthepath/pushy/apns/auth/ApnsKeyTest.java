@@ -23,21 +23,14 @@
 package com.eatthepath.pushy.apns.auth;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-public abstract class ApnsKeyTest {
+abstract class ApnsKeyTest {
 
     protected abstract ApnsKey getApnsKey() throws NoSuchAlgorithmException, InvalidKeyException, IOException;
 
@@ -59,22 +52,5 @@ public abstract class ApnsKeyTest {
     @Test
     void testGetParams() throws Exception {
         assertNotNull(this.getApnsKey().getParams());
-    }
-
-    @ParameterizedTest
-    @MethodSource("argumentsForDecodeBase64EncodedString")
-    void testDecodeBase64EncodedString(final String base64EncodedString, final String decodedAsciiString) {
-        assertEquals(decodedAsciiString, new String(ApnsKey.decodeBase64EncodedString(base64EncodedString), StandardCharsets.US_ASCII));
-    }
-
-    private static Stream<Arguments> argumentsForDecodeBase64EncodedString() {
-        // Test vectors from https://tools.ietf.org/html/rfc4648#section-10
-        return Stream.of(
-                arguments("Zg==",     "f"),
-                arguments("Zm8=",     "fo"),
-                arguments("Zm9v",     "foo"),
-                arguments("Zm9vYg==", "foob"),
-                arguments("Zm9vYmE=", "fooba"),
-                arguments("Zm9vYmFy", "foobar"));
     }
 }

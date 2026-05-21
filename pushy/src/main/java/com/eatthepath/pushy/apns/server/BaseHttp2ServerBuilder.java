@@ -219,7 +219,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      *
      * @return a reference to this builder
      */
-    public BaseHttp2ServerBuilder<T> setTrustedServerCertificateChain(final X509Certificate... certificates) {
+    public BaseHttp2ServerBuilder<T> setTrustedClientCertificateChain(final X509Certificate... certificates) {
         this.trustedClientCertificatePemFile = null;
         this.trustedClientCertificateInputStream = null;
         this.trustedClientCertificates = certificates;

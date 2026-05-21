@@ -87,8 +87,8 @@ public class MockApnsServerBuilder extends BaseHttp2ServerBuilder<MockApnsServer
     }
 
     @Override
-    public MockApnsServerBuilder setTrustedServerCertificateChain(final X509Certificate... certificates) {
-        super.setTrustedServerCertificateChain(certificates);
+    public MockApnsServerBuilder setTrustedClientCertificateChain(final X509Certificate... certificates) {
+        super.setTrustedClientCertificateChain(certificates);
         return this;
     }
 
