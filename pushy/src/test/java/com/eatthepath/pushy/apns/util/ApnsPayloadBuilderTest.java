@@ -41,15 +41,13 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-public abstract class ApnsPayloadBuilderTest {
+class ApnsPayloadBuilderTest {
 
     private ApnsPayloadBuilder builder;
 
-    protected abstract ApnsPayloadBuilder getBuilder();
-
     @BeforeEach
     public void setUp() {
-        this.builder = getBuilder();
+        this.builder = new ApnsPayloadBuilder();
     }
 
     @Test
