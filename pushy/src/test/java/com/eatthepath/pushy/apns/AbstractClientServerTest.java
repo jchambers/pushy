@@ -27,7 +27,6 @@ import com.eatthepath.pushy.apns.auth.ApnsVerificationKey;
 import com.eatthepath.pushy.apns.auth.KeyPairUtil;
 import com.eatthepath.pushy.apns.server.*;
 import com.eatthepath.pushy.apns.util.ApnsPayloadBuilder;
-import com.eatthepath.pushy.apns.util.SimpleApnsPayloadBuilder;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.*;
 import org.junit.jupiter.api.AfterAll;
@@ -174,7 +173,7 @@ public class AbstractClientServerTest {
     }
 
     protected static String generateRandomPayload() {
-        final ApnsPayloadBuilder payloadBuilder = new SimpleApnsPayloadBuilder();
+        final ApnsPayloadBuilder payloadBuilder = new ApnsPayloadBuilder();
         payloadBuilder.setAlertBody(UUID.randomUUID().toString());
 
         return payloadBuilder.build();

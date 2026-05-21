@@ -25,7 +25,6 @@ package com.eatthepath.pushy.apns;
 import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
 import com.eatthepath.pushy.apns.proxy.Socks5ProxyHandlerFactory;
 import com.eatthepath.pushy.apns.util.ApnsPayloadBuilder;
-import com.eatthepath.pushy.apns.util.SimpleApnsPayloadBuilder;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import com.eatthepath.pushy.apns.util.TokenUtil;
 import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
@@ -77,7 +76,7 @@ public class ExampleApp {
         final SimpleApnsPushNotification pushNotification;
 
         {
-            final ApnsPayloadBuilder payloadBuilder = new SimpleApnsPayloadBuilder();
+            final ApnsPayloadBuilder payloadBuilder = new ApnsPayloadBuilder();
             payloadBuilder.setAlertBody("Example!");
 
             final String payload = payloadBuilder.build();

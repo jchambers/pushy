@@ -22,12 +22,19 @@
 
 package com.eatthepath.pushy.apns.util;
 
+import com.eatthepath.json.JsonSerializer;
+
 import java.time.Instant;
 import java.util.*;
+import java.util.function.Function;
 
 /**
  * <p>A base utility class for constructing JSON payloads suitable for inclusion in APNs push notifications. Payload
  * builders are reusable, but are <em>not</em> thread-safe.</p>
+ *
+ * <p>{@code ApnsPayloadBuilder} will, by default, use a {@link JsonSerializer} to serialize payloads. Callers may
+ * provide their own serialization functions (see {@link #build(Function)}) in order to serialize payloads with
+ * third-party JSON libraries.</p>
  *
  * @author <a href="https://github.com/jchambers">Jon Chambers</a>
  *
@@ -36,7 +43,7 @@ import java.util.*;
  * @since 0.14.0
  */
 @SuppressWarnings({"UnusedReturnValue", "unused"})
-public abstract class ApnsPayloadBuilder {
+public class ApnsPayloadBuilder {
 
     private String alertBody = null;
 
@@ -886,7 +893,7 @@ public abstract class ApnsPayloadBuilder {
      *
      * @since 0.14.0
      */
-    protected Map<String, Object> buildPayloadMap() {
+    private Map<String, Object> buildPayloadMap() {
         final boolean isLiveActivityPayload = event != null;
 
         final Map<String, Object> payload = new HashMap<>();
@@ -1049,15 +1056,29 @@ public abstract class ApnsPayloadBuilder {
     }
 
     /**
-     * Returns a JSON representation of the push notification payload under construction.
+     * Returns a JSON representation of the push notification payload under construction. This method serializes
+     * payloads using a {@link JsonSerializer}. Please see the documentation for {@link JsonSerializer} for details
+     * about how this payload builder serializes custom properties.
      *
      * @return a JSON representation of the payload under construction
      *
-     * @see #buildPayloadMap()
-     *
      * @since 0.14.0
      */
-    public abstract String build();
+    public String build() {
+        return build(JsonSerializer::writeJsonTextAsString);
+    }
+
+    /**
+     * Returns a JSON representation of the push notification payload under construction using the serialization method
+     * of the caller's choice. Callers may use this method to serialize payloads with third-party JSON libraries.
+     *
+     * @return a JSON representation of the payload under construction
+     *
+     * @since 0.16.0
+     */
+    public String build(final Function<Map<String, Object>, String> buildPayloadFunction) {
+        return buildPayloadFunction.apply(this.buildPayloadMap());
+    }
 
     /**
      * Returns a map representing a
@@ -1072,14 +1093,16 @@ public abstract class ApnsPayloadBuilder {
      *
      * @since 0.14.0
      */
-    protected Map<String, String> buildMdmPayloadMap(final String pushMagicValue) {
+    private Map<String, String> buildMdmPayloadMap(final String pushMagicValue) {
         return Collections.singletonMap(MDM_KEY, pushMagicValue);
     }
 
     /**
      * Returns a JSON representation of a
      * <a href="https://developer.apple.com/library/content/documentation/Miscellaneous/Reference/MobileDeviceManagementProtocolRef/1-Introduction/Introduction.html#//apple_ref/doc/uid/TP40017387-CH1-SW1">Mobile
-     * Device Management</a> "wake up" payload.
+     * Device Management</a> "wake up" payload. This method serializes payloads using a {@link JsonSerializer}. Please
+     * see the documentation for {@link JsonSerializer} for details about how this payload builder serializes custom
+     * properties.
      *
      * @param pushMagicValue the "push magic" string that the device sends to the MDM server in a {@code TokenUpdate}
      * message
@@ -1090,8 +1113,28 @@ public abstract class ApnsPayloadBuilder {
      * Device Management (MDM) Protocol</a>
      *
      * @since 0.14.0
-     *
-     * @see #buildMdmPayloadMap(String)
      */
-    public abstract String buildMdmPayload(final String pushMagicValue);
+    public String buildMdmPayload(final String pushMagicValue) {
+        return buildMdmPayload(pushMagicValue, JsonSerializer::writeJsonTextAsString);
+    }
+
+    /**
+     * Returns a JSON representation of a
+     * <a href="https://developer.apple.com/library/content/documentation/Miscellaneous/Reference/MobileDeviceManagementProtocolRef/1-Introduction/Introduction.html#//apple_ref/doc/uid/TP40017387-CH1-SW1">Mobile
+     * Device Management</a> "wake up" payload. This method uses the serialization method of the caller's choice.
+     * Callers may use this method to serialize payloads with third-party JSON libraries.
+     *
+     * @param pushMagicValue the "push magic" string that the device sends to the MDM server in a {@code TokenUpdate}
+     * message
+     *
+     * @return a JSON representation of an MDM "wake up" notification payload
+     *
+     * @see <a href="https://developer.apple.com/library/content/documentation/Miscellaneous/Reference/MobileDeviceManagementProtocolRef/3-MDM_Protocol/MDM_Protocol.html#//apple_ref/doc/uid/TP40017387-CH3-SW2">Mobile
+     * Device Management (MDM) Protocol</a>
+     *
+     * @since 0.16.0
+     */
+    public String buildMdmPayload(final String pushMagicValue, final Function<Map<String, String>, String> buildPayloadFunction) {
+        return buildPayloadFunction.apply(buildMdmPayloadMap(pushMagicValue));
+    }
 }
