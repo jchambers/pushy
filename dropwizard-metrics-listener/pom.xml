@@ -25,7 +25,6 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>pushy-dropwizard-metrics-listener</artifactId>
-    <version>0.15.5-SNAPSHOT</version>
     <name>Dropwizard Metrics listener for Pushy</name>
     <description>A metrics listener for Pushy that uses the Dropwizard Metrics library for gathering and reporting metrics.</description>
 
@@ -44,7 +43,7 @@
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
             <artifactId>metrics-core</artifactId>
-            <version>4.2.26</version>
+            <version>4.2.38</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -62,8 +61,8 @@
                     <overview>${basedir}/src/main/java/overview.html</overview>
                     <show>public</show>
                     <links>
-                        <link>https://pushy-apns.org/apidocs/0.14/</link>
-                        <link>https://metrics.dropwizard.io/3.1.0/apidocs/</link>
+                        <link>https://pushy-apns.org/apidocs/0.15/</link>
+                        <link>https://www.javadoc.io/doc/io.dropwizard.metrics/metrics-core/4.2.0/</link>
                     </links>
                 </configuration>
             </plugin>
