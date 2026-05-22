@@ -1,0 +1,17 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      minor-actions-dependencies:
+        update-types: [ minor, patch ]
+
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      minor-java-dependencies:
+        update-types: [ minor, patch ]
