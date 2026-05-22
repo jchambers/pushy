@@ -31,14 +31,14 @@
     </parent>
 
     <artifactId>pushy-benchmark</artifactId>
-    <version>0.15.5-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>Pushy benchmarks</name>
 
-    <prerequisites>
-        <maven>3.0</maven>
-    </prerequisites>
+    <properties>
+        <jmh.version>1.37</jmh.version>
+        <uberjar.name>benchmarks</uberjar.name>
+    </properties>
 
     <dependencies>
         <dependency>
@@ -65,16 +65,9 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <version>3.4</version>
+            <version>3.20.0</version>
         </dependency>
     </dependencies>
-
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <jmh.version>1.21</jmh.version>
-        <javac.target>1.8</javac.target>
-        <uberjar.name>benchmarks</uberjar.name>
-    </properties>
 
     <build>
         <plugins>
