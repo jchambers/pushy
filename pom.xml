@@ -132,7 +132,8 @@
                 <plugin>
                     <groupId>org.apache.felix</groupId>
                     <artifactId>maven-bundle-plugin</artifactId>
-                    <version>6.0.2</version>
+                    <!-- Note that version 6.0.0 and later require Java 17 or newer -->
+                    <version>5.1.8</version>
                 </plugin>
 
                 <plugin>
