@@ -17,12 +17,6 @@ jobs:
           - os: macos-latest
             java: 8
         include:
-          # …but test macOS/Java 8 on an old Intel runner instead
-          - os: macos-13
-            java: 8
-            transport: JDK
-            tls: JDK
-
           # Test native transport/TLS provider the most and least recent version of Java on each platform to keep the
           # test matrix manageable. Exhaustive coverage would be best, but ultimately, we're testing somebody else's
           # stuff rather than our own, and we can aim for a representative sample instead.
@@ -30,8 +24,9 @@ jobs:
             java: 8
             transport: native
             tls: native
-          - os: macos-13
-            java: 8
+          # Again, we can't use Java 8 with the latest macOS runners, so we go with the next-earliest version of Java
+          - os: macos-latest
+            java: 11
             transport: native
             tls: native
           - os: ubuntu-latest
