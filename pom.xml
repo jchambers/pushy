@@ -69,13 +69,6 @@
         <url>https://github.com/jchambers</url>
     </organization>
 
-    <distributionManagement>
-        <snapshotRepository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
-    </distributionManagement>
-
     <modules>
         <module>pushy</module>
         <module>benchmark</module>
