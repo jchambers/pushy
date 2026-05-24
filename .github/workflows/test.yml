@@ -7,29 +7,58 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-22.04, macos-latest]
-        java: [8, 17, 21]
-        transport: [native, JDK]
-        tls: [native, JDK]
+        # Test JDK transport/TLS provider for all LTS versions of Java on the latest Ubuntu and macOS runners
+        os: [ubuntu-latest, macos-latest]
+        java: [8, 11, 17, 21, 25]
+        transport: [JDK]
+        tls: [JDK]
+        exclude:
+          # The macos-14 (and presumably newer) runners are using arm64, and Temurin doesn't support Java 8 on arm64
+          - os: macos-latest
+            java: 8
+        include:
+          # Test native transport/TLS provider the most and least recent version of Java on each platform to keep the
+          # test matrix manageable. Exhaustive coverage would be best, but ultimately, we're testing somebody else's
+          # stuff rather than our own, and we can aim for a representative sample instead.
+          - os: ubuntu-latest
+            java: 8
+            transport: native
+            tls: native
+          # Again, we can't use Java 8 with the latest macOS runners, so we go with the next-earliest version of Java
+          - os: macos-latest
+            java: 11
+            transport: native
+            tls: native
+          - os: ubuntu-latest
+            java: 25
+            transport: native
+            tls: native
+          - os: macos-latest
+            java: 25
+            transport: native
+            tls: native
       fail-fast: false
     name: JDK ${{ matrix.java }}, ${{ matrix.os }}, ${{ matrix.transport }} transport, ${{ matrix.tls }} SSL provider
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
     - name: Set up JDK
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
       with:
         distribution: temurin
         java-version: ${{ matrix.java }}
+
     - name: Cache local Maven repository
-      uses: actions/cache@v3
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
         path: ~/.m2/repository
         key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
         restore-keys: |
           ${{ runner.os }}-maven-
+
     - name: Test with Maven
       env:
         PUSHY_TEST_TRANSPORT: ${{ matrix.transport }}
         PUSHY_TEST_SSL_PROVIDER: ${{ matrix.tls }}
-      run: mvn verify -B --file pom.xml
+      run: ./mvnw verify -B --file pom.xml
