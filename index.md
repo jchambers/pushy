@@ -24,15 +24,15 @@ If you use [Maven](http://maven.apache.org/), you can add Pushy to your project 
 <dependency>
     <groupId>com.eatthepath</groupId>
     <artifactId>pushy</artifactId>
-    <version>0.15.4</version>
+    <version>0.15.6</version>
 </dependency>
 ```
 
-If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/jchambers/pushy/releases/download/pushy-0.15.4/pushy-0.15.4.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
+If you don't use Maven (or something else that understands Maven dependencies, like Gradle), you can [download Pushy as a `.jar` file](https://github.com/jchambers/pushy/releases/download/pushy-0.15.6/pushy-0.15.6.jar) and add it to your project directly. You'll also need to make sure you have Pushy's runtime dependencies on your classpath. They are:
 
-- [netty 4.1.104](http://netty.io/)
-- [slf4j 1.7](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
-- [fast-uuid 0.1](https://github.com/jchambers/fast-uuid)
+- [netty 4.1.133](http://netty.io/)
+- [slf4j 2.0.18](http://www.slf4j.org/) (and possibly an SLF4J binding, as described in the [logging](#logging) section below)
+- [fast-uuid 0.2](https://github.com/jchambers/fast-uuid)
 
 Pushy itself requires Java 8 or newer to build and run. While not required, users may choose to use [netty-native](http://netty.io/wiki/forked-tomcat-native.html) as an SSL provider for enhanced performance. To use a native provider, make sure netty-tcnative is on your classpath. Maven users may add a dependency to their project as follows:
 
@@ -40,7 +40,7 @@ Pushy itself requires Java 8 or newer to build and run. While not required, user
 <dependency>
     <groupId>io.netty</groupId>
     <artifactId>netty-tcnative-boringssl-static</artifactId>
-    <version>2.0.62.Final</version>
+    <version>2.0.77.Final</version>
     <scope>runtime</scope>
 </dependency>
 ```
@@ -244,4 +244,4 @@ Callers may also provide a [`MockApnsServerListener`](https://pushy-apns.org/api
 
 Pushy is available under the [MIT License](https://github.com/jchambers/pushy/blob/master/LICENSE.md).
 
-The current version of Pushy is 0.15.4. It's fully functional and widely used in production environments, but the public API may change significantly before a 1.0 release.
+The current version of Pushy is 0.15.6. It's fully functional and widely used in production environments, but the public API may change significantly before a 1.0 release.
