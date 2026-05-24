@@ -26,14 +26,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>pushy-gson-payload-builder</artifactId>
-    <version>0.15.4</version>
     <name>Gson APNs payload builder for Pushy</name>
     <description>A payload builder for Pushy that uses Gson to serialize payloads.</description>
 
     <parent>
         <artifactId>pushy-parent</artifactId>
         <groupId>com.eatthepath</groupId>
-        <version>0.15.4</version>
+        <version>0.15.5-SNAPSHOT</version>
     </parent>
 
     <dependencies>
@@ -45,11 +44,11 @@
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
-            <version>2.9.0</version>
+            <version>2.14.0</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-engine</artifactId>
+            <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -71,8 +70,8 @@
                     <overview>${basedir}/src/main/java/overview.html</overview>
                     <show>public</show>
                     <links>
-                        <link>https://www.javadoc.io/doc/com.google.code.gson/gson/2.8.0/</link>
-                        <link>https://pushy-apns.org/apidocs/0.14/</link>
+                        <link>https://www.javadoc.io/doc/com.google.code.gson/gson/2.14.0/</link>
+                        <link>https://pushy-apns.org/apidocs/0.15/</link>
                     </links>
                 </configuration>
             </plugin>

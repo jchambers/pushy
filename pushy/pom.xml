@@ -25,14 +25,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>pushy</artifactId>
-    <version>0.15.4</version>
     <packaging>bundle</packaging>
     <name>Pushy</name>
 
     <parent>
         <groupId>com.eatthepath</groupId>
         <artifactId>pushy-parent</artifactId>
-        <version>0.15.4</version>
+        <version>0.15.5-SNAPSHOT</version>
     </parent>
 
     <dependencies>
@@ -59,17 +58,7 @@
         <!-- Test dependencies -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-engine</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-params</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.platform</groupId>
-            <artifactId>junit-platform-launcher</artifactId>
+            <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -119,7 +108,6 @@
             <plugin>
                 <groupId>org.apache.felix</groupId>
                 <artifactId>maven-bundle-plugin</artifactId>
-                <version>5.1.2</version>
                 <extensions>true</extensions>
                 <configuration>
                     <instructions>
@@ -143,7 +131,6 @@
                     <overview>${basedir}/src/main/java/overview.html</overview>
                     <show>public</show>
                     <links>
-                        <link>https://docs.oracle.com/javase/8/docs/api/</link>
                         <link>https://netty.io/4.1/api/</link>
                     </links>
                 </configuration>
