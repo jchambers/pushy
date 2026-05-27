@@ -24,7 +24,6 @@ package com.eatthepath.pushy.apns.server;
 
 import com.eatthepath.pushy.apns.DeliveryPriority;
 import com.eatthepath.pushy.apns.PushType;
-import com.eatthepath.uuid.FastUUID;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http2.Http2Headers;
@@ -34,6 +33,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -66,7 +66,7 @@ abstract class ValidatingPushNotificationHandler implements PushNotificationHand
             final CharSequence apnsIdSequence = headers.get(APNS_ID_HEADER);
 
             if (apnsIdSequence != null) {
-                FastUUID.parseUUID(apnsIdSequence);
+                UUID.fromString(apnsIdSequence.toString());
             }
         } catch (final IllegalArgumentException e) {
             throw new RejectedNotificationException(RejectionReason.BAD_MESSAGE_ID);

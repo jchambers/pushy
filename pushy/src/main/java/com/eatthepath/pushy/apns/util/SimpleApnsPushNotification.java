@@ -25,7 +25,6 @@ package com.eatthepath.pushy.apns.util;
 import com.eatthepath.pushy.apns.ApnsPushNotification;
 import com.eatthepath.pushy.apns.DeliveryPriority;
 import com.eatthepath.pushy.apns.PushType;
-import com.eatthepath.uuid.FastUUID;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -325,7 +324,7 @@ public class SimpleApnsPushNotification implements ApnsPushNotification {
                 ", pushType=" + pushType +
                 ", topic='" + topic + '\'' +
                 ", collapseId='" + collapseId + '\'' +
-                ", apnsId=" + (apnsId != null ? FastUUID.toString(apnsId) : null) +
+                ", apnsId=" + apnsId +
                 '}';
     }
 }

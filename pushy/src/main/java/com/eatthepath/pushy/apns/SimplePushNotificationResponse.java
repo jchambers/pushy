@@ -22,8 +22,6 @@
 
 package com.eatthepath.pushy.apns;
 
-import com.eatthepath.uuid.FastUUID;
-
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -92,8 +90,8 @@ class SimplePushNotificationResponse<T extends ApnsPushNotification> implements 
         return "SimplePushNotificationResponse{" +
                 "pushNotification=" + pushNotification +
                 ", success=" + success +
-                ", apnsId=" + (apnsId != null ? FastUUID.toString(apnsId) : null) +
-                ", apnsUniqueId=" + getApnsUniqueId().map(FastUUID::toString).orElse(null) +
+                ", apnsId=" + apnsId +
+                ", apnsUniqueId=" + getApnsUniqueId() +
                 ", rejectionReason='" + rejectionReason + '\'' +
                 ", tokenExpirationTimestamp=" + tokenExpirationTimestamp +
                 '}';

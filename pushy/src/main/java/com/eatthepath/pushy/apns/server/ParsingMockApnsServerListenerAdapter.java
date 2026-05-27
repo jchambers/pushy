@@ -25,7 +25,6 @@ package com.eatthepath.pushy.apns.server;
 import com.eatthepath.pushy.apns.ApnsPushNotification;
 import com.eatthepath.pushy.apns.DeliveryPriority;
 import com.eatthepath.pushy.apns.PushType;
-import com.eatthepath.uuid.FastUUID;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.AsciiString;
@@ -173,7 +172,7 @@ public abstract class ParsingMockApnsServerListenerAdapter implements MockApnsSe
             UUID apnsIdFromHeaders;
 
             try {
-                apnsIdFromHeaders = apnsIdSequence != null ? FastUUID.parseUUID(apnsIdSequence) : null;
+                apnsIdFromHeaders = apnsIdSequence != null ? UUID.fromString(apnsIdSequence.toString()) : null;
             } catch (final IllegalArgumentException e) {
                 log.error("Failed to parse `apns-id` header: {}", apnsIdSequence, e);
                 apnsIdFromHeaders = null;

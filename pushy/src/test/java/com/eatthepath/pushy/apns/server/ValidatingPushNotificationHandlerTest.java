@@ -23,7 +23,6 @@
 package com.eatthepath.pushy.apns.server;
 
 import com.eatthepath.pushy.apns.DeliveryPriority;
-import com.eatthepath.uuid.FastUUID;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.handler.codec.http.HttpMethod;
@@ -38,7 +37,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.*;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public abstract class ValidatingPushNotificationHandlerTest {
 
