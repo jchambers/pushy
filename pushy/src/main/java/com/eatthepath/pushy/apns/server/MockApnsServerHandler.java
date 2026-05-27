@@ -23,7 +23,6 @@
 package com.eatthepath.pushy.apns.server;
 
 import com.eatthepath.json.JsonSerializer;
-import com.eatthepath.uuid.FastUUID;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
@@ -277,7 +276,7 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             UUID apnsIdFromHeaders;
 
             try {
-                apnsIdFromHeaders = apnsIdSequence != null ? FastUUID.parseUUID(apnsIdSequence) : UUID.randomUUID();
+                apnsIdFromHeaders = apnsIdSequence != null ? UUID.fromString(apnsIdSequence.toString()) : UUID.randomUUID();
             } catch (final IllegalArgumentException e) {
                 log.error("Failed to parse `apns-id` header: {}", apnsIdSequence, e);
                 apnsIdFromHeaders = UUID.randomUUID();
@@ -318,10 +317,10 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
 
             final Http2Headers headers = new DefaultHttp2Headers()
                     .status(HttpResponseStatus.OK.codeAsText())
-                    .add(APNS_ID_HEADER, FastUUID.toString(acceptNotificationResponse.getApnsId()));
+                    .add(APNS_ID_HEADER, acceptNotificationResponse.getApnsId().toString());
 
             acceptNotificationResponse.getApnsUniqueId()
-                    .ifPresent(apnsUniqueId -> headers.add(APNS_UNIQUE_ID_HEADER, FastUUID.toString(apnsUniqueId)));
+                    .ifPresent(apnsUniqueId -> headers.add(APNS_UNIQUE_ID_HEADER, apnsUniqueId.toString()));
 
             this.encoder().writeHeaders(context, acceptNotificationResponse.getStreamId(), headers, 0, true, writePromise);
 
@@ -332,10 +331,10 @@ class MockApnsServerHandler extends Http2ConnectionHandler implements Http2Frame
             final Http2Headers headers = new DefaultHttp2Headers()
                     .status(rejectNotificationResponse.getErrorReason().getHttpResponseStatus().codeAsText())
                     .add(HttpHeaderNames.CONTENT_TYPE, "application/json")
-                    .add(APNS_ID_HEADER, FastUUID.toString(rejectNotificationResponse.getApnsId()));
+                    .add(APNS_ID_HEADER, rejectNotificationResponse.getApnsId().toString());
 
             rejectNotificationResponse.getApnsUniqueId()
-                    .ifPresent(apnsUniqueId -> headers.add(APNS_UNIQUE_ID_HEADER, FastUUID.toString(apnsUniqueId)));
+                    .ifPresent(apnsUniqueId -> headers.add(APNS_UNIQUE_ID_HEADER, apnsUniqueId.toString()));
 
             final byte[] payloadBytes;
             {

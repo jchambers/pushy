@@ -24,7 +24,6 @@ package com.eatthepath.pushy.apns;
 
 import com.eatthepath.json.JsonParser;
 import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
-import com.eatthepath.uuid.FastUUID;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
@@ -236,7 +235,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         }
 
         if (pushNotification.getApnsId() != null) {
-            headers.add(APNS_ID_HEADER, FastUUID.toString(pushNotification.getApnsId()));
+            headers.add(APNS_ID_HEADER, pushNotification.getApnsId().toString());
         }
 
         return headers;
@@ -338,7 +337,7 @@ class ApnsClientHandler extends Http2ConnectionHandler implements Http2FrameList
         final CharSequence uuidSequence = headers.get(header);
 
         try {
-            return uuidSequence != null ? FastUUID.parseUUID(uuidSequence) : null;
+            return uuidSequence != null ? UUID.fromString(uuidSequence.toString()) : null;
         } catch (final IllegalArgumentException e) {
             log.error("Failed to parse `{}` header: {}", header, uuidSequence, e);
             return null;
