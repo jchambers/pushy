@@ -26,7 +26,7 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.DefaultChannelGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.nio.NioIoHandler;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
@@ -76,13 +76,13 @@ abstract class BaseHttp2Server {
             this.bootstrap.group(eventLoopGroup);
             this.shouldShutDownEventLoopGroup = false;
         } else {
-            this.bootstrap.group(new NioEventLoopGroup(1));
+            this.bootstrap.group(new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory()));
             this.shouldShutDownEventLoopGroup = true;
         }
 
         this.allChannels = new DefaultChannelGroup(this.bootstrap.config().group().next());
 
-        this.bootstrap.channel(ServerChannelClassUtil.getServerSocketChannelClass(this.bootstrap.config().group()));
+        this.bootstrap.channel(ServerChannelClassUtil.getServerSocketChannelClass((IoEventLoopGroup) this.bootstrap.config().group()));
         this.bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
 
             @Override

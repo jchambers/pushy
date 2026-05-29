@@ -28,7 +28,9 @@ import com.eatthepath.pushy.apns.auth.ApnsVerificationKey;
 import com.eatthepath.pushy.apns.auth.KeyPairUtil;
 import com.eatthepath.pushy.apns.server.*;
 import com.eatthepath.pushy.apns.util.ApnsPayloadBuilder;
-import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.IoEventLoopGroup;
+import io.netty.channel.MultiThreadIoEventLoopGroup;
+import io.netty.channel.nio.NioIoHandler;
 import io.netty.util.concurrent.*;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -47,7 +49,7 @@ import java.util.*;
 public class AbstractClientServerTest {
 
     protected static ApnsClientResources CLIENT_RESOURCES;
-    protected static NioEventLoopGroup SERVER_EVENT_LOOP_GROUP;
+    protected static IoEventLoopGroup SERVER_EVENT_LOOP_GROUP;
     protected static ApnsTestCertificates TEST_CERTIFICATES;
 
     protected static final String HOST = "localhost";
@@ -72,8 +74,8 @@ public class AbstractClientServerTest {
 
     @BeforeAll
     public static void setUpBeforeClass() throws Exception {
-        CLIENT_RESOURCES = new ApnsClientResources(new NioEventLoopGroup(2));
-        SERVER_EVENT_LOOP_GROUP = new NioEventLoopGroup(2);
+        CLIENT_RESOURCES = new ApnsClientResources(new MultiThreadIoEventLoopGroup(2, NioIoHandler.newFactory()));
+        SERVER_EVENT_LOOP_GROUP = new MultiThreadIoEventLoopGroup(2, NioIoHandler.newFactory());
 
         TEST_CERTIFICATES = new ApnsTestCertificates();
     }
@@ -146,7 +148,7 @@ public class AbstractClientServerTest {
                 .setServerCredentials(TEST_CERTIFICATES.getTrustedServerCertificateBundle().getCertificatePathWithRoot(),
                     TEST_CERTIFICATES.getTrustedServerCertificateBundle().getKeyPair().getPrivate())
                 .setTrustedClientCertificateChain(TEST_CERTIFICATES.getCaBundle().getCertificate())
-                .setEventLoopGroup(SERVER_EVENT_LOOP_GROUP)
+                .setIoEventLoopGroup(SERVER_EVENT_LOOP_GROUP)
                 .setHandlerFactory(handlerFactory)
                 .setListener(listener)
                 .generateApnsUniqueId(generateApnsUniqueId)

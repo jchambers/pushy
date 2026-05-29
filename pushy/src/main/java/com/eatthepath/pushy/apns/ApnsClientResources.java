@@ -1,6 +1,6 @@
 package com.eatthepath.pushy.apns;
 
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.IoEventLoopGroup;
 import io.netty.resolver.dns.DefaultDnsServerAddressStreamProvider;
 import io.netty.resolver.dns.RoundRobinDnsAddressResolverGroup;
 import io.netty.util.concurrent.Future;
@@ -19,20 +19,20 @@ import java.util.Objects;
  */
 public class ApnsClientResources {
 
-  private final EventLoopGroup eventLoopGroup;
+  private final IoEventLoopGroup ioEventLoopGroup;
   private final RoundRobinDnsAddressResolverGroup roundRobinDnsAddressResolverGroup;
 
   /**
    * Constructs a new set of client resources that uses the given default event loop group. Clients that use this
    * resource set will use the given event loop group for IO operations.
    *
-   * @param eventLoopGroup the event loop group for this set of resources
+   * @param ioEventLoopGroup the event loop group for this set of resources
    */
-  public ApnsClientResources(final EventLoopGroup eventLoopGroup) {
-    this.eventLoopGroup = Objects.requireNonNull(eventLoopGroup);
+  public ApnsClientResources(final IoEventLoopGroup ioEventLoopGroup) {
+    this.ioEventLoopGroup = Objects.requireNonNull(ioEventLoopGroup);
 
     this.roundRobinDnsAddressResolverGroup = new RoundRobinDnsAddressResolverGroup(
-        ClientChannelClassUtil.getDatagramChannelClass(eventLoopGroup),
+        ClientChannelClassUtil.getDatagramChannelClass(ioEventLoopGroup),
         DefaultDnsServerAddressStreamProvider.INSTANCE);
   }
 
@@ -41,8 +41,8 @@ public class ApnsClientResources {
    *
    * @return the event loop group for this resource set
    */
-  public EventLoopGroup getEventLoopGroup() {
-    return eventLoopGroup;
+  public IoEventLoopGroup getIoEventLoopGroup() {
+    return ioEventLoopGroup;
   }
 
   /**
@@ -65,6 +65,6 @@ public class ApnsClientResources {
    */
   public Future<?> shutdownGracefully() {
     roundRobinDnsAddressResolverGroup.close();
-    return eventLoopGroup.shutdownGracefully();
+    return ioEventLoopGroup.shutdownGracefully();
   }
 }

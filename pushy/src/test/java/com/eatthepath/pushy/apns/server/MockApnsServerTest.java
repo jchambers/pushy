@@ -24,7 +24,9 @@ package com.eatthepath.pushy.apns.server;
 
 import com.eatthepath.pushy.apns.*;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
-import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.IoEventLoopGroup;
+import io.netty.channel.MultiThreadIoEventLoopGroup;
+import io.netty.channel.nio.NioIoHandler;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -105,7 +107,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
 
     @Test
     void testShutdownWithProvidedEventLoopGroup() throws Exception {
-        final NioEventLoopGroup eventLoopGroup = new NioEventLoopGroup(1);
+        final IoEventLoopGroup ioEventLoopGroup = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
 
         try {
 
@@ -113,15 +115,15 @@ public class MockApnsServerTest extends AbstractClientServerTest {
                 .setServerCredentials(TEST_CERTIFICATES.getTrustedServerCertificateBundle().getCertificatePathWithRoot(),
                     TEST_CERTIFICATES.getTrustedServerCertificateBundle().getKeyPair().getPrivate())
                     .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
-                    .setEventLoopGroup(eventLoopGroup)
+                    .setIoEventLoopGroup(ioEventLoopGroup)
                     .build();
 
             assertDoesNotThrow(() -> providedGroupServer.start(PORT).get());
             assertDoesNotThrow(() -> providedGroupServer.shutdown().get());
 
-            assertFalse(eventLoopGroup.isShutdown());
+            assertFalse(ioEventLoopGroup.isShutdown());
         } finally {
-            eventLoopGroup.shutdownGracefully().await();
+            ioEventLoopGroup.shutdownGracefully().await();
         }
     }
 
@@ -137,14 +139,14 @@ public class MockApnsServerTest extends AbstractClientServerTest {
         // TODO Remove this assumption when https://github.com/netty/netty/issues/8697 gets resolved
         assumeTrue(javaVersion < 11);
 
-        final NioEventLoopGroup eventLoopGroup = new NioEventLoopGroup(1);
+        final IoEventLoopGroup ioEventLoopGroup = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
 
         try {
             final MockApnsServer providedGroupServer = new MockApnsServerBuilder()
                 .setServerCredentials(TEST_CERTIFICATES.getTrustedServerCertificateBundle().getCertificatePathWithRoot(),
                     TEST_CERTIFICATES.getTrustedServerCertificateBundle().getKeyPair().getPrivate())
                 .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
-                .setEventLoopGroup(eventLoopGroup)
+                .setIoEventLoopGroup(ioEventLoopGroup)
                 .build();
 
             assertDoesNotThrow(() -> providedGroupServer.start(PORT).get());
@@ -153,7 +155,7 @@ public class MockApnsServerTest extends AbstractClientServerTest {
             assertDoesNotThrow(() -> providedGroupServer.start(PORT).get());
             assertDoesNotThrow(() -> providedGroupServer.shutdown().get());
         } finally {
-            eventLoopGroup.shutdownGracefully().await();
+            ioEventLoopGroup.shutdownGracefully().await();
         }
     }
 

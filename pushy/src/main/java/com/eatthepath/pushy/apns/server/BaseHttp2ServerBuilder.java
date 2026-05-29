@@ -22,7 +22,7 @@
 
 package com.eatthepath.pushy.apns.server;
 
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.IoEventLoopGroup;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.ssl.*;
 import io.netty.util.ReferenceCounted;
@@ -53,7 +53,7 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
     protected InputStream trustedClientCertificateInputStream;
     protected X509Certificate[] trustedClientCertificates;
 
-    protected EventLoopGroup eventLoopGroup;
+    protected IoEventLoopGroup ioEventLoopGroup;
 
     protected int maxConcurrentStreams = DEFAULT_MAX_CONCURRENT_STREAMS;
 
@@ -231,15 +231,15 @@ abstract class BaseHttp2ServerBuilder <T extends BaseHttp2Server> {
      * <p>Sets the event loop group to be used by the server under construction. If not set (or if {@code null}), the
      * server will create and manage its own event loop group.</p>
      *
-     * @param eventLoopGroup the event loop group to use for this server, or {@code null} to let the server manage its
+     * @param ioEventLoopGroup the event loop group to use for this server, or {@code null} to let the server manage its
      * own event loop group
      *
      * @return a reference to this builder
      *
      * @since 0.8
      */
-    public BaseHttp2ServerBuilder<T> setEventLoopGroup(final EventLoopGroup eventLoopGroup) {
-        this.eventLoopGroup = eventLoopGroup;
+    public BaseHttp2ServerBuilder<T> setIoEventLoopGroup(final IoEventLoopGroup ioEventLoopGroup) {
+        this.ioEventLoopGroup = ioEventLoopGroup;
         return this;
     }
 

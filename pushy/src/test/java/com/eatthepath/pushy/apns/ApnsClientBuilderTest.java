@@ -24,18 +24,21 @@ package com.eatthepath.pushy.apns;
 
 import com.eatthepath.ApnsTestCertificates;
 import com.eatthepath.pushy.apns.auth.ApnsSigningKey;
-import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.MultiThreadIoEventLoopGroup;
+import io.netty.channel.nio.NioIoHandler;
 import io.netty.pkitesting.X509Bundle;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.io.*;
+import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
-import java.security.*;
-import java.security.KeyStore.PrivateKeyEntry;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
+import java.security.InvalidKeyException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.ECPrivateKey;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -51,7 +54,7 @@ public class ApnsClientBuilderTest {
     @BeforeAll
     public static void setUpBeforeClass() throws Exception {
         TEST_CERTIFICATES = new ApnsTestCertificates();
-        CLIENT_RESOURCES = new ApnsClientResources(new NioEventLoopGroup(1));
+        CLIENT_RESOURCES = new ApnsClientResources(new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory()));
     }
 
     @AfterAll

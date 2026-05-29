@@ -269,7 +269,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
                 .setServerCredentials(TEST_CERTIFICATES.getUntrustedServerCertificateBundle().getCertificatePathWithRoot(),
                     TEST_CERTIFICATES.getUntrustedServerCertificateBundle().getKeyPair().getPrivate())
                 .setTrustedClientCertificateChain(TEST_CERTIFICATES.getCaBundle().getCertificate())
-                .setEventLoopGroup(SERVER_EVENT_LOOP_GROUP)
+                .setIoEventLoopGroup(SERVER_EVENT_LOOP_GROUP)
                 .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
                 .build();
 
@@ -306,7 +306,7 @@ public class ApnsClientTest extends AbstractClientServerTest {
                 .setServerCredentials(TEST_CERTIFICATES.getUntrustedServerCertificateBundle().getCertificatePathWithRoot(),
                     TEST_CERTIFICATES.getUntrustedServerCertificateBundle().getKeyPair().getPrivate())
                 .setTrustedClientCertificateChain(TEST_CERTIFICATES.getCaBundle().getCertificate())
-                .setEventLoopGroup(SERVER_EVENT_LOOP_GROUP)
+                .setIoEventLoopGroup(SERVER_EVENT_LOOP_GROUP)
                 .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
                 .build();
 

@@ -120,7 +120,7 @@ public class ApnsClientBenchmark {
         this.server = new BenchmarkApnsServerBuilder()
                 .setServerCredentials(SERVER_CERTIFICATE_BUNDLE.getCertificatePathWithRoot(), SERVER_CERTIFICATE_BUNDLE.getKeyPair().getPrivate())
                 .setTrustedClientCertificateChain(CA_BUNDLE.getCertificate())
-                .setEventLoopGroup(this.serverEventLoopGroup)
+                .setIoEventLoopGroup(this.serverEventLoopGroup)
                 .build();
 
         this.pushNotifications = new ArrayList<>(this.notificationCount);
