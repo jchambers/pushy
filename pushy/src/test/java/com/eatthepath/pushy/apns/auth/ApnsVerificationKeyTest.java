@@ -22,14 +22,38 @@
 
 package com.eatthepath.pushy.apns.auth;
 
-import java.io.IOException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
+import org.junit.jupiter.api.Test;
 
-public class ApnsVerificationKeyTest extends ApnsKeyTest {
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.interfaces.ECPublicKey;
+import java.util.Base64;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+
+class ApnsVerificationKeyTest extends ApnsKeyTest {
 
     @Override
-    protected ApnsKey getApnsKey() throws NoSuchAlgorithmException, InvalidKeyException, IOException {
-        return ApnsVerificationKey.loadFromInputStream(this.getClass().getResourceAsStream("/token-auth-public-key.p8"), "Team ID", "Key ID");
+    protected ApnsKey getApnsKey() throws NoSuchAlgorithmException, InvalidKeyException {
+        return new ApnsVerificationKey("Key ID", "Team ID",
+            (ECPublicKey) KeyPairGenerator.getInstance("EC").generateKeyPair().getPublic());
+    }
+
+    @Test
+    void loadFromInputStream() throws IOException, NoSuchAlgorithmException {
+        final ECPublicKey publicKey =
+            (ECPublicKey) KeyPairGenerator.getInstance("EC").generateKeyPair().getPublic();
+
+        final String pkcs8EncodedKey = "-----BEGIN PUBLIC KEY-----\r\n" +
+            Base64.getMimeEncoder().encodeToString(publicKey.getEncoded()) +
+            "\r\n-----END PUBLIC KEY-----\r\n";
+
+        try (final ByteArrayInputStream keyInputStream = new ByteArrayInputStream(pkcs8EncodedKey.getBytes(StandardCharsets.UTF_8))) {
+            assertDoesNotThrow(() -> ApnsVerificationKey.loadFromInputStream(keyInputStream, "Team ID", "Key ID"));
+        }
     }
 }

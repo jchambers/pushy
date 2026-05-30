@@ -22,7 +22,9 @@
 
 package com.eatthepath.pushy.apns;
 
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.Channel;
+import io.netty.channel.IoEventLoopGroup;
+import io.netty.channel.IoHandler;
 import io.netty.channel.socket.DatagramChannel;
 import io.netty.channel.socket.SocketChannel;
 
@@ -36,64 +38,66 @@ class ClientChannelClassUtil {
     private static final Map<String, String> DATAGRAM_CHANNEL_CLASSES = new HashMap<>();
 
     static {
-        SOCKET_CHANNEL_CLASSES.put("io.netty.channel.nio.NioEventLoopGroup", "io.netty.channel.socket.nio.NioSocketChannel");
-        SOCKET_CHANNEL_CLASSES.put("io.netty.channel.epoll.EpollEventLoopGroup", "io.netty.channel.epoll.EpollSocketChannel");
-        SOCKET_CHANNEL_CLASSES.put("io.netty.channel.kqueue.KQueueEventLoopGroup", "io.netty.channel.kqueue.KQueueSocketChannel");
+        SOCKET_CHANNEL_CLASSES.put("io.netty.channel.nio.NioIoHandler", "io.netty.channel.socket.nio.NioSocketChannel");
+        SOCKET_CHANNEL_CLASSES.put("io.netty.channel.uring.IoUringIoHandler", "io.netty.channel.uring.IoUringSocketChannel");
+        SOCKET_CHANNEL_CLASSES.put("io.netty.channel.epoll.EpollIoHandler", "io.netty.channel.epoll.EpollSocketChannel");
+        SOCKET_CHANNEL_CLASSES.put("io.netty.channel.kqueue.KQueueIoHandler", "io.netty.channel.kqueue.KQueueSocketChannel");
 
-        DATAGRAM_CHANNEL_CLASSES.put("io.netty.channel.nio.NioEventLoopGroup", "io.netty.channel.socket.nio.NioDatagramChannel");
-        DATAGRAM_CHANNEL_CLASSES.put("io.netty.channel.epoll.EpollEventLoopGroup", "io.netty.channel.epoll.EpollDatagramChannel");
-        DATAGRAM_CHANNEL_CLASSES.put("io.netty.channel.kqueue.KQueueEventLoopGroup", "io.netty.channel.kqueue.KQueueDatagramChannel");
+        DATAGRAM_CHANNEL_CLASSES.put("io.netty.channel.nio.NioIoHandler", "io.netty.channel.socket.nio.NioDatagramChannel");
+        DATAGRAM_CHANNEL_CLASSES.put("io.netty.channel.uring.IoUringIoHandler", "io.netty.channel.uring.IoUringDatagramChannel");
+        DATAGRAM_CHANNEL_CLASSES.put("io.netty.channel.epoll.EpollIoHandler", "io.netty.channel.epoll.EpollDatagramChannel");
+        DATAGRAM_CHANNEL_CLASSES.put("io.netty.channel.kqueue.KQueueIoHandler", "io.netty.channel.kqueue.KQueueDatagramChannel");
     }
 
     /**
      * Returns a socket channel class suitable for specified event loop group.
      *
-     * @param eventLoopGroup the event loop group for which to identify an appropriate socket channel class; must not
+     * @param ioEventLoopGroup the event loop group for which to identify an appropriate socket channel class; must not
      * be {@code null}
      *
      * @return a socket channel class suitable for use with the given event loop group
      *
-     * @throws IllegalArgumentException in case of null or unrecognized event loop group
+     * @throws IllegalArgumentException if no suitable socket channel class could be found for the given event loop
+     * group
+     * @throws NullPointerException if the given {@code ioEventLoopGroup} was {@code null}
      */
-    static Class<? extends SocketChannel> getSocketChannelClass(final EventLoopGroup eventLoopGroup) {
-        Objects.requireNonNull(eventLoopGroup);
-
-        final String socketChannelClassName = SOCKET_CHANNEL_CLASSES.get(eventLoopGroup.getClass().getName());
-
-        if (socketChannelClassName == null) {
-            throw new IllegalArgumentException("No socket channel class found for event loop group type: " + eventLoopGroup.getClass().getName());
-        }
-
-        try {
-            return Class.forName(socketChannelClassName).asSubclass(SocketChannel.class);
-        } catch (final ClassNotFoundException e) {
-            throw new IllegalArgumentException(e);
-        }
+    static Class<? extends SocketChannel> getSocketChannelClass(final IoEventLoopGroup ioEventLoopGroup) {
+        return getChannelClass(Objects.requireNonNull(ioEventLoopGroup), SOCKET_CHANNEL_CLASSES, SocketChannel.class);
     }
 
     /**
      * Returns a datagram channel class suitable for specified event loop group.
      *
-     * @param eventLoopGroup the event loop group for which to identify an appropriate datagram channel class; must not
-     * be {@code null}
+     * @param ioEventLoopGroup the event loop group for which to identify an appropriate datagram channel class; must
+     * not be {@code null}
      *
      * @return a datagram channel class suitable for use with the given event loop group
      *
-     * @throws IllegalArgumentException in case of null or unrecognized event loop group
+     * @throws IllegalArgumentException if no suitable datagram channel class could be found for the given event loop
+     * group
+     * @throws NullPointerException if the given {@code ioEventLoopGroup} was {@code null}
      */
-    static Class<? extends DatagramChannel> getDatagramChannelClass(final EventLoopGroup eventLoopGroup) {
-        Objects.requireNonNull(eventLoopGroup);
+    static Class<? extends DatagramChannel> getDatagramChannelClass(final IoEventLoopGroup ioEventLoopGroup) {
+        return getChannelClass(Objects.requireNonNull(ioEventLoopGroup), DATAGRAM_CHANNEL_CLASSES, DatagramChannel.class);
+    }
 
-        final String datagramChannelClassName = DATAGRAM_CHANNEL_CLASSES.get(eventLoopGroup.getClass().getName());
+    private static <C extends Channel> Class<? extends C> getChannelClass(final IoEventLoopGroup ioEventLoopGroup,
+                                                                          final Map<String, String> channelClassesByIoHandlerClass,
+                                                                          final Class<C> channelType) {
 
-        if (datagramChannelClassName == null) {
-            throw new IllegalArgumentException("No datagram channel class found for event loop group type: " + eventLoopGroup.getClass().getName());
+        for (final Map.Entry<String, String> entry : channelClassesByIoHandlerClass.entrySet()) {
+          try {
+            final Class<? extends IoHandler> ioHandlerClass =
+                Class.forName(entry.getKey()).asSubclass(IoHandler.class);
+
+              if (ioEventLoopGroup.isIoType(ioHandlerClass)) {
+                  return Class.forName(entry.getValue()).asSubclass(channelType);
+              }
+          } catch (final ClassNotFoundException e) {
+            continue;
+          }
         }
 
-        try {
-            return Class.forName(datagramChannelClassName).asSubclass(DatagramChannel.class);
-        } catch (final ClassNotFoundException e) {
-            throw new IllegalArgumentException(e);
-        }
+        throw new IllegalArgumentException("No suitable channel class found for event loop group");
     }
 }

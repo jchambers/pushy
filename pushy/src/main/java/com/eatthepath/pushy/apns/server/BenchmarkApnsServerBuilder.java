@@ -22,7 +22,7 @@
 
 package com.eatthepath.pushy.apns.server;
 
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.IoEventLoopGroup;
 import io.netty.handler.ssl.SslContext;
 
 import javax.net.ssl.SSLException;
@@ -82,14 +82,14 @@ public class BenchmarkApnsServerBuilder extends BaseHttp2ServerBuilder<Benchmark
     }
 
     @Override
-    public BenchmarkApnsServerBuilder setTrustedServerCertificateChain(final X509Certificate... certificates) {
-        super.setTrustedServerCertificateChain(certificates);
+    public BenchmarkApnsServerBuilder setTrustedClientCertificateChain(final X509Certificate... certificates) {
+        super.setTrustedClientCertificateChain(certificates);
         return this;
     }
 
     @Override
-    public BenchmarkApnsServerBuilder setEventLoopGroup(final EventLoopGroup eventLoopGroup) {
-        super.setEventLoopGroup(eventLoopGroup);
+    public BenchmarkApnsServerBuilder setIoEventLoopGroup(final IoEventLoopGroup ioEventLoopGroup) {
+        super.setIoEventLoopGroup(ioEventLoopGroup);
         return this;
     }
 
@@ -112,6 +112,6 @@ public class BenchmarkApnsServerBuilder extends BaseHttp2ServerBuilder<Benchmark
 
     @Override
     protected BenchmarkApnsServer constructServer(final SslContext sslContext) {
-        return new BenchmarkApnsServer(sslContext, this.eventLoopGroup, this.maxConcurrentStreams);
+        return new BenchmarkApnsServer(sslContext, this.ioEventLoopGroup, this.maxConcurrentStreams);
     }
 }

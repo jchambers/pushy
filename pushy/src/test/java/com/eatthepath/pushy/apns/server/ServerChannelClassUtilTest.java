@@ -22,61 +22,152 @@
 
 package com.eatthepath.pushy.apns.server;
 
+import io.netty.channel.IoEventLoopGroup;
+import io.netty.channel.MultiThreadIoEventLoopGroup;
 import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.epoll.EpollIoHandler;
 import io.netty.channel.epoll.EpollServerSocketChannel;
 import io.netty.channel.kqueue.KQueue;
 import io.netty.channel.kqueue.KQueueEventLoopGroup;
+import io.netty.channel.kqueue.KQueueIoHandler;
 import io.netty.channel.kqueue.KQueueServerSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.nio.NioIoHandler;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.channel.uring.IoUring;
+import io.netty.channel.uring.IoUringIoHandler;
+import io.netty.channel.uring.IoUringServerSocketChannel;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 public class ServerChannelClassUtilTest {
 
-    @Test
-    void testGetCoreSocketChannelClass() {
-        final NioEventLoopGroup nioEventLoopGroup = new NioEventLoopGroup(1);
+    @Nested
+    class NioTransport {
 
-        try {
-            assertEquals(NioServerSocketChannel.class, ServerChannelClassUtil.getServerSocketChannelClass(nioEventLoopGroup));
-        } finally {
-            nioEventLoopGroup.shutdownGracefully();
+        private IoEventLoopGroup ioEventLoopGroup;
+        private NioEventLoopGroup legacyEventLoopGroup;
+
+        @BeforeEach
+        void setUp() {
+            ioEventLoopGroup = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
+            legacyEventLoopGroup = new NioEventLoopGroup();
+        }
+
+        @Test
+        void getServerSocketChannelClass() {
+            assertEquals(NioServerSocketChannel.class, ServerChannelClassUtil.getServerSocketChannelClass(ioEventLoopGroup));
+            assertEquals(NioServerSocketChannel.class, ServerChannelClassUtil.getServerSocketChannelClass(legacyEventLoopGroup));
+        }
+
+        @AfterEach
+        void tearDown() {
+            ioEventLoopGroup.shutdownGracefully();
+            legacyEventLoopGroup.shutdownGracefully();
         }
     }
 
-    @Test
-    void testGetKqueueSocketChannelClass() {
-        final String unavailabilityMessage =
-                KQueue.unavailabilityCause() != null ? KQueue.unavailabilityCause().getMessage() : null;
+    @Nested
+    class EpollTransport {
 
-        assumeTrue(KQueue.isAvailable(), "KQueue not available: " + unavailabilityMessage);
+        private IoEventLoopGroup ioEventLoopGroup;
+        private EpollEventLoopGroup legacyEventLoopGroup;
 
-        final KQueueEventLoopGroup kQueueEventLoopGroup = new KQueueEventLoopGroup(1);
-
-        try {
-            assertEquals(KQueueServerSocketChannel.class, ServerChannelClassUtil.getServerSocketChannelClass(kQueueEventLoopGroup));
-        } finally {
-            kQueueEventLoopGroup.shutdownGracefully();
-        }
-    }
-
-    @Test
-    void testGetEpollSocketChannelClass() {
-        final String unavailabilityMessage =
+        @BeforeEach
+        void setUp() {
+            final String unavailabilityMessage =
                 Epoll.unavailabilityCause() != null ? Epoll.unavailabilityCause().getMessage() : null;
 
-        assumeTrue(Epoll.isAvailable(), "Epoll not available: " + unavailabilityMessage);
+            assumeTrue(Epoll.isAvailable(), "Epoll not available: " + unavailabilityMessage);
 
-        final EpollEventLoopGroup epollEventLoopGroup = new EpollEventLoopGroup(1);
+            ioEventLoopGroup = new MultiThreadIoEventLoopGroup(EpollIoHandler.newFactory());
+            legacyEventLoopGroup = new EpollEventLoopGroup();
+        }
 
-        try {
-            assertEquals(EpollServerSocketChannel.class, ServerChannelClassUtil.getServerSocketChannelClass(epollEventLoopGroup));
-        } finally {
-            epollEventLoopGroup.shutdownGracefully();
+        @Test
+        void getServerSocketChannelClass() {
+            assertEquals(EpollServerSocketChannel.class, ServerChannelClassUtil.getServerSocketChannelClass(ioEventLoopGroup));
+            assertEquals(EpollServerSocketChannel.class, ServerChannelClassUtil.getServerSocketChannelClass(legacyEventLoopGroup));
+        }
+
+        @AfterEach
+        void tearDown() {
+            if (ioEventLoopGroup != null) {
+                ioEventLoopGroup.shutdownGracefully();
+            }
+
+            if (legacyEventLoopGroup != null) {
+                legacyEventLoopGroup.shutdownGracefully();
+            }
+        }
+    }
+
+    @Nested
+    class IoUringTransport {
+
+        private IoEventLoopGroup ioEventLoopGroup;
+
+        @BeforeEach
+        void setUp() {
+            final String unavailabilityMessage =
+                IoUring.unavailabilityCause() != null ? IoUring.unavailabilityCause().getMessage() : null;
+
+            assumeTrue(IoUring.isAvailable(), "io_uring not available: " + unavailabilityMessage);
+
+            ioEventLoopGroup = new MultiThreadIoEventLoopGroup(IoUringIoHandler.newFactory());
+        }
+
+        @Test
+        void getServerSocketChannelClass() {
+            assertEquals(IoUringServerSocketChannel.class, ServerChannelClassUtil.getServerSocketChannelClass(ioEventLoopGroup));
+        }
+
+        @AfterEach
+        void tearDown() {
+            if (ioEventLoopGroup != null) {
+                ioEventLoopGroup.shutdownGracefully();
+            }
+        }
+    }
+
+    @Nested
+    class KQueueTransport {
+
+        private IoEventLoopGroup ioEventLoopGroup;
+        private KQueueEventLoopGroup legacyEventLoopGroup;
+
+        @BeforeEach
+        void setUp() {
+            final String unavailabilityMessage =
+                KQueue.unavailabilityCause() != null ? KQueue.unavailabilityCause().getMessage() : null;
+
+            assumeTrue(KQueue.isAvailable(), "KQueue not available: " + unavailabilityMessage);
+
+            ioEventLoopGroup = new MultiThreadIoEventLoopGroup(KQueueIoHandler.newFactory());
+            legacyEventLoopGroup = new KQueueEventLoopGroup();
+        }
+
+        @Test
+        void getServerSocketChannelClass() {
+            assertEquals(KQueueServerSocketChannel.class, ServerChannelClassUtil.getServerSocketChannelClass(ioEventLoopGroup));
+            assertEquals(KQueueServerSocketChannel.class, ServerChannelClassUtil.getServerSocketChannelClass(legacyEventLoopGroup));
+        }
+
+        @AfterEach
+        void tearDown() {
+            if (ioEventLoopGroup != null) {
+                ioEventLoopGroup.shutdownGracefully();
+            }
+
+            if (legacyEventLoopGroup != null) {
+                legacyEventLoopGroup.shutdownGracefully();
+            }
         }
     }
 }

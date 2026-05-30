@@ -41,7 +41,6 @@ class ApnsClientConfiguration {
 
     private final InetSocketAddress apnsServerAddress;
     private final SslContext sslContext;
-    private final boolean hostnameVerificationEnabled;
     private final ApnsSigningKey signingKey;
     private final Duration tokenExpiration;
     private final ProxyHandlerFactory proxyHandlerFactory;
@@ -54,7 +53,6 @@ class ApnsClientConfiguration {
 
     public ApnsClientConfiguration(final InetSocketAddress apnsServerAddress,
                                    final SslContext sslContext,
-                                   final boolean hostnameVerificationEnabled,
                                    final ApnsSigningKey signingKey,
                                    final Duration tokenExpiration,
                                    final ProxyHandlerFactory proxyHandlerFactory,
@@ -67,7 +65,6 @@ class ApnsClientConfiguration {
 
         this.apnsServerAddress = Objects.requireNonNull(apnsServerAddress);
         this.sslContext = Objects.requireNonNull(sslContext);
-        this.hostnameVerificationEnabled = hostnameVerificationEnabled;
         this.signingKey = signingKey;
         this.tokenExpiration = tokenExpiration != null ? tokenExpiration : DEFAULT_TOKEN_EXPIRATION;
         this.proxyHandlerFactory = proxyHandlerFactory;
@@ -85,10 +82,6 @@ class ApnsClientConfiguration {
 
     public SslContext getSslContext() {
         return sslContext;
-    }
-
-    public boolean isHostnameVerificationEnabled() {
-        return hostnameVerificationEnabled;
     }
 
     public Optional<ApnsSigningKey> getSigningKey() {

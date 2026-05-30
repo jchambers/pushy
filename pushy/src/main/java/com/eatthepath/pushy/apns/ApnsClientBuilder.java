@@ -614,7 +614,8 @@ public class ApnsClientBuilder {
 
             final SslContextBuilder sslContextBuilder = SslContextBuilder.forClient()
                     .sslProvider(sslProvider)
-                    .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE);
+                    .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
+                    .endpointIdentificationAlgorithm(enableHostnameVerification ? "HTTPS" : null);
 
             if (useAlpn) {
                 sslContextBuilder.applicationProtocolConfig(
@@ -646,7 +647,6 @@ public class ApnsClientBuilder {
             final ApnsClientConfiguration clientConfiguration =
                     new ApnsClientConfiguration(this.apnsServerAddress,
                             sslContext,
-                            this.enableHostnameVerification,
                             this.signingKey,
                             this.tokenExpiration,
                             this.proxyHandlerFactory,

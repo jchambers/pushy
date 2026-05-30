@@ -28,6 +28,8 @@ import com.eatthepath.pushy.apns.server.BenchmarkApnsServerBuilder;
 import com.eatthepath.pushy.apns.util.ApnsPayloadBuilder;
 import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.pkitesting.CertificateBuilder;
+import io.netty.pkitesting.X509Bundle;
 import io.netty.util.concurrent.Future;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.openjdk.jmh.annotations.*;
@@ -35,6 +37,8 @@ import org.openjdk.jmh.annotations.*;
 import java.security.KeyPairGenerator;
 import java.security.SecureRandom;
 import java.security.interfaces.ECPrivateKey;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -57,9 +61,8 @@ public class ApnsClientBenchmark {
     @Param({"1", "4", "8"})
     public int concurrentConnections;
 
-    private static final String CA_CERTIFICATE_FILENAME = "/ca.pem";
-    private static final String SERVER_CERTIFICATES_FILENAME = "/server_certs.pem";
-    private static final String SERVER_KEY_FILENAME = "/server_key.pem";
+    protected static X509Bundle CA_BUNDLE;
+    protected static X509Bundle SERVER_CERTIFICATE_BUNDLE;
 
     private static final String TOPIC = "com.eatthepath.pushy";
     private static final String TEAM_ID = "benchmark.team";
@@ -77,6 +80,27 @@ public class ApnsClientBenchmark {
         this.clientResources = new ApnsClientResources(new NioEventLoopGroup(this.concurrentConnections));
         this.serverEventLoopGroup = new NioEventLoopGroup(this.concurrentConnections);
 
+        final Instant now = Instant.now();
+
+        final CertificateBuilder rootCertificateBuilderTemplate = new CertificateBuilder()
+            .notBefore(now)
+            .notAfter(now.plus(Duration.ofHours(8)));
+
+        CA_BUNDLE = rootCertificateBuilderTemplate.copy()
+            .subject("CN=PushyTestRoot")
+            .setKeyUsage(true, CertificateBuilder.KeyUsage.digitalSignature, CertificateBuilder.KeyUsage.keyCertSign)
+            .setIsCertificateAuthority(true)
+            .buildSelfSigned();
+
+        SERVER_CERTIFICATE_BUNDLE = rootCertificateBuilderTemplate.copy()
+            .subject("CN=com.eatthepath.pushy")
+            .setKeyUsage(true, CertificateBuilder.KeyUsage.digitalSignature, CertificateBuilder.KeyUsage.keyEncipherment)
+            .addExtendedKeyUsage(CertificateBuilder.ExtendedKeyUsage.PKIX_KP_CLIENT_AUTH)
+            .addExtendedKeyUsage(CertificateBuilder.ExtendedKeyUsage.PKIX_KP_SERVER_AUTH)
+            .setIsCertificateAuthority(false)
+            .addSanDnsName("localhost")
+            .buildIssuedBy(CA_BUNDLE);
+
         final ApnsSigningKey signingKey;
         {
             final KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
@@ -89,14 +113,14 @@ public class ApnsClientBenchmark {
                 .setApnsServer(HOST, PORT)
                 .setConcurrentConnections(this.concurrentConnections)
                 .setSigningKey(signingKey)
-                .setTrustedServerCertificateChain(ApnsClientBenchmark.class.getResourceAsStream(CA_CERTIFICATE_FILENAME))
+                .setTrustedServerCertificateChain(CA_BUNDLE.getCertificate())
                 .setApnsClientResources(this.clientResources)
                 .build();
 
         this.server = new BenchmarkApnsServerBuilder()
-                .setServerCredentials(getClass().getResourceAsStream(SERVER_CERTIFICATES_FILENAME), this.getClass().getResourceAsStream(SERVER_KEY_FILENAME), null)
-                .setTrustedClientCertificateChain(getClass().getResourceAsStream(CA_CERTIFICATE_FILENAME))
-                .setEventLoopGroup(this.serverEventLoopGroup)
+                .setServerCredentials(SERVER_CERTIFICATE_BUNDLE.getCertificatePathWithRoot(), SERVER_CERTIFICATE_BUNDLE.getKeyPair().getPrivate())
+                .setTrustedClientCertificateChain(CA_BUNDLE.getCertificate())
+                .setIoEventLoopGroup(this.serverEventLoopGroup)
                 .build();
 
         this.pushNotifications = new ArrayList<>(this.notificationCount);

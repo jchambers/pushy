@@ -22,7 +22,7 @@
 
 package com.eatthepath.pushy.apns.server;
 
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.IoEventLoopGroup;
 import io.netty.handler.ssl.SslContext;
 
 import javax.net.ssl.SSLException;
@@ -87,14 +87,14 @@ public class MockApnsServerBuilder extends BaseHttp2ServerBuilder<MockApnsServer
     }
 
     @Override
-    public MockApnsServerBuilder setTrustedServerCertificateChain(final X509Certificate... certificates) {
-        super.setTrustedServerCertificateChain(certificates);
+    public MockApnsServerBuilder setTrustedClientCertificateChain(final X509Certificate... certificates) {
+        super.setTrustedClientCertificateChain(certificates);
         return this;
     }
 
     @Override
-    public MockApnsServerBuilder setEventLoopGroup(final EventLoopGroup eventLoopGroup) {
-        super.setEventLoopGroup(eventLoopGroup);
+    public MockApnsServerBuilder setIoEventLoopGroup(final IoEventLoopGroup ioEventLoopGroup) {
+        super.setIoEventLoopGroup(ioEventLoopGroup);
         return this;
     }
 
@@ -156,6 +156,6 @@ public class MockApnsServerBuilder extends BaseHttp2ServerBuilder<MockApnsServer
             throw new IllegalStateException("Must provide a push notification handler factory before building a mock server.");
         }
 
-        return new MockApnsServer(sslContext, this.eventLoopGroup, this.handlerFactory, this.listener, this.maxConcurrentStreams, generateApnsUniqueId);
+        return new MockApnsServer(sslContext, this.ioEventLoopGroup, this.handlerFactory, this.listener, this.maxConcurrentStreams, generateApnsUniqueId);
     }
 }

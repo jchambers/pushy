@@ -22,66 +22,74 @@
 
 package com.eatthepath.pushy.apns.server;
 
+import com.eatthepath.ApnsTestCertificates;
+import io.netty.pkitesting.X509Bundle;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.InputStream;
-import java.security.KeyStore;
-import java.security.cert.X509Certificate;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class MockApnsServerBuilderTest {
 
-    private static final String SERVER_CERTIFICATE_FILENAME = "/server-certs.pem";
-    private static final String SERVER_KEY_FILENAME = "/server-key.pem";
-    private static final String SERVER_KEYSTORE_FILENAME = "/server.p12";
-    private static final String SERVER_KEYSTORE_ALIAS = "1";
-    private static final String SERVER_KEYSTORE_PASSWORD = "pushy-test";
+    private static X509Bundle CERTIFICATE_BUNDLE;
+
+    @BeforeAll
+    static void setUpBeforeAll() throws Exception {
+        CERTIFICATE_BUNDLE = new ApnsTestCertificates().getTrustedServerCertificateBundle();
+    }
 
     @Test
     void testSetServerCredentialsFileFileString() throws Exception {
-        final File certificateFile = new File(this.getClass().getResource(SERVER_CERTIFICATE_FILENAME).toURI());
-        final File keyFile = new File(this.getClass().getResource(SERVER_KEY_FILENAME).toURI());
+        final File certificateFile = File.createTempFile("pushy-test", ".pem");
+        certificateFile.deleteOnExit();
 
-        // We're happy here as long as nothing explodes
-        new MockApnsServerBuilder()
-                .setServerCredentials(certificateFile, keyFile, null)
-                .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
-                .build();
+        try (final OutputStream certificateOutputStream = Files.newOutputStream(certificateFile.toPath())) {
+            certificateOutputStream.write(CERTIFICATE_BUNDLE.getCertificatePathPEM().getBytes(StandardCharsets.UTF_8));
+        }
+
+        final File keyFile = File.createTempFile("pushy-test", ".p8");
+        keyFile.deleteOnExit();
+
+        try (final OutputStream keyOutputStream = Files.newOutputStream(keyFile.toPath())) {
+            keyOutputStream.write(CERTIFICATE_BUNDLE.getPrivateKeyPEM().getBytes(StandardCharsets.UTF_8));
+        }
+
+        assertDoesNotThrow(() -> new MockApnsServerBuilder()
+            .setServerCredentials(certificateFile, keyFile, null)
+            .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
+            .build());
     }
 
     @Test
     void testSetServerCredentialsInputStreamInputStreamString() throws Exception {
-        try (final InputStream certificateInputStream = this.getClass().getResourceAsStream(SERVER_CERTIFICATE_FILENAME);
-                final InputStream keyInputStream = this.getClass().getResourceAsStream(SERVER_KEY_FILENAME)) {
 
-            // We're happy here as long as nothing explodes
-            new MockApnsServerBuilder()
-                    .setServerCredentials(certificateInputStream, keyInputStream, null)
-                    .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
-                    .build();
+        try (final InputStream certificateInputStream =
+                 new ByteArrayInputStream(CERTIFICATE_BUNDLE.getCertificatePathPEM().getBytes(StandardCharsets.UTF_8));
+             final InputStream keyInputStream =
+                 new ByteArrayInputStream(CERTIFICATE_BUNDLE.getPrivateKeyPEM().getBytes(StandardCharsets.UTF_8))) {
+
+            assertDoesNotThrow(() -> new MockApnsServerBuilder()
+                .setServerCredentials(certificateInputStream, keyInputStream, null)
+                .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
+                .build());
         }
     }
 
     @Test
-    void testSetServerCredentialsX509CertificateArrayPrivateKeyString() throws Exception {
-        try (final InputStream p12InputStream = this.getClass().getResourceAsStream(SERVER_KEYSTORE_FILENAME)) {
-            final KeyStore keyStore = KeyStore.getInstance("PKCS12");
-            keyStore.load(p12InputStream, SERVER_KEYSTORE_PASSWORD.toCharArray());
-
-            final KeyStore.PasswordProtection passwordProtection =
-                    new KeyStore.PasswordProtection(SERVER_KEYSTORE_PASSWORD.toCharArray());
-
-            final KeyStore.PrivateKeyEntry privateKeyEntry =
-                    (KeyStore.PrivateKeyEntry) keyStore.getEntry(SERVER_KEYSTORE_ALIAS, passwordProtection);
-
-            // We're happy here as long as nothing explodes
-            new MockApnsServerBuilder()
-                .setServerCredentials(new X509Certificate[] { (X509Certificate) privateKeyEntry.getCertificate() }, privateKeyEntry.getPrivateKey())
-                    .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
-                .build();
-        }
+    void testSetServerCredentialsX509CertificateArrayPrivateKeyString() {
+        assertDoesNotThrow(() -> new MockApnsServerBuilder()
+            .setServerCredentials(CERTIFICATE_BUNDLE.getCertificatePathWithRoot(),
+                CERTIFICATE_BUNDLE.getKeyPair().getPrivate())
+            .setHandlerFactory(new AcceptAllPushNotificationHandlerFactory())
+            .build());
     }
 
     @Test
@@ -92,19 +100,16 @@ public class MockApnsServerBuilderTest {
     }
 
     @Test
-    void testBuildWithoutHandlerFactory() throws Exception {
-        final File certificateFile = new File(this.getClass().getResource(SERVER_CERTIFICATE_FILENAME).toURI());
-        final File keyFile = new File(this.getClass().getResource(SERVER_KEY_FILENAME).toURI());
-
+    void testBuildWithoutHandlerFactory() {
         assertThrows(IllegalStateException.class, () -> new MockApnsServerBuilder()
-                .setServerCredentials(certificateFile, keyFile, null)
-                .build());
+            .setServerCredentials(CERTIFICATE_BUNDLE.getCertificatePathWithRoot(),
+                CERTIFICATE_BUNDLE.getKeyPair().getPrivate())
+            .build());
     }
 
     @Test
     void testSetMaxConcurrentStreams() {
-        // We're happy here as long as nothing explodes
-        new MockApnsServerBuilder().setMaxConcurrentStreams(1);
+        assertDoesNotThrow(() -> new MockApnsServerBuilder().setMaxConcurrentStreams(1));
     }
 
     @Test

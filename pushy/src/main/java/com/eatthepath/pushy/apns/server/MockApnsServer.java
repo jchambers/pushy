@@ -23,7 +23,7 @@
 package com.eatthepath.pushy.apns.server;
 
 import io.netty.channel.ChannelPipeline;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.IoEventLoopGroup;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.ssl.SslContext;
 
@@ -55,7 +55,7 @@ public class MockApnsServer extends BaseHttp2Server {
     private final int maxConcurrentStreams;
     private final boolean generateApnsUniqueId;
 
-    MockApnsServer(final SslContext sslContext, final EventLoopGroup eventLoopGroup,
+    MockApnsServer(final SslContext sslContext, final IoEventLoopGroup eventLoopGroup,
                    final PushNotificationHandlerFactory handlerFactory, final MockApnsServerListener listener,
                    final int maxConcurrentStreams, boolean generateApnsUniqueId) {
 

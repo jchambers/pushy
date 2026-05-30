@@ -25,7 +25,8 @@ package com.eatthepath.pushy.apns;
 import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.MultiThreadIoEventLoopGroup;
+import io.netty.channel.nio.NioIoHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import org.slf4j.Logger;
@@ -117,12 +118,11 @@ public class ApnsClient {
     }
 
     ApnsClient(final ApnsClientConfiguration clientConfiguration, final ApnsClientResources clientResources) {
-
         if (clientResources != null) {
             this.clientResources = clientResources;
             this.shouldShutDownClientResources = false;
         } else {
-            this.clientResources = new ApnsClientResources(new NioEventLoopGroup(1));
+            this.clientResources = new ApnsClientResources(new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory()));
             this.shouldShutDownClientResources = true;
         }
 
@@ -151,7 +151,7 @@ public class ApnsClient {
 
         this.channelPool = new ApnsChannelPool(channelFactory,
             clientConfiguration.getConcurrentConnections(),
-            this.clientResources.getEventLoopGroup().next(),
+            this.clientResources.getIoEventLoopGroup().next(),
             channelPoolMetricsListener);
     }
 

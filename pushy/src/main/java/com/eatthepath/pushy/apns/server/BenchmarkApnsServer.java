@@ -23,7 +23,7 @@
 package com.eatthepath.pushy.apns.server;
 
 import io.netty.channel.ChannelPipeline;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.IoEventLoopGroup;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.ssl.SslContext;
 
@@ -42,8 +42,8 @@ public class BenchmarkApnsServer extends BaseHttp2Server {
 
     private final int maxConcurrentStreams;
 
-    BenchmarkApnsServer(final SslContext sslContext, final EventLoopGroup eventLoopGroup, final int maxConcurrentStreams) {
-        super(sslContext, eventLoopGroup);
+    BenchmarkApnsServer(final SslContext sslContext, final IoEventLoopGroup ioEventLoopGroup, final int maxConcurrentStreams) {
+        super(sslContext, ioEventLoopGroup);
 
         this.maxConcurrentStreams = maxConcurrentStreams;
     }
