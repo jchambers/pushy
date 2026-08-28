@@ -178,6 +178,14 @@ class ApnsChannelPool {
                         this.acquireWithinEventExecutor(acquirePromise);
                     }
                 } else {
+                    // If the deferred acquirePromise is cancelled, remove it from pendingAcquisitionPromises
+                    // to allow garbage collection.
+                    acquirePromise.addListener(future -> {
+                        if (future.isCancelled()) {
+                            pendingAcquisitionPromises.remove(acquirePromise);
+                        }
+                    });
+
                     // We don't have any connections ready to go, and don't have any more capacity to create new
                     // channels. Add this acquisition to the queue waiting for channels to become available.
                     pendingAcquisitionPromises.add(acquirePromise);
